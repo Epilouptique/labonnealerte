@@ -9,3 +9,11 @@ CREATE TABLE IF NOT EXISTS promo_status (
 INSERT INTO promo_status (active, pending)
 SELECT false, false
 WHERE NOT EXISTS (SELECT 1 FROM promo_status);
+
+CREATE TABLE IF NOT EXISTS subscribers (
+  id SERIAL PRIMARY KEY,
+  email VARCHAR(255) UNIQUE NOT NULL,
+  confirmed BOOLEAN DEFAULT false,
+  token VARCHAR(64),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);

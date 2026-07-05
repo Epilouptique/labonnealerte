@@ -1,6 +1,23 @@
 const cron = require('node-cron');
 const { checkPromo } = require('./scraper');
 const { pool } = require('./db');
+const { sendPromoAlert } = require('./mailer');
+
+async function notifyConfirmedSubscribers() {
+  const { rows } = await pool.query(
+    'SELECT email FROM subscribers WHERE confirmed = true'
+  );
+  const emails = rows.map((r) => r.email);
+
+  if (emails.length === 0) {
+    console.log('[cron] Aucun abonné confirmé à prévenir.');
+    return;
+  }
+
+  console.log(`[cron] Envoi de l'alerte promo à ${emails.length} abonné(s)...`);
+  const { sent, failed } = await sendPromoAlert(emails);
+  console.log(`[cron] Alerte envoyée : ${sent} OK, ${failed} échec(s).`);
+}
 
 // Toutes les 30 minutes
 const SCHEDULE = '*/30 * * * *';
@@ -77,6 +94,11 @@ async function runCycle() {
           date_fin: result.date_fin,
         });
         console.log('[cron] pending → ACTIVE ✅ PROMO CONFIRMÉE');
+        try {
+          await notifyConfirmedSubscribers();
+        } catch (err) {
+          console.error('[cron] Échec envoi des alertes promo :', err.message);
+        }
       } else {
         console.log('[cron] Déjà active, rien à faire.');
       }
