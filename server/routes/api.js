@@ -3,27 +3,80 @@ const { pool } = require('../db');
 
 const router = express.Router();
 
-// GET /api/status — renvoie l'état courant de la promo depuis la DB.
+// GET /api/sources — liste des sources avec leur état courant.
+router.get('/sources', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT s.id, s.name, s.description, s.badge,
+              COALESCE(st.state, 'inactive') AS state
+         FROM sources s
+         LEFT JOIN source_states st ON st.source_id = s.id
+        ORDER BY s.id`
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('[api] Erreur GET /sources :', err.message);
+    res.status(503).json({ error: 'DB unavailable' });
+  }
+});
+
+// GET /api/sources/:id/alert.json — manifeste OpenAlert d'une source.
+router.get('/sources/:id/alert.json', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT s.id, s.name,
+              COALESCE(st.state, 'inactive') AS state,
+              st.since, st.until_date, st.message, st.url, st.checked_at
+         FROM sources s
+         LEFT JOIN source_states st ON st.source_id = s.id
+        WHERE s.id = $1`,
+      [req.params.id]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Source inconnue' });
+    }
+
+    const r = rows[0];
+    res.json({
+      id: r.id,
+      name: r.name,
+      state: r.state,
+      since: r.since ? r.since.toISOString() : null,
+      until: r.until_date ? r.until_date.toISOString() : null,
+      message: r.message ?? null,
+      url: r.url ?? null,
+      checked_at: r.checked_at ? r.checked_at.toISOString() : null,
+    });
+  } catch (err) {
+    console.error('[api] Erreur GET /sources/:id/alert.json :', err.message);
+    res.status(503).json({ error: 'DB unavailable' });
+  }
+});
+
+// GET /api/status — compat : état de leboncoin-livraison au format historique.
 router.get('/status', async (req, res) => {
   try {
     const { rows } = await pool.query(
-      'SELECT active, pending, date_debut, date_fin, updated_at FROM promo_status ORDER BY id DESC LIMIT 1'
+      `SELECT state, since, until_date, checked_at
+         FROM source_states
+        WHERE source_id = 'leboncoin-livraison'`
     );
 
     if (rows.length === 0) {
       return res.status(404).json({ error: 'Aucun statut en base' });
     }
 
-    const row = rows[0];
+    const r = rows[0];
     res.json({
-      active: row.active,
-      pending: row.pending,
-      date_debut: row.date_debut ? row.date_debut.toISOString() : null,
-      date_fin: row.date_fin ? row.date_fin.toISOString() : null,
-      checked_at: row.updated_at ? row.updated_at.toISOString() : null,
+      active: r.state === 'active',
+      pending: r.state === 'pending',
+      date_debut: r.since ? r.since.toISOString() : null,
+      date_fin: r.until_date ? r.until_date.toISOString() : null,
+      checked_at: r.checked_at ? r.checked_at.toISOString() : null,
     });
   } catch (err) {
-    console.error('[api] Erreur lecture promo_status :', err.message);
+    console.error('[api] Erreur GET /status :', err.message);
     res.status(503).json({ error: 'DB unavailable' });
   }
 });

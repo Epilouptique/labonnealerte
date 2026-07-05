@@ -11,6 +11,8 @@ async function migrate() {
   const sql = fs.readFileSync(sqlPath, 'utf8');
 
   try {
+    // Table historique de l'ère mono-promo : supprimée au profit du modèle multi-sources.
+    await pool.query('DROP TABLE IF EXISTS promo_status');
     await pool.query(sql);
     console.log('Migration OK');
   } catch (err) {

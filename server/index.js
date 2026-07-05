@@ -3,7 +3,7 @@ require('dotenv').config();
 const express = require('express');
 const apiRouter = require('./routes/api');
 const subscribeRouter = require('./routes/subscribe');
-const { startCron } = require('./cron');
+const { startPoller } = require('./poller');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -18,5 +18,5 @@ app.get('/', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`[server] Écoute sur http://localhost:${PORT}`);
-  startCron();
+  startPoller();
 });
