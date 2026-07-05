@@ -1,0 +1,21 @@
+{
+  "name": "labonnealerte",
+  "version": "1.0.0",
+  "description": "Alerte automatique sur la promo Livraison à 0,99 de Leboncoin",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "nodemon server/index.js"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "node-cron": "^4.5.0",
+    "node-fetch": "^3.3.2",
+    "pg": "^8.22.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}
