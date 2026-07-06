@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LaBonneAlerte — Soyez alerté des bons plans qui comptent</title>
+  <meta name="description" content="Plateforme d'alertes ouverte et gratuite. Choisissez vos alertes, recevez un email quand ça devient intéressant." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <header class="hero">
+    <div class="brand">
+      <!-- Symbole radar : point plein + 2 arcs concentriques -->
+      <svg class="brand-mark" viewBox="0 0 32 32" width="28" height="28" aria-hidden="true">
+        <circle cx="16" cy="16" r="3" fill="currentColor" />
+        <path d="M16 8 a8 8 0 0 1 8 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.7" />
+        <path d="M16 3 a13 13 0 0 1 13 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.35" />
+      </svg>
+      <span class="brand-name">LaBonneAlerte</span>
+    </div>
+    <h1 class="tagline">Soyez alerté des bons plans qui comptent.</h1>
+    <p class="subtagline">Gratuit, sans compte, sans spam. Choisissez vos alertes, recevez un email quand ça devient intéressant.</p>
+  </header>
+
+  <main>
+    <section class="sources" aria-labelledby="sources-title">
+      <h2 id="sources-title">Sources d'alerte</h2>
+      <div id="sources-list" class="sources-list">
+        <p class="loading">Chargement des sources…</p>
+      </div>
+    </section>
+
+    <section class="subscribe" aria-labelledby="subscribe-title">
+      <h2 id="subscribe-title">M'alerter par email</h2>
+      <form id="subscribe-form" novalidate>
+        <p id="selected-source" class="selected-source" hidden></p>
+        <div class="field-row">
+          <input
+            type="email"
+            id="email"
+            name="email"
+            placeholder="ton@email.fr"
+            autocomplete="email"
+            required
+          />
+          <button type="submit">Recevoir les alertes</button>
+        </div>
+        <p id="form-message" class="form-message" role="status" aria-live="polite"></p>
+        <p class="reassurance">Un email de confirmation, puis uniquement les alertes. Désinscription en un clic dans chaque email.</p>
+      </form>
+    </section>
+
+    <section class="devs" aria-labelledby="devs-title">
+      <h2 id="devs-title">Développeurs</h2>
+      <p>Proposez votre propre source d'alerte : il suffit d'exposer un manifeste au format OpenAlert.</p>
+      <ul class="endpoints">
+        <li><a href="https://github.com/Epilouptique/labonnealerte/blob/main/OPENALERT.md">Spec OpenAlert (OPENALERT.md)</a></li>
+        <li><code>GET /api/sources</code></li>
+      </ul>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <nav class="footer-links">
+      <a href="https://github.com/Epilouptique/labonnealerte">GitHub</a>
+      <a href="https://github.com/Epilouptique/labonnealerte/blob/main/OPENALERT.md">Spec OpenAlert</a>
+      <span class="credit">Développé par Dahu-Concept</span>
+    </nav>
+    <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Changer de thème">
+      <span class="theme-icon" aria-hidden="true">◐</span>
+      <span class="theme-label">Thème</span>
+    </button>
+  </footer>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>
