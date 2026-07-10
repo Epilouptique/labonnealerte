@@ -124,6 +124,31 @@ apiRouter.post('/subscribe', async (req, res) => {
   }
 });
 
+// DELETE /api/debug/subscriber/:email — [TEMPORAIRE / DEBUG]
+// Supprime un subscriber par email ; ses subscriptions partent en cascade
+// (FK ON DELETE CASCADE). Usage manuel uniquement, non lié depuis le site.
+// À RETIRER avant une mise en prod stable.
+apiRouter.delete('/debug/subscriber/:email', async (req, res) => {
+  const email = String(req.params.email || '').toLowerCase();
+
+  try {
+    const { rows } = await pool.query(
+      'DELETE FROM subscribers WHERE email = $1 RETURNING id, email',
+      [email]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Subscriber introuvable', email });
+    }
+
+    console.log(`[subscribe][debug] Subscriber supprimé : ${email} (id=${rows[0].id})`);
+    return res.status(200).json({ message: 'Subscriber supprimé', deleted: rows[0] });
+  } catch (err) {
+    console.error('[subscribe] Erreur DELETE /debug/subscriber :', err.message);
+    return res.status(503).json({ error: 'DB unavailable' });
+  }
+});
+
 // GET /confirm/:token — valide l'inscription.
 pagesRouter.get('/confirm/:token', async (req, res) => {
   const { token } = req.params;
