@@ -112,9 +112,10 @@ section { margin: 48px auto; }
 
 /* ---------- Cartes sources ---------- */
 .sources-list {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  align-items: start; /* une carte ouverte ne doit pas étirer ses voisines */
 }
 
 .source-card {
@@ -228,17 +229,53 @@ button:hover { opacity: 0.9; }
   color: var(--accent);
 }
 
-/* ---------- Formulaire ---------- */
-.selected-source {
-  font-size: 0.9rem;
+/* ---------- Bloc "proposer une source" ---------- */
+.propose-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 150px;
+  padding: 18px 20px;
+  text-align: center;
+  text-decoration: none;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  background: transparent;
   color: var(--text-soft);
-  margin: 0 0 12px;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
 }
 
-.selected-source strong { color: var(--text); }
+.propose-card:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  color: var(--accent);
+}
+
+.propose-plus {
+  font-size: 2rem;
+  font-weight: 300;
+  line-height: 1;
+}
+
+.propose-text {
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+/* ---------- Formulaire inline (par carte) ---------- */
+.subscribe-inline {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.subscribe-inline[hidden] { display: none; }
 
 .field-row {
   display: flex;
+  flex-direction: column;
   gap: 10px;
 }
 
@@ -258,7 +295,7 @@ input[type='email']:focus {
   border-color: var(--accent);
 }
 
-#subscribe-form button[type='submit'] {
+.subscribe-inline button[type='submit'] {
   background: var(--accent);
   color: #fff;
   white-space: nowrap;
@@ -337,8 +374,11 @@ input[type='email']:focus {
 .sources-error { color: #dc2626; }
 
 /* ---------- Responsive ---------- */
+@media (max-width: 768px) {
+  .sources-list { grid-template-columns: 1fr; }
+}
+
 @media (max-width: 540px) {
   .tagline { font-size: 1.5rem; }
-  .field-row { flex-direction: column; }
   .footer { flex-direction: column; align-items: flex-start; }
 }
