@@ -2,10 +2,9 @@ const { Resend } = require('resend');
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-// Domaine labonnealerte.fr pas encore vérifié sur Resend :
-// on utilise l'adresse de test onboarding@resend.dev en attendant.
-// À remplacer par 'noreply@labonnealerte.fr' une fois le domaine vérifié.
-const FROM = 'onboarding@resend.dev';
+// Domaine alert.labonnealerte.fr vérifié sur Resend : on envoie depuis
+// une adresse de ce sous-domaine.
+const FROM = 'noreply@alert.labonnealerte.fr';
 
 const SITE_URL = 'https://labonnealerte.fr';
 const PROMO_URL = 'https://www.leboncoin.fr/service/bons-plans';
