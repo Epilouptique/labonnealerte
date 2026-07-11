@@ -16,9 +16,14 @@ body {
 /* ---------- header ---------- */
 header {
   position: sticky; top: 0; z-index: 10;
+  background: #ffffff; /* blanc pur en thème clair */
+  border-bottom: 1px solid var(--line);
+}
+/* En thème sombre, on conserve le fond translucide + blur d'origine
+   (un header blanc n'aurait pas de sens en dark mode). */
+html[data-theme="dark"] header {
   background: color-mix(in srgb, var(--bg) 85%, transparent);
   backdrop-filter: blur(10px);
-  border-bottom: 1px solid var(--line);
 }
 .nav { display: flex; align-items: center; justify-content: space-between; height: 64px; }
 .brand {
@@ -27,7 +32,7 @@ header {
   text-decoration: none; color: var(--ink);
 }
 .brand .a { color: var(--amber); }
-.brand .bang { position: relative; width: 10px; margin-left: 3px; }
+.brand .bang { position: relative; top: -25px; width: 10px; margin-left: 3px; }
 .brand .bang .bar { position: absolute; top: 2px; left: 1px; width: 5px; height: 13px; border-radius: 3px; background: var(--amber); }
 .brand .bang .dot { position: absolute; top: 19px; left: 1px; width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
 .brand .bang .dot::after { content: ""; position: absolute; inset: -1px; border-radius: 50%; border: 1.5px solid var(--green); animation: ping 2s ease-out infinite; }
@@ -79,6 +84,7 @@ header {
 .state { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; }
 .state.active { color: var(--green); }
 .state.idle { color: var(--muted); }
+.state.partner { color: var(--muted); }
 .dot-idle { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); opacity: .4; }
 .sub-btn {
   border: 1.5px solid var(--ink); background: transparent; color: var(--ink);
@@ -86,6 +92,15 @@ header {
   cursor: pointer; font-family: inherit; transition: background .15s, color .15s;
 }
 .sub-btn:hover { background: var(--ink); color: var(--bg); }
+/* Lien-bouton des sources liées : même géométrie que .sub-btn, style « ghost ambre »
+   pour le distinguer de l'abonnement classique. */
+.link-btn {
+  display: block; text-align: center; text-decoration: none;
+  border: 1.5px solid var(--amber); background: transparent; color: var(--amber);
+  font-weight: 600; font-size: 13.5px; border-radius: 9px; padding: 9px 0;
+  font-family: inherit; transition: background .15s, color .15s;
+}
+.link-btn:hover { background: var(--amber-soft); }
 .sub-form { display: none; gap: 8px; }
 .card.open .sub-form { display: flex; }
 .card.open .sub-btn { display: none; }

@@ -132,8 +132,10 @@ async function runCycle() {
   let enabledIds;
   let confirmFlags; // id -> requires_confirmation
   try {
+    // Les sources 'linked' (services partenaires externes) n'ont pas de check :
+    // elles sont configurées sur leur propre site, donc hors du cycle du poller.
     const { rows } = await pool.query(
-      'SELECT id, requires_confirmation FROM sources WHERE enabled = true'
+      "SELECT id, requires_confirmation FROM sources WHERE enabled = true AND type <> 'linked'"
     );
     enabledIds = new Set(rows.map((r) => r.id));
     confirmFlags = new Map(rows.map((r) => [r.id, r.requires_confirmation]));

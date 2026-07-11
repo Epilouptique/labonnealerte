@@ -124,11 +124,32 @@
     return '<div class="state idle"><span class="dot-idle"></span> Rien à signaler</div>';
   }
 
+  // Extrait le domaine affichable d'une URL (sans protocole ni www / chemin).
+  function domainOf(url) {
+    var s = String(url || '').replace(/^https?:\/\//, '').replace(/^www\./, '');
+    return s.split('/')[0];
+  }
+
   function cardHTML(s) {
+    var header =
+      '<div class="card-top"><h3>' + esc(s.name) + '</h3>' + badgeFor(s.badge) + '</div>' +
+      '<p>' + esc(s.description || '') + '</p>';
+
+    // Source externe liée : pas d'abonnement, un lien de configuration vers le partenaire.
+    if (s.type === 'linked') {
+      var domain = domainOf(s.link_url);
+      return '' +
+        '<div class="card" data-source-id="' + esc(s.id) + '">' +
+          header +
+          '<div class="state partner"><span class="dot-idle"></span> Service partenaire</div>' +
+          '<a class="link-btn" href="' + esc(s.link_url) + '" target="_blank" rel="noopener">' +
+            'Configurer sur ' + esc(domain) + ' →</a>' +
+        '</div>';
+    }
+
     return '' +
       '<div class="card" data-source-id="' + esc(s.id) + '">' +
-        '<div class="card-top"><h3>' + esc(s.name) + '</h3>' + badgeFor(s.badge) + '</div>' +
-        '<p>' + esc(s.description || '') + '</p>' +
+        header +
         stateFor(s.state) +
         '<button class="sub-btn" type="button">S\'abonner</button>' +
         '<div class="sub-form"><input type="email" placeholder="votre@email.fr" aria-label="Adresse email"><button type="button">OK</button></div>' +

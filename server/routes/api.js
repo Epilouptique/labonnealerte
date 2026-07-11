@@ -7,8 +7,9 @@ const router = express.Router();
 router.get('/sources', async (req, res) => {
   try {
     const { rows } = await pool.query(
-      `SELECT s.id, s.name, s.description, s.badge,
-              COALESCE(st.state, 'inactive') AS state
+      `SELECT s.id, s.name, s.description, s.badge, s.type, s.link_url,
+              CASE WHEN s.type = 'linked' THEN NULL
+                   ELSE COALESCE(st.state, 'inactive') END AS state
          FROM sources s
          LEFT JOIN source_states st ON st.source_id = s.id
         ORDER BY s.id`
@@ -24,7 +25,7 @@ router.get('/sources', async (req, res) => {
 router.get('/sources/:id/alert.json', async (req, res) => {
   try {
     const { rows } = await pool.query(
-      `SELECT s.id, s.name,
+      `SELECT s.id, s.name, s.type,
               COALESCE(st.state, 'inactive') AS state,
               st.since, st.until_date, st.message, st.url, st.checked_at
          FROM sources s
@@ -35,6 +36,13 @@ router.get('/sources/:id/alert.json', async (req, res) => {
 
     if (rows.length === 0) {
       return res.status(404).json({ error: 'Source inconnue' });
+    }
+
+    // Les sources liées (services partenaires) n'ont pas de manifeste OpenAlert.
+    if (rows[0].type === 'linked') {
+      return res.status(404).json({
+        error: 'Cette source est un service externe lié, sans manifeste OpenAlert',
+      });
     }
 
     const r = rows[0];
