@@ -1,0 +1,43 @@
+/* tokens.css — variables des deux thèmes + keyframes ping.
+   Source de vérité de l'identité visuelle « point d'alerte ». */
+
+:root,
+html[data-theme="light"] {
+  --bg: #faf8f5;
+  --surface: #ffffff;
+  --ink: #0f1419;
+  --muted: #6b6459;
+  --line: #e8e2d8;
+  --amber: #d98e04;
+  --amber-soft: #fdf4e0;
+  --green: #16a34a;
+  --green-soft: #e9f7ee;
+  --shadow: 0 1px 2px rgba(15, 20, 25, .04), 0 8px 24px rgba(15, 20, 25, .05);
+}
+
+html[data-theme="dark"] {
+  --bg: #0f1419;
+  --surface: #161d24;
+  --ink: #f2efe9;
+  --muted: #9aa3ad;
+  --line: #232b33;
+  --amber: #f5a623;
+  --amber-soft: #2a2312;
+  --green: #22c55e;
+  --green-soft: #12281a;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .25);
+}
+
+/* Anneau vert qui s'étend puis disparaît — même composant pour le point
+   du logo (.brand .bang .dot) et la pastille d'état actif (.dot-live). */
+@keyframes ping {
+  0%   { transform: scale(1);   opacity: .8; }
+  100% { transform: scale(3.2); opacity: 0;  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand .bang .dot::after,
+  .dot-live::after {
+    animation: none;
+  }
+}

@@ -65,7 +65,9 @@ async function writeState(sourceId, state, fields = {}) {
 
 // Applique la logique de transition inactive→pending→active (et retour inactive)
 // pour une source, à partir du résultat instantané de son check().
-async function processSource(source) {
+// `requiresConfirmation` : true = confirmation sur 2 cycles (scraper) ;
+// false = transition inactive→active directe avec notification immédiate (API officielle).
+async function processSource(source, requiresConfirmation = true) {
   let result;
   try {
     result = await source.check();
@@ -89,7 +91,16 @@ async function processSource(source) {
   };
 
   if (result.state === 'active') {
-    if (current === 'inactive') {
+    if (current === 'inactive' && !requiresConfirmation) {
+      // Source fiable (API officielle) : activation directe + notification immédiate.
+      await writeState(source.id, 'active', fields);
+      console.log(`[poller] ALERTE IMMÉDIATE [${source.id}] (sans confirmation)`);
+      try {
+        await notifySourceSubscribers(source.id);
+      } catch (err) {
+        console.error(`[poller] ${source.id} : échec envoi alertes :`, err.message);
+      }
+    } else if (current === 'inactive') {
       await writeState(source.id, 'pending', fields);
       console.log(`[poller] ${source.id} : inactive → PENDING`);
     } else if (current === 'pending') {
@@ -119,9 +130,13 @@ async function runCycle() {
   console.log(`\n[poller] ── Cycle ${new Date().toISOString()} ──`);
 
   let enabledIds;
+  let confirmFlags; // id -> requires_confirmation
   try {
-    const { rows } = await pool.query('SELECT id FROM sources WHERE enabled = true');
+    const { rows } = await pool.query(
+      'SELECT id, requires_confirmation FROM sources WHERE enabled = true'
+    );
     enabledIds = new Set(rows.map((r) => r.id));
+    confirmFlags = new Map(rows.map((r) => [r.id, r.requires_confirmation]));
   } catch (err) {
     console.error('[poller] DB indisponible — cycle ignoré :', err.message);
     return;
@@ -135,7 +150,9 @@ async function runCycle() {
 
   for (const source of active) {
     try {
-      await processSource(source);
+      // Défaut prudent à true si le flag est absent (colonne pas encore migrée).
+      const requires = confirmFlags.get(source.id);
+      await processSource(source, requires === false ? false : true);
     } catch (err) {
       console.error(`[poller] ${source.id} : erreur inattendue :`, err.message);
     }

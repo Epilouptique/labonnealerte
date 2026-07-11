@@ -1,54 +1,113 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" data-theme="light">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LaBonneAlerte — Soyez alerté des bons plans qui comptent</title>
-  <meta name="description" content="Plateforme d'alertes ouverte et gratuite. Choisissez vos alertes, recevez un email quand ça devient intéressant." />
-
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-
-  <link rel="stylesheet" href="/css/style.css" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>La Bonne Alerte — Des alertes utiles, prêtes à l'emploi</title>
+<meta name="description" content="Plateforme d'alertes ouverte et gratuite. Un clic, et on vous prévient. Gratuit, open-source, sans compte, sans spam.">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/tokens.css">
+<link rel="stylesheet" href="/css/site.css">
 </head>
 <body>
-  <header class="hero">
-    <div class="brand">
-      <!-- Symbole radar : point plein + 2 arcs concentriques -->
-      <svg class="brand-mark" viewBox="0 0 32 32" width="28" height="28" aria-hidden="true">
-        <circle cx="16" cy="16" r="3" fill="currentColor" />
-        <path d="M16 8 a8 8 0 0 1 8 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.7" />
-        <path d="M16 3 a13 13 0 0 1 13 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.35" />
-      </svg>
-      <span class="brand-name">LaBonneAlerte</span>
-    </div>
-    <h1 class="tagline">Soyez alerté des bons plans qui comptent.</h1>
-    <p class="subtagline">Gratuit, sans compte, sans spam. Choisissez vos alertes, recevez un email quand ça devient intéressant.</p>
-  </header>
 
-  <main>
-    <section class="sources" aria-labelledby="sources-title">
-      <h2 id="sources-title">Sources d'alerte</h2>
-      <div id="sources-list" class="sources-list">
-        <p class="loading">Chargement des sources…</p>
-      </div>
-    </section>
-
-  </main>
-
-  <footer class="footer">
-    <nav class="footer-links">
+<header>
+  <div class="wrap nav">
+    <a class="brand" href="/">labonne<span class="a">alerte</span><span class="bang"><span class="bar"></span><span class="dot"></span></span></a>
+    <nav class="nav-right">
+      <a href="#alertes">Alertes</a>
+      <a href="#openalert">OpenAlert</a>
       <a href="https://github.com/Epilouptique/labonnealerte">GitHub</a>
-      <a href="https://github.com/Epilouptique/labonnealerte/blob/main/OPENALERT.md">Spec OpenAlert</a>
-      <span class="credit">Développé par <a href="https://dahu-concept.fr" target="_blank" rel="noopener">Dahu-Concept</a></span>
+      <button class="theme-btn" type="button" onclick="toggleTheme()" aria-label="Changer de thème">◐</button>
     </nav>
-    <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Changer de thème">
-      <span class="theme-icon" aria-hidden="true">◐</span>
-      <span class="theme-label">Thème</span>
-    </button>
-  </footer>
+  </div>
+</header>
 
-  <script src="/js/app.js"></script>
+<section class="hero wrap">
+  <h1>Des alertes utiles,<br><span class="hl">prêtes à l'emploi.</span></h1>
+  <p>Un clic, et on vous prévient. Gratuit, open-source, sans compte, sans spam.</p>
+  <div class="kpi"><span class="dot-live"></span> 1 alerte active en ce moment · vérification toutes les 30 min</div>
+</section>
+
+<main class="wrap" id="alertes">
+  <div class="section-label">Le kiosque</div>
+  <div class="grid" id="grid">
+
+    <!-- Cartes de démonstration (fallback) : retirées si GET /api/sources répond. -->
+    <div class="card demo" data-source-id="leboncoin-livraison">
+      <div class="card-top"><h3>Livraison à 0,99 €</h3><span class="badge official">official</span></div>
+      <p>La promo Mondial Relay de Leboncoin est détectée dès son activation. Fini de rater le bon créneau.</p>
+      <div class="state active"><span class="dot-live"></span> Active en ce moment</div>
+      <button class="sub-btn" type="button">S'abonner</button>
+      <div class="sub-form"><input type="email" placeholder="votre@email.fr" aria-label="Adresse email"><button type="button">OK</button></div>
+      <div class="endpoint">/api/sources/leboncoin-livraison/alert.json</div>
+    </div>
+
+    <div class="card demo" data-source-id="vigilance-meteo-05">
+      <div class="card-top"><h3>Vigilance météo — 05</h3><span class="badge official">official</span></div>
+      <p>Alerte en cas de vigilance orange ou rouge dans les Hautes-Alpes. Données officielles Météo-France.</p>
+      <div class="state idle"><span class="dot-idle"></span> Rien à signaler</div>
+      <button class="sub-btn" type="button">S'abonner</button>
+      <div class="sub-form"><input type="email" placeholder="votre@email.fr" aria-label="Adresse email"><button type="button">OK</button></div>
+      <div class="endpoint">/api/sources/vigilance-meteo-05/alert.json</div>
+    </div>
+
+    <div class="card demo" data-source-id="doomname">
+      <div class="card-top"><h3>DoomName</h3><span class="badge verified">verified</span></div>
+      <p>Surveillance de disponibilité de noms de domaine. Source externe partenaire — doomname.com.</p>
+      <div class="state idle"><span class="dot-idle"></span> Rien à signaler</div>
+      <button class="sub-btn" type="button">S'abonner</button>
+      <div class="sub-form"><input type="email" placeholder="votre@email.fr" aria-label="Adresse email"><button type="button">OK</button></div>
+      <div class="endpoint">doomname.com/alert.json</div>
+    </div>
+
+    <!-- Carte « Bientôt » (EcoWatt) — statique, sert d'ancre d'insertion. -->
+    <div class="card" id="static-extras">
+      <div class="card-top"><h3>EcoWatt</h3><span class="badge official">official</span></div>
+      <p>Risque de coupure électrique signalé par RTE. Prévenez les mauvaises surprises cet hiver.</p>
+      <div class="state idle"><span class="dot-idle"></span> Bientôt disponible</div>
+      <button class="sub-btn" type="button" disabled style="opacity:.45;cursor:default">Bientôt</button>
+    </div>
+
+    <!-- Carte « Proposer une alerte » — statique. -->
+    <a class="card add" href="#openalert">
+      <span class="plus">+</span>
+      <strong>Proposer une alerte</strong>
+      <span style="font-size:13px">Vous avez construit un détecteur ?<br>Exposez un JSON, on fait le reste.</span>
+    </a>
+
+  </div>
+</main>
+
+<section class="devs" id="openalert">
+  <div class="wrap">
+    <div>
+      <div class="section-label">Pour les développeurs</div>
+      <h2>Le standard OpenAlert</h2>
+      <p>Vous n'exposez qu'un manifeste <span class="mono">alert.json</span> de 8 champs. La plateforme apporte les abonnés, les emails, le push et la vitrine. Badge <span class="badge community">community</span> puis <span class="badge verified">verified</span> après vérification.</p>
+      <p style="margin-top:14px"><a href="https://github.com/Epilouptique/labonnealerte/blob/main/OPENALERT.md" style="color:var(--amber);font-weight:600">Lire la spec OPENALERT.md →</a></p>
+    </div>
+    <pre class="code">{
+  <span class="k">"id"</span>: <span class="s">"ma-super-alerte"</span>,
+  <span class="k">"name"</span>: <span class="s">"Ma super alerte"</span>,
+  <span class="k">"state"</span>: <span class="s">"active"</span>,
+  <span class="k">"since"</span>: <span class="s">"2026-07-11T08:00:00Z"</span>,
+  <span class="k">"until"</span>: null,
+  <span class="k">"message"</span>: <span class="s">"C'est le moment !"</span>,
+  <span class="k">"url"</span>: <span class="s">"https://exemple.fr"</span>,
+  <span class="k">"checked_at"</span>: <span class="s">"2026-07-11T09:30:00Z"</span>
+}</pre>
+  </div>
+</section>
+
+<footer>
+  La Bonne Alerte — gratuit, open-source (MIT), sans spam, rien de caché.<br>
+  Un projet <a href="https://dahu-concept.fr" target="_blank" rel="noopener">Dahu-Concept</a> · <a href="https://github.com/Epilouptique/labonnealerte">Code source</a> · <a href="#">Mentions légales</a>
+</footer>
+
+<script src="/js/site.js"></script>
 </body>
 </html>

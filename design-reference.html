@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>La Bonne Alerte — Des alertes utiles, prêtes à l'emploi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#faf8f5; --surface:#ffffff; --ink:#0f1419; --muted:#6b6459;
+  --line:#e8e2d8; --amber:#d98e04; --amber-soft:#fdf4e0;
+  --green:#16a34a; --green-soft:#e9f7ee;
+  --shadow:0 1px 2px rgba(15,20,25,.04), 0 8px 24px rgba(15,20,25,.05);
+}
+[data-theme="dark"]{
+  --bg:#0f1419; --surface:#161d24; --ink:#f2efe9; --muted:#9aa3ad;
+  --line:#232b33; --amber:#f5a623; --amber-soft:#2a2312;
+  --green:#22c55e; --green-soft:#12281a;
+  --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--ink);line-height:1.55;transition:background .25s,color .25s}
+.mono{font-family:'JetBrains Mono',monospace}
+.wrap{max-width:1060px;margin:0 auto;padding:0 24px}
+
+/* ---------- header ---------- */
+header{position:sticky;top:0;z-index:10;background:color-mix(in srgb,var(--bg) 85%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.nav{display:flex;align-items:center;justify-content:space-between;height:64px}
+.brand{display:flex;align-items:baseline;font-weight:800;font-size:21px;letter-spacing:-0.5px;text-decoration:none;color:var(--ink)}
+.brand .a{color:var(--amber)}
+.brand .bang{position:relative;width:10px;margin-left:3px}
+.brand .bang .bar{position:absolute;top:2px;left:1px;width:5px;height:13px;border-radius:3px;background:var(--amber)}
+.brand .bang .dot{position:absolute;top:19px;left:1px;width:6px;height:6px;border-radius:50%;background:var(--green)}
+.brand .bang .dot::after{content:"";position:absolute;inset:-1px;border-radius:50%;border:1.5px solid var(--green);animation:ping 2s ease-out infinite}
+@keyframes ping{0%{transform:scale(1);opacity:.8}100%{transform:scale(3.2);opacity:0}}
+@media (prefers-reduced-motion:reduce){.brand .bang .dot::after,.dot-live::after{animation:none}}
+.nav-right{display:flex;gap:20px;align-items:center;font-size:14px}
+.nav-right a{color:var(--muted);text-decoration:none;font-weight:500}
+.nav-right a:hover{color:var(--ink)}
+.theme-btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;width:34px;height:34px;cursor:pointer;font-size:15px}
+
+/* ---------- hero ---------- */
+.hero{padding:88px 0 64px;text-align:center}
+.hero h1{font-size:clamp(32px,5.4vw,52px);font-weight:800;letter-spacing:-0.03em;line-height:1.08}
+.hero h1 .hl{color:var(--amber)}
+.hero p{color:var(--muted);font-size:18px;margin:18px auto 0;max-width:520px}
+.hero .kpi{margin-top:28px;display:inline-flex;gap:8px;align-items:center;font-size:13px;color:var(--muted);border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 16px}
+.dot-live{position:relative;width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block}
+.dot-live::after{content:"";position:absolute;inset:-1px;border-radius:50%;border:1.5px solid var(--green);animation:ping 2s ease-out infinite}
+
+/* ---------- grid ---------- */
+.section-label{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.14em;color:var(--amber);margin-bottom:14px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;padding-bottom:72px}
+@media(max-width:900px){.grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:620px){.grid{grid-template-columns:1fr}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:12px;transition:transform .15s}
+.card:hover{transform:translateY(-2px)}
+.card-top{display:flex;justify-content:space-between;align-items:flex-start}
+.card h3{font-size:16.5px;font-weight:700;letter-spacing:-0.01em}
+.card p{font-size:13.5px;color:var(--muted);flex:1}
+.badge{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;border-radius:6px;padding:3px 8px}
+.badge.official{background:var(--amber-soft);color:var(--amber)}
+.badge.community{background:var(--line);color:var(--muted)}
+.badge.verified{background:var(--green-soft);color:var(--green)}
+.state{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600}
+.state.active{color:var(--green)}
+.state.idle{color:var(--muted)}
+.dot-idle{width:8px;height:8px;border-radius:50%;background:var(--muted);opacity:.4}
+.sub-btn{border:1.5px solid var(--ink);background:transparent;color:var(--ink);font-weight:600;font-size:13.5px;border-radius:9px;padding:9px 0;cursor:pointer;font-family:inherit;transition:background .15s,color .15s}
+.sub-btn:hover{background:var(--ink);color:var(--bg)}
+.sub-form{display:none;gap:8px}
+.card.open .sub-form{display:flex}
+.card.open .sub-btn{display:none}
+.sub-form input{flex:1;border:1px solid var(--line);background:var(--bg);border-radius:9px;padding:9px 12px;font:inherit;font-size:13.5px;color:var(--ink);min-width:0}
+.sub-form button{background:var(--amber);border:none;color:#fff;font-weight:700;border-radius:9px;padding:0 14px;cursor:pointer;font-size:13.5px}
+.card.add{border-style:dashed;border-width:2px;background:transparent;box-shadow:none;align-items:center;justify-content:center;text-align:center;color:var(--muted);gap:8px;min-height:190px;cursor:pointer}
+.card.add .plus{font-size:30px;font-weight:300;color:var(--amber)}
+.card.add:hover{border-color:var(--amber)}
+.endpoint{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);opacity:.8}
+
+/* ---------- footer strip devs ---------- */
+.devs{border-top:1px solid var(--line);background:var(--surface);padding:56px 0}
+.devs .wrap{display:grid;grid-template-columns:1.2fr 1fr;gap:40px;align-items:center}
+@media(max-width:760px){.devs .wrap{grid-template-columns:1fr}}
+.devs h2{font-size:26px;font-weight:800;letter-spacing:-0.02em}
+.devs p{color:var(--muted);margin-top:10px;font-size:15px}
+.code{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:18px;font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.7;overflow-x:auto}
+.code .k{color:var(--amber)} .code .s{color:var(--green)}
+footer{padding:36px 0;text-align:center;font-size:13px;color:var(--muted)}
+footer a{color:var(--muted)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <a class="brand" href="/">labonne<span class="a">alerte</span><span class="bang"><span class="bar"></span><span class="dot"></span></span></a>
+    <nav class="nav-right">
+      <a href="#alertes">Alertes</a>
+      <a href="#openalert">OpenAlert</a>
+      <a href="https://github.com/Epilouptique/labonnealerte">GitHub</a>
+      <button class="theme-btn" onclick="toggleTheme()" aria-label="Changer de thème">◐</button>
+    </nav>
+  </div>
+</header>
+
+<section class="hero wrap">
+  <h1>Des alertes utiles,<br><span class="hl">prêtes à l'emploi.</span></h1>
+  <p>Un clic, et on vous prévient. Gratuit, open-source, sans compte, sans spam.</p>
+  <div class="kpi"><span class="dot-live"></span> 1 alerte active en ce moment · vérification toutes les 30 min</div>
+</section>
+
+<main class="wrap" id="alertes">
+  <div class="section-label">Le kiosque</div>
+  <div class="grid">
+
+    <div class="card">
+      <div class="card-top"><h3>Livraison à 0,99 €</h3><span class="badge official">official</span></div>
+      <p>La promo Mondial Relay de Leboncoin est détectée dès son activation. Fini de rater le bon créneau.</p>
+      <div class="state active"><span class="dot-live"></span> Active en ce moment</div>
+      <button class="sub-btn" onclick="this.parentNode.classList.add('open')">S'abonner</button>
+      <div class="sub-form"><input type="email" placeholder="votre@email.fr"><button>OK</button></div>
+      <div class="endpoint">/api/sources/leboncoin-livraison/alert.json</div>
+    </div>
+
+    <div class="card">
+      <div class="card-top"><h3>Vigilance météo — 05</h3><span class="badge official">official</span></div>
+      <p>Alerte en cas de vigilance orange ou rouge dans les Hautes-Alpes. Données officielles Météo-France.</p>
+      <div class="state idle"><span class="dot-idle"></span> Rien à signaler</div>
+      <button class="sub-btn" onclick="this.parentNode.classList.add('open')">S'abonner</button>
+      <div class="sub-form"><input type="email" placeholder="votre@email.fr"><button>OK</button></div>
+      <div class="endpoint">/api/sources/vigilance-meteo-05/alert.json</div>
+    </div>
+
+    <div class="card">
+      <div class="card-top"><h3>DoomName</h3><span class="badge verified">verified</span></div>
+      <p>Surveillance de disponibilité de noms de domaine. Source externe partenaire — doomname.com.</p>
+      <div class="state idle"><span class="dot-idle"></span> Rien à signaler</div>
+      <button class="sub-btn" onclick="this.parentNode.classList.add('open')">S'abonner</button>
+      <div class="sub-form"><input type="email" placeholder="votre@email.fr"><button>OK</button></div>
+      <div class="endpoint">doomname.com/alert.json</div>
+    </div>
+
+    <div class="card">
+      <div class="card-top"><h3>EcoWatt</h3><span class="badge official">official</span></div>
+      <p>Risque de coupure électrique signalé par RTE. Prévenez les mauvaises surprises cet hiver.</p>
+      <div class="state idle"><span class="dot-idle"></span> Bientôt disponible</div>
+      <button class="sub-btn" disabled style="opacity:.45;cursor:default">Bientôt</button>
+    </div>
+
+    <div class="card add" onclick="location.href='#openalert'">
+      <span class="plus">+</span>
+      <strong>Proposer une alerte</strong>
+      <span style="font-size:13px">Vous avez construit un détecteur ?<br>Exposez un JSON, on fait le reste.</span>
+    </div>
+
+  </div>
+</main>
+
+<section class="devs" id="openalert">
+  <div class="wrap">
+    <div>
+      <div class="section-label">Pour les développeurs</div>
+      <h2>Le standard OpenAlert</h2>
+      <p>Vous n'exposez qu'un manifeste <span class="mono">alert.json</span> de 8 champs. La plateforme apporte les abonnés, les emails, le push et la vitrine. Badge <span class="badge community">community</span> puis <span class="badge verified">verified</span> après vérification.</p>
+      <p style="margin-top:14px"><a href="#" style="color:var(--amber);font-weight:600">Lire la spec OPENALERT.md →</a></p>
+    </div>
+    <pre class="code">{
+  <span class="k">"id"</span>: <span class="s">"ma-super-alerte"</span>,
+  <span class="k">"name"</span>: <span class="s">"Ma super alerte"</span>,
+  <span class="k">"state"</span>: <span class="s">"active"</span>,
+  <span class="k">"since"</span>: <span class="s">"2026-07-11T08:00:00Z"</span>,
+  <span class="k">"until"</span>: null,
+  <span class="k">"message"</span>: <span class="s">"C'est le moment !"</span>,
+  <span class="k">"url"</span>: <span class="s">"https://exemple.fr"</span>,
+  <span class="k">"checked_at"</span>: <span class="s">"2026-07-11T09:30:00Z"</span>
+}</pre>
+  </div>
+</section>
+
+<footer>
+  La Bonne Alerte — gratuit, open-source (MIT), sans spam, rien de caché.<br>
+  Un projet <a href="#">Dahu-Concept</a> · <a href="https://github.com/Epilouptique/labonnealerte">Code source</a> · <a href="#">Mentions légales</a>
+</footer>
+
+<script>
+function toggleTheme(){
+  const h=document.documentElement;
+  h.dataset.theme = h.dataset.theme==='dark' ? 'light' : 'dark';
+}
+</script>
+</body>
+</html>
