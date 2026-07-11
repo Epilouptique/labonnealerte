@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Proposer une source — OpenAlert · La Bonne Alerte</title>
+<meta name="description" content="Testez votre manifeste alert.json et proposez votre source d'alerte au kiosque La Bonne Alerte.">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/tokens.css">
+<link rel="stylesheet" href="/css/site.css">
+<link rel="stylesheet" href="/css/dev.css">
+</head>
+<body class="dev">
+
+<header>
+  <div class="wrap nav">
+    <a class="brand" href="/">labonne<span class="a">alerte</span><span class="bang"><span class="bar"></span><span class="dot"></span></span></a>
+    <nav class="nav-right">
+      <a class="back-link" href="/">← Retour au kiosque</a>
+    </nav>
+  </div>
+</header>
+
+<!-- 2. Intro -->
+<section class="dev-intro wrap">
+  <div class="section-label">Développeurs · OpenAlert</div>
+  <h1>Proposez votre source d'alerte</h1>
+  <p>Votre service détecte quelque chose d'utile ? Exposez un simple fichier JSON, La Bonne Alerte s'occupe des abonnés, des emails et de la vitrine.</p>
+</section>
+
+<!-- 3. Le standard en 30 secondes -->
+<section class="dev-section">
+  <div class="wrap">
+    <h2>Le standard en 30 secondes</h2>
+    <p>Votre source expose une URL publique répondant en GET avec ce JSON décrivant son état courant. Pas d'auth, pas de webhook, pas de SDK.</p>
+    <pre class="code">{
+  <span class="k">"id"</span>: <span class="s">"exemple-stock-produit"</span>,
+  <span class="k">"name"</span>: <span class="s">"Exemple — Retour en stock d'un produit"</span>,
+  <span class="k">"state"</span>: <span class="s">"active"</span>,
+  <span class="k">"since"</span>: <span class="s">"2026-07-05T09:00:00.000Z"</span>,
+  <span class="k">"until"</span>: null,
+  <span class="k">"message"</span>: <span class="s">"Le produit est de nouveau disponible à l'achat"</span>,
+  <span class="k">"url"</span>: <span class="s">"https://exemple.com/produit"</span>,
+  <span class="k">"checked_at"</span>: <span class="s">"2026-07-05T17:32:36.606Z"</span>
+}</pre>
+    <ul class="field-list">
+      <li><code>id</code> (string, requis) — identifiant unique stable de la source</li>
+      <li><code>name</code> (string, requis) — nom lisible</li>
+      <li><code>state</code> (string, requis) — <code>active</code> | <code>inactive</code> | <code>pending</code></li>
+      <li><code>since</code> (ISO 8601 ou null) — début de l'état actuel</li>
+      <li><code>until</code> (ISO 8601 ou null) — fin prévue si connue</li>
+      <li><code>message</code> (string ou null) — description courte à afficher</li>
+      <li><code>url</code> (string ou null) — lien vers la ressource concernée</li>
+      <li><code>checked_at</code> (ISO 8601, requis) — horodatage de la dernière vérification par la source</li>
+    </ul>
+    <a class="spec-link" href="https://github.com/Epilouptique/labonnealerte/blob/main/OPENALERT.md" target="_blank" rel="noopener">Lire la spec complète OPENALERT.md →</a>
+  </div>
+</section>
+
+<!-- 4. Testez votre manifeste -->
+<section class="dev-section">
+  <div class="wrap">
+    <h2>Testez votre manifeste</h2>
+    <p>Collez l'URL publique de votre <span class="mono">alert.json</span>. On le récupère et on le valide contre le standard OpenAlert.</p>
+    <div class="url-row">
+      <input class="dev-input" id="manifest-url" type="url" placeholder="https://votre-service.fr/alert.json" aria-label="URL du manifeste">
+      <button class="dev-btn" id="validate-btn" type="button">Valider</button>
+    </div>
+    <div class="result" id="validate-result" hidden></div>
+  </div>
+</section>
+
+<!-- 5. Soumettre votre source -->
+<section class="dev-section">
+  <div class="wrap">
+    <h2>Soumettre votre source</h2>
+    <p>Votre manifeste est valide ? Proposez votre source pour publication sur le kiosque.</p>
+    <form class="submit-form" id="submit-form">
+      <label>Nom de la source *
+        <input type="text" name="name" required maxlength="120" placeholder="Ex. Retour en stock — Console XYZ">
+      </label>
+      <label>Description courte
+        <textarea name="description" maxlength="300" placeholder="Ce que votre source détecte, en une phrase."></textarea>
+      </label>
+      <label>URL du manifeste *
+        <input type="url" name="manifest_url" required placeholder="https://votre-service.fr/alert.json">
+      </label>
+      <label>Pseudo GitHub (optionnel)
+        <input type="text" name="github" maxlength="100" placeholder="votre-pseudo">
+      </label>
+      <label>Email de contact
+        <input type="email" name="email" maxlength="200" placeholder="vous@exemple.fr">
+      </label>
+      <div>
+        <button class="dev-btn" id="submit-btn" type="submit">Soumettre ma source</button>
+      </div>
+    </form>
+    <div class="submit-msg" id="submit-msg" hidden></div>
+    <p class="submit-note">Les sources sont examinées manuellement. Code public = badge <span class="badge verified">verified</span> possible.</p>
+  </div>
+</section>
+
+<footer>
+  La Bonne Alerte — standard OpenAlert v0.1 · <a href="https://github.com/Epilouptique/labonnealerte">Code source</a>
+</footer>
+
+<script>
+(function () {
+  'use strict';
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  /* ---------- Validation du manifeste ---------- */
+  var urlInput = document.getElementById('manifest-url');
+  var validateBtn = document.getElementById('validate-btn');
+  var resultBox = document.getElementById('validate-result');
+
+  function previewCard(m) {
+    var stateHtml;
+    if (m.state === 'active') {
+      stateHtml = '<div class="state active"><span class="dot-live"></span> Active en ce moment</div>';
+    } else {
+      stateHtml = '<div class="state idle"><span class="dot-idle"></span> Rien à signaler</div>';
+    }
+    return '' +
+      '<div class="preview">' +
+        '<div class="preview-label">Aperçu sur le kiosque</div>' +
+        '<div class="card">' +
+          '<div class="card-top"><h3>' + esc(m.name || '(sans nom)') + '</h3><span class="badge community">community</span></div>' +
+          '<p>' + esc(m.message || m.name || '') + '</p>' +
+          stateHtml +
+        '</div>' +
+      '</div>';
+  }
+
+  function renderResult(data) {
+    resultBox.hidden = false;
+
+    if (data.network_error) {
+      resultBox.innerHTML = '<div class="net-error">⚠️ ' + esc(data.network_error) + '</div>';
+      return;
+    }
+
+    var checks = data.checks || [];
+    var items = checks.map(function (c) {
+      return '<li class="check-item ' + (c.ok ? 'ok' : 'err') + '">' +
+        '<span class="mark">' + (c.ok ? '✓' : '✕') + '</span>' +
+        '<span class="fld">' + esc(c.field) + '</span>' +
+        '<span class="msg">' + esc(c.message) + '</span>' +
+      '</li>';
+    }).join('');
+
+    var headline = data.valid
+      ? '<div class="result-headline ok">✓ Manifeste valide — conforme au standard OpenAlert v0.1</div>'
+      : '<div class="result-headline err">Des corrections sont nécessaires :</div>';
+
+    var preview = (data.valid && data.manifest) ? previewCard(data.manifest) : '';
+
+    resultBox.innerHTML = headline + '<ul class="check-list">' + items + '</ul>' + preview;
+  }
+
+  async function validate() {
+    var url = urlInput.value.trim();
+    if (!url) { urlInput.focus(); return; }
+
+    validateBtn.disabled = true;
+    var label = validateBtn.textContent;
+    validateBtn.textContent = 'Validation…';
+    resultBox.hidden = true;
+
+    try {
+      var res = await fetch('/api/dev/validate-manifest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: url })
+      });
+      if (res.status === 429) {
+        renderResult({ network_error: 'Trop de requêtes, réessayez dans une minute.' });
+      } else {
+        renderResult(await res.json());
+      }
+    } catch (e) {
+      renderResult({ network_error: 'Erreur réseau : impossible de contacter le serveur.' });
+    } finally {
+      validateBtn.disabled = false;
+      validateBtn.textContent = label;
+    }
+  }
+
+  validateBtn.addEventListener('click', validate);
+  urlInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); validate(); }
+  });
+
+  /* ---------- Soumission de la source ---------- */
+  var form = document.getElementById('submit-form');
+  var submitBtn = document.getElementById('submit-btn');
+  var submitMsg = document.getElementById('submit-msg');
+
+  form.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    var fd = new FormData(form);
+    var body = {
+      name: (fd.get('name') || '').trim(),
+      description: (fd.get('description') || '').trim(),
+      manifest_url: (fd.get('manifest_url') || '').trim(),
+      github: (fd.get('github') || '').trim(),
+      email: (fd.get('email') || '').trim()
+    };
+
+    submitBtn.disabled = true;
+    var label = submitBtn.textContent;
+    submitBtn.textContent = 'Envoi…';
+    submitMsg.hidden = true;
+
+    try {
+      var res = await fetch('/api/dev/submit-source', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      var data = await res.json().catch(function () { return {}; });
+      if (res.status === 200) {
+        submitMsg.className = 'submit-msg ok';
+        submitMsg.textContent = data.message || 'Merci ! Votre source sera examinée manuellement avant publication.';
+        form.reset();
+      } else if (res.status === 429) {
+        submitMsg.className = 'submit-msg err';
+        submitMsg.textContent = 'Trop de requêtes, réessayez dans une minute.';
+      } else {
+        submitMsg.className = 'submit-msg err';
+        submitMsg.textContent = data.error || 'Une erreur est survenue. Réessayez plus tard.';
+      }
+    } catch (e2) {
+      submitMsg.className = 'submit-msg err';
+      submitMsg.textContent = 'Erreur réseau : impossible de contacter le serveur.';
+    } finally {
+      submitMsg.hidden = false;
+      submitBtn.disabled = false;
+      submitBtn.textContent = label;
+    }
+  });
+})();
+</script>
+</body>
+</html>

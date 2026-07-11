@@ -8,12 +8,16 @@ CREATE TABLE IF NOT EXISTS sources (
   badge VARCHAR(16) DEFAULT 'community', -- official | verified | community
   enabled BOOLEAN DEFAULT true,
   requires_confirmation BOOLEAN DEFAULT true, -- true : confirmation sur 2 cycles (scraper) ; false : notif immédiate (API officielle fiable)
+  submitted_by_github TEXT,              -- proposition dev (type 'external') : pseudo GitHub
+  submitted_by_email TEXT,               -- proposition dev : email de contact
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Applique les colonnes aux bases existantes (migrate.js rejoue ce fichier).
 ALTER TABLE sources ADD COLUMN IF NOT EXISTS requires_confirmation BOOLEAN DEFAULT true;
 ALTER TABLE sources ADD COLUMN IF NOT EXISTS link_url TEXT;
+ALTER TABLE sources ADD COLUMN IF NOT EXISTS submitted_by_github TEXT;
+ALTER TABLE sources ADD COLUMN IF NOT EXISTS submitted_by_email TEXT;
 
 CREATE TABLE IF NOT EXISTS source_states (
   source_id VARCHAR(64) PRIMARY KEY REFERENCES sources(id),

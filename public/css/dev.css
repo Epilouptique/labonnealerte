@@ -35,3 +35,81 @@ body.dev .back-link {
   font-size: 14px;
 }
 body.dev .back-link:hover { color: var(--ink); }
+
+/* Header des pages dev : fond bleu nuit, même géométrie que la home. */
+body.dev header { background: var(--surface); backdrop-filter: none; }
+
+/* ---------- page /proposer ---------- */
+body.dev .dev-section { padding: 40px 0; border-top: 1px solid var(--line); }
+body.dev .dev-section:first-of-type { border-top: none; }
+body.dev .dev-intro { padding: 56px 0 24px; }
+body.dev .dev-intro h1 { font-size: clamp(28px, 4.5vw, 40px); font-weight: 800; letter-spacing: -0.02em; }
+body.dev .dev-intro p { color: var(--muted); font-size: 17px; margin-top: 14px; max-width: 620px; }
+body.dev .dev-section h2 { font-size: 22px; font-weight: 800; margin-bottom: 8px; }
+body.dev .dev-section > .wrap > p { color: var(--muted); }
+
+/* Liste des 8 champs du standard. */
+body.dev .field-list { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: 6px; }
+body.dev .field-list li { font-size: 13.5px; color: var(--muted); line-height: 1.5; }
+body.dev .field-list code {
+  font-family: 'JetBrains Mono', monospace; color: var(--amber);
+  background: var(--amber-soft); border-radius: 5px; padding: 1px 6px; font-size: 12.5px;
+}
+body.dev .spec-link { display: inline-block; margin-top: 16px; color: var(--amber); font-weight: 600; text-decoration: none; }
+body.dev .spec-link:hover { text-decoration: underline; }
+
+/* Champ URL + bouton (validate / submit). */
+body.dev .url-row { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+body.dev .dev-input {
+  flex: 1; min-width: 220px;
+  border: 1px solid var(--line); background: var(--bg); color: var(--ink);
+  border-radius: 9px; padding: 11px 14px; font: inherit; font-size: 14px;
+  font-family: 'JetBrains Mono', monospace;
+}
+body.dev .dev-btn {
+  background: var(--amber); border: none; color: #12102a; font-weight: 700;
+  border-radius: 9px; padding: 11px 20px; cursor: pointer; font: inherit; font-size: 14px;
+  transition: opacity .15s;
+}
+body.dev .dev-btn:hover { opacity: .9; }
+body.dev .dev-btn:disabled { opacity: .5; cursor: default; }
+
+/* Résultats de validation. */
+body.dev .result { margin-top: 20px; }
+body.dev .check-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 7px; }
+body.dev .check-item {
+  display: flex; align-items: baseline; gap: 10px; font-size: 13.5px;
+  font-family: 'JetBrains Mono', monospace;
+}
+body.dev .check-item .mark { font-weight: 700; }
+body.dev .check-item.ok .mark { color: var(--green); }
+body.dev .check-item.err .mark { color: var(--amber); }
+body.dev .check-item.ok { color: var(--ink); }
+body.dev .check-item.err { color: var(--amber); }
+body.dev .check-item .fld { font-weight: 700; }
+body.dev .check-item .msg { color: var(--muted); }
+body.dev .result-headline { font-weight: 700; margin-bottom: 12px; font-size: 15px; }
+body.dev .result-headline.ok { color: var(--green); }
+body.dev .result-headline.err { color: var(--amber); }
+body.dev .net-error {
+  margin-top: 16px; border: 1px solid var(--amber); background: var(--amber-soft);
+  color: var(--amber); border-radius: 10px; padding: 14px 16px; font-size: 14px;
+}
+
+/* Aperçu de la carte telle qu'elle apparaîtrait sur le kiosque. */
+body.dev .preview { margin-top: 22px; }
+body.dev .preview-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .12em; color: var(--muted); margin-bottom: 10px; }
+body.dev .preview .card { max-width: 320px; }
+
+/* Formulaire de soumission. */
+body.dev .submit-form { display: grid; gap: 14px; margin-top: 18px; max-width: 560px; }
+body.dev .submit-form label { display: grid; gap: 6px; font-size: 13px; font-weight: 600; color: var(--muted); }
+body.dev .submit-form input, body.dev .submit-form textarea {
+  border: 1px solid var(--line); background: var(--bg); color: var(--ink);
+  border-radius: 9px; padding: 10px 13px; font: inherit; font-size: 14px;
+}
+body.dev .submit-form textarea { resize: vertical; min-height: 66px; }
+body.dev .submit-note { margin-top: 14px; font-size: 13px; color: var(--muted); }
+body.dev .submit-msg { margin-top: 16px; font-size: 14px; font-weight: 600; }
+body.dev .submit-msg.ok { color: var(--green); }
+body.dev .submit-msg.err { color: var(--amber); }

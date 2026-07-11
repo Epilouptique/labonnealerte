@@ -12,6 +12,7 @@ router.get('/sources', async (req, res) => {
                    ELSE COALESCE(st.state, 'inactive') END AS state
          FROM sources s
          LEFT JOIN source_states st ON st.source_id = s.id
+        WHERE s.enabled = true
         ORDER BY s.id`
     );
     res.json(rows);
