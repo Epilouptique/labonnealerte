@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>La Bonne Alerte — Des alertes utiles, prêtes à l'emploi</title>
-<meta name="description" content="Plateforme d'alertes ouverte et gratuite. Un clic, et on vous prévient. Gratuit, open-source, sans compte, sans spam.">
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<title>La Bonne Alerte — Toutes vos alertes, en un clic</title>
+<meta name="description" content="Vos alertes et rien d'autre. Gratuit, sans spam, sans pub, open source.">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -16,28 +16,42 @@
 
 <header>
   <div class="wrap nav">
-    <a class="brand" href="/">labonne<span class="a">alerte</span><span class="bang"><span class="bar"></span><span class="dot"></span></span></a>
+    <a class="brand" href="/">labonne<span class="a">alerte</span><span class="bang"><span class="bar"></span><span class="dot"></span></span><span class="fr">fr</span></a>
     <nav class="nav-right">
       <a href="#alertes">Alertes</a>
       <a href="#openalert">OpenAlert</a>
-      <a href="https://github.com/Epilouptique/labonnealerte">GitHub</a>
+      <a href="https://github.com/Epilouptique/labonnealerte" target="_blank" rel="noopener">GitHub</a>
       <button class="theme-btn" type="button" onclick="toggleTheme()" aria-label="Changer de thème">◐</button>
     </nav>
   </div>
 </header>
 
 <section class="hero wrap">
-  <h1>Des alertes utiles,<br><span class="hl">prêtes à l'emploi.</span></h1>
-  <p>Un clic, et on vous prévient. Gratuit, open-source, sans compte, sans spam.</p>
+  <h1>Toutes vos alertes,<br><span class="hl">en un clic.</span></h1>
+  <p>Vos alertes et rien d'autre. Gratuit, sans spam, sans pub, open source.</p>
   <div class="kpi"><span class="dot-live"></span> 1 alerte active en ce moment · vérification toutes les 30 min</div>
 </section>
 
 <main class="wrap" id="alertes">
   <div class="section-label">Le kiosque</div>
+
+  <div class="toolbar">
+    <label class="search">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+      <input id="q" type="search" placeholder="Rechercher une alerte… (promo, météo, domaine)" aria-label="Rechercher une alerte">
+    </label>
+    <div class="chips" id="chips" role="group" aria-label="Filtrer par catégorie">
+      <button class="chip-f on" type="button" data-cat="all">Toutes <span class="n"></span></button>
+      <button class="chip-f" type="button" data-cat="plans">Bons plans <span class="n"></span></button>
+      <button class="chip-f" type="button" data-cat="risques">Météo &amp; risques <span class="n"></span></button>
+      <button class="chip-f" type="button" data-cat="tech">Tech &amp; domaines <span class="n"></span></button>
+    </div>
+  </div>
+
   <div class="grid" id="grid">
 
     <!-- Cartes de démonstration (fallback) : retirées si GET /api/sources répond. -->
-    <div class="card demo" data-source-id="leboncoin-livraison">
+    <div class="card demo" data-cat="plans" data-source-id="leboncoin-livraison">
       <div class="card-top"><h3>Livraison à 0,99 €</h3><span class="badge official">official</span></div>
       <p>La promo Mondial Relay de Leboncoin est détectée dès son activation. Fini de rater le bon créneau.</p>
       <div class="state active"><span class="dot-live"></span> Active en ce moment</div>
@@ -46,7 +60,7 @@
       <div class="endpoint">/api/sources/leboncoin-livraison/alert.json</div>
     </div>
 
-    <div class="card demo" data-source-id="vigilance-meteo-05">
+    <div class="card demo" data-cat="risques" data-source-id="vigilance-meteo-05">
       <div class="card-top"><h3>Vigilance météo — 05</h3><span class="badge official">official</span></div>
       <p>Alerte en cas de vigilance orange ou rouge dans les Hautes-Alpes. Données officielles Météo-France.</p>
       <div class="state idle"><span class="dot-idle"></span> Rien à signaler</div>
@@ -55,30 +69,25 @@
       <div class="endpoint">/api/sources/vigilance-meteo-05/alert.json</div>
     </div>
 
-    <div class="card demo" data-source-id="doomname">
+    <div class="card demo" data-cat="tech" data-source-id="doomname">
       <div class="card-top"><h3>DoomName</h3><span class="badge verified">verified</span></div>
       <p>Surveillance de disponibilité de noms de domaine. Source externe partenaire — doomname.com.</p>
-      <div class="state idle"><span class="dot-idle"></span> Rien à signaler</div>
-      <button class="sub-btn" type="button">S'abonner</button>
-      <div class="sub-form"><input type="email" placeholder="votre@email.fr" aria-label="Adresse email"><button type="button">OK</button></div>
-      <div class="endpoint">doomname.com/alert.json</div>
+      <div class="state partner"><span class="dot-idle"></span> Service partenaire</div>
+      <a class="link-btn" href="https://doomname.com" target="_blank" rel="noopener">Configurer sur doomname.com →</a>
     </div>
 
-    <!-- Carte « Bientôt » (EcoWatt) — statique, sert d'ancre d'insertion. -->
-    <div class="card" id="static-extras">
-      <div class="card-top"><h3>EcoWatt</h3><span class="badge official">official</span></div>
-      <p>Risque de coupure électrique signalé par RTE. Prévenez les mauvaises surprises cet hiver.</p>
-      <div class="state idle"><span class="dot-idle"></span> Bientôt disponible</div>
-      <button class="sub-btn" type="button" disabled style="opacity:.45;cursor:default">Bientôt</button>
-    </div>
-
-    <!-- Carte « Proposer une alerte » — statique. -->
-    <a class="card add" href="/proposer">
+    <!-- Carte « Proposer une alerte » — statique, toujours visible.
+         Sert aussi d'ancre d'insertion des cartes dynamiques (id static-extras). -->
+    <a class="card add" href="/proposer" id="static-extras">
       <span class="plus">+</span>
       <strong>Proposer une alerte</strong>
       <span style="font-size:13px">Vous avez construit un détecteur ?<br>Exposez un JSON, on fait le reste.</span>
     </a>
 
+  </div>
+
+  <div class="more-wrap">
+    <button class="more-btn" id="moreBtn" type="button" style="display:none">Afficher plus d'alertes <span class="n"></span></button>
   </div>
 </main>
 
@@ -88,7 +97,7 @@
       <div class="section-label">Pour les développeurs</div>
       <h2>Le standard OpenAlert</h2>
       <p>Vous n'exposez qu'un manifeste <span class="mono">alert.json</span> de 8 champs. La plateforme apporte les abonnés, les emails, le push et la vitrine. Badge <span class="badge community">community</span> puis <span class="badge verified">verified</span> après vérification.</p>
-      <p style="margin-top:14px"><a href="https://github.com/Epilouptique/labonnealerte/blob/main/OPENALERT.md" style="color:var(--amber);font-weight:600">Lire la spec OPENALERT.md →</a></p>
+      <p style="margin-top:14px"><a href="/proposer" style="color:var(--amber);font-weight:600">Proposer votre source · lire la spec →</a></p>
     </div>
     <pre class="code">{
   <span class="k">"id"</span>: <span class="s">"ma-super-alerte"</span>,
@@ -105,7 +114,7 @@
 
 <footer>
   La Bonne Alerte — gratuit, open-source (MIT), sans spam, rien de caché.<br>
-  Un projet <a href="https://dahu-concept.fr" target="_blank" rel="noopener">Dahu-Concept</a> · <a href="https://github.com/Epilouptique/labonnealerte">Code source</a> · <a href="#">Mentions légales</a>
+  Un projet <a href="https://dahu-concept.fr" target="_blank" rel="noopener">Dahu-Concept</a> · <a href="/mes-alertes">Mes alertes</a> · <a href="https://github.com/Epilouptique/labonnealerte" target="_blank" rel="noopener">Code source</a> · <a href="#">Mentions légales</a>
 </footer>
 
 <script src="/js/site.js"></script>

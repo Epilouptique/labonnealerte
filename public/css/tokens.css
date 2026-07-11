@@ -1,31 +1,34 @@
 /* tokens.css — variables des deux thèmes + keyframes ping.
-   Source de vérité de l'identité visuelle « point d'alerte ». */
+   Source de vérité de l'identité visuelle « point d'alerte ».
+   Surfaces tonales Material 3, accent violet, fond pointillé. */
 
 :root,
 html[data-theme="light"] {
-  --bg: #faf8f5;
-  --surface: #ffffff;
+  --bg: #fdfaff;
+  --surface: #f4edfb;
   --ink: #0f1419;
   --muted: #6b6459;
-  --line: #e8e2d8;
+  --line: transparent;
   --amber: #a567e3;
-  --amber-soft: #f3ecfc;
+  --amber-soft: #eaddf8;
   --green: #16a34a;
   --green-soft: #e9f7ee;
-  --shadow: 0 1px 2px rgba(15, 20, 25, .04), 0 8px 24px rgba(15, 20, 25, .05);
+  --shadow: 0 1px 3px rgba(30, 20, 50, .10), 0 4px 12px rgba(30, 20, 50, .06);
+  --dot: rgba(120, 95, 175, .13);
 }
 
 html[data-theme="dark"] {
-  --bg: #0f1419;
-  --surface: #161d24;
+  --bg: #141218;
+  --surface: #211f26;
   --ink: #f2efe9;
   --muted: #9aa3ad;
-  --line: #232b33;
+  --line: transparent;
   --amber: #bd8ef0;
-  --amber-soft: #241a33;
+  --amber-soft: #332a44;
   --green: #22c55e;
   --green-soft: #12281a;
-  --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .25);
+  --shadow: 0 1px 3px rgba(30, 20, 50, .10), 0 4px 12px rgba(30, 20, 50, .06);
+  --dot: rgba(255, 255, 255, .10);
 }
 
 /* Anneau vert qui s'étend puis disparaît — même composant pour le point

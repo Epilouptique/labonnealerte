@@ -7,7 +7,7 @@ const router = express.Router();
 router.get('/sources', async (req, res) => {
   try {
     const { rows } = await pool.query(
-      `SELECT s.id, s.name, s.description, s.badge, s.type, s.link_url,
+      `SELECT s.id, s.name, s.description, s.badge, s.type, s.link_url, s.category,
               CASE WHEN s.type = 'linked' THEN NULL
                    ELSE COALESCE(st.state, 'inactive') END AS state
          FROM sources s

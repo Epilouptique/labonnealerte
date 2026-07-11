@@ -5,6 +5,7 @@ const express = require('express');
 const apiRouter = require('./routes/api');
 const devRouter = require('./routes/dev');
 const { apiRouter: subscribeApiRouter, pagesRouter } = require('./routes/subscribe');
+const { apiRouter: myAlertsApiRouter, pagesRouter: myAlertsPagesRouter } = require('./routes/myalerts');
 const { startPoller } = require('./poller');
 
 const app = express();
@@ -17,6 +18,7 @@ app.use(express.json());
 app.use(express.static('public'));
 app.use('/api', apiRouter);
 app.use('/api', subscribeApiRouter);
+app.use('/api', myAlertsApiRouter);
 app.use('/api/dev', devRouter);
 // Page développeur « Proposer une source » (palette Veille de nuit).
 app.get('/proposer', (req, res) => {
@@ -24,6 +26,7 @@ app.get('/proposer', (req, res) => {
 });
 // Pages HTML (liens email) montées à la racine, après le static.
 app.use('/', pagesRouter);
+app.use('/', myAlertsPagesRouter);
 
 app.listen(PORT, () => {
   console.log(`[server] Écoute sur http://localhost:${PORT}`);

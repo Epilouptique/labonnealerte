@@ -1,5 +1,6 @@
 /* site.css — styles de la home (pages grand public).
-   Les variables viennent de tokens.css. */
+   Style Material 3 adapté : surfaces tonales, radius 24px, sans bordures,
+   accent violet, fond pointillé, halo hero. Variables dans tokens.css. */
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
@@ -9,6 +10,8 @@ body {
   color: var(--ink);
   line-height: 1.55;
   transition: background .25s, color .25s;
+  background-image: radial-gradient(var(--dot) 1.2px, transparent 1.7px);
+  background-size: 30px 30px;
 }
 .mono { font-family: 'JetBrains Mono', monospace; }
 .wrap { max-width: 1060px; margin: 0 auto; padding: 0 24px; }
@@ -16,22 +19,19 @@ body {
 /* ---------- header ---------- */
 header {
   position: sticky; top: 0; z-index: 10;
-  background: #ffffff; /* blanc pur en thème clair */
-  border-bottom: 1px solid var(--line);
+  background: var(--surface); /* thème sombre : fond surface */
+  border-bottom: none;
+  box-shadow: 0 1px 0 rgba(30, 20, 50, .06);
 }
-/* En thème sombre, on conserve le fond translucide + blur d'origine
-   (un header blanc n'aurait pas de sens en dark mode). */
-html[data-theme="dark"] header {
-  background: color-mix(in srgb, var(--bg) 85%, transparent);
-  backdrop-filter: blur(10px);
-}
+html[data-theme="light"] header { background: #ffffff; } /* thème clair : blanc pur */
 .nav { display: flex; align-items: center; justify-content: space-between; height: 64px; }
 .brand {
   display: flex; align-items: baseline;
   font-weight: 800; font-size: 21px; letter-spacing: -0.5px;
   text-decoration: none; color: var(--ink);
 }
-.brand .a { color: var(--amber); }
+.brand .a { color: var(--amber); padding-right: 2px; }
+.brand .fr { padding-left: 2px; color: var(--muted); font-weight: 700; }
 .brand .bang { position: relative; top: -25px; width: 10px; margin-left: 3px; }
 .brand .bang .bar { position: absolute; top: 2px; left: 1px; width: 5px; height: 13px; border-radius: 3px; background: var(--amber); }
 .brand .bang .dot { position: absolute; top: 19px; left: 1px; width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
@@ -39,43 +39,71 @@ html[data-theme="dark"] header {
 .nav-right { display: flex; gap: 20px; align-items: center; font-size: 14px; }
 .nav-right a { color: var(--muted); text-decoration: none; font-weight: 500; }
 .nav-right a:hover { color: var(--ink); }
+/* .theme-btn : fond blanc dans les deux thèmes. */
 .theme-btn {
-  border: 1px solid var(--line); background: var(--surface);
+  border: 1px solid var(--line); background: #ffffff; color: #141218;
   border-radius: 8px; width: 34px; height: 34px; cursor: pointer; font-size: 15px;
-  color: var(--ink);
 }
 
 /* ---------- hero ---------- */
-.hero { padding: 88px 0 64px; text-align: center; }
+.hero { padding: 88px 0 48px; text-align: center; position: relative; }
+.hero::before {
+  content: ""; position: absolute; top: -120px; left: 50%; transform: translateX(-50%);
+  width: 640px; height: 420px; pointer-events: none;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--amber) 22%, transparent), transparent 70%);
+}
+.hero > * { position: relative; }
 .hero h1 { font-size: clamp(32px, 5.4vw, 52px); font-weight: 800; letter-spacing: -0.03em; line-height: 1.08; }
 .hero h1 .hl { color: var(--amber); }
 .hero p { color: var(--muted); font-size: 18px; margin: 18px auto 0; max-width: 520px; }
 .hero .kpi {
   margin-top: 28px; display: inline-flex; gap: 8px; align-items: center;
   font-size: 13px; color: var(--muted);
-  border: 1px solid var(--line); background: var(--surface);
+  border: none; background: var(--surface);
   border-radius: 999px; padding: 7px 16px;
 }
 .dot-live { position: relative; width: 8px; height: 8px; border-radius: 50%; background: var(--green); display: inline-block; }
 .dot-live::after { content: ""; position: absolute; inset: -1px; border-radius: 50%; border: 1.5px solid var(--green); animation: ping 2s ease-out infinite; }
 
+/* ---------- barre d'outils kiosque : recherche + catégories ---------- */
+.toolbar { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin: 6px 0 22px; }
+.search {
+  flex: 1; min-width: 220px; display: flex; align-items: center; gap: 10px;
+  background: var(--surface); border-radius: 999px; padding: 11px 18px;
+  box-shadow: 0 1px 3px rgba(30, 20, 50, .08);
+}
+.search input { border: none; background: transparent; font: inherit; font-size: 14.5px; color: var(--ink); width: 100%; outline: none; }
+.search svg { flex: none; opacity: .5; }
+.chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip-f {
+  border: none; background: var(--surface); color: var(--muted);
+  font: inherit; font-size: 13px; font-weight: 600;
+  border-radius: 999px; padding: 9px 16px; cursor: pointer;
+}
+.chip-f:hover { color: var(--ink); }
+.chip-f.on { background: var(--amber); color: #fff; }
+.chip-f .n { opacity: .6; font-size: 11.5px; margin-left: 4px; }
+
 /* ---------- grid ---------- */
 .section-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .14em; color: var(--amber); margin-bottom: 14px; }
-.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; padding-bottom: 72px; }
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; padding-bottom: 26px; }
 @media (max-width: 900px) { .grid { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 620px) { .grid { grid-template-columns: 1fr; } }
 .card {
-  background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
-  padding: 22px; box-shadow: var(--shadow);
-  display: flex; flex-direction: column; gap: 12px; transition: transform .15s;
+  background: var(--surface); border: none; border-radius: 24px;
+  padding: 22px; box-shadow: none;
+  display: flex; flex-direction: column; gap: 12px;
+  transition: box-shadow .2s, transform .15s;
 }
-.card:hover { transform: translateY(-2px); }
+.card:hover { box-shadow: var(--shadow); transform: none; }
+/* Cartes masquées : pagination (hidden-more) et filtrage (filtered). */
+.card.hidden-more, .card.filtered { display: none; }
 .card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
 .card h3 { font-size: 16.5px; font-weight: 700; letter-spacing: -0.01em; }
 .card p { font-size: 13.5px; color: var(--muted); flex: 1; }
 .badge {
   font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700;
-  text-transform: uppercase; letter-spacing: .08em; border-radius: 6px; padding: 3px 8px;
+  text-transform: uppercase; letter-spacing: .08em; border-radius: 8px; padding: 4px 10px;
   white-space: nowrap;
 }
 .badge.official { background: var(--amber-soft); color: var(--amber); }
@@ -86,31 +114,34 @@ html[data-theme="dark"] header {
 .state.idle { color: var(--muted); }
 .state.partner { color: var(--muted); }
 .dot-idle { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); opacity: .4; }
+/* Boutons d'abonnement : pilule violette, radius 10px. */
 .sub-btn {
-  border: 1.5px solid var(--ink); background: transparent; color: var(--ink);
-  font-weight: 600; font-size: 13.5px; border-radius: 9px; padding: 9px 0;
-  cursor: pointer; font-family: inherit; transition: background .15s, color .15s;
+  border: none; background: var(--amber); color: #fff;
+  font-weight: 600; font-size: 13.5px; border-radius: 10px; padding: 11px 0;
+  cursor: pointer; font-family: inherit; transition: background .15s, box-shadow .15s;
+  box-shadow: 0 1px 3px rgba(30, 20, 50, .2);
 }
-.sub-btn:hover { background: var(--ink); color: var(--bg); }
-/* Lien-bouton des sources liées : même géométrie que .sub-btn, style « ghost ambre »
-   pour le distinguer de l'abonnement classique. */
+.sub-btn:hover { background: color-mix(in srgb, var(--amber) 88%, #000); box-shadow: 0 2px 6px rgba(30, 20, 50, .3); }
+.sub-btn:disabled { opacity: .45; cursor: default; box-shadow: none; }
+/* Lien-bouton des sources liées : style « ghost ambre » pour se distinguer. */
 .link-btn {
   display: block; text-align: center; text-decoration: none;
   border: 1.5px solid var(--amber); background: transparent; color: var(--amber);
-  font-weight: 600; font-size: 13.5px; border-radius: 9px; padding: 9px 0;
-  font-family: inherit; transition: background .15s, color .15s;
+  font-weight: 600; font-size: 13.5px; border-radius: 10px; padding: 10px 0;
+  font-family: inherit; transition: background .15s;
 }
 .link-btn:hover { background: var(--amber-soft); }
 .sub-form { display: none; gap: 8px; }
 .card.open .sub-form { display: flex; }
 .card.open .sub-btn { display: none; }
 .sub-form input {
-  flex: 1; border: 1px solid var(--line); background: var(--bg); border-radius: 9px;
-  padding: 9px 12px; font: inherit; font-size: 13.5px; color: var(--ink); min-width: 0;
+  flex: 1; border: 1.5px solid color-mix(in srgb, var(--ink) 30%, transparent);
+  background: transparent; border-radius: 999px;
+  padding: 9px 16px; font: inherit; font-size: 13.5px; color: var(--ink); min-width: 0;
 }
 .sub-form button {
   background: var(--amber); border: none; color: #fff; font-weight: 700;
-  border-radius: 9px; padding: 0 14px; cursor: pointer; font-size: 13.5px;
+  border-radius: 999px; padding: 0 18px; cursor: pointer; font-size: 13.5px;
 }
 /* Message de retour après soumission (remplace le formulaire). */
 .sub-msg { font-size: 13px; font-weight: 600; }
@@ -118,22 +149,36 @@ html[data-theme="dark"] header {
 .sub-msg.dup { color: var(--amber); }
 .sub-msg.err { color: var(--muted); }
 .card.add {
-  border-style: dashed; border-width: 2px; background: transparent; box-shadow: none;
+  border: 2px dashed color-mix(in srgb, var(--amber) 45%, transparent);
+  border-radius: 24px; background: transparent; box-shadow: none;
   align-items: center; justify-content: center; text-align: center; color: var(--muted);
-  gap: 8px; min-height: 190px; cursor: pointer;
+  gap: 8px; min-height: 190px; cursor: pointer; text-decoration: none;
 }
 .card.add .plus { font-size: 30px; font-weight: 300; color: var(--amber); }
-.card.add:hover { border-color: var(--amber); }
-.endpoint { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); opacity: .8; word-break: break-all; }
+.card.add strong { color: var(--ink); }
+.card.add:hover { background: var(--amber-soft); border-color: var(--amber); }
+/* .endpoint masqué (conservé dans le DOM). */
+.endpoint { display: none; }
+
+/* ---------- pagination ---------- */
+.more-wrap { text-align: center; padding: 4px 0 72px; }
+.more-btn {
+  border: none; background: var(--surface); color: var(--ink);
+  font: inherit; font-weight: 700; font-size: 14px;
+  border-radius: 999px; padding: 13px 26px; cursor: pointer;
+  box-shadow: 0 1px 3px rgba(30, 20, 50, .1);
+}
+.more-btn:hover { box-shadow: 0 3px 9px rgba(30, 20, 50, .18); }
+.more-btn .n { color: var(--amber); }
 
 /* ---------- footer strip devs ---------- */
-.devs { border-top: 1px solid var(--line); background: var(--surface); padding: 56px 0; }
+.devs { border-top: none; background: var(--surface); padding: 56px 0; }
 .devs .wrap { display: grid; grid-template-columns: 1.2fr 1fr; gap: 40px; align-items: center; }
 @media (max-width: 760px) { .devs .wrap { grid-template-columns: 1fr; } }
 .devs h2 { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; }
 .devs p { color: var(--muted); margin-top: 10px; font-size: 15px; }
 .code {
-  background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 18px;
+  background: var(--bg); border: none; border-radius: 24px; padding: 18px;
   font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.7; overflow-x: auto;
 }
 .code .k { color: var(--amber); }
@@ -144,7 +189,9 @@ footer a { color: var(--muted); }
 /* ---------- accessibilité : focus clavier visible ---------- */
 a:focus-visible,
 button:focus-visible,
-input:focus-visible {
+input:focus-visible,
+.chip-f:focus-visible,
+.search:focus-within {
   outline: 2px solid var(--amber);
   outline-offset: 2px;
 }

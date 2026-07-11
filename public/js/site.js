@@ -131,6 +131,7 @@
   }
 
   function cardHTML(s) {
+    var cat = esc(s.category || '');
     var header =
       '<div class="card-top"><h3>' + esc(s.name) + '</h3>' + badgeFor(s.badge) + '</div>' +
       '<p>' + esc(s.description || '') + '</p>';
@@ -139,7 +140,7 @@
     if (s.type === 'linked') {
       var domain = domainOf(s.link_url);
       return '' +
-        '<div class="card" data-source-id="' + esc(s.id) + '">' +
+        '<div class="card" data-cat="' + cat + '" data-source-id="' + esc(s.id) + '">' +
           header +
           '<div class="state partner"><span class="dot-idle"></span> Service partenaire</div>' +
           '<a class="link-btn" href="' + esc(s.link_url) + '" target="_blank" rel="noopener">' +
@@ -148,7 +149,7 @@
     }
 
     return '' +
-      '<div class="card" data-source-id="' + esc(s.id) + '">' +
+      '<div class="card" data-cat="' + cat + '" data-source-id="' + esc(s.id) + '">' +
         header +
         stateFor(s.state) +
         '<button class="sub-btn" type="button">S\'abonner</button>' +
@@ -157,27 +158,107 @@
       '</div>';
   }
 
+  /* ---------------- Kiosque : recherche + catégories + pagination ---------------- */
+  var INITIAL = 6; // cartes catégorisées affichées au chargement (hors carte « Proposer »)
+  var STEP = 9;    // cartes révélées par clic sur « Afficher plus »
+  var cat = 'all', expanded = false;
+  var cards = [], moreBtn = null, qInput = null, grid = null;
+
+  function updateCounts() {
+    var counts = { all: cards.length, plans: 0, risques: 0, tech: 0 };
+    cards.forEach(function (c) {
+      var k = c.dataset.cat;
+      if (counts[k] != null) counts[k]++;
+    });
+    document.querySelectorAll('.chip-f').forEach(function (chip) {
+      var span = chip.querySelector('.n');
+      var v = counts[chip.dataset.cat];
+      if (span) span.textContent = v != null ? v : 0;
+    });
+  }
+
+  // Filtrage + pagination. La recherche/le filtre s'appliquent à TOUTES les cartes.
+  function apply() {
+    var q = (qInput.value || '').trim().toLowerCase();
+    var searching = q.length > 0 || cat !== 'all';
+    var hiddenCount = 0;
+
+    cards.forEach(function (c) {
+      var okCat = cat === 'all' || c.dataset.cat === cat;
+      var okQ = !q || c.textContent.toLowerCase().indexOf(q) !== -1;
+      c.classList.toggle('filtered', !(okCat && okQ));
+
+      if (c.classList.contains('hidden-more')) {
+        if (searching || expanded) { c.classList.remove('hidden-more'); c.dataset.more = '1'; }
+      } else if (c.dataset.more && !searching && !expanded) {
+        c.classList.add('hidden-more');
+      }
+      if (c.classList.contains('hidden-more') && okCat && okQ) hiddenCount++;
+    });
+
+    var nSpan = moreBtn.querySelector('.n');
+    if (nSpan) nSpan.textContent = '(+' + Math.min(STEP, hiddenCount) + ')';
+    moreBtn.style.display = (searching || expanded || hiddenCount === 0) ? 'none' : '';
+  }
+
+  function setupKiosk() {
+    grid = document.getElementById('grid');
+    moreBtn = document.getElementById('moreBtn');
+    qInput = document.getElementById('q');
+    if (!grid || !moreBtn || !qInput) return;
+
+    // Toutes les cartes catégorisées (la carte « Proposer » n'a pas de data-cat → toujours visible).
+    cards = Array.prototype.slice.call(grid.querySelectorAll('.card[data-cat]'));
+    // Au chargement : les cartes au-delà du maximum initial sont masquées.
+    cards.forEach(function (c, i) {
+      c.classList.toggle('hidden-more', i >= INITIAL);
+      delete c.dataset.more;
+    });
+
+    updateCounts();
+
+    qInput.addEventListener('input', apply);
+    document.getElementById('chips').addEventListener('click', function (e) {
+      var b = e.target.closest('.chip-f');
+      if (!b) return;
+      document.querySelectorAll('.chip-f').forEach(function (x) { x.classList.remove('on'); });
+      b.classList.add('on');
+      cat = b.dataset.cat;
+      apply();
+    });
+    moreBtn.addEventListener('click', function () {
+      var hidden = cards.filter(function (c) { return c.classList.contains('hidden-more'); });
+      hidden.slice(0, STEP).forEach(function (c) { c.classList.remove('hidden-more'); c.dataset.more = '1'; });
+      if (hidden.length <= STEP) expanded = true;
+      apply();
+    });
+
+    apply();
+  }
+
   async function loadSources() {
-    var grid = document.getElementById('grid');
-    if (!grid) return;
-    var extras = document.getElementById('static-extras'); // cartes conservées (EcoWatt + Proposer)
+    var g = document.getElementById('grid');
+    if (!g) return;
+    var extras = document.getElementById('static-extras'); // ancre : EcoWatt + Proposer conservées
     try {
       var res = await fetch('/api/sources', { headers: { Accept: 'application/json' } });
-      if (!res.ok) return; // fallback : on garde le contenu statique de la maquette
-      var sources = await res.json();
-      if (!Array.isArray(sources) || sources.length === 0) return;
-
-      var html = sources.map(cardHTML).join('');
-      // Insère les cartes dynamiques avant les cartes statiques (EcoWatt / Proposer).
-      if (extras) {
-        extras.insertAdjacentHTML('beforebegin', html);
-        // Retire les cartes de démonstration de la maquette (gardées en fallback).
-        var demos = grid.querySelectorAll('.card.demo');
-        demos.forEach(function (n) { n.remove(); });
+      if (res.ok) {
+        var sources = await res.json();
+        if (Array.isArray(sources) && sources.length > 0 && extras) {
+          // Sources actives en premier.
+          sources.sort(function (a, b) {
+            return (b.state === 'active' ? 1 : 0) - (a.state === 'active' ? 1 : 0);
+          });
+          extras.insertAdjacentHTML('beforebegin', sources.map(cardHTML).join(''));
+          // Retire les cartes de démonstration (fallback) une fois l'API répondue.
+          g.querySelectorAll('.card.demo').forEach(function (n) { n.remove(); });
+        }
       }
+      // (sinon : les cartes statiques de fallback déjà présentes restent affichées)
     } catch (e) {
       // réseau KO : les cartes statiques restent affichées
     }
+    setupKiosk();
   }
 
   document.addEventListener('DOMContentLoaded', loadSources);
