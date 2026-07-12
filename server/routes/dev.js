@@ -10,6 +10,7 @@ const dns = require('dns').promises;
 const net = require('net');
 const crypto = require('crypto');
 const { pool } = require('../db');
+const { sanitizeCategories } = require('../categories');
 
 const router = express.Router();
 
@@ -215,7 +216,7 @@ function slugify(name) {
 }
 
 router.post('/submit-source', rateLimit, async (req, res) => {
-  const { name, description, manifest_url, github, email } = req.body || {};
+  const { name, description, manifest_url, github, email, categories } = req.body || {};
 
   if (!name || typeof name !== 'string' || !manifest_url || typeof manifest_url !== 'string') {
     return res.status(400).json({ error: 'Champs requis : name et manifest_url' });
@@ -226,6 +227,12 @@ router.post('/submit-source', rateLimit, async (req, res) => {
     if (u.protocol !== 'http:' && u.protocol !== 'https:') throw new Error('proto');
   } catch {
     return res.status(400).json({ error: 'URL de manifeste invalide' });
+  }
+
+  // Catégories : liste fermée, 1 à 3 tags.
+  const cat = sanitizeCategories(categories);
+  if (!cat.ok) {
+    return res.status(400).json({ error: cat.error });
   }
 
   try {
@@ -245,8 +252,8 @@ router.post('/submit-source', rateLimit, async (req, res) => {
     await pool.query(
       `INSERT INTO sources
          (id, name, description, type, badge, enabled, endpoint_url,
-          submitted_by_github, submitted_by_email)
-       VALUES ($1, $2, $3, 'external', 'community', false, $4, $5, $6)`,
+          submitted_by_github, submitted_by_email, categories)
+       VALUES ($1, $2, $3, 'external', 'community', false, $4, $5, $6, $7)`,
       [
         id,
         name.slice(0, 255),
@@ -254,6 +261,7 @@ router.post('/submit-source', rateLimit, async (req, res) => {
         manifest_url,
         github ? String(github).slice(0, 255) : null,
         email ? String(email).slice(0, 255) : null,
+        cat.categories,
       ]
     );
 

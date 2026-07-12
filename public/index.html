@@ -17,10 +17,15 @@
 <header>
   <div class="wrap nav">
     <a class="brand" href="/">labonne<span class="a">alerte</span><span class="bang"><span class="bar"></span><span class="dot"></span></span><span class="fr">fr</span></a>
-    <nav class="nav-right">
-      <a href="#alertes">Alertes</a>
+    <button class="nav-toggle" type="button" aria-label="Ouvrir le menu" aria-expanded="false" aria-controls="nav-menu">
+      <span></span><span></span><span></span>
+    </button>
+    <nav class="nav-right" id="nav-menu">
+      <a href="/mes-alertes">Mes alertes</a>
       <a href="#openalert">OpenAlert</a>
       <a href="https://github.com/Epilouptique/labonnealerte" target="_blank" rel="noopener">GitHub</a>
+      <span class="auth-email" id="auth-email" hidden></span>
+      <a class="btn-login" id="auth-link" href="/mes-alertes">Se connecter</a>
       <button class="theme-btn" type="button" onclick="toggleTheme()" aria-label="Changer de thème">◐</button>
     </nav>
   </div>
@@ -29,7 +34,7 @@
 <section class="hero wrap">
   <h1>Toutes vos alertes,<br><span class="hl">en un clic.</span></h1>
   <p>Vos alertes et rien d'autre. Gratuit, sans spam, sans pub, open source.</p>
-  <div class="kpi"><span class="dot-live"></span> 1 alerte active en ce moment · vérification toutes les 30 min</div>
+  <div class="kpi"><span id="kpi-dot" class="dot-idle"></span> <span id="kpi-text">vérification toutes les 30 min</span></div>
 </section>
 
 <main class="wrap" id="alertes">
@@ -42,39 +47,16 @@
     </label>
     <div class="chips" id="chips" role="group" aria-label="Filtrer par catégorie">
       <button class="chip-f on" type="button" data-cat="all">Toutes <span class="n"></span></button>
-      <button class="chip-f" type="button" data-cat="plans">Bons plans <span class="n"></span></button>
-      <button class="chip-f" type="button" data-cat="risques">Météo &amp; risques <span class="n"></span></button>
-      <button class="chip-f" type="button" data-cat="tech">Tech &amp; domaines <span class="n"></span></button>
     </div>
   </div>
 
   <div class="grid" id="grid">
 
-    <!-- Cartes de démonstration (fallback) : retirées si GET /api/sources répond. -->
-    <div class="card demo" data-cat="plans" data-source-id="leboncoin-livraison">
-      <div class="card-top"><h3>Livraison à 0,99 €</h3><span class="badge official">official</span></div>
-      <p>La promo Mondial Relay de Leboncoin est détectée dès son activation. Fini de rater le bon créneau.</p>
-      <div class="state active"><span class="dot-live"></span> Active en ce moment</div>
-      <button class="sub-btn" type="button">S'abonner</button>
-      <div class="sub-form"><input type="email" placeholder="votre@email.fr" aria-label="Adresse email"><button type="button">OK</button></div>
-      <div class="endpoint">/api/sources/leboncoin-livraison/alert.json</div>
-    </div>
-
-    <div class="card demo" data-cat="risques" data-source-id="vigilance-meteo-05">
-      <div class="card-top"><h3>Vigilance météo — 05</h3><span class="badge official">official</span></div>
-      <p>Alerte en cas de vigilance orange ou rouge dans les Hautes-Alpes. Données officielles Météo-France.</p>
-      <div class="state idle"><span class="dot-idle"></span> Rien à signaler</div>
-      <button class="sub-btn" type="button">S'abonner</button>
-      <div class="sub-form"><input type="email" placeholder="votre@email.fr" aria-label="Adresse email"><button type="button">OK</button></div>
-      <div class="endpoint">/api/sources/vigilance-meteo-05/alert.json</div>
-    </div>
-
-    <div class="card demo" data-cat="tech" data-source-id="doomname">
-      <div class="card-top"><h3>DoomName</h3><span class="badge verified">verified</span></div>
-      <p>Surveillance de disponibilité de noms de domaine.</p>
-      <div class="state partner"><span class="dot-idle"></span> Service partenaire</div>
-      <a class="link-btn" href="https://doomname.com" target="_blank" rel="noopener">Configurer sur doomname.com →</a>
-    </div>
+    <!-- Squelettes de chargement : remplacés dès la réponse de GET /api/sources. -->
+    <div class="card skeleton" aria-hidden="true"><span class="sk sk-title"></span><span class="sk sk-line"></span><span class="sk sk-line short"></span><span class="sk sk-btn"></span></div>
+    <div class="card skeleton" aria-hidden="true"><span class="sk sk-title"></span><span class="sk sk-line"></span><span class="sk sk-line short"></span><span class="sk sk-btn"></span></div>
+    <div class="card skeleton" aria-hidden="true"><span class="sk sk-title"></span><span class="sk sk-line"></span><span class="sk sk-line short"></span><span class="sk sk-btn"></span></div>
+    <div class="card skeleton" aria-hidden="true"><span class="sk sk-title"></span><span class="sk sk-line"></span><span class="sk sk-line short"></span><span class="sk sk-btn"></span></div>
 
     <!-- Carte « Proposer une alerte » — statique, toujours visible.
          Sert aussi d'ancre d'insertion des cartes dynamiques (id static-extras). -->
@@ -117,6 +99,9 @@
   Un projet <a href="https://dahu-concept.fr" target="_blank" rel="noopener">Dahu-Concept</a> · <a href="/mes-alertes">Mes alertes</a> · <a href="https://github.com/Epilouptique/labonnealerte" target="_blank" rel="noopener">Code source</a> · <a href="#">Mentions légales</a>
 </footer>
 
+<script src="/js/session.js"></script>
+<script src="/js/cards.js"></script>
 <script src="/js/site.js"></script>
+<script src="/js/nav.js"></script>
 </body>
 </html>

@@ -47,7 +47,7 @@ function parseDate(value) {
  * @returns {Promise<{ state: 'active'|'inactive', since: Date|null, until: Date|null, message: string|null, url: string }>}
  */
 async function check() {
-  const apiKey = process.env.METEOFRANCE_API_KEY;
+  const apiKey = (process.env.METEOFRANCE_API_KEY || '').trim();
   if (!apiKey) {
     throw new Error('METEOFRANCE_API_KEY absente de l\'environnement');
   }

@@ -39,9 +39,9 @@ html[data-theme="light"] header { background: #ffffff; } /* thème clair : blanc
 .nav-right { display: flex; gap: 20px; align-items: center; font-size: 14px; }
 .nav-right a { color: var(--muted); text-decoration: none; font-weight: 500; }
 .nav-right a:hover { color: var(--ink); }
-/* .theme-btn : fond blanc dans les deux thèmes. */
+/* .theme-btn : meme theme en background dans les deux thèmes. */
 .theme-btn {
-  border: 1px solid var(--line); background: #ffffff; color: #141218;
+  border: 1px solid var(--line); background: #e7e7e7; color: #141218;
   border-radius: 8px; width: 34px; height: 34px; cursor: pointer; font-size: 15px;
 }
 
@@ -98,8 +98,55 @@ html[data-theme="light"] header { background: #ffffff; } /* thème clair : blanc
 .card:hover { box-shadow: var(--shadow); transform: none; }
 /* Cartes masquées : pagination (hidden-more) et filtrage (filtered). */
 .card.hidden-more, .card.filtered { display: none; }
+
+/* ---------- carte recto/verso (flip 3D) ---------- */
+/* La carte-conteneur devient transparente : l'apparence est portée par les faces. */
+.card.flip { padding: 0; background: transparent; box-shadow: none; perspective: 1400px; overflow: visible; }
+.card.flip:hover { box-shadow: none; }
+.card-inner {
+  position: relative; display: grid; min-height: 100%;
+  transform-style: preserve-3d; transition: transform .5s;
+}
+.card.flipped .card-inner { transform: rotateY(180deg); }
+.card-face {
+  grid-area: 1 / 1; display: flex; flex-direction: column; gap: 12px;
+  background: var(--surface); border-radius: 24px; padding: 22px;
+  -webkit-backface-visibility: hidden; backface-visibility: hidden;
+  transition: box-shadow .2s;
+}
+.card.flip:hover .card-face { box-shadow: var(--shadow); }
+.card-front { position: relative; }
+.card-back { transform: rotateY(180deg); }
+@media (prefers-reduced-motion: reduce) { .card-inner { transition: none; } }
+
+/* Sous-titre discret sous le titre (recto). */
+.card-subtitle { font-size: 12px; font-weight: 600; color: var(--muted); margin-top: -6px; }
+
+/* Bouton d'info « ⓘ » (recto) et retour « ↩ » (verso). */
+.flip-btn, .flip-back {
+  position: absolute; top: 16px; right: 16px; z-index: 2;
+  border: none; background: transparent; color: var(--muted);
+  font-size: 16px; line-height: 1; cursor: pointer; padding: 4px; border-radius: 8px;
+}
+.flip-btn:hover, .flip-back:hover { color: var(--amber); }
+
+/* Verso : contenu dev. */
+.card-back { justify-content: flex-start; gap: 14px; }
+.back-head { display: flex; align-items: center; gap: 8px; }
+.back-name { font-size: 14px; font-weight: 700; }
+.back-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.back-tags .tag {
+  font-size: 11px; font-weight: 600; color: var(--amber);
+  background: var(--amber-soft); border-radius: 999px; padding: 3px 10px;
+}
+.back-author { font-size: 12.5px; color: var(--muted); }
+.back-author a { color: var(--amber); text-decoration: none; }
+.back-author a:hover { text-decoration: underline; }
+.back-propose { margin-top: auto; color: var(--amber); font-weight: 600; font-size: 13px; text-decoration: none; }
+.back-propose:hover { text-decoration: underline; }
+
 .card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
-.card h3 { font-size: 16.5px; font-weight: 700; letter-spacing: -0.01em; }
+.card h3 { font-size: 16.5px; font-weight: 700; letter-spacing: -0.01em; padding-right: 22px; }
 .card p { font-size: 13.5px; color: var(--muted); flex: 1; }
 .badge {
   font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700;
@@ -157,8 +204,12 @@ html[data-theme="light"] header { background: #ffffff; } /* thème clair : blanc
 .card.add .plus { font-size: 30px; font-weight: 300; color: var(--amber); }
 .card.add strong { color: var(--ink); }
 .card.add:hover { background: var(--amber-soft); border-color: var(--amber); }
-/* .endpoint masqué (conservé dans le DOM). */
-.endpoint { display: none; }
+/* Endpoint (verso) : cliquable, JetBrains Mono. */
+.endpoint {
+  font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted);
+  word-break: break-all; text-decoration: none; display: block;
+}
+a.endpoint:hover { color: var(--amber); text-decoration: underline; }
 
 /* ---------- pagination ---------- */
 .more-wrap { text-align: center; padding: 4px 0 72px; }
@@ -186,11 +237,100 @@ html[data-theme="light"] header { background: #ffffff; } /* thème clair : blanc
 footer { padding: 36px 0; text-align: center; font-size: 13px; color: var(--muted); }
 footer a { color: var(--muted); }
 
+/* ---------- bouton « Se connecter / déconnecter » ---------- */
+.btn-login {
+  border: none; background: var(--amber); color: #fff;
+  font-weight: 700; font-size: 13.5px; border-radius: 999px;
+  padding: 8px 16px; text-decoration: none; cursor: pointer; font-family: inherit;
+  transition: background .15s;
+}
+.nav-right a.btn-login { color: #fff; }
+.btn-login:hover, .nav-right a.btn-login:hover { background: color-mix(in srgb, var(--amber) 88%, #000); color: #fff; }
+
+/* ---------- menu mobile (hamburger) ---------- */
+.nav-toggle {
+  display: none; background: none; border: none; cursor: pointer;
+  width: 42px; height: 42px; padding: 9px; color: var(--ink);
+  flex-direction: column; justify-content: center; gap: 5px;
+}
+.nav-toggle span {
+  display: block; height: 2px; width: 100%; background: currentColor;
+  border-radius: 2px; transition: transform .2s, opacity .2s;
+}
+.nav-toggle[aria-expanded="true"] span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+.nav-toggle[aria-expanded="true"] span:nth-child(2) { opacity: 0; }
+.nav-toggle[aria-expanded="true"] span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+@media (max-width: 720px) {
+  .nav-toggle { display: inline-flex; }
+  .nav-right {
+    position: absolute; top: 64px; left: 0; right: 0;
+    flex-direction: column; align-items: stretch; gap: 0;
+    background: var(--surface); border-top: 1px solid var(--line);
+    box-shadow: 0 10px 24px rgba(30, 20, 50, .14);
+    padding: 8px 0; display: none;
+  }
+  .nav-right.open { display: flex; }
+  .nav-right a { padding: 13px 24px; }
+  .nav-right .btn-login { margin: 10px 24px; text-align: center; padding: 12px 0; }
+  .nav-right .theme-btn { margin: 6px 24px 10px; }
+  /* Page dev (Veille de nuit) : nav simple, pas de collapse. */
+  body.dev .nav-toggle { display: none; }
+  body.dev .nav-right {
+    position: static; flex-direction: row; display: flex;
+    background: none; box-shadow: none; border: none; padding: 0; gap: 20px;
+  }
+}
+
+/* ---------- email connecté (header) ---------- */
+.auth-email {
+  font-size: 13px; color: var(--muted); font-weight: 600;
+  max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* ---------- toggle switch (mode connecté) ---------- */
+.switch-row { display: flex; align-items: center; gap: 12px; }
+.switch { position: relative; display: inline-block; width: 46px; height: 26px; flex: none; }
+.switch input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+.switch .track {
+  position: absolute; inset: 0; border-radius: 999px; background: var(--line);
+  border: 2px solid color-mix(in srgb, var(--muted) 45%, transparent); transition: background .2s, border-color .2s;
+}
+.switch .thumb {
+  position: absolute; top: 4px; left: 4px; width: 18px; height: 18px; border-radius: 50%;
+  background: var(--surface); box-shadow: 0 1px 3px rgba(0, 0, 0, .35); transition: transform .2s;
+  border: 1px solid color-mix(in srgb, var(--muted) 45%, transparent);
+}
+.switch input:checked ~ .track { background: var(--green); border-color: transparent; }
+.switch input:checked ~ .thumb { transform: translateX(20px); border-color: transparent; }
+.switch input:focus-visible ~ .track { outline: 2px solid var(--amber); outline-offset: 2px; }
+.switch-label { font-size: 13px; font-weight: 600; color: var(--muted); }
+.switch-label.on { color: var(--green); }
+
+/* ---------- squelettes de chargement ---------- */
+.card.skeleton { pointer-events: none; gap: 14px; }
+.sk { display: block; border-radius: 8px; background: color-mix(in srgb, var(--muted) 22%, transparent); }
+.sk-title { height: 18px; width: 60%; }
+.sk-line { height: 12px; width: 100%; }
+.sk-line.short { width: 70%; }
+.sk-btn { height: 40px; width: 100%; border-radius: 10px; margin-top: auto; }
+@keyframes sk-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
+.card.skeleton .sk { animation: sk-pulse 1.4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .card.skeleton .sk { animation: none; } }
+
+/* ---------- erreur de chargement de la grille ---------- */
+.grid-error {
+  grid-column: 1 / -1; text-align: center; color: var(--muted);
+  font-size: 14px; padding: 28px 0;
+}
+
 /* ---------- accessibilité : focus clavier visible ---------- */
 a:focus-visible,
 button:focus-visible,
 input:focus-visible,
 .chip-f:focus-visible,
+.nav-toggle:focus-visible,
+.switch input:focus-visible ~ .track,
 .search:focus-within {
   outline: 2px solid var(--amber);
   outline-offset: 2px;

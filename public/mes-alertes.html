@@ -71,8 +71,12 @@
 <header>
   <div class="wrap nav">
     <a class="brand" href="/">labonne<span class="a">alerte</span><span class="bang"><span class="bar"></span><span class="dot"></span></span><span class="fr">fr</span></a>
-    <nav class="nav-right">
+    <button class="nav-toggle" type="button" aria-label="Ouvrir le menu" aria-expanded="false" aria-controls="nav-menu">
+      <span></span><span></span><span></span>
+    </button>
+    <nav class="nav-right" id="nav-menu">
       <a href="/">← Retour au kiosque</a>
+      <a class="btn-login" id="auth-link" href="/mes-alertes">Se connecter</a>
       <button class="theme-btn" type="button" onclick="toggleTheme()" aria-label="Changer de thème">◐</button>
     </nav>
   </div>
@@ -94,19 +98,12 @@
     </div>
   </section>
 
-  <!-- Vue : gestion (token valide) -->
-  <section id="manage-view" hidden>
-    <div class="ma-head">
-      <h1>Mes alertes</h1>
-      <p>Connecté en tant que <span class="email" id="ma-email"></span></p>
-    </div>
-    <div class="grid" id="ma-grid"></div>
-  </section>
-
   <div class="ma-error" id="ma-loading">Chargement…</div>
 
 </main>
 
+<script src="/js/session.js"></script>
 <script src="/js/myalerts.js"></script>
+<script src="/js/nav.js"></script>
 </body>
 </html>

@@ -18,8 +18,8 @@ async function getToken() {
     return cached.token;
   }
 
-  const id = process.env.RTE_CLIENT_ID;
-  const secret = process.env.RTE_CLIENT_SECRET;
+  const id = (process.env.RTE_CLIENT_ID || '').trim();
+  const secret = (process.env.RTE_CLIENT_SECRET || '').trim();
   if (!id || !secret) {
     throw new Error('RTE_CLIENT_ID / RTE_CLIENT_SECRET absents de l\'environnement');
   }

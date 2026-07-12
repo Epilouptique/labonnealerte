@@ -7,13 +7,14 @@ const router = express.Router();
 router.get('/sources', async (req, res) => {
   try {
     const { rows } = await pool.query(
-      `SELECT s.id, s.name, s.description, s.badge, s.type, s.link_url, s.category,
+      `SELECT s.id, s.name, s.subtitle, s.description, s.badge, s.type, s.link_url,
+              s.categories, s.submitted_by_github,
               CASE WHEN s.type = 'linked' THEN NULL
                    ELSE COALESCE(st.state, 'inactive') END AS state
          FROM sources s
          LEFT JOIN source_states st ON st.source_id = s.id
         WHERE s.enabled = true
-        ORDER BY s.id`
+        ORDER BY s.display_order ASC, s.name ASC`
     );
     res.json(rows);
   } catch (err) {
