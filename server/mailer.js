@@ -8,7 +8,7 @@ const FROM = 'noreply@alert.labonnealerte.fr';
 
 const SITE_URL = 'https://labonnealerte.fr';
 const PROMO_URL = 'https://www.leboncoin.fr/service/bons-plans';
-const MYALERTS_URL = 'https://www.labonnealerte.fr/mes-alertes';
+const MYALERTS_URL = 'https://www.labonnealerte.fr/connexion';
 
 // Pied de mail commun : lien discret vers la gestion des alertes (sans token).
 const MANAGE_TEXT = `\n\n—\nGérer mes alertes : ${MYALERTS_URL}`;

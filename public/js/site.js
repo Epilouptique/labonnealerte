@@ -24,42 +24,35 @@
     try { localStorage.setItem(STORAGE_KEY, next); } catch (e) {}
   };
 
-  /* ---------------- Mode anonyme : abonnement inline ---------------- */
+  /* ---------------- Abonnement : switch dans les deux modes ---------------- */
   var EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-  function showMsg(card, text, kind) {
-    var form = card.querySelector('.sub-form');
+  function rowOf(card) { return card.querySelector('.switch-row'); }
+  function inputOf(card) { var s = card.querySelector('.switch input'); return s; }
+  function setLabel(card, text, on) {
+    var lbl = card.querySelector('.switch-label');
+    if (!lbl) return;
+    lbl.textContent = text;
+    lbl.classList.toggle('on', !!on);
+  }
+  function note(card, text, kind) {
     var existing = card.querySelector('.sub-msg');
     if (existing) existing.remove();
-    if (form) form.style.display = 'none';
+    if (!text) return;
     var el = document.createElement('div');
-    el.className = 'sub-msg ' + kind;
+    el.className = 'sub-msg ' + (kind || 'ok');
     el.textContent = text;
-    (form || card).insertAdjacentElement('afterend', el);
+    card.querySelector('.card-front').appendChild(el);
   }
-
-  async function submitSubscription(card) {
-    var input = card.querySelector('.sub-form input');
-    var email = input ? input.value.trim() : '';
-    var sourceId = card.getAttribute('data-source-id') || undefined;
-    if (!EMAIL_RE.test(email)) {
-      input.focus();
-      input.style.borderColor = 'var(--amber)';
-      return;
-    }
-    var body = sourceId ? { email: email, source_id: sourceId } : { email: email };
-    try {
-      var res = await fetch('/api/subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      });
-      if (res.status === 200) showMsg(card, 'Vérifie tes emails ✉️', 'ok');
-      else if (res.status === 409) showMsg(card, 'Déjà inscrit', 'dup');
-      else showMsg(card, 'Réessaie plus tard', 'err');
-    } catch (e) {
-      showMsg(card, 'Réessaie plus tard', 'err');
-    }
+  // Animation signature : ping vert + illumination verte de la carte.
+  function celebrate(card) {
+    var row = rowOf(card);
+    if (row) row.classList.add('celebrate');
+    card.classList.add('celebrate');
+    setTimeout(function () {
+      if (row) row.classList.remove('celebrate');
+      card.classList.remove('celebrate');
+    }, 700);
   }
 
   // Flip recto/verso — stopPropagation pour ne pas déclencher abonnement/toggle.
@@ -78,36 +71,69 @@
     }
   });
 
-  document.addEventListener('click', function (e) {
-    var reveal = e.target.closest('.sub-btn');
-    if (reveal && !reveal.disabled) {
-      var card = reveal.closest('.card');
-      if (card) card.classList.add('open');
-      var inp = card && card.querySelector('.sub-form input');
-      if (inp) inp.focus();
-      return;
+  /* ---- Mode anonyme : switch → « en attente » + formulaire email ---- */
+  function startPending(card) {
+    cancelAllPending(card);
+    var row = rowOf(card);
+    if (row) row.classList.add('pending');
+    setLabel(card, 'En attente…', false);
+    note(card, '', '');
+    card.classList.add('open');
+    var inp = card.querySelector('.sub-form input');
+    if (inp) { inp.style.borderColor = ''; inp.focus(); }
+  }
+  function cancelPending(card) {
+    var row = rowOf(card);
+    if (row) row.classList.remove('pending');
+    var input = inputOf(card);
+    if (input) input.checked = false;
+    setLabel(card, 'Non abonné', false);
+    card.classList.remove('open');
+    note(card, '', '');
+  }
+  function cancelAllPending(except) {
+    document.querySelectorAll('.switch-row.pending').forEach(function (r) {
+      var c = r.closest('.card');
+      if (c && c !== except) cancelPending(c);
+    });
+  }
+  async function submitAnon(card) {
+    var input = card.querySelector('.sub-form input');
+    var email = input ? input.value.trim() : '';
+    if (!EMAIL_RE.test(email)) { if (input) { input.focus(); input.style.borderColor = 'var(--amber)'; } return; }
+    var sourceId = card.getAttribute('data-source-id') || undefined;
+    var okBtn = card.querySelector('.sub-form button');
+    if (okBtn) okBtn.disabled = true;
+    try {
+      var res = await fetch('/api/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sourceId ? { email: email, source_id: sourceId } : { email: email })
+      });
+      if (res.status === 200 || res.status === 409) {
+        var row = rowOf(card); if (row) row.classList.remove('pending');
+        var chk = inputOf(card); if (chk) chk.checked = true;
+        setLabel(card, 'Abonné', true);
+        card.classList.remove('open');
+        celebrate(card);
+        note(card, res.status === 409 ? 'Déjà inscrit ✓' : 'Vérifie tes emails ✉️', res.status === 409 ? 'dup' : 'ok');
+      } else {
+        cancelPending(card);
+        note(card, 'Réessaie plus tard', 'err');
+      }
+    } catch (e) {
+      cancelPending(card);
+      note(card, 'Réessaie plus tard', 'err');
+    } finally {
+      if (okBtn) okBtn.disabled = false;
     }
-    var ok = e.target.closest('.sub-form button');
-    if (ok) { e.preventDefault(); submitSubscription(ok.closest('.card')); }
-  });
-  document.addEventListener('keydown', function (e) {
-    if (e.key === 'Enter' && e.target.matches('.sub-form input')) {
-      e.preventDefault();
-      submitSubscription(e.target.closest('.card'));
-    }
-  });
+  }
 
-  /* ---------------- Mode connecté : toggles optimistes ---------------- */
-  async function toggleSource(card, input) {
+  /* ---- Mode connecté : toggle optimiste + rollback ---- */
+  async function toggleConnected(card, input) {
     var sourceId = card.getAttribute('data-source-id');
     var desired = input.checked;
-    var lbl = card.querySelector('.switch-label');
-    function paint(on) {
-      if (!lbl) return;
-      lbl.textContent = on ? 'Abonné' : 'Non abonné';
-      lbl.classList.toggle('on', on);
-    }
-    paint(desired);
+    setLabel(card, desired ? 'Abonné' : 'Non abonné', desired);
     input.disabled = true;
     try {
       var res = await fetch('/api/my-alerts/toggle', {
@@ -116,19 +142,56 @@
         body: JSON.stringify({ token: LBASession.get(), source_id: sourceId, subscribed: desired })
       });
       if (!res.ok) throw new Error('http ' + res.status);
+      if (desired) celebrate(card); // célébration seulement à l'abonnement
     } catch (e) {
       input.checked = !desired; // rollback
-      paint(!desired);
+      setLabel(card, !desired ? 'Abonné' : 'Non abonné', !desired);
     } finally {
       input.disabled = false;
     }
   }
 
+  // Aiguillage du switch selon le mode de la page.
   document.addEventListener('change', function (e) {
     var input = e.target.closest('.switch input');
     if (!input) return;
     var card = input.closest('.card');
-    if (card) toggleSource(card, input);
+    if (!card) return;
+    if (document.body.getAttribute('data-mode') === 'connected') {
+      toggleConnected(card, input);
+    } else if (input.checked) {
+      startPending(card);
+    } else {
+      cancelPending(card);
+    }
+  });
+
+  // Soumission du formulaire email (mode anonyme).
+  document.addEventListener('click', function (e) {
+    var ok = e.target.closest('.sub-form button');
+    if (ok) { e.preventDefault(); submitAnon(ok.closest('.card')); }
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && e.target.matches('.sub-form input')) {
+      e.preventDefault();
+      submitAnon(e.target.closest('.card'));
+    }
+    // Entrée sur le switch le bascule (Espace est natif).
+    if (e.key === 'Enter' && e.target.matches('.switch input')) {
+      e.preventDefault();
+      e.target.checked = !e.target.checked;
+      e.target.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    if (e.key === 'Escape') cancelAllPending(null);
+  });
+  // Clic hors d'une carte « en attente » → annulation.
+  document.addEventListener('click', function (e) {
+    var pendingRows = document.querySelectorAll('.switch-row.pending');
+    if (!pendingRows.length) return;
+    pendingRows.forEach(function (r) {
+      var c = r.closest('.card');
+      if (c && !c.contains(e.target)) cancelPending(c);
+    });
   });
 
   /* ---------------- KPI hero ---------------- */

@@ -164,10 +164,18 @@ apiRouter.post('/my-alerts/toggle', async (req, res) => {
 });
 
 /* ------------------------------------------------------------------ */
-/* GET /mes-alertes — page HTML.                                        */
+/* GET /connexion — page HTML de connexion (lien magique).             */
 /* ------------------------------------------------------------------ */
+pagesRouter.get('/connexion', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', '..', 'public', 'connexion.html'));
+});
+
+// Ancienne URL /mes-alertes : redirection permanente vers /connexion,
+// en préservant la query string (les anciens emails ont des liens ?token=...).
 pagesRouter.get('/mes-alertes', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', '..', 'public', 'mes-alertes.html'));
+  const idx = req.originalUrl.indexOf('?');
+  const qs = idx >= 0 ? req.originalUrl.slice(idx) : '';
+  res.redirect(301, '/connexion' + qs);
 });
 
 module.exports = { apiRouter, pagesRouter };

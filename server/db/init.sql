@@ -126,3 +126,7 @@ UPDATE sources SET name = 'EcoWatt', subtitle = 'Tension du réseau électrique'
        categories = ARRAY['energie'], display_order = 30 WHERE id = 'ecowatt';
 UPDATE sources SET name = 'DoomName', subtitle = 'Surveillance de noms de domaine',
        categories = ARRAY['tech'], display_order = 40 WHERE id = 'doomname';
+
+-- Auteur GitHub des sources maison (affiché au verso des cartes).
+UPDATE sources SET submitted_by_github = 'Epilouptique'
+ WHERE id IN ('leboncoin-livraison', 'doomname') AND submitted_by_github IS DISTINCT FROM 'Epilouptique';

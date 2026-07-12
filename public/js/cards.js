@@ -1,7 +1,7 @@
 /* cards.js — rendu partagé des cartes du kiosque (recto/verso).
-   RECTO : grand public (titre, sous-titre, description, état, action).
-   VERSO : dev/curieux (endpoint, tags, auteur, lien proposer).
-   Modes : 'anon' (S'abonner) / 'connected' (switch). Les 'linked' gardent leur lien.
+   RECTO : grand public (titre, sous-titre, description, état, switch/lien).
+   VERSO : dev/curieux (même en-tête titre+badge, endpoint, tags, auteur, lien proposer).
+   Le switch est présent dans les DEUX modes (anon / connected). Les 'linked' gardent leur lien.
    Expose window.LBACards. */
 
 (function () {
@@ -41,40 +41,43 @@
     return s.split('/')[0];
   }
 
-  function switchRow(s) {
-    var sub = !!s.subscribed;
+  // En-tête commun recto/verso : titre + badge (même structure, même taille).
+  function topRow(s) {
+    return '<div class="card-top"><h3>' + esc(s.name) + '</h3>' + badgeFor(s.badge) + '</div>';
+  }
+
+  // Switch d'abonnement. `on` = état coché initial.
+  function switchRow(on) {
     return '' +
       '<label class="switch-row">' +
         '<span class="switch">' +
-          '<input type="checkbox"' + (sub ? ' checked' : '') +
-            ' aria-label="Basculer l\'abonnement à ' + esc(s.name) + '">' +
+          '<input type="checkbox"' + (on ? ' checked' : '') + ' aria-label="Basculer l\'abonnement">' +
           '<span class="track"></span><span class="thumb"></span>' +
         '</span>' +
-        '<span class="switch-label' + (sub ? ' on' : '') + '">' + (sub ? 'Abonné' : 'Non abonné') + '</span>' +
+        '<span class="switch-label' + (on ? ' on' : '') + '">' + (on ? 'Abonné' : 'Non abonné') + '</span>' +
       '</label>';
   }
 
+  // Formulaire email révélé en mode anonyme quand le switch passe « en attente ».
   function subForm() {
-    return '' +
-      '<button class="sub-btn" type="button">S\'abonner</button>' +
-      '<div class="sub-form"><input type="email" placeholder="votre@email.fr" aria-label="Adresse email">' +
+    return '<div class="sub-form"><input type="email" placeholder="votre@email.fr" aria-label="Adresse email">' +
       '<button type="button">OK</button></div>';
   }
 
   function frontFace(s, mode, isLinked) {
-    var action, state;
+    var state, action;
     if (isLinked) {
       state = '<div class="state partner"><span class="dot-idle"></span> Service partenaire</div>';
       action = '<a class="link-btn" href="' + esc(s.link_url) + '" target="_blank" rel="noopener">' +
         'Configurer sur ' + esc(domainOf(s.link_url)) + ' →</a>';
     } else {
       state = stateFor(s.state);
-      action = mode === 'connected' ? switchRow(s) : subForm();
+      action = switchRow(mode === 'connected' && !!s.subscribed) + (mode === 'connected' ? '' : subForm());
     }
     return '' +
       '<div class="card-face card-front">' +
         '<button class="flip-btn" type="button" aria-label="En savoir plus" title="En savoir plus">ⓘ</button>' +
-        '<div class="card-top"><h3>' + esc(s.name) + '</h3>' + badgeFor(s.badge) + '</div>' +
+        topRow(s) +
         (s.subtitle ? '<div class="card-subtitle">' + esc(s.subtitle) + '</div>' : '') +
         '<p>' + esc(s.description || '') + '</p>' +
         state +
@@ -94,7 +97,8 @@
         }).join('') + '</div>'
       : '';
 
-    var author = (s.badge === 'community' && s.submitted_by_github)
+    // Auteur affiché dès qu'un pseudo GitHub est présent (toutes sources).
+    var author = s.submitted_by_github
       ? '<div class="back-author">par <a href="https://github.com/' + esc(s.submitted_by_github) + '" ' +
         'target="_blank" rel="noopener">@' + esc(s.submitted_by_github) + '</a></div>'
       : '';
@@ -102,7 +106,7 @@
     return '' +
       '<div class="card-face card-back">' +
         '<button class="flip-back" type="button" aria-label="Retour" title="Retour">↩</button>' +
-        '<div class="back-head"><span class="back-name">' + esc(s.name) + '</span>' + badgeFor(s.badge) + '</div>' +
+        topRow(s) +
         endpoint + tags + author +
         '<a class="back-propose" href="/proposer">Proposez la vôtre →</a>' +
       '</div>';

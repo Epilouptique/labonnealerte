@@ -1,12 +1,12 @@
-/* myalerts.js — page /mes-alertes : UNIQUEMENT la connexion.
+/* myalerts.js — page /connexion : UNIQUEMENT la connexion (lien magique).
    - arrivée avec ?token=XXX : valider → stocker → nettoyer l'URL → rediriger vers /
    - token valide déjà en localStorage : rediriger vers /
-   - sinon : formulaire d'envoi du lien magique (message « expiré » si besoin) */
+   - sinon : formulaire d'envoi du lien magique (état de succès soigné) */
 
 (function () {
   'use strict';
 
-  /* ---------------- Thème (identique à la home) ---------------- */
+  /* ---------------- Thème (persisté) ---------------- */
   var STORAGE_KEY = 'lba-theme';
   var root = document.documentElement;
   (function () {
@@ -25,29 +25,30 @@
   var S = window.LBASession;
   var URL_TOKEN = new URLSearchParams(window.location.search).get('token');
 
-  var requestView = document.getElementById('request-view');
-  var loading = document.getElementById('ma-loading');
+  var loading = document.getElementById('cx-loading');
+  var view = document.getElementById('cx-view');
+  var card = document.getElementById('cx-card');
 
   function showForm(expired) {
     if (loading) loading.hidden = true;
-    requestView.hidden = false;
-    var banner = document.getElementById('expired-banner');
+    if (view) view.hidden = false;
+    var banner = document.getElementById('cx-expired');
     if (banner) banner.hidden = !expired;
   }
 
   /* ---------------- Formulaire d'envoi du lien ---------------- */
-  var form = document.getElementById('request-form');
-  var reqBtn = document.getElementById('request-btn');
-  var reqMsg = document.getElementById('request-msg');
+  var form = document.getElementById('cx-form');
+  var btn = document.getElementById('cx-btn');
+  var successText = document.getElementById('cx-success-text');
 
   if (form) {
     form.addEventListener('submit', async function (e) {
       e.preventDefault();
       var email = form.email.value.trim();
       if (!email) return;
-      reqBtn.disabled = true;
-      var label = reqBtn.textContent;
-      reqBtn.textContent = 'Envoi…';
+      btn.disabled = true;
+      var label = btn.textContent;
+      btn.textContent = 'Envoi…';
       try {
         var res = await fetch('/api/my-alerts/request', {
           method: 'POST',
@@ -55,19 +56,35 @@
           body: JSON.stringify({ email: email })
         });
         var data = await res.json().catch(function () { return {}; });
-        reqMsg.textContent = res.status === 429
-          ? 'Trop de demandes, réessayez dans une minute.'
-          : (data.message || "Si cet email est inscrit, un lien d'accès vient de lui être envoyé.");
-        reqMsg.hidden = false;
-        if (res.status === 200) form.reset();
+        if (res.status === 429) {
+          btn.disabled = false;
+          btn.textContent = label;
+          if (successText) { /* laisse le formulaire, message inline */ }
+          alertInline('Trop de demandes, réessayez dans une minute.');
+          return;
+        }
+        if (successText && data.message) {
+          successText.textContent = data.message + ' Pensez à vérifier vos spams.';
+        }
+        card.classList.add('sent'); // bascule vers l'état de succès
       } catch (e2) {
-        reqMsg.textContent = 'Erreur réseau, réessayez plus tard.';
-        reqMsg.hidden = false;
-      } finally {
-        reqBtn.disabled = false;
-        reqBtn.textContent = label;
+        btn.disabled = false;
+        btn.textContent = label;
+        alertInline('Erreur réseau, réessayez plus tard.');
       }
     });
+  }
+
+  // Petit message d'erreur inline sous le formulaire (rare).
+  function alertInline(text) {
+    var existing = document.getElementById('cx-inline-err');
+    if (!existing) {
+      existing = document.createElement('p');
+      existing.id = 'cx-inline-err';
+      existing.style.cssText = 'color:var(--amber);font-size:13px;font-weight:600;margin-top:12px';
+      form.insertAdjacentElement('afterend', existing);
+    }
+    existing.textContent = text;
   }
 
   /* ---------------- Aiguillage ---------------- */
@@ -75,13 +92,12 @@
     try {
       var r = await S.fetchAlerts(URL_TOKEN);
       if (r.status === 401 || !r.ok) {
-        // Nettoie l'URL pour retirer le token invalide, puis formulaire « expiré ».
-        history.replaceState(null, '', '/mes-alertes');
+        history.replaceState(null, '', '/connexion');
         showForm(true);
         return;
       }
       S.set(URL_TOKEN);
-      history.replaceState(null, '', '/mes-alertes');
+      history.replaceState(null, '', '/connexion');
       window.location.replace('/'); // accueil connecté
     } catch (e) {
       showForm(false);
@@ -91,8 +107,7 @@
   if (URL_TOKEN) {
     routeMagicLink();
   } else if (S.get()) {
-    // Déjà une session : l'accueil est l'écran de gestion.
-    window.location.replace('/');
+    window.location.replace('/'); // déjà connecté → accueil
   } else {
     showForm(false);
   }

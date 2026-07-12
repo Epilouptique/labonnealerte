@@ -63,7 +63,7 @@
       if (emailEl) { emailEl.hidden = true; emailEl.textContent = ''; }
       if (link) {
         link.textContent = 'Se connecter';
-        link.setAttribute('href', '/mes-alertes');
+        link.setAttribute('href', '/connexion');
         link.onclick = null;
       }
     }

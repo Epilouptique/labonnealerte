@@ -221,6 +221,9 @@ router.post('/submit-source', rateLimit, async (req, res) => {
   if (!name || typeof name !== 'string' || !manifest_url || typeof manifest_url !== 'string') {
     return res.status(400).json({ error: 'Champs requis : name et manifest_url' });
   }
+  if (!description || typeof description !== 'string' || !description.trim()) {
+    return res.status(400).json({ error: 'Une description courte est requise' });
+  }
   try {
     // Refuse une URL de manifeste manifestement invalide.
     const u = new URL(manifest_url);

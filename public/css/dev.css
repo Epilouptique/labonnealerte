@@ -110,14 +110,37 @@ body.dev .submit-form input, body.dev .submit-form textarea {
   border-radius: 9px; padding: 10px 13px; font: inherit; font-size: 14px;
 }
 body.dev .submit-form textarea { resize: vertical; min-height: 66px; }
-body.dev .cat-field { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
-body.dev .cat-field legend { font-size: 13px; font-weight: 600; color: var(--muted); padding: 0 6px; }
+/* Champ de tags catégories (autocomplétion, pastilles). */
+body.dev .tags-field { display: grid; gap: 6px; }
+body.dev .tags-legend { font-size: 13px; font-weight: 600; color: var(--muted); }
 body.dev .cat-hint { font-weight: 400; opacity: .7; }
-body.dev .cat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; margin-top: 4px; }
-body.dev .cat-check { display: flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 500; color: var(--ink); cursor: pointer; }
-body.dev .cat-check input { width: 16px; height: 16px; accent-color: var(--amber); cursor: pointer; }
-body.dev .cat-check input:disabled { cursor: not-allowed; }
-body.dev .cat-check input:disabled + * { opacity: .5; }
+body.dev .tags-box {
+  position: relative; display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+  border: 1px solid var(--line); border-radius: 12px; background: var(--bg); padding: 8px 10px;
+}
+body.dev .tags-box.full { opacity: .85; }
+body.dev .tag-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: var(--surface); border: 1px solid var(--line); color: var(--ink);
+  border-radius: 999px; padding: 4px 4px 4px 12px; font-size: 13px; font-weight: 600;
+}
+body.dev .pill-x {
+  border: none; background: none; color: var(--muted); cursor: pointer;
+  font-size: 16px; line-height: 1; padding: 0 5px; border-radius: 50%;
+}
+body.dev .pill-x:hover { color: var(--amber); }
+body.dev #tag-entry {
+  flex: 1; min-width: 130px; border: none; background: transparent; color: var(--ink);
+  font: inherit; font-size: 14px; outline: none; padding: 4px;
+}
+body.dev #tag-entry:disabled { cursor: not-allowed; }
+body.dev .tags-suggest {
+  position: absolute; top: 100%; left: 0; right: 0; z-index: 5; margin-top: 4px;
+  list-style: none; padding: 4px; background: var(--surface); border: 1px solid var(--line);
+  border-radius: 12px; box-shadow: 0 8px 24px rgba(0, 0, 0, .35); max-height: 210px; overflow: auto;
+}
+body.dev .tags-suggest li { padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 14px; color: var(--ink); }
+body.dev .tags-suggest li:hover { background: var(--bg); color: var(--amber); }
 body.dev .submit-note { margin-top: 14px; font-size: 13px; color: var(--muted); }
 body.dev .submit-msg { margin-top: 16px; font-size: 14px; font-weight: 600; }
 body.dev .submit-msg.ok { color: var(--green); }

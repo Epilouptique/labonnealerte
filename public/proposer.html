@@ -82,29 +82,26 @@
       <label>Nom de la source *
         <input type="text" name="name" required maxlength="120" placeholder="Ex. Retour en stock — Console XYZ">
       </label>
-      <label>Description courte
-        <textarea name="description" maxlength="300" placeholder="Ce que votre source détecte, en une phrase."></textarea>
+      <label>Description courte *
+        <textarea name="description" required maxlength="300" placeholder="Ce que votre source détecte, en une phrase."></textarea>
       </label>
       <label>URL du manifeste *
         <input type="url" name="manifest_url" required placeholder="https://votre-service.fr/alert.json">
       </label>
-      <label>Pseudo GitHub (optionnel)
+      <div class="tags-field">
+        <span class="tags-legend">Catégories * <span class="cat-hint">(1 à 3)</span></span>
+        <div class="tags-box" id="tags-box">
+          <span id="tags-pills"></span>
+          <input type="text" id="tag-entry" autocomplete="off" placeholder="Ajouter une catégorie…" aria-label="Ajouter une catégorie">
+          <ul class="tags-suggest" id="tags-suggest" role="listbox" hidden></ul>
+        </div>
+      </div>
+      <label>Pseudo GitHub
         <input type="text" name="github" maxlength="100" placeholder="votre-pseudo">
       </label>
       <label>Email de contact
         <input type="email" name="email" maxlength="200" placeholder="vous@exemple.fr">
       </label>
-      <fieldset class="cat-field" id="cat-field">
-        <legend>Catégories * <span class="cat-hint">(1 à 3)</span></legend>
-        <div class="cat-grid">
-          <label class="cat-check"><input type="checkbox" name="categories" value="bons-plans"> Bons plans</label>
-          <label class="cat-check"><input type="checkbox" name="categories" value="meteo-risques"> Météo &amp; risques</label>
-          <label class="cat-check"><input type="checkbox" name="categories" value="energie"> Énergie</label>
-          <label class="cat-check"><input type="checkbox" name="categories" value="tech"> Tech</label>
-          <label class="cat-check"><input type="checkbox" name="categories" value="transports"> Transports</label>
-          <label class="cat-check"><input type="checkbox" name="categories" value="autre"> Autre</label>
-        </div>
-      </fieldset>
       <div>
         <button class="dev-btn" id="submit-btn" type="submit">Soumettre ma source</button>
       </div>
@@ -210,32 +207,102 @@
     if (e.key === 'Enter') { e.preventDefault(); validate(); }
   });
 
+  /* ---------- Champ de tags catégories (autocomplétion, max 3) ---------- */
+  var MAX_CATS = 3;
+  var PRESET = [
+    { slug: 'bons-plans', label: 'Bons plans' },
+    { slug: 'meteo-risques', label: 'Météo & risques' },
+    { slug: 'energie', label: 'Énergie' },
+    { slug: 'tech', label: 'Tech' },
+    { slug: 'transports', label: 'Transports' },
+    { slug: 'autre', label: 'Autre' }
+  ];
+  var selected = [];
+  var pills = document.getElementById('tags-pills');
+  var entry = document.getElementById('tag-entry');
+  var suggest = document.getElementById('tags-suggest');
+  var tagsBox = document.getElementById('tags-box');
+
+  function slugify(s) {
+    return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30);
+  }
+  function labelFor(slug) {
+    var p = PRESET.filter(function (x) { return x.slug === slug; })[0];
+    return p ? p.label : slug;
+  }
+  function hideSuggest() { suggest.hidden = true; suggest.innerHTML = ''; }
+  function renderPills() {
+    pills.innerHTML = selected.map(function (s) {
+      return '<span class="tag-pill" data-slug="' + esc(s) + '">' + esc(labelFor(s)) +
+        '<button type="button" class="pill-x" aria-label="Retirer ' + esc(labelFor(s)) + '">×</button></span>';
+    }).join('');
+    var atMax = selected.length >= MAX_CATS;
+    entry.disabled = atMax;
+    entry.placeholder = atMax ? '' : (selected.length ? 'Ajouter…' : 'Ajouter une catégorie…');
+    tagsBox.classList.toggle('full', atMax);
+  }
+  function addTag(slug) {
+    slug = slugify(slug);
+    if (!slug || selected.length >= MAX_CATS) { entry.value = ''; hideSuggest(); return; } // refus silencieux
+    if (selected.indexOf(slug) === -1) selected.push(slug);
+    entry.value = '';
+    renderPills(); hideSuggest();
+  }
+  function removeTag(slug) { selected = selected.filter(function (s) { return s !== slug; }); renderPills(); }
+
+  function renderSuggest() {
+    var raw = entry.value.trim().toLowerCase();
+    var q = slugify(entry.value);
+    if (!raw || selected.length >= MAX_CATS) { hideSuggest(); return; }
+    var matches = PRESET.filter(function (p) {
+      return selected.indexOf(p.slug) === -1 &&
+        (p.slug.indexOf(q) !== -1 || p.label.toLowerCase().indexOf(raw) !== -1);
+    });
+    if (!matches.length) { hideSuggest(); return; }
+    suggest.innerHTML = matches.map(function (p) {
+      return '<li role="option" data-slug="' + p.slug + '">' + esc(p.label) + '</li>';
+    }).join('');
+    suggest.hidden = false;
+  }
+
+  entry.addEventListener('input', renderSuggest);
+  entry.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      var first = suggest.hidden ? null : suggest.querySelector('li');
+      if (first) addTag(first.getAttribute('data-slug'));
+      else if (entry.value.trim()) addTag(entry.value); // tag libre
+    } else if (e.key === 'Backspace' && !entry.value && selected.length) {
+      removeTag(selected[selected.length - 1]);
+    } else if (e.key === 'Escape') {
+      hideSuggest();
+    }
+  });
+  suggest.addEventListener('click', function (e) {
+    var li = e.target.closest('li[data-slug]');
+    if (li) { addTag(li.getAttribute('data-slug')); entry.focus(); }
+  });
+  pills.addEventListener('click', function (e) {
+    var x = e.target.closest('.pill-x');
+    if (x) removeTag(x.parentNode.getAttribute('data-slug'));
+  });
+  document.addEventListener('click', function (e) {
+    if (!tagsBox.contains(e.target)) hideSuggest();
+  });
+
   /* ---------- Soumission de la source ---------- */
   var form = document.getElementById('submit-form');
   var submitBtn = document.getElementById('submit-btn');
   var submitMsg = document.getElementById('submit-msg');
-  var MAX_CATS = 3;
-
-  function catBoxes() {
-    return Array.prototype.slice.call(form.querySelectorAll('input[name="categories"]'));
-  }
-  function checkedCats() {
-    return catBoxes().filter(function (b) { return b.checked; }).map(function (b) { return b.value; });
-  }
-  // Empêche de cocher plus de 3 catégories (désactive les cases restantes).
-  form.addEventListener('change', function (e) {
-    if (!e.target.matches('input[name="categories"]')) return;
-    var atMax = checkedCats().length >= MAX_CATS;
-    catBoxes().forEach(function (b) { if (!b.checked) b.disabled = atMax; });
-  });
 
   form.addEventListener('submit', async function (e) {
     e.preventDefault();
-    var cats = checkedCats();
-    if (cats.length < 1) {
+    if (selected.length < 1) {
       submitMsg.className = 'submit-msg err';
       submitMsg.textContent = 'Choisissez au moins une catégorie (3 maximum).';
       submitMsg.hidden = false;
+      entry.focus();
       return;
     }
     var fd = new FormData(form);
@@ -245,7 +312,7 @@
       manifest_url: (fd.get('manifest_url') || '').trim(),
       github: (fd.get('github') || '').trim(),
       email: (fd.get('email') || '').trim(),
-      categories: cats
+      categories: selected.slice()
     };
 
     submitBtn.disabled = true;
@@ -264,7 +331,8 @@
         submitMsg.className = 'submit-msg ok';
         submitMsg.textContent = data.message || 'Merci ! Votre source sera examinée manuellement avant publication.';
         form.reset();
-        catBoxes().forEach(function (b) { b.disabled = false; });
+        selected = [];
+        renderPills();
       } else if (res.status === 429) {
         submitMsg.className = 'submit-msg err';
         submitMsg.textContent = 'Trop de requêtes, réessayez dans une minute.';
@@ -281,7 +349,10 @@
       submitBtn.textContent = label;
     }
   });
+
+  renderPills();
 })();
 </script>
+<script src="/js/copy.js"></script>
 </body>
 </html>
