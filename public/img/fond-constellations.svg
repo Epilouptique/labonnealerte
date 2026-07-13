@@ -1,11 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 600" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
   <!--
-    Fond « constellations & montagnes » — La Bonne Alerte
-    - Étoiles : mêmes points que le fond pointillé (rayon ~1.4), violet discret.
-    - Liens : traits fins violets, opacité faible, pour s'incruster dans le motif --dot.
-    - Signal : la dernière étoile de la constellation de droite est verte et "ping".
-    - Montagnes : silhouette Hautes-Alpes en bas, très légère.
-    Couleurs codées en dur (un SVG en background-image ne lit pas les variables CSS).
+    Fond constellations et montagnes, La Bonne Alerte.
+    Etoiles : memes points que le fond pointille (rayon ~1.4), violet discret.
+    Liens : traits fins violets, opacite faible, pour s'incruster dans le motif de points.
+    Signal : la derniere etoile de la constellation de droite est verte et "ping".
+    Montagnes : silhouette Hautes-Alpes en bas, tres legere.
+    Couleurs codees en dur (un SVG en background-image ne lit pas les variables CSS).
     Version claire ; dupliquer avec les valeurs sombres si besoin (voir CSS fourni).
   -->
   <defs>
