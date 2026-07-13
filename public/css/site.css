@@ -263,7 +263,7 @@ a.endpoint:hover { color: var(--amber); text-decoration: underline; }
 .code .s { color: var(--green); }
 
 /* Bouton de copie sur les blocs de code (icône discrète, coin haut droit). */
-.code-wrap { position: relative; }
+.code-wrap { position: relative; max-width: 600px;}
 .copy-btn {
   position: absolute; top: 10px; right: 10px; z-index: 2;
   border: none; border-radius: 8px; cursor: pointer;
@@ -441,4 +441,11 @@ input:focus-visible,
     left: max(-220px, calc(-1 * ((100vw - 1060px) / 2 - 24px)));
     width: min(180px, calc((100vw - 1060px) / 2 - 36px));
   }
+}
+/* Fond constellations & montagnes (test) */
+.hero::after {
+  content: "";
+  position: absolute; inset: 0; z-index: -1;
+  background: url('/img/fond-constellations.svg') bottom center / cover no-repeat;
+  pointer-events: none;
 }
