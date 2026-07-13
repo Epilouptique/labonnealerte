@@ -62,6 +62,10 @@
     var emailEl = document.getElementById('auth-email');
     var logged = !!get();
 
+    // B) Lien « OpenAlert » masqué en mode connecté (expérience 100% consommateur).
+    var oa = document.getElementById('nav-openalert');
+    if (oa) oa.hidden = logged;
+
     if (logged) {
       if (emailEl) {
         var name = firstName(email);

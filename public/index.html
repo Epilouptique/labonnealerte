@@ -22,7 +22,7 @@
     </button>
     <nav class="nav-right" id="nav-menu">
       <a class="mine-link" href="/connexion">Mes alertes</a>
-      <a href="#openalert">OpenAlert</a>
+      <a id="nav-openalert" href="#openalert">OpenAlert</a>
       <span class="auth-email" id="auth-email" hidden></span>
       <a class="btn-login" id="auth-link" href="/connexion">Se connecter</a>
       <button class="theme-btn" type="button" onclick="toggleTheme()" aria-label="Changer de thème">◐</button>
@@ -48,6 +48,9 @@
       <button class="chip-f on" type="button" data-cat="all">Toutes <span class="n"></span></button>
     </div>
   </div>
+
+  <!-- I) 2e ligne de catégories : hors de .toolbar → la barre de recherche ne bouge plus -->
+  <div class="chips-secondary-wrap" id="chips-secondary-wrap"></div>
 
   <div class="grid" id="grid">
 
@@ -77,26 +80,28 @@
   </div>
 </main>
 
-<!-- A) Bloc stats marketing -->
-<section class="stats-section wrap" id="stats">
-  <div class="section-label">// en chiffres</div>
-  <div class="stats-grid">
-    <div class="stats-tile" id="stats-tile" aria-live="polite">
-      <div class="stats-eyebrow">Ce mois-ci sur labonnealerte</div>
-      <div class="stats-lines" id="stats-lines"></div>
-    </div>
-    <div class="stats-copy">
-      <h2>La vigilance en continu.<br>Vous, tranquille.</h2>
-      <p>Nos détecteurs surveillent chaque source sans relâche, jour et nuit. Vous ne recevez un email que lorsque ça compte vraiment — jamais pour meubler.</p>
-      <p>Gratuit, ouvert, sans pub et sans revente de données. Choisissez vos alertes, on s'occupe du reste.</p>
-      <a class="stats-cta" href="#alertes">Choisir mes alertes →</a>
+<!-- A/E) Bloc stats marketing — bandeau pleine largeur -->
+<section class="stats-section" id="stats">
+  <div class="wrap">
+    <div class="section-label">// en chiffres</div>
+    <div class="stats-grid">
+      <div class="stats-tile" id="stats-tile" aria-live="polite">
+        <div class="stats-eyebrow">Ce mois-ci sur labonnealerte</div>
+        <div class="stats-lines" id="stats-lines"></div>
+      </div>
+      <div class="stats-copy">
+        <h2>La vigilance en continu.<br>Vous, tranquille.</h2>
+        <p>Nos détecteurs surveillent chaque source sans relâche, jour et nuit. Vous ne recevez un email que lorsque ça compte vraiment — jamais pour meubler.</p>
+        <p>Gratuit, ouvert, sans pub et sans revente de données. Choisissez vos alertes, on s'occupe du reste.</p>
+        <a class="stats-cta" href="#alertes">Choisir mes alertes →</a>
+      </div>
     </div>
   </div>
 </section>
 
 <!-- B) Historique connecté (remplace le bloc dev en mode connecté) -->
 <section class="hist-section wrap" id="history-section" hidden>
-  <div class="section-label">// votre historique</div>
+  <div class="section-label">Mon historique</div>
   <div id="history-timeline"></div>
   <div id="history-empty" class="history-empty" hidden>
     Votre historique est vide — abonnez-vous à une première alerte ci-dessus, on s'occupe du reste.
@@ -126,13 +131,14 @@
 
 <footer>
   La Bonne Alerte — gratuit, open-source (MIT), sans spam, rien de caché.<br>
-  Un projet <a href="https://dahu-concept.fr" target="_blank" rel="noopener">Dahu-Concept</a> · <a href="/a-propos">À propos</a> · <a href="/soutenir">Nous soutenir</a> · <a class="mine-link" href="/connexion">Mes alertes</a> · <a href="https://github.com/Epilouptique/labonnealerte" target="_blank" rel="noopener">Code source</a>
+  Un projet <a href="https://dahu-concept.fr" target="_blank" rel="noopener">Dahu-Concept</a> · <a href="/a-propos">À propos</a> · <a href="/soutenir">Nous soutenir</a> · <a href="/proposer">Espace développeur</a> · <a href="https://github.com/Epilouptique/labonnealerte" target="_blank" rel="noopener">Code source</a>
 </footer>
 
 <script src="/js/session.js"></script>
 <script src="/js/categories.js"></script>
 <script src="/js/cards.js"></script>
 <script src="/js/timeline.js"></script>
+<script src="/js/share.js"></script>
 <script src="/js/site.js"></script>
 <script src="/js/nav.js"></script>
 <script src="/js/copy.js"></script>

@@ -20,10 +20,16 @@
     });
   }
 
+  var BADGE_ICON = '<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">' +
+    '<circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/>' +
+    '<path d="M8.4 12.4l2.3 2.3 4.9-4.9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+  // Badge = icône compacte (coche cerclée). official/verified → accent ; community → muted.
   function badgeFor(badge) {
     var b = (badge || 'community').toLowerCase();
     if (b !== 'official' && b !== 'verified' && b !== 'community') b = 'community';
-    return '<span class="badge ' + b + '">' + BADGE_LABEL[b] + '</span>';
+    var title = (b === 'community') ? 'Source communautaire' : 'Source vérifiée';
+    return '<span class="badge-ic ' + b + '" title="' + title + '" role="img" aria-label="' + title + '">' + BADGE_ICON + '</span>';
   }
 
   function stateFor(state) {
@@ -107,7 +113,7 @@
 
     // Lien vers la page de statut (pas pour les sources liées : doomname n'en a pas).
     var statut = isLinked ? ''
-      : '<a class="back-statut" href="/source/' + esc(s.id) + '/statut">Voir le statut et l\'historique →</a>';
+      : '<a class="back-statut" href="/source/' + esc(s.id) + '/statut">Statut &amp; historique →</a>';
 
     return '' +
       '<div class="card-face card-back">' +

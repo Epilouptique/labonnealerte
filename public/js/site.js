@@ -60,7 +60,7 @@
     }, 700);
   }
 
-  // Partage d'une carte — navigator.share (mobile) ou copie du lien statut.
+  // Partage d'une carte — popover d'options (stopPropagation : pas de flip).
   document.addEventListener('click', function (e) {
     var sb = e.target.closest('.card-share');
     if (!sb) return;
@@ -71,14 +71,56 @@
     var h3 = card.querySelector('h3');
     var name = h3 ? h3.textContent : 'La Bonne Alerte';
     var url = 'https://www.labonnealerte.fr/source/' + id + '/statut';
-    if (navigator.share) {
-      navigator.share({ title: name, text: name, url: url }).catch(function () {});
-    } else {
-      var done = function () { sb.classList.add('copied'); setTimeout(function () { sb.classList.remove('copied'); }, 1500); };
-      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(done, done);
-      else done();
-    }
+    if (window.LBAShare) LBAShare.open(sb, name, url);
   });
+
+  // D) Ignorer la recommandation → départ animé + mémorisé pour la session.
+  document.addEventListener('click', function (e) {
+    var x = e.target.closest('.reco-x');
+    if (!x) return;
+    e.preventDefault(); e.stopPropagation();
+    var card = x.closest('.card.reco');
+    if (!card) return;
+    try { sessionStorage.setItem('lba-reco-dismissed', '1'); } catch (e2) {}
+    if (REDUCE) { card.remove(); return; }
+    card.style.transition = 'transform .22s ease, opacity .22s ease';
+    card.style.transform = 'translateX(24px) scale(.97)';
+    card.style.opacity = '0';
+    setTimeout(function () { card.remove(); }, 230);
+  });
+
+  // Sélectionne la meilleure source à recommander (connecté, sources non suivies).
+  function pickReco(sources, subMap) {
+    try { if (sessionStorage.getItem('lba-reco-dismissed')) return null; } catch (e) {}
+    var followedCats = {};
+    sources.forEach(function (s) {
+      if (subMap[s.id]) (s.categories || []).forEach(function (c) { followedCats[c] = true; });
+    });
+    var candidates = sources.filter(function (s) { return s.type !== 'linked' && !subMap[s.id]; });
+    if (!candidates.length) return null;
+    var maxSub = 0;
+    candidates.forEach(function (s) { maxSub = Math.max(maxSub, s.subscriber_count || 0); });
+    var now = Date.now();
+    candidates.forEach(function (s) {
+      var common = (s.categories || []).filter(function (c) { return followedCats[c]; }).length;
+      var recent = (s.last_activated_at && (now - new Date(s.last_activated_at).getTime()) < 30 * 86400000) ? 1 : 0;
+      var pop = maxSub > 0 ? (s.subscriber_count || 0) / maxSub : 0;
+      s._score = 3 * common + 2 * recent + 1 * pop;
+    });
+    candidates.sort(function (a, b) { return b._score - a._score || (b.subscriber_count || 0) - (a.subscriber_count || 0); });
+    return candidates[0];
+  }
+
+  // Insère la carte de recommandation en fin de grille (avant la carte Proposer masquée).
+  function renderReco(g, extras, reco) {
+    if (!reco || !extras) return;
+    var label = '<span class="reco-label">Recommandée pour vous ' +
+      '<button type="button" class="reco-x" aria-label="Ignorer la recommandation">×</button></span>';
+    var rc = LBACards.cardHTML(reco, 'connected')
+      .replace('class="card flip"', 'class="card flip reco"')
+      .replace('<div class="card-inner">', label + '<div class="card-inner">');
+    extras.insertAdjacentHTML('beforebegin', rc);
+  }
 
   // Flip recto/verso — stopPropagation pour ne pas déclencher abonnement/toggle.
   document.addEventListener('click', function (e) {
@@ -232,6 +274,17 @@
       : (n === 1 ? '1 alerte active en ce moment' : n + ' alertes actives en ce moment');
   }
 
+  // KPI personnalisé (connecté) : alertes actives PARMI les abonnements.
+  function updateKPIMine(n) {
+    var dot = document.getElementById('kpi-dot');
+    var txt = document.getElementById('kpi-text');
+    if (!dot || !txt) return;
+    dot.className = n > 0 ? 'dot-live' : 'dot-idle';
+    txt.textContent = n === 0
+      ? "Aucune de vos alertes n'est active — tout est calme"
+      : (n === 1 ? '1 de vos alertes est active en ce moment' : n + ' de vos alertes sont actives en ce moment');
+  }
+
   /* ---------------- Kiosque : recherche + catégories + pagination ---------------- */
   var esc = LBACards.esc;
   var INITIAL = 6, STEP = 9;
@@ -276,9 +329,12 @@
 
     var sec = secondary.map(function (s) { return chip(s, LBACat.label(s), counts[s]); }).join('');
     // La 2e ligne est fermée par défaut (CSS max-height:0), ouverte via .open.
+    // Elle est rendue HORS de .toolbar pour ne pas décaler la barre de recherche (I).
     secondaryOpen = false;
-    chipsEl.innerHTML = '<div class="chips-row" id="chips-primary">' + prim + '</div>' +
-      (secondary.length ? '<div class="chips-row chips-more" id="chips-secondary">' + sec + '</div>' : '');
+    chipsEl.innerHTML = '<div class="chips-row" id="chips-primary">' + prim + '</div>';
+    var secWrap = document.getElementById('chips-secondary-wrap');
+    if (secWrap) secWrap.innerHTML = secondary.length
+      ? '<div class="chips-row chips-more" id="chips-secondary">' + sec + '</div>' : '';
   }
 
   function computeShow() {
@@ -286,6 +342,8 @@
     var searching = q.length > 0 || cat !== 'all';
     var idx = 0, hiddenMore = 0;
     cards.forEach(function (c) {
+      // La carte de recommandation reste toujours visible, en fin de grille (comme Proposer).
+      if (c.classList.contains('reco')) { c._elig = true; c._show = true; return; }
       var elig = matches(c, q);
       var show;
       if (!elig) show = false;
@@ -441,7 +499,7 @@
     qInput = document.getElementById('q');
     if (!grid || !moreBtn || !qInput) return;
     cards = Array.prototype.slice.call(grid.querySelectorAll('.card[data-cats]'));
-    addCard = grid.querySelector('.card.add');
+    addCard = grid.querySelector('.card.add:not(.reco-hidden)'); // Proposer masquée en mode connecté
     renderChips(mode);
 
     var meb = document.getElementById('mine-empty-btn');
@@ -453,7 +511,7 @@
       searchTimer = setTimeout(function () { apply(true); }, 120);
     });
 
-    document.getElementById('chips').addEventListener('click', function (e) {
+    function onChipClick(e) {
       var toggle = e.target.closest('.chip-more-toggle');
       if (toggle) {
         var sec = document.getElementById('chips-secondary');
@@ -463,7 +521,10 @@
       var b = e.target.closest('.chip-f');
       if (!b || b.classList.contains('chip-more-toggle')) return;
       selectChip(b.dataset.cat);
-    });
+    }
+    document.getElementById('chips').addEventListener('click', onChipClick);
+    var secWrap = document.getElementById('chips-secondary-wrap');
+    if (secWrap) secWrap.addEventListener('click', onChipClick);
 
     moreBtn.addEventListener('click', function () { visibleLimit += STEP; apply(true); });
 
@@ -507,7 +568,7 @@
         '<div class="stat-big">' + checks + '</div>' +
         '<div class="stat-cap">vérifications effectuées</div>' +
         '<div class="stat-mid">' + alerts + ' <span class="stat-cap-inline">alertes déclenchées</span></div>' +
-        '<div class="stat-spam"><span class="zero">0</span> spam, comme promis</div>';
+        '<div class="stat-spam"><span class="zero">0</span> <span class="spam-cap">spam, comme promis</span></div>';
       // TODO : quand emails_this_month sera significatif, ajouter ici une ligne
       //        '<div class="stat-mid">' + emails + ' notifications envoyées</div>' (d.emails_this_month).
     } catch (e) { /* silencieux */ }
@@ -589,8 +650,20 @@
     removeSkeletons(g);
     if (extras) extras.insertAdjacentHTML('beforebegin', html);
 
+    // D) Connecté : carte Proposer masquée, remplacée par une recommandation.
+    if (mode === 'connected') {
+      if (extras) extras.classList.add('reco-hidden');
+      renderReco(g, extras, pickReco(sources, subMap));
+    }
+
     document.body.setAttribute('data-mode', mode);
-    updateKPI(sources);
+    if (mode === 'connected') {
+      // D) KPI personnalisé : actives parmi les abonnements.
+      var mineActive = sources.filter(function (s) { return subMap[s.id] && s.state === 'active'; }).length;
+      updateKPIMine(mineActive);
+    } else {
+      updateKPI(sources);
+    }
     LBASession.renderHeader(email);
     setupKiosk(mode);
     bindMineLinks();

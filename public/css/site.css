@@ -436,7 +436,9 @@ input:focus-visible,
 /* ---------- Volet H : labels de section dans la marge gauche (grand écran) ---------- */
 @media (min-width: 1280px) {
   body:not(.dev) main.wrap,
-  body:not(.dev) .devs .wrap { position: relative; }
+  body:not(.dev) .devs .wrap,
+  body:not(.dev) .stats-section .wrap,
+  body:not(.dev) .hist-section { position: relative; }
   body:not(.dev) .section-label {
     position: absolute; top: 2px; margin: 0; text-align: right;
     left: max(-220px, calc(-1 * ((100vw - 1060px) / 2 - 24px)));
@@ -444,12 +446,42 @@ input:focus-visible,
   }
 }
 /* Fond constellations & montagnes (test) */
+/*
 .hero::after {
   content: "";
   position: absolute; inset: 0; z-index: -1;
   background: url('/img/fond-constellations.svg') bottom center / cover no-repeat;
   pointer-events: none;
 }
+*/
+
+/* Fond constellations — pleine largeur, hauteur du hero */
+.hero::after {
+  content: "";
+  position: absolute;
+  top: 0; bottom: 0;
+  left: 50%;
+  width: 100vw;
+  margin-left: -50vw;
+  z-index: -1;
+  background: url('/img/fond-constellations.svg') bottom center / cover no-repeat;
+  pointer-events: none;
+}
+
+/*
+body {
+
+  background-image:
+    url('/img/fond-constellations.svg'),
+    radial-gradient(var(--dot) 1.2px, transparent 1.7px);
+  background-size: cover, 30px 30px;
+  background-position: bottom center, 0 0;
+  background-repeat: no-repeat, repeat;
+  background-attachment: fixed, scroll;
+}
+*/
+
+
 /* ---------- Chantier confiance & transparence ---------- */
 /* Bouton partager (recto des cartes + page statut). */
 .share-btn { border: none; background: transparent; color: var(--muted); cursor: pointer; padding: 4px; border-radius: 8px; line-height: 0; display: inline-flex; }
@@ -578,3 +610,73 @@ html { scroll-padding-top: 84px; }
 @media (min-width: 1280px) {
   body:not(.dev) main#alertes.wrap > .section-label { top: 20px; }
 }
+
+/* ---------- Chantier retouches A-K ---------- */
+/* A) popover de partage */
+.share-pop {
+  position: absolute; z-index: 1000; width: 300px; max-width: calc(100vw - 24px);
+  background: var(--surface); color: var(--ink); border-radius: 24px; padding: 14px;
+  box-shadow: 0 14px 44px rgba(30, 20, 50, .24), 0 2px 8px rgba(30, 20, 50, .12);
+}
+.share-pop-head { display: flex; align-items: center; justify-content: space-between; font-weight: 700; font-size: 14px; padding: 2px 4px 10px; }
+.share-close { border: none; background: none; font-size: 22px; line-height: 1; color: var(--muted); cursor: pointer; padding: 0 4px; }
+.share-close:hover { color: var(--ink); }
+.share-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.share-opt {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; text-decoration: none;
+  color: var(--ink); border: none; background: none; cursor: pointer; padding: 10px 4px; border-radius: 14px; font-family: inherit;
+}
+.share-opt:hover { background: var(--bg); }
+.share-ic { color: var(--amber); display: inline-flex; }
+.share-lbl { font-size: 11px; color: var(--muted); font-weight: 600; text-align: center; line-height: 1.2; }
+.share-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, .45); z-index: 999; }
+.share-pop.sheet {
+  position: fixed; left: 0; right: 0; bottom: 0; top: auto; width: 100%; max-width: none;
+  border-radius: 24px 24px 0 0; padding: 18px 18px calc(18px + env(safe-area-inset-bottom, 0px));
+}
+
+/* F) badge → icône */
+.badge-ic { display: inline-flex; flex: none; line-height: 0; }
+.badge-ic.official, .badge-ic.verified { color: var(--amber); }
+.badge-ic.community { color: var(--muted); }
+.card-front .card-top, .card-back .card-top, .src-head-top { align-items: center; }
+
+/* E) bandeau stats pleine largeur */
+.stats-section { background: #ffffff; padding: 40px 0 48px; }
+html[data-theme="dark"] .stats-section { background: color-mix(in srgb, var(--surface) 55%, var(--bg)); }
+
+/* G) typographie du bloc stats */
+.stats-eyebrow { font-family: 'Baloo 2', sans-serif; font-weight: 800; font-size: 16px; }
+.stat-spam { display: flex; align-items: baseline; gap: 12px; margin-top: 14px; }
+.stat-spam .zero { font-size: clamp(44px, 9vw, 68px); font-weight: 800; line-height: 1; color: var(--green); background: none; padding: 0; border-radius: 0; }
+.stat-spam .spam-cap { font-size: 15px; font-weight: 700; }
+
+/* D) home connectée épurée : masque hero (titre + tagline) et stats */
+body[data-mode="connected"] .hero h1,
+body[data-mode="connected"] .hero p { display: none; }
+body[data-mode="connected"] .hero { padding: 36px 0 20px; }
+body[data-mode="connected"] .hero::before, body[data-mode="connected"] .hero::after { display: none; }
+body[data-mode="connected"] #stats { display: none; }
+
+/* H) carte Proposer : transition de hauteur symétrique */
+.card.add { transition: min-height .3s ease, background .15s ease, border-color .15s ease; }
+
+/* J) tags du verso : hover = inversion des couleurs */
+.back-tags .tag { cursor: pointer; transition: background .15s ease, color .15s ease; }
+.back-tags .tag:hover { background: var(--amber); color: var(--amber-soft); }
+
+/* I) conteneur de la 2e ligne de chips (hors toolbar) */
+.chips-secondary-wrap .chips-more.open { margin-bottom: 6px; }
+
+/* D) carte de recommandation */
+.card.add.reco-hidden { display: none; }
+.card.reco { position: relative; }
+.reco-label {
+  position: absolute; top: -10px; left: 16px; z-index: 6;
+  display: inline-flex; align-items: center; gap: 4px;
+  background: var(--amber-soft); color: var(--amber);
+  border-radius: 999px; padding: 3px 6px 3px 12px; font-size: 11px; font-weight: 700;
+  box-shadow: 0 1px 3px rgba(30, 20, 50, .14);
+}
+.reco-x { border: none; background: none; color: var(--amber); cursor: pointer; font-size: 15px; line-height: 1; padding: 0 3px; border-radius: 50%; }
+.reco-x:hover { color: var(--ink); }

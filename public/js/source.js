@@ -43,11 +43,17 @@
     errorEl.hidden = false;
   }
 
+  var BADGE_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">' +
+    '<circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/>' +
+    '<path d="M8.4 12.4l2.3 2.3 4.9-4.9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  var GITHUB_ICON = '<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.46-1.16-1.11-1.47-1.11-1.47-.9-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.9 1.53 2.34 1.09 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02a9.5 9.5 0 0 1 5 0c1.9-1.29 2.74-1.02 2.74-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85v2.74c0 .27.18.58.69.48A10 10 0 0 0 12 2z"/></svg>';
+
+  // Badge = icône compacte (coche cerclée).
   function badgeFor(badge) {
-    var label = { official: 'vérifié', verified: 'vérifié', community: 'communauté' };
     var b = (badge || 'community').toLowerCase();
     if (b !== 'official' && b !== 'verified' && b !== 'community') b = 'community';
-    return '<span class="badge ' + b + '">' + label[b] + '</span>';
+    var title = (b === 'community') ? 'Source communautaire' : 'Source vérifiée';
+    return '<span class="badge-ic ' + b + '" title="' + title + '" role="img" aria-label="' + title + '">' + BADGE_ICON + '</span>';
   }
 
   var UPTIME_LABEL = { calm: 'Calme', active: 'Alerte active', failed: 'Incident de surveillance', nodata: 'Pas de données' };
@@ -143,21 +149,12 @@
       .finally(function () { ok.disabled = false; });
   });
 
-  /* ---- Partage ---- */
+  /* ---- Partage (popover) ---- */
   document.addEventListener('click', function (e) {
     var btn = e.target.closest('#src-share');
     if (!btn) return;
-    var data = { title: source ? source.name : 'La Bonne Alerte', text: source ? (source.subtitle || source.description || '') : '', url: SHARE_URL };
-    if (navigator.share) {
-      navigator.share(data).catch(function () {});
-    } else {
-      var done = function () {
-        var lbl = btn.querySelector('.share-label');
-        if (lbl) { var old = lbl.textContent; lbl.textContent = 'Lien copié ✓'; setTimeout(function () { lbl.textContent = old; }, 1500); }
-      };
-      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(SHARE_URL).then(done, done);
-      else done();
-    }
+    e.preventDefault(); e.stopPropagation();
+    if (window.LBAShare) LBAShare.open(btn, source ? source.name : 'La Bonne Alerte', SHARE_URL);
   });
 
   /* ---- Chargement ---- */
@@ -184,6 +181,14 @@
       document.getElementById('src-badge').innerHTML = badgeFor(source.badge);
       var subEl = document.getElementById('src-subtitle');
       if (source.subtitle) subEl.textContent = source.subtitle; else subEl.hidden = true;
+
+      // Auteur (proposée par @pseudo GitHub).
+      if (source.submitted_by_github) {
+        var au = document.getElementById('src-author');
+        au.innerHTML = 'Proposée par ' + GITHUB_ICON + ' <a href="https://github.com/' +
+          esc(source.submitted_by_github) + '" target="_blank" rel="noopener">@' + esc(source.submitted_by_github) + '</a>';
+        au.hidden = false;
+      }
       document.getElementById('src-desc').textContent = source.description || '';
 
       var stEl = document.getElementById('src-state');
@@ -208,6 +213,22 @@
         var hist = await hres.json();
         renderUptime(hist.days || []);
         LBATimeline.render(document.getElementById('timeline'), hist.events || []);
+      }
+
+      // Manifeste OpenAlert live (pas pour les sources liées).
+      if (source.type !== 'linked') {
+        try {
+          var ares = await fetch('/api/sources/' + encodeURIComponent(ID) + '/alert.json', { headers: { Accept: 'application/json' } });
+          if (ares.ok) {
+            var manifest = await ares.json();
+            var pre = document.createElement('pre');
+            pre.className = 'code';
+            pre.textContent = JSON.stringify(manifest, null, 2);
+            document.getElementById('manifest-code').appendChild(pre);
+            document.getElementById('manifest-section').hidden = false;
+            if (window.LBACopy) LBACopy.attach(pre);
+          }
+        } catch (e) { /* pas de manifeste */ }
       }
     } catch (e) {
       showError('Impossible de charger le statut de cette source.');

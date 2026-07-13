@@ -59,4 +59,7 @@
   document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('pre.code').forEach(attach);
   });
+
+  // Exposé pour les blocs de code ajoutés dynamiquement (page statut).
+  window.LBACopy = { attach: attach };
 })();

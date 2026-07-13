@@ -20,7 +20,9 @@ router.get('/sources', async (req, res) => {
                    ELSE COALESCE(st.state, 'inactive') END AS state,
               (SELECT COUNT(*) FROM subscriptions sub
                  JOIN subscribers subr ON subr.id = sub.subscriber_id
-                WHERE sub.source_id = s.id AND subr.confirmed = true)::int AS subscriber_count
+                WHERE sub.source_id = s.id AND subr.confirmed = true)::int AS subscriber_count,
+              (SELECT MAX(created_at) FROM source_events e
+                WHERE e.source_id = s.id AND e.event = 'activated') AS last_activated_at
          FROM sources s
          LEFT JOIN source_states st ON st.source_id = s.id
         WHERE s.enabled = true

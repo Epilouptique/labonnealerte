@@ -39,6 +39,7 @@
         <span id="src-badge"></span>
       </div>
       <p id="src-subtitle" class="src-subtitle"></p>
+      <p id="src-author" class="src-author" hidden></p>
       <p id="src-desc" class="src-desc"></p>
       <div id="src-state" class="state"></div>
       <div id="src-count" class="src-count" hidden></div>
@@ -66,6 +67,12 @@
       <h2>Historique des événements</h2>
       <div id="timeline"></div>
     </section>
+
+    <!-- 4. Manifeste OpenAlert (JSON live) -->
+    <section class="src-section" id="manifest-section" hidden>
+      <h2>Manifeste OpenAlert</h2>
+      <div id="manifest-code"></div>
+    </section>
   </section>
 
   <div id="src-error" class="src-error" hidden>Source introuvable.</div>
@@ -73,11 +80,13 @@
 
 <footer>
   La Bonne Alerte — gratuit, open-source (MIT), sans spam, rien de caché.<br>
-  <a href="/">Kiosque</a> · <a href="/a-propos">À propos</a> · <a href="/soutenir">Nous soutenir</a> · <a href="/connexion">Mes alertes</a>
+  <a href="/">Kiosque</a> · <a href="/a-propos">À propos</a> · <a href="/soutenir">Nous soutenir</a> · <a href="/proposer">Espace développeur</a>
 </footer>
 
 <script src="/js/session.js"></script>
 <script src="/js/timeline.js"></script>
+<script src="/js/share.js"></script>
+<script src="/js/copy.js"></script>
 <script src="/js/source.js"></script>
 </body>
 </html>
