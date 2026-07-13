@@ -67,10 +67,41 @@
 
   </div>
 
+  <div class="grid-empty" id="mine-empty" hidden>
+    <p>Aucune alerte suivie pour l'instant.</p>
+    <button class="empty-btn" type="button" id="mine-empty-btn">Découvrir le kiosque</button>
+  </div>
+
   <div class="more-wrap">
     <button class="more-btn" id="moreBtn" type="button" style="display:none">Afficher plus d'alertes <span class="n"></span></button>
   </div>
 </main>
+
+<!-- A) Bloc stats marketing -->
+<section class="stats-section wrap" id="stats">
+  <div class="section-label">// en chiffres</div>
+  <div class="stats-grid">
+    <div class="stats-tile" id="stats-tile" aria-live="polite">
+      <div class="stats-eyebrow">Ce mois-ci sur labonnealerte</div>
+      <div class="stats-lines" id="stats-lines"></div>
+    </div>
+    <div class="stats-copy">
+      <h2>La vigilance en continu.<br>Vous, tranquille.</h2>
+      <p>Nos détecteurs surveillent chaque source sans relâche, jour et nuit. Vous ne recevez un email que lorsque ça compte vraiment — jamais pour meubler.</p>
+      <p>Gratuit, ouvert, sans pub et sans revente de données. Choisissez vos alertes, on s'occupe du reste.</p>
+      <a class="stats-cta" href="#alertes">Choisir mes alertes →</a>
+    </div>
+  </div>
+</section>
+
+<!-- B) Historique connecté (remplace le bloc dev en mode connecté) -->
+<section class="hist-section wrap" id="history-section" hidden>
+  <div class="section-label">// votre historique</div>
+  <div id="history-timeline"></div>
+  <div id="history-empty" class="history-empty" hidden>
+    Votre historique est vide — abonnez-vous à une première alerte ci-dessus, on s'occupe du reste.
+  </div>
+</section>
 
 <section class="devs" id="openalert">
   <div class="wrap">
@@ -95,12 +126,13 @@
 
 <footer>
   La Bonne Alerte — gratuit, open-source (MIT), sans spam, rien de caché.<br>
-  Un projet <a href="https://dahu-concept.fr" target="_blank" rel="noopener">Dahu-Concept</a> · <a class="mine-link" href="/connexion">Mes alertes</a> · <a href="https://github.com/Epilouptique/labonnealerte" target="_blank" rel="noopener">Code source</a> · <a href="#">Mentions légales</a>
+  Un projet <a href="https://dahu-concept.fr" target="_blank" rel="noopener">Dahu-Concept</a> · <a href="/a-propos">À propos</a> · <a href="/soutenir">Nous soutenir</a> · <a class="mine-link" href="/connexion">Mes alertes</a> · <a href="https://github.com/Epilouptique/labonnealerte" target="_blank" rel="noopener">Code source</a>
 </footer>
 
 <script src="/js/session.js"></script>
 <script src="/js/categories.js"></script>
 <script src="/js/cards.js"></script>
+<script src="/js/timeline.js"></script>
 <script src="/js/site.js"></script>
 <script src="/js/nav.js"></script>
 <script src="/js/copy.js"></script>

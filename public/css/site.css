@@ -172,7 +172,8 @@ html[data-theme="light"] header { background: #ffffff; } /* thème clair : blanc
 
 /* En-tête : réserve le coin haut-droit pour le bouton ⓘ / ↩ (jamais de chevauchement). */
 .card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
-.card-face .card-top { padding-right: 30px; }
+.card-front .card-top { padding-right: 58px; } /* réserve pour partager + ⓘ */
+.card-back .card-top { padding-right: 30px; }  /* réserve pour ↩ */
 .card h3 { font-size: 16.5px; font-weight: 700; letter-spacing: -0.01em; }
 .card p { font-size: 13.5px; color: var(--muted); flex: 1; }
 .badge {
@@ -448,4 +449,132 @@ input:focus-visible,
   position: absolute; inset: 0; z-index: -1;
   background: url('/img/fond-constellations.svg') bottom center / cover no-repeat;
   pointer-events: none;
+}
+/* ---------- Chantier confiance & transparence ---------- */
+/* Bouton partager (recto des cartes + page statut). */
+.share-btn { border: none; background: transparent; color: var(--muted); cursor: pointer; padding: 4px; border-radius: 8px; line-height: 0; display: inline-flex; }
+.share-btn:hover { color: var(--amber); }
+.card-share { position: absolute; top: 14px; right: 44px; z-index: 2; }
+.card.flipped .card-share { display: none; }
+.card-share.copied { color: var(--green); }
+.card-share.copied::after {
+  content: 'Lien copié ✓'; position: absolute; top: 120%; right: 0; white-space: nowrap;
+  font-size: 11px; font-weight: 600; color: var(--green); background: var(--surface);
+  padding: 3px 8px; border-radius: 6px; box-shadow: var(--shadow);
+}
+.share-btn-lg {
+  display: inline-flex; align-items: center; gap: 8px; border: 1.5px solid var(--amber);
+  background: transparent; color: var(--amber); border-radius: 999px; padding: 9px 16px;
+  font-weight: 600; font-size: 14px; cursor: pointer; font-family: inherit;
+}
+.share-btn-lg:hover { background: var(--amber-soft); }
+
+/* Compteur d'abonnés discret (recto). */
+.sub-count { font-size: 12px; color: var(--muted); font-weight: 600; margin-top: -2px; }
+
+/* Lien statut au verso. */
+.back-statut { color: var(--amber); font-weight: 600; font-size: 13px; text-decoration: none; }
+.back-statut:hover { text-decoration: underline; }
+
+/* ---------- page de statut ---------- */
+.src-main { max-width: 760px; padding: 40px 0 80px; }
+.src-loading, .src-error { text-align: center; color: var(--muted); padding: 60px 0; }
+.src-head { background: var(--surface); border-radius: 24px; padding: 28px; box-shadow: var(--shadow); }
+.src-head-top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.src-head h1 { font-size: clamp(22px, 4vw, 28px); font-weight: 800; letter-spacing: -0.02em; }
+.src-subtitle { color: var(--muted); font-weight: 600; margin-top: 4px; }
+.src-desc { color: var(--muted); margin-top: 10px; font-size: 14.5px; line-height: 1.5; }
+.src-head .state { margin-top: 16px; }
+.src-count { color: var(--muted); font-size: 13px; font-weight: 600; margin-top: 8px; }
+.src-action { margin-top: 16px; max-width: 320px; }
+.src-action .sub-form { display: none; margin-top: 10px; gap: 8px; }
+#src-share { margin-top: 18px; }
+.src-section { margin-top: 34px; }
+.src-section h2 { font-size: 17px; font-weight: 800; margin-bottom: 14px; }
+
+/* Barres d'uptime 90 jours. */
+.uptime { display: flex; gap: 2px; align-items: stretch; overflow-x: auto; }
+.uptime-bar { flex: 1 0 3px; min-width: 3px; height: 36px; border-radius: 2px; background: color-mix(in srgb, var(--muted) 30%, transparent); }
+.uptime-bar.u-calm { background: var(--green); }
+.uptime-bar.u-active { background: var(--amber); }
+.uptime-bar.u-failed { background: #dc2626; }
+.uptime-bar.u-nodata { background: color-mix(in srgb, var(--muted) 25%, transparent); }
+.uptime-legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 12px; font-size: 12px; color: var(--muted); }
+.uptime-legend .lg { display: inline-block; width: 10px; height: 10px; border-radius: 3px; vertical-align: middle; margin-right: 5px; }
+.lg-calm { background: var(--green); } .lg-active { background: var(--amber); }
+.lg-failed { background: #dc2626; } .lg-nodata { background: color-mix(in srgb, var(--muted) 25%, transparent); }
+
+/* ---------- timeline verticale (réutilisable) ---------- */
+.tl { list-style: none; position: relative; }
+.tl-item { position: relative; padding: 0 0 22px 26px; }
+.tl-item::before { content: ""; position: absolute; left: 5px; top: 15px; bottom: -5px; width: 2px; background: color-mix(in srgb, var(--muted) 30%, transparent); }
+.tl-item:last-child::before { display: none; }
+.tl-dot { position: absolute; left: 0; top: 3px; width: 12px; height: 12px; border-radius: 50%; background: var(--muted); border: 2px solid var(--surface); }
+.tl-item.act .tl-dot { background: var(--green); }
+.tl-item.calm .tl-dot { background: var(--muted); }
+.tl-item.fail .tl-dot { background: #dc2626; }
+.tl-head { font-size: 14px; font-weight: 600; }
+.tl-when { color: var(--muted); font-weight: 500; font-size: 12.5px; margin-left: 6px; }
+.tl-src { color: var(--ink); font-weight: 700; }
+.tl-quote { color: var(--muted); font-style: italic; font-size: 13px; margin-top: 4px; }
+.tl-empty { color: var(--muted); }
+
+/* ---------- Chantier home #2 ---------- */
+/* C) ancre sous header fixe */
+html { scroll-padding-top: 84px; }
+
+/* D) 2e ligne de chips : repli/déploiement réel (transition de hauteur) */
+.chips-more { overflow: hidden; max-height: 0; opacity: 0; transition: max-height .25s ease, opacity .25s ease; }
+.chips-more.open { max-height: 240px; opacity: 1; }
+
+/* E) grille stable : au moins une rangée réservée */
+.grid { min-height: 230px; }
+
+/* I) rotation du bouton de thème */
+.theme-btn { transition: transform .4s ease; }
+@media (prefers-reduced-motion: reduce) { .theme-btn { transition: none; } }
+
+/* A) bloc stats marketing */
+.stats-section { padding-bottom: 44px; position: relative; }
+.stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; align-items: stretch; }
+@media (max-width: 760px) { .stats-grid { grid-template-columns: 1fr; } }
+.stats-tile {
+  position: relative; overflow: hidden; background: var(--amber); color: #fff;
+  border-radius: 28px; padding: 30px 30px 34px; box-shadow: var(--shadow);
+}
+/* motif radar en filigrane, coin bas droit */
+.stats-tile::after {
+  content: ""; position: absolute; right: -34px; bottom: -34px; width: 190px; height: 190px;
+  border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle,
+    rgba(255,255,255,.22) 0 5px, transparent 5px 24px,
+    rgba(255,255,255,.16) 24px 26px, transparent 26px 46px,
+    rgba(255,255,255,.12) 46px 48px, transparent 48px 68px,
+    rgba(255,255,255,.09) 68px 70px, transparent 70px);
+}
+.stats-eyebrow { font-size: 13px; font-weight: 700; letter-spacing: .03em; opacity: .92; position: relative; z-index: 1; }
+.stats-lines { margin-top: 10px; position: relative; z-index: 1; }
+.stat-big { font-size: clamp(44px, 9vw, 68px); font-weight: 800; line-height: 1; letter-spacing: -0.03em; }
+.stat-cap { font-size: 15px; font-weight: 600; opacity: .92; margin-top: 2px; }
+.stat-mid { font-size: 22px; font-weight: 800; margin-top: 18px; }
+.stat-mid .stat-cap-inline { font-size: 14px; font-weight: 600; opacity: .92; }
+.stat-spam { margin-top: 18px; font-size: 15px; font-weight: 700; }
+.stat-spam .zero { color: var(--green); background: #fff; border-radius: 6px; padding: 0 7px; }
+.stats-copy { display: flex; flex-direction: column; justify-content: center; }
+.stats-copy h2 { font-size: clamp(22px, 3.6vw, 30px); font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; }
+.stats-copy p { color: var(--muted); margin-top: 12px; line-height: 1.6; font-size: 15px; }
+.stats-cta { margin-top: 16px; color: var(--amber); font-weight: 700; text-decoration: none; align-self: flex-start; }
+.stats-cta:hover { text-decoration: underline; }
+
+/* B) historique connecté + empty states */
+.hist-section { padding: 8px 0 44px; }
+.history-empty { color: var(--muted); background: var(--surface); border-radius: 16px; padding: 22px; font-size: 15px; }
+.grid-empty { text-align: center; padding: 44px 0; color: var(--muted); }
+.grid-empty p { font-size: 16px; margin-bottom: 16px; }
+.empty-btn { border: none; background: var(--amber); color: #fff; font-weight: 700; border-radius: 999px; padding: 11px 22px; cursor: pointer; font-family: inherit; font-size: 14px; }
+.empty-btn:hover { background: color-mix(in srgb, var(--amber) 88%, #000); }
+
+/* H) label « Le kiosque » centré verticalement avec la barre de recherche (desktop large) */
+@media (min-width: 1280px) {
+  body:not(.dev) main#alertes.wrap > .section-label { top: 20px; }
 }

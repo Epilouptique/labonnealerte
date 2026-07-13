@@ -18,10 +18,15 @@
   }
   applyTheme(preferredTheme());
   function applyTheme(t) { root.setAttribute('data-theme', t); }
+  var themeDeg = 0;
   window.toggleTheme = function () {
     var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
     applyTheme(next);
     try { localStorage.setItem(STORAGE_KEY, next); } catch (e) {}
+    // Volet I : petite rotation rotateY du bouton (sauf reduced-motion).
+    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var btn = document.querySelector('.theme-btn');
+    if (btn && !reduce) { themeDeg += 180; btn.style.transform = 'rotateY(' + themeDeg + 'deg)'; }
   };
 
   /* ---------------- Abonnement : switch dans les deux modes ---------------- */
@@ -54,6 +59,26 @@
       card.classList.remove('celebrate');
     }, 700);
   }
+
+  // Partage d'une carte — navigator.share (mobile) ou copie du lien statut.
+  document.addEventListener('click', function (e) {
+    var sb = e.target.closest('.card-share');
+    if (!sb) return;
+    e.preventDefault(); e.stopPropagation();
+    var card = sb.closest('.card');
+    if (!card) return;
+    var id = card.getAttribute('data-source-id');
+    var h3 = card.querySelector('h3');
+    var name = h3 ? h3.textContent : 'La Bonne Alerte';
+    var url = 'https://www.labonnealerte.fr/source/' + id + '/statut';
+    if (navigator.share) {
+      navigator.share({ title: name, text: name, url: url }).catch(function () {});
+    } else {
+      var done = function () { sb.classList.add('copied'); setTimeout(function () { sb.classList.remove('copied'); }, 1500); };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(done, done);
+      else done();
+    }
+  });
 
   // Flip recto/verso — stopPropagation pour ne pas déclencher abonnement/toggle.
   document.addEventListener('click', function (e) {
@@ -211,7 +236,7 @@
   var esc = LBACards.esc;
   var INITIAL = 6, STEP = 9;
   var cat = 'all', visibleLimit = INITIAL, secondaryOpen = false, currentMode = 'anon';
-  var cards = [], moreBtn = null, qInput = null, grid = null;
+  var cards = [], moreBtn = null, qInput = null, grid = null, addCard = null;
   var REDUCE = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
   function catsOf(c) { return (c.dataset.cats || '').split(' ').filter(Boolean); }
@@ -250,8 +275,10 @@
     if (secondary.length) prim += '<button class="chip-f chip-more-toggle" type="button" aria-label="Plus de catégories">+</button>';
 
     var sec = secondary.map(function (s) { return chip(s, LBACat.label(s), counts[s]); }).join('');
+    // La 2e ligne est fermée par défaut (CSS max-height:0), ouverte via .open.
+    secondaryOpen = false;
     chipsEl.innerHTML = '<div class="chips-row" id="chips-primary">' + prim + '</div>' +
-      (secondary.length ? '<div class="chips-row chips-more" id="chips-secondary" hidden>' + sec + '</div>' : '');
+      (secondary.length ? '<div class="chips-row chips-more" id="chips-secondary">' + sec + '</div>' : '');
   }
 
   function computeShow() {
@@ -281,9 +308,42 @@
   }
   function snapshot(list) { var m = new Map(); list.forEach(function (c) { m.set(c, c.getBoundingClientRect()); }); return m; }
 
-  // Animation FLIP : les cartes restantes glissent, les nouvelles apparaissent.
+  // Cartes participant au placement : cartes filtrables affichées + carte « Proposer » (G).
+  function positionedShown() {
+    var list = cards.filter(isShown);
+    if (addCard) list.push(addCard);
+    return list;
+  }
+
+  // Empty-state du filtre « mine » (aucune alerte suivie).
+  function updateMineEmpty() {
+    var el = document.getElementById('mine-empty');
+    if (!el || !grid) return;
+    var anyElig = cards.some(function (c) { return c._elig; });
+    var show = (cat === 'mine') && !anyElig;
+    el.hidden = !show;
+    grid.style.display = show ? 'none' : '';
+  }
+
+  // Volet E : anime la hauteur du conteneur pour éviter tout saut de la section suivante.
+  function animateGridHeight(fromH) {
+    if (!grid) return;
+    var toH = grid.offsetHeight;
+    if (Math.abs(toH - fromH) < 2) return;
+    grid.style.height = fromH + 'px';
+    grid.getBoundingClientRect();
+    grid.style.transition = 'height .3s ease-out';
+    grid.style.height = toH + 'px';
+    var clr = function () { grid.style.transition = ''; grid.style.height = ''; grid.removeEventListener('transitionend', clr); };
+    grid.addEventListener('transitionend', clr);
+  }
+
+  // Volet F/G : movers glissent (FLIP), entrants arrivent latéralement (parité + stagger).
   function flipMoves(first) {
-    cards.filter(isShown).forEach(function (c) {
+    if (!grid.offsetHeight) return;
+    var movers = positionedShown();
+    var enterIdx = 0;
+    movers.forEach(function (c, i) {
       var f = first.get(c);
       var last = c.getBoundingClientRect();
       if (f) {
@@ -291,19 +351,28 @@
         if (dx || dy) {
           c.style.transition = 'none';
           c.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
-          c.getBoundingClientRect(); // reflow
-          requestAnimationFrame(function () {
-            c.style.transition = 'transform .3s ease-out';
-            c.style.transform = '';
-          });
-          var clr = function () { c.style.transition = ''; c.style.transform = ''; c.removeEventListener('transitionend', clr); };
-          c.addEventListener('transitionend', clr);
+          c.getBoundingClientRect();
+          requestAnimationFrame(function () { c.style.transition = 'transform .3s ease-out'; c.style.transform = ''; });
+          (function (card) {
+            var clr = function () { card.style.transition = ''; card.style.transform = ''; card.removeEventListener('transitionend', clr); };
+            card.addEventListener('transitionend', clr);
+          })(c);
         }
       } else {
-        c.classList.add('card-enter');
+        var dir = (i % 2 === 0) ? 1 : -1;
+        var delay = enterIdx * 30; enterIdx++;
+        c.style.transition = 'none';
+        c.style.transform = 'translateX(' + (24 * dir) + 'px) scale(.97)';
+        c.style.opacity = '0';
         c.getBoundingClientRect();
-        requestAnimationFrame(function () { c.classList.add('card-enter-active'); });
-        setTimeout(function () { c.classList.remove('card-enter', 'card-enter-active'); }, 300);
+        requestAnimationFrame(function () {
+          c.style.transition = 'transform .28s ease-out ' + delay + 'ms, opacity .28s ease-out ' + delay + 'ms';
+          c.style.transform = ''; c.style.opacity = '';
+        });
+        (function (card) {
+          var clr = function () { card.style.transition = ''; card.style.transform = ''; card.style.opacity = ''; card.removeEventListener('transitionend', clr); };
+          card.addEventListener('transitionend', clr);
+        })(c);
       }
     });
   }
@@ -312,19 +381,32 @@
     if (!grid || !qInput) return;
     var doAnim = animate && !REDUCE;
     var beforeVisible = cards.filter(isShown);
-    var first = doAnim ? snapshot(beforeVisible) : null;
+    var first = doAnim ? snapshot(positionedShown()) : null;
+    var fromH = grid.offsetHeight;
     var info = computeShow();
     var leaving = doAnim ? beforeVisible.filter(function (c) { return !c._show; }) : [];
 
+    function commit() {
+      setClasses();
+      updateMore(info);
+      updateMineEmpty();
+      if (doAnim) { flipMoves(first); animateGridHeight(fromH); }
+    }
+
     if (doAnim && leaving.length) {
-      leaving.forEach(function (c) { c.classList.add('card-leave'); });
+      // Sortie : déplacement latéral inverse + fade, puis retrait effectif.
+      leaving.forEach(function (c, i) {
+        var dir = (i % 2 === 0) ? -1 : 1;
+        c.style.transition = 'transform .2s ease, opacity .2s ease';
+        c.style.transform = 'translateX(' + (24 * dir) + 'px) scale(.97)';
+        c.style.opacity = '0';
+      });
       setTimeout(function () {
-        leaving.forEach(function (c) { c.classList.remove('card-leave'); });
-        setClasses(); updateMore(info); flipMoves(first);
-      }, 200);
+        leaving.forEach(function (c) { c.style.transition = ''; c.style.transform = ''; c.style.opacity = ''; });
+        commit();
+      }, 210);
     } else {
-      setClasses(); updateMore(info);
-      if (doAnim) flipMoves(first);
+      commit();
     }
   }
 
@@ -340,7 +422,7 @@
       if (active.closest('#chips-secondary')) {
         var sec = document.getElementById('chips-secondary');
         var tgl = document.querySelector('.chip-more-toggle');
-        if (sec) { sec.hidden = false; secondaryOpen = true; if (tgl) { tgl.textContent = '−'; tgl.classList.add('on'); } }
+        if (sec) { sec.classList.add('open'); secondaryOpen = true; if (tgl) { tgl.textContent = '−'; tgl.classList.add('on'); } }
       }
     }
     apply(true);
@@ -359,7 +441,11 @@
     qInput = document.getElementById('q');
     if (!grid || !moreBtn || !qInput) return;
     cards = Array.prototype.slice.call(grid.querySelectorAll('.card[data-cats]'));
+    addCard = grid.querySelector('.card.add');
     renderChips(mode);
+
+    var meb = document.getElementById('mine-empty-btn');
+    if (meb) meb.addEventListener('click', function () { if (qInput) qInput.value = ''; selectChip('all'); });
 
     var searchTimer = null;
     qInput.addEventListener('input', function () {
@@ -371,7 +457,7 @@
       var toggle = e.target.closest('.chip-more-toggle');
       if (toggle) {
         var sec = document.getElementById('chips-secondary');
-        if (sec) { secondaryOpen = !secondaryOpen; sec.hidden = !secondaryOpen; toggle.textContent = secondaryOpen ? '−' : '+'; toggle.classList.toggle('on', secondaryOpen); }
+        if (sec) { secondaryOpen = !secondaryOpen; sec.classList.toggle('open', secondaryOpen); toggle.textContent = secondaryOpen ? '−' : '+'; toggle.classList.toggle('on', secondaryOpen); }
         return;
       }
       var b = e.target.closest('.chip-f');
@@ -405,6 +491,46 @@
         }
       });
     });
+  }
+
+  /* ---------------- Bloc stats marketing (A) ---------------- */
+  async function loadStats() {
+    var lines = document.getElementById('stats-lines');
+    if (!lines) return;
+    try {
+      var r = await fetch('/api/stats', { headers: { Accept: 'application/json' } });
+      if (!r.ok) return;
+      var d = await r.json();
+      var checks = Number(d.checks_this_month || 0).toLocaleString('fr-FR'); // espace fine insécable
+      var alerts = Number(d.alerts_this_month || 0).toLocaleString('fr-FR');
+      lines.innerHTML =
+        '<div class="stat-big">' + checks + '</div>' +
+        '<div class="stat-cap">vérifications effectuées</div>' +
+        '<div class="stat-mid">' + alerts + ' <span class="stat-cap-inline">alertes déclenchées</span></div>' +
+        '<div class="stat-spam"><span class="zero">0</span> spam, comme promis</div>';
+      // TODO : quand emails_this_month sera significatif, ajouter ici une ligne
+      //        '<div class="stat-mid">' + emails + ' notifications envoyées</div>' (d.emails_this_month).
+    } catch (e) { /* silencieux */ }
+  }
+
+  /* ---------------- Historique connecté (B) ---------------- */
+  async function loadHistory(token) {
+    var section = document.getElementById('history-section');
+    var devs = document.getElementById('openalert');
+    if (!section) return;
+    if (devs) devs.hidden = true;      // masque « // pour les développeurs »
+    section.hidden = false;            // affiche « // votre historique »
+    var tl = document.getElementById('history-timeline');
+    var empty = document.getElementById('history-empty');
+    try {
+      var r = await fetch('/api/my-alerts/history?token=' + encodeURIComponent(token), { headers: { Accept: 'application/json' } });
+      var d = r.ok ? await r.json() : { events: [] };
+      var events = d.events || [];
+      if (events.length === 0) { if (empty) empty.hidden = false; if (tl) tl.innerHTML = ''; }
+      else { if (empty) empty.hidden = true; if (window.LBATimeline) LBATimeline.render(tl, events); }
+    } catch (e) {
+      if (empty) empty.hidden = false;
+    }
   }
 
   /* ---------------- Chargement de l'accueil ---------------- */
@@ -468,6 +594,22 @@
     LBASession.renderHeader(email);
     setupKiosk(mode);
     bindMineLinks();
+    bindBrandTop();
+
+    loadStats();
+    if (mode === 'connected') loadHistory(token);
+  }
+
+  // Volet J : sur la home, le logo remonte en haut sans recharger + reset des filtres.
+  function bindBrandTop() {
+    var brand = document.querySelector('.brand');
+    if (!brand) return;
+    brand.addEventListener('click', function (e) {
+      e.preventDefault();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      if (qInput) qInput.value = '';
+      selectChip('all');
+    });
   }
 
   document.addEventListener('DOMContentLoaded', loadHome);

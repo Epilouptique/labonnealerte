@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{TITLE}}</title>
+<meta name="description" content="{{DESC}}">
+<meta property="og:title" content="{{OG_TITLE}}">
+<meta property="og:description" content="{{OG_DESC}}">
+<meta property="og:url" content="{{OG_URL}}">
+<meta property="og:type" content="website">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@800&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/tokens.css">
+<link rel="stylesheet" href="/css/site.css">
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <a class="brand brandmark" href="/"><span class="lig"><span class="l">l</span>a</span>bonne<span class="a">alerte</span><span class="bang"><span class="bar"></span><span class="dot"></span></span><span class="fr">fr</span></a>
+    <nav class="nav-right">
+      <a href="/">← Retour au kiosque</a>
+      <button class="theme-btn" type="button" onclick="toggleTheme()" aria-label="Changer de thème">◐</button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap src-main">
+  <div id="src-loading" class="src-loading">Chargement…</div>
+
+  <section id="src-view" hidden>
+    <!-- 1. En-tête source -->
+    <div class="src-head">
+      <div class="src-head-top">
+        <h1 id="src-name"></h1>
+        <span id="src-badge"></span>
+      </div>
+      <p id="src-subtitle" class="src-subtitle"></p>
+      <p id="src-desc" class="src-desc"></p>
+      <div id="src-state" class="state"></div>
+      <div id="src-count" class="src-count" hidden></div>
+      <div id="src-action" class="src-action"></div>
+      <button id="src-share" class="share-btn share-btn-lg" type="button">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>
+        <span class="share-label">Partager</span>
+      </button>
+    </div>
+
+    <!-- 2. Barres d'uptime 90 jours -->
+    <section class="src-section">
+      <h2>90 derniers jours</h2>
+      <div id="uptime" class="uptime" aria-label="Historique de surveillance sur 90 jours"></div>
+      <div class="uptime-legend">
+        <span><i class="lg lg-calm"></i> Calme</span>
+        <span><i class="lg lg-active"></i> Alerte active</span>
+        <span><i class="lg lg-failed"></i> Incident de surveillance</span>
+        <span><i class="lg lg-nodata"></i> Pas de données</span>
+      </div>
+    </section>
+
+    <!-- 3. Timeline -->
+    <section class="src-section">
+      <h2>Historique des événements</h2>
+      <div id="timeline"></div>
+    </section>
+  </section>
+
+  <div id="src-error" class="src-error" hidden>Source introuvable.</div>
+</main>
+
+<footer>
+  La Bonne Alerte — gratuit, open-source (MIT), sans spam, rien de caché.<br>
+  <a href="/">Kiosque</a> · <a href="/a-propos">À propos</a> · <a href="/soutenir">Nous soutenir</a> · <a href="/connexion">Mes alertes</a>
+</footer>
+
+<script src="/js/session.js"></script>
+<script src="/js/timeline.js"></script>
+<script src="/js/source.js"></script>
+</body>
+</html>

@@ -1,4 +1,5 @@
 const { Resend } = require('resend');
+const { pool } = require('./db');
 
 const resend = new Resend((process.env.RESEND_API_KEY || '').trim());
 
@@ -7,8 +8,30 @@ const resend = new Resend((process.env.RESEND_API_KEY || '').trim());
 const FROM = 'noreply@alert.labonnealerte.fr';
 
 const SITE_URL = 'https://labonnealerte.fr';
+const PUBLIC_SITE = 'https://www.labonnealerte.fr';
 const PROMO_URL = 'https://www.leboncoin.fr/service/bons-plans';
 const MYALERTS_URL = 'https://www.labonnealerte.fr/connexion';
+const ACCENT = '#a567e3';
+
+function monthKey() {
+  const d = new Date();
+  return String(d.getFullYear()) + String(d.getMonth() + 1).padStart(2, '0');
+}
+async function incEmailCounters() {
+  try {
+    await pool.query(
+      `INSERT INTO counters (key, value) VALUES ('emails_total', 1)
+       ON CONFLICT (key) DO UPDATE SET value = counters.value + 1`
+    );
+    await pool.query(
+      `INSERT INTO counters (key, value) VALUES ($1, 1)
+       ON CONFLICT (key) DO UPDATE SET value = counters.value + 1`,
+      ['emails_' + monthKey()]
+    );
+  } catch (err) {
+    console.error('[mailer] incEmailCounters :', err.message);
+  }
+}
 
 // Pied de mail commun : lien discret vers la gestion des alertes (sans token).
 const MANAGE_TEXT = `\n\n—\nGérer mes alertes : ${MYALERTS_URL}`;
@@ -126,34 +149,89 @@ async function sendMagicLink(email, token) {
   });
 }
 
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+  });
+}
+
+// Gabarit HTML email-safe de l'alerte (tables, styles inline, max 600px).
+function alertEmailHtml(info, target, statusUrl, hhmm) {
+  const name = esc(info.name || 'Votre alerte');
+  const context = info.message
+    ? `${esc(info.message)} · détectée à ${hhmm}`
+    : `Alerte déclenchée · détectée à ${hhmm}`;
+  return `<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f4edfb">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4edfb;padding:28px 14px">
+    <tr><td align="center">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0"
+             style="max-width:600px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 18px rgba(30,20,50,.08)">
+        <tr><td style="background:${ACCENT};padding:16px 24px">
+          <table role="presentation" width="100%"><tr>
+            <td style="font-family:Arial,Helvetica,sans-serif;font-size:17px;font-weight:800;color:#ffffff">labonnealerte.fr</td>
+            <td align="right"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#22c55e"></span></td>
+          </tr></table>
+        </td></tr>
+        <tr><td style="padding:28px 28px 8px;font-family:Arial,Helvetica,sans-serif;color:#0f1419">
+          <h1 style="margin:0 0 10px;font-size:21px;font-weight:800;letter-spacing:-0.02em">🔔 ${name} — c'est le moment</h1>
+          <p style="margin:0;font-size:14.5px;line-height:1.6;color:#4a4a52">${context}</p>
+        </td></tr>
+        <tr><td style="padding:18px 28px 30px">
+          <table role="presentation" cellpadding="0" cellspacing="0"><tr>
+            <td style="border-radius:12px;background:#0f1419">
+              <a href="${esc(target)}" target="_blank" style="display:inline-block;padding:14px 34px;font-family:Arial,Helvetica,sans-serif;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:12px">Voir →</a>
+            </td>
+          </tr></table>
+        </td></tr>
+        <tr><td style="padding:0 28px 24px">
+          <hr style="border:none;border-top:1px solid #eee;margin:0 0 12px">
+          <p style="margin:0;font-size:12px;color:#8a8a92;line-height:1.6">
+            Vous recevez cet email car vous suivez cette alerte · <a href="${esc(statusUrl)}" style="color:#8a8a92">voir le statut</a><br>
+            <a href="${MYALERTS_URL}" style="color:#8a8a92">gérer mes alertes</a> · se désinscrire en 1 clic depuis « gérer mes alertes »
+          </p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+}
+
 /**
- * Prévient tous les abonnés que la promo est active.
- * Envoi individuel (un mail par abonné), jamais en CC, pour ne pas
- * exposer les adresses entre elles.
+ * Prévient tous les abonnés qu'une alerte est active.
+ * Envoi individuel (un mail par abonné), jamais en CC.
  * @param {string[]} emails
+ * @param {{id,name,message,url}} info  contexte de la source
  * @returns {Promise<{ sent: number, failed: number }>}
  */
-async function sendPromoAlert(emails) {
+async function sendPromoAlert(emails, info = {}) {
   let sent = 0;
   let failed = 0;
+
+  const statusUrl = info.id ? `${PUBLIC_SITE}/source/${info.id}/statut` : PUBLIC_SITE;
+  const target = info.url || statusUrl; // lien de l'alerte, sinon la page de statut
+  const name = info.name || 'Votre alerte';
+  const hhmm = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  const context = info.message ? `${info.message} · détectée à ${hhmm}` : `détectée à ${hhmm}`;
 
   for (const email of emails) {
     try {
       await resend.emails.send({
         from: FROM,
         to: email,
-        subject: '🚚 La promo Livraison à 0,99 € est ACTIVE !',
+        subject: `🔔 ${name} — c'est le moment`,
         text:
-          `Bonne nouvelle : la promo "Livraison à 0,99 €" est active sur Leboncoin.\n\n` +
-          `Fonce ici :\n${PROMO_URL}\n` +
-          MANAGE_TEXT,
-        html:
-          `<p>Bonne nouvelle : la promo <strong>"Livraison à 0,99 €"</strong> ` +
-          `est active sur Leboncoin.</p>` +
-          `<p><a href="${PROMO_URL}">Fonce en profiter →</a></p>` +
-          MANAGE_HTML,
+          `${name} — c'est le moment.\n\n` +
+          `${context}\n\n` +
+          `Voir : ${target}\n\n` +
+          `—\nVous recevez cet email car vous suivez cette alerte.\n` +
+          `Statut de la source : ${statusUrl}\n` +
+          `Gérer mes alertes / se désinscrire : ${MYALERTS_URL}`,
+        html: alertEmailHtml(info, target, statusUrl, hhmm),
       });
       sent += 1;
+      await incEmailCounters();
     } catch (err) {
       failed += 1;
       console.error(`[mailer] Échec envoi à ${email} :`, err.message);

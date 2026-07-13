@@ -34,14 +34,20 @@ async function confirmedEmailsForSource(sourceId) {
   return rows.map((r) => r.email);
 }
 
-async function notifySourceSubscribers(sourceId) {
+async function notifySourceSubscribers(sourceId, result = {}) {
   const emails = await confirmedEmailsForSource(sourceId);
   if (emails.length === 0) {
     console.log(`[poller] Aucun abonné confirmé pour ${sourceId}.`);
     return;
   }
+  let name = sourceId;
+  try {
+    const { rows } = await pool.query('SELECT name FROM sources WHERE id = $1', [sourceId]);
+    if (rows[0]) name = rows[0].name;
+  } catch (err) { /* nom de repli = id */ }
+  const info = { id: sourceId, name, message: result.message || null, url: result.url || null };
   console.log(`[poller] Envoi de l'alerte à ${emails.length} abonné(s) de ${sourceId}...`);
-  const { sent, failed } = await sendPromoAlert(emails);
+  const { sent, failed } = await sendPromoAlert(emails, info);
   console.log(`[poller] Alerte ${sourceId} : ${sent} OK, ${failed} échec(s).`);
 }
 
@@ -63,6 +69,53 @@ async function writeState(sourceId, state, fields = {}) {
   );
 }
 
+// Clé mensuelle 'YYYYMM' pour les compteurs.
+function monthKey() {
+  const d = new Date();
+  return String(d.getFullYear()) + String(d.getMonth() + 1).padStart(2, '0');
+}
+
+async function incCounter(key, by = 1) {
+  try {
+    await pool.query(
+      `INSERT INTO counters (key, value) VALUES ($1, $2)
+       ON CONFLICT (key) DO UPDATE SET value = counters.value + EXCLUDED.value`,
+      [key, by]
+    );
+  } catch (err) {
+    console.error('[poller] incCounter :', err.message);
+  }
+}
+
+async function logEvent(sourceId, event, message = null) {
+  try {
+    await pool.query(
+      'INSERT INTO source_events (source_id, event, message) VALUES ($1, $2, $3)',
+      [sourceId, event, message]
+    );
+  } catch (err) {
+    console.error('[poller] logEvent :', err.message);
+  }
+}
+
+// Un seul 'failed' par source et par heure (déduplication).
+async function logFailedDedup(sourceId, message) {
+  try {
+    const { rows } = await pool.query(
+      `SELECT event, created_at FROM source_events
+        WHERE source_id = $1 ORDER BY created_at DESC LIMIT 1`,
+      [sourceId]
+    );
+    const last = rows[0];
+    if (last && last.event === 'failed' && (Date.now() - new Date(last.created_at).getTime()) < 3600_000) {
+      return; // déjà un 'failed' il y a moins d'une heure
+    }
+    await logEvent(sourceId, 'failed', message);
+  } catch (err) {
+    console.error('[poller] logFailedDedup :', err.message);
+  }
+}
+
 // Applique la logique de transition inactive→pending→active (et retour inactive)
 // pour une source, à partir du résultat instantané de son check().
 // `requiresConfirmation` : true = confirmation sur 2 cycles (scraper) ;
@@ -72,8 +125,12 @@ async function processSource(source, requiresConfirmation = true) {
   try {
     result = await source.check();
     console.log(`[poller] ${source.id} → check state=${result.state}`);
+    // Check réussi : compteurs de vérifications (total + mois courant).
+    await incCounter('checks_total');
+    await incCounter('checks_' + monthKey());
   } catch (err) {
     console.error(`[poller] ${source.id} : échec du check :`, err.message);
+    await logFailedDedup(source.id, err.message);
     return;
   }
 
@@ -94,9 +151,10 @@ async function processSource(source, requiresConfirmation = true) {
     if (current === 'inactive' && !requiresConfirmation) {
       // Source fiable (API officielle) : activation directe + notification immédiate.
       await writeState(source.id, 'active', fields);
+      await logEvent(source.id, 'activated', result.message);
       console.log(`[poller] ALERTE IMMÉDIATE [${source.id}] (sans confirmation)`);
       try {
-        await notifySourceSubscribers(source.id);
+        await notifySourceSubscribers(source.id, result);
       } catch (err) {
         console.error(`[poller] ${source.id} : échec envoi alertes :`, err.message);
       }
@@ -105,9 +163,10 @@ async function processSource(source, requiresConfirmation = true) {
       console.log(`[poller] ${source.id} : inactive → PENDING`);
     } else if (current === 'pending') {
       await writeState(source.id, 'active', fields);
+      await logEvent(source.id, 'activated', result.message);
       console.log(`[poller] ALERTE CONFIRMÉE [${source.id}]`);
       try {
-        await notifySourceSubscribers(source.id);
+        await notifySourceSubscribers(source.id, result);
       } catch (err) {
         console.error(`[poller] ${source.id} : échec envoi alertes :`, err.message);
       }
@@ -119,6 +178,7 @@ async function processSource(source, requiresConfirmation = true) {
   } else {
     if (current === 'active' || current === 'pending') {
       await writeState(source.id, 'inactive', {});
+      await logEvent(source.id, 'deactivated', null);
       console.log(`[poller] ${source.id} : ${current} → INACTIVE`);
     } else {
       console.log(`[poller] ${source.id} : toujours inactive.`);

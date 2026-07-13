@@ -59,6 +59,8 @@
       '<button type="button">OK</button></div>';
   }
 
+  var SHARE_SVG = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>';
+
   function frontFace(s, mode, isLinked) {
     var state, action;
     if (isLinked) {
@@ -69,13 +71,18 @@
       state = stateFor(s.state);
       action = switchRow(mode === 'connected' && !!s.subscribed) + (mode === 'connected' ? '' : subForm());
     }
+    // Compteur d'abonnés discret (seulement à partir de 10).
+    var count = (s.subscriber_count >= 10)
+      ? '<div class="sub-count">' + s.subscriber_count + ' abonnés</div>' : '';
     return '' +
       '<div class="card-face card-front">' +
+        '<button class="share-btn card-share" type="button" aria-label="Partager" title="Partager">' + SHARE_SVG + '</button>' +
         '<button class="flip-btn" type="button" aria-label="En savoir plus" title="En savoir plus">ⓘ</button>' +
         topRow(s) +
         (s.subtitle ? '<div class="card-subtitle">' + esc(s.subtitle) + '</div>' : '') +
         '<p>' + esc(s.description || '') + '</p>' +
         state +
+        count +
         action +
       '</div>';
   }
@@ -98,11 +105,15 @@
         'target="_blank" rel="noopener">@' + esc(s.submitted_by_github) + '</a></div>'
       : '';
 
+    // Lien vers la page de statut (pas pour les sources liées : doomname n'en a pas).
+    var statut = isLinked ? ''
+      : '<a class="back-statut" href="/source/' + esc(s.id) + '/statut">Voir le statut et l\'historique →</a>';
+
     return '' +
       '<div class="card-face card-back">' +
         '<button class="flip-back" type="button" aria-label="Retour" title="Retour">↩</button>' +
         topRow(s) +
-        endpoint + tags + author +
+        endpoint + tags + author + statut +
         '<a class="back-propose" href="/proposer">Proposez la vôtre →</a>' +
       '</div>';
   }

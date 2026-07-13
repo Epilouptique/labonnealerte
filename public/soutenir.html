@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nous soutenir — La Bonne Alerte</title>
+<meta name="description" content="La Bonne Alerte est gratuite et le restera. Voici comment aider le projet.">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@800&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/tokens.css">
+<link rel="stylesheet" href="/css/site.css">
+<style>
+.page { max-width: 720px; padding: 48px 0 80px; }
+.page h1 { font-size: clamp(28px, 5vw, 40px); font-weight: 800; letter-spacing: -0.02em; }
+.page .lead { color: var(--muted); font-size: 18px; margin-top: 12px; }
+.sup-block { background: var(--surface); border-radius: 20px; padding: 24px; box-shadow: var(--shadow); margin-top: 22px; }
+.sup-block h2 { font-size: 19px; font-weight: 800; }
+.sup-block p { color: var(--muted); margin-top: 8px; line-height: 1.6; }
+.sup-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+.sup-btn { display: inline-flex; align-items: center; gap: 8px; border-radius: 999px; padding: 11px 20px; font-weight: 700; font-size: 14px; text-decoration: none; border: none; cursor: pointer; font-family: inherit; }
+.sup-btn.primary { background: var(--amber); color: #fff; }
+.sup-btn.primary:hover { background: color-mix(in srgb, var(--amber) 88%, #000); }
+.sup-btn.ghost { border: 1.5px solid var(--amber); color: var(--amber); background: transparent; }
+.sup-btn.ghost:hover { background: var(--amber-soft); }
+.sup-btn[disabled] { opacity: .5; cursor: default; background: var(--line); color: var(--muted); border: none; }
+.soon { font-size: 12px; color: var(--muted); font-weight: 600; margin-left: 4px; }
+.page a.inline { color: var(--amber); font-weight: 600; text-decoration: none; }
+.page a.inline:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <a class="brand brandmark" href="/"><span class="lig"><span class="l">l</span>a</span>bonne<span class="a">alerte</span><span class="bang"><span class="bar"></span><span class="dot"></span></span><span class="fr">fr</span></a>
+    <nav class="nav-right">
+      <a href="/">← Retour au kiosque</a>
+      <button class="theme-btn" type="button" onclick="toggleTheme()" aria-label="Changer de thème">◐</button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap page">
+  <h1>Nous soutenir</h1>
+  <p class="lead">La Bonne Alerte est gratuite, sans pub, et le restera. Si le service vous est utile, voici quelques façons d'aider — la plupart ne coûtent rien.</p>
+
+  <div class="sup-block">
+    <h2>💜 Soutien financier</h2>
+    <p>Un coup de pouce pour couvrir l'hébergement et le temps de développement. Les dons arrivent bientôt.</p>
+    <div class="sup-actions">
+      <button class="sup-btn primary" type="button" disabled>PayPal <span class="soon">bientôt</span></button>
+      <button class="sup-btn primary" type="button" disabled>Ko-fi <span class="soon">bientôt</span></button>
+    </div>
+  </div>
+
+  <div class="sup-block">
+    <h2>⭐ Soutenir sans dépenser</h2>
+    <p>Le plus efficace, et totalement gratuit :</p>
+    <div class="sup-actions">
+      <a class="sup-btn ghost" href="https://github.com/Epilouptique/labonnealerte" target="_blank" rel="noopener">Mettre une étoile sur GitHub</a>
+      <a class="sup-btn ghost" href="/">Partager le site</a>
+      <a class="sup-btn ghost" href="/proposer">Proposer une source</a>
+    </div>
+  </div>
+
+  <div class="sup-block">
+    <h2>🏢 Entreprises</h2>
+    <p>Besoin d'une source sur mesure ou d'un partenariat ? Contactez <a class="inline" href="https://dahu-concept.fr" target="_blank" rel="noopener">Dahu-Concept</a>.</p>
+  </div>
+</main>
+
+<footer>
+  La Bonne Alerte — gratuit, open-source (MIT), sans spam, rien de caché.<br>
+  <a href="/">Kiosque</a> · <a href="/a-propos">À propos</a> · <a href="/soutenir">Nous soutenir</a> · <a href="/connexion">Mes alertes</a> · <a href="https://github.com/Epilouptique/labonnealerte" target="_blank" rel="noopener">Code source</a>
+</footer>
+
+<script>
+(function () {
+  var K = 'lba-theme', r = document.documentElement, s = null;
+  try { s = localStorage.getItem(K); } catch (e) {}
+  r.setAttribute('data-theme', (s === 'light' || s === 'dark') ? s : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+  window.toggleTheme = function () { var n = r.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'; r.setAttribute('data-theme', n); try { localStorage.setItem(K, n); } catch (e) {} };
+})();
+</script>
+</body>
+</html>

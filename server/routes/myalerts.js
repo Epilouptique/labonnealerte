@@ -164,6 +164,39 @@ apiRouter.post('/my-alerts/toggle', async (req, res) => {
 });
 
 /* ------------------------------------------------------------------ */
+/* GET /api/my-alerts/history?token=xxx — events des sources abonnées.  */
+/* ------------------------------------------------------------------ */
+apiRouter.get('/my-alerts/history', async (req, res) => {
+  try {
+    const sub = await subscriberForToken(req.query.token);
+    if (!sub) return res.status(401).json({ error: 'Lien invalide ou expiré' });
+
+    const { rows } = await pool.query(
+      `SELECT ev.event, ev.message, ev.created_at, s.id AS source_id, s.name AS source_name
+         FROM source_events ev
+         JOIN subscriptions sub ON sub.source_id = ev.source_id
+         JOIN sources s ON s.id = ev.source_id
+        WHERE sub.subscriber_id = $1
+        ORDER BY ev.created_at DESC
+        LIMIT 20`,
+      [sub.id]
+    );
+
+    const events = rows.map((r) => ({
+      event: r.event,
+      message: r.message,
+      created_at: r.created_at.toISOString(),
+      source_id: r.source_id,
+      source_name: r.source_name,
+    }));
+    return res.status(200).json({ events });
+  } catch (err) {
+    console.error('[my-alerts] Erreur GET /my-alerts/history :', err.message);
+    return res.status(503).json({ error: 'Service indisponible' });
+  }
+});
+
+/* ------------------------------------------------------------------ */
 /* GET /connexion — page HTML de connexion (lien magique).             */
 /* ------------------------------------------------------------------ */
 pagesRouter.get('/connexion', (req, res) => {

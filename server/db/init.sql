@@ -76,6 +76,23 @@ CREATE TABLE IF NOT EXISTS subscriptions (
   PRIMARY KEY (subscriber_id, source_id)
 );
 
+-- Historique des événements de surveillance (transparence / status pages).
+CREATE TABLE IF NOT EXISTS source_events (
+  id SERIAL PRIMARY KEY,
+  source_id VARCHAR(64) REFERENCES sources(id) ON DELETE CASCADE,
+  event VARCHAR(16) NOT NULL,            -- 'activated' | 'deactivated' | 'failed'
+  message TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_source_events_source_date
+  ON source_events (source_id, created_at DESC);
+
+-- Compteurs globaux (vérifications effectuées, emails envoyés…).
+CREATE TABLE IF NOT EXISTS counters (
+  key VARCHAR(64) PRIMARY KEY,
+  value BIGINT NOT NULL DEFAULT 0
+);
+
 INSERT INTO sources (id, name, subtitle, description, type, badge, categories, display_order)
 SELECT 'leboncoin-livraison', 'Livraison à 0,99 €', 'Promo Mondial Relay sur leboncoin',
   'Alerte quand la promo livraison Mondial Relay à 0,99€ est active sur leboncoin.fr',
