@@ -22,7 +22,7 @@
      inkscape:deskcolor="#d1d1d1"
      inkscape:zoom="1.345"
      inkscape:cx="600"
-     inkscape:cy="121.56134"
+     inkscape:cy="122.30483"
      inkscape:window-width="1920"
      inkscape:window-height="1009"
      inkscape:window-x="1912"
@@ -91,10 +91,6 @@
      r="1.6"
      id="circle5" />
   <!-- Constellation 2 : « le dahu » (centre haut) -->
-  <polyline
-     class="link"
-     points="520,90 580,120 640,95 700,140 655,190"
-     id="polyline5" />
   <!-- Constellation 3 : « le signal » (droite) — se termine sur l'étoile verte -->
   <polyline
      class="link"
@@ -138,18 +134,6 @@
      r="4"
      id="circle16" />
   <!-- Quelques étoiles libres pour fondre dans le motif pointillé -->
-  <circle
-     class="star"
-     cx="430"
-     cy="230"
-     r="1.3"
-     id="circle17" />
-  <circle
-     class="star"
-     cx="760"
-     cy="80"
-     r="1.3"
-     id="circle18" />
   <circle
      class="star"
      cx="80"
