@@ -199,105 +199,218 @@
     var dot = document.getElementById('kpi-dot');
     var txt = document.getElementById('kpi-text');
     if (!dot || !txt) return;
-    var sched = 'vérification toutes les 30 min';
-    if (!sources) { // erreur API
-      dot.className = 'dot-idle';
-      txt.textContent = sched;
-      return;
-    }
+    if (!sources) { dot.className = 'dot-idle'; txt.textContent = ''; return; }
     var n = sources.filter(function (s) { return s.state === 'active'; }).length;
     dot.className = n > 0 ? 'dot-live' : 'dot-idle';
     txt.textContent = n === 0
-      ? 'Aucune alerte active — tout est calme · ' + sched
-      : (n === 1 ? '1 alerte active en ce moment · ' + sched
-                 : n + ' alertes actives en ce moment · ' + sched);
+      ? 'Aucune alerte active — tout est calme'
+      : (n === 1 ? '1 alerte active en ce moment' : n + ' alertes actives en ce moment');
   }
 
   /* ---------------- Kiosque : recherche + catégories + pagination ---------------- */
+  var esc = LBACards.esc;
   var INITIAL = 6, STEP = 9;
-  var cat = 'all', expanded = false;
+  var cat = 'all', visibleLimit = INITIAL, secondaryOpen = false, currentMode = 'anon';
   var cards = [], moreBtn = null, qInput = null, grid = null;
+  var REDUCE = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
   function catsOf(c) { return (c.dataset.cats || '').split(' ').filter(Boolean); }
+  function isShown(c) { return !c.classList.contains('filtered') && !c.classList.contains('hidden-more'); }
 
-  // Reconstruit les puces à partir des catégories réellement présentes.
-  function renderChips(sources) {
+  function matches(c, q) {
+    var okCat;
+    if (cat === 'all') okCat = true;
+    else if (cat === 'mine') okCat = c.dataset.subscribed === '1';
+    else okCat = catsOf(c).indexOf(cat) !== -1;
+    var okQ = !q || (c.dataset.search || '').indexOf(q) !== -1;
+    return okCat && okQ;
+  }
+
+  // Puces : [Toutes] [Mes alertes si connecté] [3-4 catégories les + peuplées] [+ 2e ligne].
+  function renderChips(mode) {
     var chipsEl = document.getElementById('chips');
     if (!chipsEl) return;
-    var present = {};
-    sources.forEach(function (s) { (s.categories || []).forEach(function (c) { present[c] = true; }); });
-    var labels = LBACards.CATEGORY_LABELS, order = LBACards.CATEGORY_ORDER;
-    var html = '<button class="chip-f on" type="button" data-cat="all">Toutes <span class="n"></span></button>';
-    order.filter(function (c) { return present[c]; }).forEach(function (c) {
-      html += '<button class="chip-f" type="button" data-cat="' + c + '">' +
-        (labels[c] || c) + ' <span class="n"></span></button>';
+    var counts = {};
+    cards.forEach(function (c) { catsOf(c).forEach(function (s) { counts[s] = (counts[s] || 0) + 1; }); });
+    var slugs = Object.keys(counts).sort(function (a, b) {
+      return counts[b] - counts[a] || LBACat.label(a).localeCompare(LBACat.label(b));
     });
-    chipsEl.innerHTML = html;
+    var primaryN = mode === 'connected' ? 3 : 4;
+    var primary = slugs.slice(0, primaryN);
+    var secondary = slugs.slice(primaryN, primaryN + 8);
+    var mineCount = cards.filter(function (c) { return c.dataset.subscribed === '1'; }).length;
+
+    function chip(slug, label, count) {
+      return '<button class="chip-f" type="button" data-cat="' + esc(slug) + '">' +
+        esc(label) + ' <span class="n">' + count + '</span></button>';
+    }
+    var prim = '<button class="chip-f on" type="button" data-cat="all">Toutes <span class="n">' + cards.length + '</span></button>';
+    if (mode === 'connected') prim += chip('mine', 'Mes alertes', mineCount);
+    primary.forEach(function (s) { prim += chip(s, LBACat.label(s), counts[s]); });
+    if (secondary.length) prim += '<button class="chip-f chip-more-toggle" type="button" aria-label="Plus de catégories">+</button>';
+
+    var sec = secondary.map(function (s) { return chip(s, LBACat.label(s), counts[s]); }).join('');
+    chipsEl.innerHTML = '<div class="chips-row" id="chips-primary">' + prim + '</div>' +
+      (secondary.length ? '<div class="chips-row chips-more" id="chips-secondary" hidden>' + sec + '</div>' : '');
   }
 
-  function updateCounts() {
-    var counts = { all: cards.length };
-    cards.forEach(function (c) {
-      catsOf(c).forEach(function (cat) { counts[cat] = (counts[cat] || 0) + 1; });
-    });
-    document.querySelectorAll('.chip-f').forEach(function (chip) {
-      var span = chip.querySelector('.n');
-      var v = counts[chip.dataset.cat];
-      if (span) span.textContent = v != null ? v : 0;
-    });
-  }
-
-  function apply() {
+  function computeShow() {
     var q = (qInput.value || '').trim().toLowerCase();
     var searching = q.length > 0 || cat !== 'all';
-    var hiddenCount = 0;
+    var idx = 0, hiddenMore = 0;
     cards.forEach(function (c) {
-      var okCat = cat === 'all' || catsOf(c).indexOf(cat) !== -1;
-      var okQ = !q || c.textContent.toLowerCase().indexOf(q) !== -1;
-      c.classList.toggle('filtered', !(okCat && okQ));
-      if (c.classList.contains('hidden-more')) {
-        if (searching || expanded) { c.classList.remove('hidden-more'); c.dataset.more = '1'; }
-      } else if (c.dataset.more && !searching && !expanded) {
-        c.classList.add('hidden-more');
-      }
-      if (c.classList.contains('hidden-more') && okCat && okQ) hiddenCount++;
+      var elig = matches(c, q);
+      var show;
+      if (!elig) show = false;
+      else { if (searching) show = true; else { show = idx < visibleLimit; if (!show) hiddenMore++; } idx++; }
+      c._elig = elig; c._show = show;
     });
+    return { searching: searching, hiddenMore: hiddenMore };
+  }
+  function setClasses() {
+    cards.forEach(function (c) {
+      c.classList.toggle('filtered', !c._elig);
+      c.classList.toggle('hidden-more', c._elig && !c._show);
+    });
+  }
+  function updateMore(info) {
+    if (!moreBtn) return;
     var nSpan = moreBtn.querySelector('.n');
-    if (nSpan) nSpan.textContent = '(+' + Math.min(STEP, hiddenCount) + ')';
-    moreBtn.style.display = (searching || expanded || hiddenCount === 0) ? 'none' : '';
+    if (nSpan) nSpan.textContent = '(+' + Math.min(STEP, info.hiddenMore) + ')';
+    moreBtn.style.display = (info.searching || info.hiddenMore === 0) ? 'none' : '';
+  }
+  function snapshot(list) { var m = new Map(); list.forEach(function (c) { m.set(c, c.getBoundingClientRect()); }); return m; }
+
+  // Animation FLIP : les cartes restantes glissent, les nouvelles apparaissent.
+  function flipMoves(first) {
+    cards.filter(isShown).forEach(function (c) {
+      var f = first.get(c);
+      var last = c.getBoundingClientRect();
+      if (f) {
+        var dx = f.left - last.left, dy = f.top - last.top;
+        if (dx || dy) {
+          c.style.transition = 'none';
+          c.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
+          c.getBoundingClientRect(); // reflow
+          requestAnimationFrame(function () {
+            c.style.transition = 'transform .3s ease-out';
+            c.style.transform = '';
+          });
+          var clr = function () { c.style.transition = ''; c.style.transform = ''; c.removeEventListener('transitionend', clr); };
+          c.addEventListener('transitionend', clr);
+        }
+      } else {
+        c.classList.add('card-enter');
+        c.getBoundingClientRect();
+        requestAnimationFrame(function () { c.classList.add('card-enter-active'); });
+        setTimeout(function () { c.classList.remove('card-enter', 'card-enter-active'); }, 300);
+      }
+    });
   }
 
-  function setupKiosk() {
+  function apply(animate) {
+    if (!grid || !qInput) return;
+    var doAnim = animate && !REDUCE;
+    var beforeVisible = cards.filter(isShown);
+    var first = doAnim ? snapshot(beforeVisible) : null;
+    var info = computeShow();
+    var leaving = doAnim ? beforeVisible.filter(function (c) { return !c._show; }) : [];
+
+    if (doAnim && leaving.length) {
+      leaving.forEach(function (c) { c.classList.add('card-leave'); });
+      setTimeout(function () {
+        leaving.forEach(function (c) { c.classList.remove('card-leave'); });
+        setClasses(); updateMore(info); flipMoves(first);
+      }, 200);
+    } else {
+      setClasses(); updateMore(info);
+      if (doAnim) flipMoves(first);
+    }
+  }
+
+  function selectChip(slug) {
+    cat = slug;
+    visibleLimit = INITIAL;
+    document.querySelectorAll('.chip-f').forEach(function (x) {
+      if (!x.classList.contains('chip-more-toggle')) x.classList.remove('on');
+    });
+    var active = document.querySelector('.chip-f[data-cat="' + slug + '"]');
+    if (active) {
+      active.classList.add('on');
+      if (active.closest('#chips-secondary')) {
+        var sec = document.getElementById('chips-secondary');
+        var tgl = document.querySelector('.chip-more-toggle');
+        if (sec) { sec.hidden = false; secondaryOpen = true; if (tgl) { tgl.textContent = '−'; tgl.classList.add('on'); } }
+      }
+    }
+    apply(true);
+  }
+
+  function scrollToGrid() {
+    var main = document.getElementById('alertes');
+    if (!main) return;
+    var top = main.getBoundingClientRect().top;
+    if (top < 0 || top > window.innerHeight * 0.4) main.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function setupKiosk(mode) {
     grid = document.getElementById('grid');
     moreBtn = document.getElementById('moreBtn');
     qInput = document.getElementById('q');
     if (!grid || !moreBtn || !qInput) return;
     cards = Array.prototype.slice.call(grid.querySelectorAll('.card[data-cats]'));
-    cards.forEach(function (c, i) { c.classList.toggle('hidden-more', i >= INITIAL); delete c.dataset.more; });
-    updateCounts();
-    qInput.addEventListener('input', apply);
+    renderChips(mode);
+
+    var searchTimer = null;
+    qInput.addEventListener('input', function () {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(function () { apply(true); }, 120);
+    });
+
     document.getElementById('chips').addEventListener('click', function (e) {
+      var toggle = e.target.closest('.chip-more-toggle');
+      if (toggle) {
+        var sec = document.getElementById('chips-secondary');
+        if (sec) { secondaryOpen = !secondaryOpen; sec.hidden = !secondaryOpen; toggle.textContent = secondaryOpen ? '−' : '+'; toggle.classList.toggle('on', secondaryOpen); }
+        return;
+      }
       var b = e.target.closest('.chip-f');
-      if (!b) return;
-      document.querySelectorAll('.chip-f').forEach(function (x) { x.classList.remove('on'); });
-      b.classList.add('on');
-      cat = b.dataset.cat;
-      apply();
+      if (!b || b.classList.contains('chip-more-toggle')) return;
+      selectChip(b.dataset.cat);
     });
-    moreBtn.addEventListener('click', function () {
-      var hidden = cards.filter(function (c) { return c.classList.contains('hidden-more'); });
-      hidden.slice(0, STEP).forEach(function (c) { c.classList.remove('hidden-more'); c.dataset.more = '1'; });
-      if (hidden.length <= STEP) expanded = true;
-      apply();
+
+    moreBtn.addEventListener('click', function () { visibleLimit += STEP; apply(true); });
+
+    apply(false); // initial : pagination sans animation
+  }
+
+  // Tags du verso cliquables → re-flip recto + filtre la catégorie.
+  document.addEventListener('click', function (e) {
+    var tag = e.target.closest('.back-tag');
+    if (!tag) return;
+    e.preventDefault(); e.stopPropagation();
+    var card = tag.closest('.card'); if (card) card.classList.remove('flipped');
+    selectChip(tag.getAttribute('data-cat'));
+    scrollToGrid();
+  });
+
+  // Lien « Mes alertes » : connecté → filtre sur place ; anonyme → /connexion.
+  function bindMineLinks() {
+    document.querySelectorAll('.mine-link').forEach(function (a) {
+      a.addEventListener('click', function (e) {
+        if (currentMode === 'connected') {
+          e.preventDefault();
+          selectChip('mine');
+          scrollToGrid();
+        }
+      });
     });
-    apply();
   }
 
   /* ---------------- Chargement de l'accueil ---------------- */
   function removeSkeletons(g) {
     g.querySelectorAll('.card.skeleton').forEach(function (n) { n.remove(); });
   }
-
   function showGridError(g, extras) {
     removeSkeletons(g);
     var el = document.createElement('div');
@@ -312,6 +425,8 @@
     if (!g) return;
     var extras = document.getElementById('static-extras');
 
+    await LBACat.load(); // labels + recherche par catégorie
+
     var sources;
     try {
       var r = await fetch('/api/sources', { headers: { Accept: 'application/json' } });
@@ -321,7 +436,6 @@
     } catch (e) {
       showGridError(g, extras);
       updateKPI(null);
-      setupKiosk();
       return;
     }
 
@@ -331,17 +445,16 @@
     if (token) {
       try {
         var s = await LBASession.fetchAlerts(token);
-        if (s.status === 401) {
-          LBASession.clear();
-        } else if (s.ok && s.data) {
+        if (s.status === 401) LBASession.clear();
+        else if (s.ok && s.data) {
           mode = 'connected';
           email = s.data.email;
           (s.data.sources || []).forEach(function (x) { subMap[x.id] = x.subscribed; });
         }
       } catch (e) { /* réseau : on reste anonyme */ }
     }
+    currentMode = mode;
 
-    // L'ordre vient du serveur (display_order ASC, name ASC) — on le respecte.
     var html = sources.map(function (sc) {
       if (mode === 'connected') sc.subscribed = !!subMap[sc.id];
       return LBACards.cardHTML(sc, mode);
@@ -352,9 +465,9 @@
 
     document.body.setAttribute('data-mode', mode);
     updateKPI(sources);
-    renderChips(sources);
     LBASession.renderHeader(email);
-    setupKiosk();
+    setupKiosk(mode);
+    bindMineLinks();
   }
 
   document.addEventListener('DOMContentLoaded', loadHome);

@@ -21,7 +21,7 @@
       <span></span><span></span><span></span>
     </button>
     <nav class="nav-right" id="nav-menu">
-      <a href="/connexion">Mes alertes</a>
+      <a class="mine-link" href="/connexion">Mes alertes</a>
       <a href="#openalert">OpenAlert</a>
       <span class="auth-email" id="auth-email" hidden></span>
       <a class="btn-login" id="auth-link" href="/connexion">Se connecter</a>
@@ -33,7 +33,7 @@
 <section class="hero wrap">
   <h1>Toutes vos alertes,<br><span class="hl">en un clic.</span></h1>
   <p>Gratuit, sans spam, sans pub, open source.</p>
-  <div class="kpi"><span id="kpi-dot" class="dot-idle"></span></div>
+  <div class="kpi"><span id="kpi-dot" class="dot-idle"></span> <span id="kpi-text"></span></div>
 </section>
 
 <main class="wrap" id="alertes">
@@ -75,7 +75,7 @@
 <section class="devs" id="openalert">
   <div class="wrap">
     <div>
-      <div class="section-label">Pour les développeurs</div>
+      <div class="section-label">// pour les développeurs</div>
       <h2>Le standard OpenAlert</h2>
       <p>Vous n'exposez qu'un manifeste <span class="mono">alert.json</span> de 8 champs. La plateforme apporte les abonnés, les emails, le push et la vitrine. Badge <span class="badge community">community</span> puis <span class="badge verified">verified</span> après vérification.</p>
       <p style="margin-top:14px"><a href="/proposer" style="color:var(--amber);font-weight:600">Proposer votre source · lire la spec →</a></p>
@@ -95,10 +95,11 @@
 
 <footer>
   La Bonne Alerte — gratuit, open-source (MIT), sans spam, rien de caché.<br>
-  Un projet <a href="https://dahu-concept.fr" target="_blank" rel="noopener">Dahu-Concept</a> · <a href="/connexion">Mes alertes</a> · <a href="https://github.com/Epilouptique/labonnealerte" target="_blank" rel="noopener">Code source</a> · <a href="#">Mentions légales</a>
+  Un projet <a href="https://dahu-concept.fr" target="_blank" rel="noopener">Dahu-Concept</a> · <a class="mine-link" href="/connexion">Mes alertes</a> · <a href="https://github.com/Epilouptique/labonnealerte" target="_blank" rel="noopener">Code source</a> · <a href="#">Mentions légales</a>
 </footer>
 
 <script src="/js/session.js"></script>
+<script src="/js/categories.js"></script>
 <script src="/js/cards.js"></script>
 <script src="/js/site.js"></script>
 <script src="/js/nav.js"></script>

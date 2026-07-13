@@ -209,14 +209,11 @@
 
   /* ---------- Champ de tags catégories (autocomplétion, max 3) ---------- */
   var MAX_CATS = 3;
-  var PRESET = [
-    { slug: 'bons-plans', label: 'Bons plans' },
-    { slug: 'meteo-risques', label: 'Météo & risques' },
-    { slug: 'energie', label: 'Énergie' },
-    { slug: 'tech', label: 'Tech' },
-    { slug: 'transports', label: 'Transports' },
-    { slug: 'autre', label: 'Autre' }
-  ];
+  var PRESET = []; // chargé depuis /api/categories
+  fetch('/api/categories', { headers: { Accept: 'application/json' } })
+    .then(function (r) { return r.ok ? r.json() : []; })
+    .then(function (arr) { if (Array.isArray(arr)) PRESET = arr; })
+    .catch(function () {});
   var selected = [];
   var pills = document.getElementById('tags-pills');
   var entry = document.getElementById('tag-entry');
@@ -258,7 +255,7 @@
     var matches = PRESET.filter(function (p) {
       return selected.indexOf(p.slug) === -1 &&
         (p.slug.indexOf(q) !== -1 || p.label.toLowerCase().indexOf(raw) !== -1);
-    });
+    }).slice(0, 8); // ~8 suggestions pertinentes
     if (!matches.length) { hideSuggest(); return; }
     suggest.innerHTML = matches.map(function (p) {
       return '<li role="option" data-slug="' + p.slug + '">' + esc(p.label) + '</li>';

@@ -44,3 +44,27 @@ html[data-theme="dark"] {
     animation: none;
   }
 }
+
+/*---------------Ajoute une barre au l du titre---------------*/
+:root{
+  --lig-left: 0.06em;
+  --lig-width: 0.5em;
+  --lig-y: 0.31em;
+  --lig-height: 0.3em;
+  --lig-stroke: 0.135em;
+  --lig-round: 0.1em;
+  --track: -0.05em;
+  --l-gap: 0.055em;
+}
+
+.brandmark{font-family:'Baloo 2',sans-serif;font-weight:800;letter-spacing:var(--track)}
+.brandmark .lig{position:relative;display:inline-block}
+.brandmark .lig .l{letter-spacing:var(--l-gap)}
+.brandmark .lig::after{
+  content:"";position:absolute;pointer-events:none;
+  left:var(--lig-left);bottom:var(--lig-y);
+  width:var(--lig-width);height:var(--lig-height);
+  border-bottom:var(--lig-stroke) solid currentColor;
+  border-bottom-left-radius:var(--lig-round);
+  border-bottom-right-radius:var(--lig-round);
+}

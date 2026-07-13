@@ -1,7 +1,14 @@
 const express = require('express');
 const { pool } = require('../db');
+const { CATEGORIES } = require('../categories');
 
 const router = express.Router();
+
+// GET /api/categories — taxonomie complète (publique, cacheable).
+router.get('/categories', (req, res) => {
+  res.set('Cache-Control', 'public, max-age=3600');
+  res.json(CATEGORIES);
+});
 
 // GET /api/sources — liste des sources avec leur état courant.
 router.get('/sources', async (req, res) => {

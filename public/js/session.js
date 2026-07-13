@@ -42,6 +42,20 @@
     window.location.reload();
   }
 
+  // Déduit un prénom de l'email pour un accueil chaleureux. Renvoie null si peu fiable.
+  function firstName(email) {
+    if (!email) return null;
+    var local = email.split('@')[0];
+    var seg = local.indexOf('.') !== -1 ? local.slice(0, local.indexOf('.')) : local;
+    seg = seg.replace(/[0-9]+$/, ''); // retire les chiffres de fin (hugo92 -> hugo)
+    var letters = (seg.match(/[a-zA-Zà-öø-ÿ]/g) || []).length;
+    if (letters < 2) return null;
+    var name = seg.split('-').map(function (p) {
+      return p ? p.charAt(0).toUpperCase() + p.slice(1) : p;
+    }).join('-');
+    return name.length > 16 ? name.slice(0, 16) : name;
+  }
+
   // Met à jour la zone d'auth du header. `email` non nul => affiché en mode connecté.
   function renderHeader(email) {
     var link = document.getElementById('auth-link');
@@ -50,8 +64,9 @@
 
     if (logged) {
       if (emailEl) {
-        emailEl.textContent = truncateEmail(email || '');
-        emailEl.title = email || '';
+        var name = firstName(email);
+        emailEl.textContent = name ? ('Bienvenue ' + name + ' !') : truncateEmail(email || '');
+        emailEl.title = email || ''; // tooltip : email complet
         emailEl.hidden = !email;
       }
       if (link) {

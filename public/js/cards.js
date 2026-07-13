@@ -1,21 +1,18 @@
 /* cards.js — rendu partagé des cartes du kiosque (recto/verso).
    RECTO : grand public (titre, sous-titre, description, état, switch/lien).
-   VERSO : dev/curieux (même en-tête titre+badge, endpoint, tags, auteur, lien proposer).
-   Le switch est présent dans les DEUX modes (anon / connected). Les 'linked' gardent leur lien.
-   Expose window.LBACards. */
+   VERSO : dev/curieux (même en-tête, endpoint, tags cliquables, auteur, lien proposer).
+   Le switch est présent dans les DEUX modes. Les 'linked' gardent leur lien.
+   Labels de catégories via window.LBACat. Expose window.LBACards. */
 
 (function () {
   'use strict';
 
-  var CATEGORY_LABELS = {
-    'bons-plans': 'Bons plans',
-    'meteo-risques': 'Météo & risques',
-    'energie': 'Énergie',
-    'tech': 'Tech',
-    'transports': 'Transports',
-    'autre': 'Autre'
-  };
-  var CATEGORY_ORDER = ['bons-plans', 'meteo-risques', 'energie', 'tech', 'transports', 'autre'];
+  // Libellés affichés des badges (les valeurs DB et les classes CSS ne changent pas).
+  var BADGE_LABEL = { official: 'vérifié', verified: 'vérifié', community: 'communauté' };
+
+  function catLabel(slug) {
+    return (window.LBACat && window.LBACat.label) ? window.LBACat.label(slug) : slug;
+  }
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -26,7 +23,7 @@
   function badgeFor(badge) {
     var b = (badge || 'community').toLowerCase();
     if (b !== 'official' && b !== 'verified' && b !== 'community') b = 'community';
-    return '<span class="badge ' + b + '">' + b + '</span>';
+    return '<span class="badge ' + b + '">' + BADGE_LABEL[b] + '</span>';
   }
 
   function stateFor(state) {
@@ -41,12 +38,11 @@
     return s.split('/')[0];
   }
 
-  // En-tête commun recto/verso : titre + badge (même structure, même taille).
+  // En-tête commun recto/verso : titre + badge.
   function topRow(s) {
     return '<div class="card-top"><h3>' + esc(s.name) + '</h3>' + badgeFor(s.badge) + '</div>';
   }
 
-  // Switch d'abonnement. `on` = état coché initial.
   function switchRow(on) {
     return '' +
       '<label class="switch-row">' +
@@ -58,7 +54,6 @@
       '</label>';
   }
 
-  // Formulaire email révélé en mode anonyme quand le switch passe « en attente ».
   function subForm() {
     return '<div class="sub-form"><input type="email" placeholder="votre@email.fr" aria-label="Adresse email">' +
       '<button type="button">OK</button></div>';
@@ -91,13 +86,13 @@
       : '<a class="endpoint mono" href="/api/sources/' + esc(s.id) + '/alert.json" target="_blank" rel="noopener">' +
         'GET /api/sources/' + esc(s.id) + '/alert.json</a>';
 
+    // Tags cliquables → filtre la catégorie sur la home.
     var tags = (cats.length)
       ? '<div class="back-tags">' + cats.map(function (c) {
-          return '<span class="tag">' + esc(CATEGORY_LABELS[c] || c) + '</span>';
+          return '<button type="button" class="tag back-tag" data-cat="' + esc(c) + '">' + esc(catLabel(c)) + '</button>';
         }).join('') + '</div>'
       : '';
 
-    // Auteur affiché dès qu'un pseudo GitHub est présent (toutes sources).
     var author = s.submitted_by_github
       ? '<div class="back-author">par <a href="https://github.com/' + esc(s.submitted_by_github) + '" ' +
         'target="_blank" rel="noopener">@' + esc(s.submitted_by_github) + '</a></div>'
@@ -112,13 +107,22 @@
       '</div>';
   }
 
+  // Texte de recherche : nom + sous-titre + description + slugs & labels des catégories.
+  function searchText(s, cats) {
+    var parts = [s.name || '', s.subtitle || '', s.description || ''];
+    cats.forEach(function (c) { parts.push(c); parts.push(catLabel(c)); });
+    return parts.join(' ').toLowerCase();
+  }
+
   // s : source complète ; mode : 'anon' | 'connected'
   function cardHTML(s, mode) {
     var cats = Array.isArray(s.categories) ? s.categories : [];
     var dataCats = cats.map(esc).join(' ');
     var isLinked = s.type === 'linked';
+    var sub = mode === 'connected' && !!s.subscribed ? '1' : '0';
     return '' +
-      '<div class="card flip" data-cats="' + dataCats + '" data-source-id="' + esc(s.id) + '">' +
+      '<div class="card flip" data-cats="' + dataCats + '" data-source-id="' + esc(s.id) + '"' +
+        ' data-subscribed="' + sub + '" data-search="' + esc(searchText(s, cats)) + '">' +
         '<div class="card-inner">' +
           frontFace(s, mode, isLinked) +
           backFace(s, cats, isLinked) +
@@ -127,7 +131,6 @@
   }
 
   window.LBACards = {
-    esc: esc, badgeFor: badgeFor, stateFor: stateFor, domainOf: domainOf, cardHTML: cardHTML,
-    CATEGORY_LABELS: CATEGORY_LABELS, CATEGORY_ORDER: CATEGORY_ORDER
+    esc: esc, badgeFor: badgeFor, stateFor: stateFor, domainOf: domainOf, cardHTML: cardHTML, catLabel: catLabel
   };
 })();

@@ -48,10 +48,16 @@ html[data-theme="light"] header { background: #ffffff; } /* thème clair : blanc
 /* ---------- hero ---------- */
 .hero { padding: 88px 0 48px; text-align: center; position: relative; }
 .hero::before {
-  content: ""; position: absolute; top: -120px; left: 50%; transform: translateX(-50%);
+  content: ""; position: absolute; top: -120px; left: 50%; transform: translate(-50%, 0) scale(1);
   width: 640px; height: 420px; pointer-events: none;
   background: radial-gradient(closest-side, color-mix(in srgb, var(--amber) 22%, transparent), transparent 70%);
+  animation: hero-halo 12s ease-in-out infinite alternate;
 }
+@keyframes hero-halo {
+  0%   { transform: translate(-50%, 0) scale(1);      opacity: .8; }
+  100% { transform: translate(-46%, 22px) scale(1.08); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) { .hero::before { animation: none; } }
 .hero > * { position: relative; }
 .hero h1 { font-size: clamp(32px, 5.4vw, 52px); font-weight: 800; letter-spacing: -0.03em; line-height: 1.08; }
 .hero h1 .hl { color: var(--amber); }
@@ -74,7 +80,8 @@ html[data-theme="light"] header { background: #ffffff; } /* thème clair : blanc
 }
 .search input { border: none; background: transparent; font: inherit; font-size: 14.5px; color: var(--ink); width: 100%; outline: none; }
 .search svg { flex: none; opacity: .5; }
-.chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chips { display: flex; flex-direction: column; gap: 8px; }
+.chips-row { display: flex; gap: 8px; flex-wrap: wrap; }
 .chip-f {
   border: none; background: var(--surface); color: var(--muted);
   font: inherit; font-size: 13px; font-weight: 600;
@@ -83,6 +90,10 @@ html[data-theme="light"] header { background: #ffffff; } /* thème clair : blanc
 .chip-f:hover { color: var(--ink); }
 .chip-f.on { background: var(--amber); color: #fff; }
 .chip-f .n { opacity: .6; font-size: 11.5px; margin-left: 4px; }
+.chip-more-toggle { min-width: 38px; text-align: center; font-weight: 700; }
+
+/* Focus : uniquement sur le conteneur de recherche, jamais sur l'input. */
+.search input:focus, .search input:focus-visible { outline: none; }
 
 /* ---------- grid ---------- */
 .section-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .14em; color: var(--amber); margin-bottom: 14px; }
@@ -98,6 +109,14 @@ html[data-theme="light"] header { background: #ffffff; } /* thème clair : blanc
 .card:hover { box-shadow: var(--shadow); transform: none; }
 /* Cartes masquées : pagination (hidden-more) et filtrage (filtered). */
 .card.hidden-more, .card.filtered { display: none; }
+
+/* Animation FLIP du filtrage : disparition (fade + scale) / apparition (fade in). */
+.card.card-leave { opacity: 0; transform: scale(.96); transition: opacity .2s ease, transform .2s ease; }
+.card.card-enter { opacity: 0; transform: scale(.96); }
+.card.card-enter.card-enter-active { opacity: 1; transform: scale(1); transition: opacity .25s ease, transform .25s ease; }
+@media (prefers-reduced-motion: reduce) {
+  .card.card-leave, .card.card-enter, .card.card-enter.card-enter-active { transition: none; transform: none; opacity: 1; }
+}
 
 /* ---------- carte recto/verso (flip 3D) ---------- */
 /* La carte-conteneur devient transparente : l'apparence est portée par les faces.
@@ -118,8 +137,14 @@ html[data-theme="light"] header { background: #ffffff; } /* thème clair : blanc
   border: 2px solid transparent;
 }
 .card-front { position: relative; }              /* en flux : définit la hauteur */
-.card-back { position: absolute; inset: 0; transform: rotateY(180deg); gap: 14px; }
+/* Verso : fond légèrement teinté (subtil), position absolue par-dessus le recto. */
+.card-back {
+  position: absolute; inset: 0; transform: rotateY(180deg); gap: 14px;
+  background: color-mix(in srgb, var(--surface) 96%, var(--amber));
+}
 .card.flip:hover .card-face { box-shadow: var(--shadow); }
+/* Bouton « ⓘ » masqué au verso (seule la flèche retour reste visible). */
+.card.flipped .flip-btn { display: none; }
 @media (prefers-reduced-motion: reduce) { .card-inner { transition: none; } }
 
 /* Sous-titre discret sous le titre (recto). */
@@ -334,8 +359,9 @@ footer a { color: var(--muted); }
 
 /* État « en attente » (mode anonyme) : ambre, curseur à mi-course, pulsation. */
 .switch-row.pending .track { background: var(--amber-soft); border-color: var(--amber); }
+/* Curseur en attente : position mi-course + pulsation, mais couleur de base conservée. */
 .switch-row.pending .thumb {
-  transform: translateX(10px) !important; background: var(--amber); border-color: transparent;
+  transform: translateX(10px) !important;
   animation: pend-pulse 1s ease-in-out infinite;
 }
 .switch-row.pending .switch-label { color: var(--amber); }
@@ -404,4 +430,15 @@ input:focus-visible,
   border-bottom:var(--lig-stroke) solid currentColor;
   border-bottom-left-radius:var(--lig-round);
   border-bottom-right-radius:var(--lig-round);
+}
+
+/* ---------- Volet H : labels de section dans la marge gauche (grand écran) ---------- */
+@media (min-width: 1280px) {
+  body:not(.dev) main.wrap,
+  body:not(.dev) .devs .wrap { position: relative; }
+  body:not(.dev) .section-label {
+    position: absolute; top: 2px; margin: 0; text-align: right;
+    left: max(-220px, calc(-1 * ((100vw - 1060px) / 2 - 24px)));
+    width: min(180px, calc((100vw - 1060px) / 2 - 36px));
+  }
 }
