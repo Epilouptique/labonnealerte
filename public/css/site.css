@@ -12,6 +12,16 @@ body {
   transition: background .25s, color .25s;
   background-image: radial-gradient(var(--dot) 1.2px, transparent 1.7px);
   background-size: 30px 30px;
+/* Fond constellations — pleine largeur, hauteur du hero */
+  background-image:
+    url('/img/fond-constellations.svg'),
+    radial-gradient(var(--dot) 1.2px, transparent 1.7px);
+  background-size: cover, 30px 30px;
+  background-position: bottom center, 0 0;
+  background-repeat: no-repeat, repeat;
+  background-attachment: fixed, scroll;
+
+
 }
 .mono { font-family: 'JetBrains Mono', monospace; }
 .wrap { max-width: 1060px; margin: 0 auto; padding: 0 24px; }
@@ -456,6 +466,7 @@ input:focus-visible,
 */
 
 /* Fond constellations — pleine largeur, hauteur du hero */
+/*
 .hero::after {
   content: "";
   position: absolute;
@@ -467,17 +478,11 @@ input:focus-visible,
   background: url('/img/fond-constellations.svg') bottom center / cover no-repeat;
   pointer-events: none;
 }
-
+*/
 /*
 body {
 
-  background-image:
-    url('/img/fond-constellations.svg'),
-    radial-gradient(var(--dot) 1.2px, transparent 1.7px);
-  background-size: cover, 30px 30px;
-  background-position: bottom center, 0 0;
-  background-repeat: no-repeat, repeat;
-  background-attachment: fixed, scroll;
+
 }
 */
 
@@ -591,7 +596,7 @@ html { scroll-padding-top: 84px; }
 .stat-mid { font-size: 22px; font-weight: 800; margin-top: 18px; }
 .stat-mid .stat-cap-inline { font-size: 14px; font-weight: 600; opacity: .92; }
 .stat-spam { margin-top: 18px; font-size: 15px; font-weight: 700; }
-.stat-spam .zero { color: fff; }
+.stat-spam .zero { color: #fff; }
 .stats-copy { display: flex; flex-direction: column; justify-content: center; }
 .stats-copy h2 { font-size: clamp(22px, 3.6vw, 30px); font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; }
 .stats-copy p { color: var(--muted); margin-top: 12px; line-height: 1.6; font-size: 15px; }
@@ -642,7 +647,7 @@ html { scroll-padding-top: 84px; }
 .card-front .card-top, .card-back .card-top, .src-head-top { align-items: center; }
 
 /* E) bandeau stats pleine largeur */
-.stats-section { background: #ffffff; padding: 40px 0 48px; }
+.stats-section { background: #edf; padding: 40px 0 48px; }
 html[data-theme="dark"] .stats-section { background: color-mix(in srgb, var(--surface) 55%, var(--bg)); }
 
 /* G) typographie du bloc stats */
