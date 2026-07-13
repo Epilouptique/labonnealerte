@@ -36,14 +36,12 @@
       '<span class="share-ic">' + IC[icon] + '</span><span class="share-lbl">' + label + '</span></a>';
   }
 
-  function open(anchor, name, url) {
-    close(); // un seul à la fois
-
+  // Grille d'options HTML (réutilisée par le popover ET la face partage des cartes).
+  function optionsHTML(name, url) {
     var text = name + ' — alerte gratuite sur labonnealerte.fr';
-    var tu = enc(text + ' ' + url); // texte + url
+    var tu = enc(text + ' ' + url);
     var u = enc(url), t = enc(text), n = enc(name);
-
-    var opts =
+    return (
       optLink('whatsapp', 'WhatsApp', 'https://wa.me/?text=' + tu) +
       optLink('facebook', 'Facebook', 'https://www.facebook.com/sharer/sharer.php?u=' + u) +
       optLink('x', 'X', 'https://twitter.com/intent/tweet?text=' + t + '&url=' + u) +
@@ -53,7 +51,26 @@
       optLink('mastodon', 'Mastodon', 'https://mastodonshare.com/?url=' + u + '&text=' + t) +
       optLink('email', 'Email', 'mailto:?subject=' + n + '&body=' + tu) +
       (IS_MOBILE ? optLink('sms', 'SMS', 'sms:?&body=' + tu) : '') +
-      '<button type="button" class="share-opt share-copy"><span class="share-ic">' + IC.copy + '</span><span class="share-lbl">Copier le lien</span></button>';
+      '<button type="button" class="share-opt share-copy"><span class="share-ic">' + IC.copy + '</span><span class="share-lbl">Copier le lien</span></button>'
+    );
+  }
+
+  // Câble le bouton « Copier le lien » dans un conteneur (popover ou face de carte).
+  function bindCopy(root, url) {
+    var btn = root.querySelector('.share-copy');
+    if (!btn) return;
+    btn.addEventListener('click', function () {
+      var lbl = btn.querySelector('.share-lbl');
+      var done = function () { var o = lbl.textContent; lbl.textContent = 'Copié ✓'; setTimeout(function () { lbl.textContent = o; }, 1500); };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(done, done);
+      else done();
+    });
+  }
+
+  function open(anchor, name, url) {
+    close(); // un seul à la fois
+
+    var opts = optionsHTML(name, url);
 
     pop = document.createElement('div');
     pop.className = 'share-pop';
@@ -85,13 +102,7 @@
     }
 
     // Copier le lien
-    pop.querySelector('.share-copy').addEventListener('click', function () {
-      var btn = this;
-      var lbl = btn.querySelector('.share-lbl');
-      var done = function () { var o = lbl.textContent; lbl.textContent = 'Copié ✓'; setTimeout(function () { lbl.textContent = o; }, 1500); };
-      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(done, done);
-      else done();
-    });
+    bindCopy(pop, url);
     // Fermer × + clic sur une option ferme aussi
     pop.querySelector('.share-close').addEventListener('click', close);
     pop.querySelectorAll('.share-opt:not(.share-copy)').forEach(function (a) {
@@ -107,5 +118,5 @@
     document.addEventListener('mousedown', outsideHandler, true);
   }
 
-  window.LBAShare = { open: open, close: close, isMobile: IS_MOBILE };
+  window.LBAShare = { open: open, close: close, optionsHTML: optionsHTML, bindCopy: bindCopy, isMobile: IS_MOBILE };
 })();

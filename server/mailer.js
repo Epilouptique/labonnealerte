@@ -170,17 +170,17 @@ function alertEmailHtml(info, target, statusUrl, hhmm) {
              style="max-width:600px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 18px rgba(30,20,50,.08)">
         <tr><td style="background:${ACCENT};padding:16px 24px">
           <table role="presentation" width="100%"><tr>
-            <td style="font-family:Arial,Helvetica,sans-serif;font-size:17px;font-weight:800;color:#ffffff">labonnealerte.fr</td>
+            <td style="font-family:Arial,Helvetica,sans-serif;font-size:17px;font-weight:800"><span style="color:#ffffff !important;text-decoration:none">labonnealerte.fr</span></td>
             <td align="right"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#22c55e"></span></td>
           </tr></table>
         </td></tr>
         <tr><td style="padding:28px 28px 8px;font-family:Arial,Helvetica,sans-serif;color:#0f1419">
-          <h1 style="margin:0 0 10px;font-size:21px;font-weight:800;letter-spacing:-0.02em">🔔 ${name} — c'est le moment</h1>
+          <h1 style="margin:0 0 10px;font-size:21px;font-weight:800;letter-spacing:-0.02em">🔔 ${name}</h1>
           <p style="margin:0;font-size:14.5px;line-height:1.6;color:#4a4a52">${context}</p>
         </td></tr>
         <tr><td style="padding:18px 28px 30px">
           <table role="presentation" cellpadding="0" cellspacing="0"><tr>
-            <td style="border-radius:12px;background:#0f1419">
+            <td style="border-radius:12px;background:#a567e3">
               <a href="${esc(target)}" target="_blank" style="display:inline-block;padding:14px 34px;font-family:Arial,Helvetica,sans-serif;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:12px">Voir →</a>
             </td>
           </tr></table>
@@ -189,7 +189,7 @@ function alertEmailHtml(info, target, statusUrl, hhmm) {
           <hr style="border:none;border-top:1px solid #eee;margin:0 0 12px">
           <p style="margin:0;font-size:12px;color:#8a8a92;line-height:1.6">
             Vous recevez cet email car vous suivez cette alerte · <a href="${esc(statusUrl)}" style="color:#8a8a92">voir le statut</a><br>
-            <a href="${MYALERTS_URL}" style="color:#8a8a92">gérer mes alertes</a> · se désinscrire en 1 clic depuis « gérer mes alertes »
+            se désinscrire en 1 clic depuis <a href="${MYALERTS_URL}" style="color:#8a8a92">gérer mes alertes</a>
           </p>
         </td></tr>
       </table>
@@ -201,11 +201,11 @@ function alertEmailHtml(info, target, statusUrl, hhmm) {
 /**
  * Prévient tous les abonnés qu'une alerte est active.
  * Envoi individuel (un mail par abonné), jamais en CC.
- * @param {string[]} emails
+ * @param {Array<string|{email,token}>} recipients  emails, ou objets {email, token}
  * @param {{id,name,message,url}} info  contexte de la source
  * @returns {Promise<{ sent: number, failed: number }>}
  */
-async function sendPromoAlert(emails, info = {}) {
+async function sendPromoAlert(recipients, info = {}) {
   let sent = 0;
   let failed = 0;
 
@@ -214,22 +214,28 @@ async function sendPromoAlert(emails, info = {}) {
   const name = info.name || 'Votre alerte';
   const hhmm = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
   const context = info.message ? `${info.message} · détectée à ${hhmm}` : `détectée à ${hhmm}`;
+  const html = alertEmailHtml(info, target, statusUrl, hhmm);
+  const text =
+    `${name}\n\n${context}\n\n` +
+    `Voir : ${target}\n\n` +
+    `—\nVous recevez cet email car vous suivez cette alerte.\n` +
+    `Statut de la source : ${statusUrl}\n` +
+    `Se désinscrire en 1 clic : ${MYALERTS_URL}`;
 
-  for (const email of emails) {
+  for (const r of recipients) {
+    const email = typeof r === 'string' ? r : r.email;
+    const token = typeof r === 'string' ? null : r.token;
+    const payload = { from: FROM, to: email, subject: `🔔 ${name}`, text, html };
+    // Désinscription native (Gmail « Se désinscrire ») + délivrabilité.
+    if (token) {
+      const unsubUrl = `${SITE_URL}/unsubscribe/${token}`;
+      payload.headers = {
+        'List-Unsubscribe': `<${unsubUrl}>`,
+        'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+      };
+    }
     try {
-      await resend.emails.send({
-        from: FROM,
-        to: email,
-        subject: `🔔 ${name} — c'est le moment`,
-        text:
-          `${name} — c'est le moment.\n\n` +
-          `${context}\n\n` +
-          `Voir : ${target}\n\n` +
-          `—\nVous recevez cet email car vous suivez cette alerte.\n` +
-          `Statut de la source : ${statusUrl}\n` +
-          `Gérer mes alertes / se désinscrire : ${MYALERTS_URL}`,
-        html: alertEmailHtml(info, target, statusUrl, hhmm),
-      });
+      await resend.emails.send(payload);
       sent += 1;
       await incEmailCounters();
     } catch (err) {

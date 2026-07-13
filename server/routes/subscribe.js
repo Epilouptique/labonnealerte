@@ -190,6 +190,18 @@ pagesRouter.get('/confirm/:token', async (req, res) => {
   }
 });
 
+// POST /unsubscribe/:token — désinscription « One-Click » (bouton natif Gmail via
+// l'en-tête List-Unsubscribe-Post). Répond 200 sans page HTML.
+pagesRouter.post('/unsubscribe/:token', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM subscribers WHERE token = $1', [req.params.token]);
+    return res.sendStatus(200);
+  } catch (err) {
+    console.error('[subscribe] Erreur POST /unsubscribe :', err.message);
+    return res.sendStatus(503);
+  }
+});
+
 // GET /unsubscribe/:token — supprime l'abonné.
 pagesRouter.get('/unsubscribe/:token', async (req, res) => {
   const { token } = req.params;

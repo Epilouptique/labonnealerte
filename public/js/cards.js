@@ -124,6 +124,16 @@
       '</div>';
   }
 
+  // 3e face : partage (grille remplie à la volée par site.js via LBAShare.optionsHTML).
+  function shareFace() {
+    return '' +
+      '<div class="card-face card-share-face">' +
+        '<button class="flip-back" type="button" aria-label="Retour" title="Retour">↩</button>' +
+        '<div class="share-face-title">Partager</div>' +
+        '<div class="share-grid share-face-grid"></div>' +
+      '</div>';
+  }
+
   // Texte de recherche : nom + sous-titre + description + slugs & labels des catégories.
   function searchText(s, cats) {
     var parts = [s.name || '', s.subtitle || '', s.description || ''];
@@ -143,6 +153,7 @@
         '<div class="card-inner">' +
           frontFace(s, mode, isLinked) +
           backFace(s, cats, isLinked) +
+          shareFace() +
         '</div>' +
       '</div>';
   }

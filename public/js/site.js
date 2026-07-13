@@ -60,7 +60,7 @@
     }, 700);
   }
 
-  // Partage d'une carte — popover d'options (stopPropagation : pas de flip).
+  // Partage d'une carte — retourne la carte vers sa face « Partager » (3e face).
   document.addEventListener('click', function (e) {
     var sb = e.target.closest('.card-share');
     if (!sb) return;
@@ -71,7 +71,13 @@
     var h3 = card.querySelector('h3');
     var name = h3 ? h3.textContent : 'La Bonne Alerte';
     var url = 'https://www.labonnealerte.fr/source/' + id + '/statut';
-    if (window.LBAShare) LBAShare.open(sb, name, url);
+    var faceGrid = card.querySelector('.share-face-grid');
+    if (faceGrid && window.LBAShare && !faceGrid.dataset.filled) {
+      faceGrid.innerHTML = LBAShare.optionsHTML(name, url);
+      LBAShare.bindCopy(faceGrid, url);
+      faceGrid.dataset.filled = '1';
+    }
+    card.classList.add('flipped', 'face-share');
   });
 
   // D) Ignorer la recommandation → départ animé + mémorisé pour la session.
@@ -122,18 +128,24 @@
     extras.insertAdjacentHTML('beforebegin', rc);
   }
 
-  // Flip recto/verso — stopPropagation pour ne pas déclencher abonnement/toggle.
+  // Flip recto ⇄ verso-info ⇄ verso-partage. flip-back ramène toujours au recto.
   document.addEventListener('click', function (e) {
     var flip = e.target.closest('.flip-btn');
     if (flip) {
       e.preventDefault(); e.stopPropagation();
-      var c = flip.closest('.card'); if (c) c.classList.add('flipped');
+      var c = flip.closest('.card'); if (c) { c.classList.remove('face-share'); c.classList.add('flipped'); }
       return;
     }
     var back = e.target.closest('.flip-back');
     if (back) {
       e.preventDefault(); e.stopPropagation();
-      var c2 = back.closest('.card'); if (c2) c2.classList.remove('flipped');
+      var c2 = back.closest('.card');
+      if (c2) {
+        var wasShare = c2.classList.contains('face-share');
+        c2.classList.remove('flipped');
+        // Garde la face partage cachant l'info pendant la rotation de retour (anti-flicker).
+        if (wasShare) setTimeout(function () { c2.classList.remove('face-share'); }, REDUCE ? 0 : 520);
+      }
       return;
     }
   });
@@ -396,23 +408,35 @@
     grid.addEventListener('transitionend', clr);
   }
 
-  // Volet F/G : movers glissent (FLIP), entrants arrivent latéralement (parité + stagger).
-  function flipMoves(first) {
+  // Volet F/G/A : movers glissent (FLIP) ; la carte Proposer anime aussi sa HAUTEUR
+  // (mesurée, car height:auto issu du stretch n'est pas transitionnable) dans les deux sens.
+  function flipMoves(first, fromAddH) {
     if (!grid.offsetHeight) return;
     var movers = positionedShown();
     var enterIdx = 0;
     movers.forEach(function (c, i) {
+      var isAdd = (c === addCard);
       var f = first.get(c);
       var last = c.getBoundingClientRect();
       if (f) {
         var dx = f.left - last.left, dy = f.top - last.top;
-        if (dx || dy) {
+        var dh = isAdd ? Math.abs(last.height - fromAddH) : 0;
+        if (dx || dy || dh > 2) {
           c.style.transition = 'none';
           c.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
+          if (isAdd && dh > 2) c.style.height = fromAddH + 'px';
           c.getBoundingClientRect();
-          requestAnimationFrame(function () { c.style.transition = 'transform .3s ease-out'; c.style.transform = ''; });
+          requestAnimationFrame(function () {
+            c.style.transition = (isAdd && dh > 2) ? 'transform .3s ease-out, height .3s ease-out' : 'transform .3s ease-out';
+            c.style.transform = '';
+            if (isAdd && dh > 2) c.style.height = last.height + 'px';
+          });
           (function (card) {
-            var clr = function () { card.style.transition = ''; card.style.transform = ''; card.removeEventListener('transitionend', clr); };
+            var clr = function (ev) {
+              if (ev && ev.propertyName && ev.propertyName !== 'transform' && ev.propertyName !== 'height') return;
+              card.style.transition = ''; card.style.transform = ''; card.style.height = '';
+              card.removeEventListener('transitionend', clr);
+            };
             card.addEventListener('transitionend', clr);
           })(c);
         }
@@ -441,6 +465,7 @@
     var beforeVisible = cards.filter(isShown);
     var first = doAnim ? snapshot(positionedShown()) : null;
     var fromH = grid.offsetHeight;
+    var fromAddH = (doAnim && addCard) ? addCard.getBoundingClientRect().height : 0;
     var info = computeShow();
     var leaving = doAnim ? beforeVisible.filter(function (c) { return !c._show; }) : [];
 
@@ -448,7 +473,7 @@
       setClasses();
       updateMore(info);
       updateMineEmpty();
-      if (doAnim) { flipMoves(first); animateGridHeight(fromH); }
+      if (doAnim) { flipMoves(first, fromAddH); animateGridHeight(fromH); }
     }
 
     if (doAnim && leaving.length) {

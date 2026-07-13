@@ -22,21 +22,21 @@ function loadSources() {
 
 const SOURCES = loadSources();
 
-// Emails des abonnés confirmés inscrits à CETTE source (jointure subscriptions).
+// Abonnés confirmés inscrits à CETTE source (email + token pour la désinscription 1-clic).
 async function confirmedEmailsForSource(sourceId) {
   const { rows } = await pool.query(
-    `SELECT s.email
+    `SELECT s.email, s.token
        FROM subscribers s
        JOIN subscriptions sub ON sub.subscriber_id = s.id
       WHERE sub.source_id = $1 AND s.confirmed = true`,
     [sourceId]
   );
-  return rows.map((r) => r.email);
+  return rows.map((r) => ({ email: r.email, token: r.token }));
 }
 
 async function notifySourceSubscribers(sourceId, result = {}) {
-  const emails = await confirmedEmailsForSource(sourceId);
-  if (emails.length === 0) {
+  const recipients = await confirmedEmailsForSource(sourceId);
+  if (recipients.length === 0) {
     console.log(`[poller] Aucun abonné confirmé pour ${sourceId}.`);
     return;
   }
@@ -46,8 +46,8 @@ async function notifySourceSubscribers(sourceId, result = {}) {
     if (rows[0]) name = rows[0].name;
   } catch (err) { /* nom de repli = id */ }
   const info = { id: sourceId, name, message: result.message || null, url: result.url || null };
-  console.log(`[poller] Envoi de l'alerte à ${emails.length} abonné(s) de ${sourceId}...`);
-  const { sent, failed } = await sendPromoAlert(emails, info);
+  console.log(`[poller] Envoi de l'alerte à ${recipients.length} abonné(s) de ${sourceId}...`);
+  const { sent, failed } = await sendPromoAlert(recipients, info);
   console.log(`[poller] Alerte ${sourceId} : ${sent} OK, ${failed} échec(s).`);
 }
 

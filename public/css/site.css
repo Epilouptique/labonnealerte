@@ -180,8 +180,8 @@ html[data-theme="light"] header { background: #ffffff; } /* thème clair : blanc
 .back-propose { margin-top: auto; color: var(--amber); font-weight: 600; font-size: 13px; text-decoration: none; }
 .back-propose:hover { text-decoration: underline; }
 
-/* En-tête : réserve le coin haut-droit pour le bouton ⓘ / ↩ (jamais de chevauchement). */
-.card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+/* En-tête : titre + badge-icône dans le flux (le badge suit le titre), coin réservé au ⓘ/↩. */
+.card-top { display: flex; justify-content: flex-start; align-items: flex-start; gap: 7px; }
 .card-front .card-top { padding-right: 58px; } /* réserve pour partager + ⓘ */
 .card-back .card-top { padding-right: 30px; }  /* réserve pour ↩ */
 .card h3 { font-size: 16.5px; font-weight: 700; letter-spacing: -0.01em; }
@@ -423,7 +423,7 @@ input:focus-visible,
 :root{
   --lig-left: 0.06em;
   --lig-width: 0.5em;
-  --lig-y: 0.31em;
+  --lig-y: 0.43em;
   --lig-height: 0.3em;
   --lig-stroke: 0.135em;
   --lig-round: 0.1em;
@@ -653,7 +653,7 @@ html[data-theme="dark"] .stats-section { background: color-mix(in srgb, var(--su
 /* G) typographie du bloc stats */
 .stats-eyebrow { font-family: 'Baloo 2', sans-serif; font-weight: 800; font-size: 16px; }
 .stat-spam { display: flex; align-items: baseline; gap: 12px; margin-top: 14px; }
-.stat-spam .zero { font-size: clamp(44px, 9vw, 68px); font-weight: 800; line-height: 1; color: var(--green); background: none; padding: 0; border-radius: 0; }
+.stat-spam .zero { font-size: clamp(44px, 9vw, 68px); font-weight: 800; line-height: 1; background: none; padding: 0; border-radius: 0; }
 .stat-spam .spam-cap { font-size: 15px; font-weight: 700; }
 
 /* D) home connectée épurée : masque hero (titre + tagline) et stats */
@@ -685,3 +685,22 @@ body[data-mode="connected"] #stats { display: none; }
 }
 .reco-x { border: none; background: none; color: var(--amber); cursor: pointer; font-size: 15px; line-height: 1; padding: 0 3px; border-radius: 50%; }
 .reco-x:hover { color: var(--ink); }
+
+/* ---------- Volet C : face « Partager » (3e face de la carte) ---------- */
+.card-share-face {
+  position: absolute; inset: 0; transform: rotateY(180deg); gap: 12px;
+  background: color-mix(in srgb, var(--surface) 96%, var(--amber));
+  overflow-y: auto;
+}
+/* Face arrière visible selon .face-share (indépendant de .flipped → pas de flicker au retour). */
+.card.face-share .card-back { display: none; }
+.card:not(.face-share) .card-share-face { display: none; }
+.card.flipped .card-share { display: none; } /* bouton partager masqué au verso */
+.share-face-title { font-size: 14px; font-weight: 700; padding-right: 30px; }
+.card-share-face .share-grid { grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.card-share-face .share-opt { padding: 8px 2px; border-radius: 12px; }
+.card-share-face .share-lbl { font-size: 10px; }
+
+/* Volet B : le badge-icône suit le titre sans jamais le pousser hors flux */
+.card-top h3 { flex: 0 1 auto; min-width: 0; }
+.card-top .badge-ic { align-self: center; }

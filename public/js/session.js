@@ -65,6 +65,8 @@
     // B) Lien « OpenAlert » masqué en mode connecté (expérience 100% consommateur).
     var oa = document.getElementById('nav-openalert');
     if (oa) oa.hidden = logged;
+    // D) Lien « Mes alertes » masqué tant que l'utilisateur n'est pas connecté.
+    document.querySelectorAll('.mine-link').forEach(function (el) { el.hidden = !logged; });
 
     if (logged) {
       if (emailEl) {
