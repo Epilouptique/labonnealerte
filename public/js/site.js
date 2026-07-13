@@ -580,6 +580,46 @@
   }
 
   /* ---------------- Bloc stats marketing (A) ---------------- */
+  function fmtFR(n) { return Number(n).toLocaleString('fr-FR'); } // espace fine insécable
+
+  // Compte chaque grand chiffre de 0 à sa valeur (ease-out ~1,2s) ; le « 0 » ne
+  // compte pas mais fait un pop quand les autres finissent. Une seule fois.
+  function animateCounts() {
+    var tile = document.getElementById('stats-tile');
+    if (!tile) return;
+    var counters = Array.prototype.slice.call(tile.querySelectorAll('.stat-count'));
+    var zero = tile.querySelector('.stat-spam .zero');
+    if (REDUCE) {
+      counters.forEach(function (el) { el.textContent = fmtFR(el.dataset.target || 0); });
+      return; // pas de comptage ni de pop
+    }
+    var DUR = 1200, start = null;
+    function frame(ts) {
+      if (start === null) start = ts;
+      var t = Math.min(1, (ts - start) / DUR);
+      var e = 1 - Math.pow(1 - t, 3); // ease-out cubic (décélère en approchant)
+      counters.forEach(function (el) {
+        el.textContent = fmtFR(Math.round((Number(el.dataset.target) || 0) * e));
+      });
+      if (t < 1) requestAnimationFrame(frame);
+      else {
+        counters.forEach(function (el) { el.textContent = fmtFR(el.dataset.target || 0); });
+        if (zero) zero.classList.add('pop'); // petit pop final du « 0 »
+      }
+    }
+    requestAnimationFrame(frame);
+  }
+
+  function setupStatsCounter() {
+    var tile = document.getElementById('stats-tile');
+    if (!tile) return;
+    if (!('IntersectionObserver' in window)) { animateCounts(); return; }
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) { if (en.isIntersecting) { io.disconnect(); animateCounts(); } });
+    }, { threshold: 0.35 });
+    io.observe(tile);
+  }
+
   async function loadStats() {
     var lines = document.getElementById('stats-lines');
     if (!lines) return;
@@ -587,15 +627,16 @@
       var r = await fetch('/api/stats', { headers: { Accept: 'application/json' } });
       if (!r.ok) return;
       var d = await r.json();
-      var checks = Number(d.checks_this_month || 0).toLocaleString('fr-FR'); // espace fine insécable
-      var alerts = Number(d.alerts_this_month || 0).toLocaleString('fr-FR');
+      var checks = Number(d.checks_this_month || 0);
+      var alerts = Number(d.alerts_this_month || 0);
       lines.innerHTML =
-        '<div class="stat-big">' + checks + '</div>' +
+        '<div class="stat-big stat-count" data-target="' + checks + '">0</div>' +
         '<div class="stat-cap">vérifications effectuées</div>' +
-        '<div class="stat-mid">' + alerts + ' <span class="stat-cap-inline">alertes déclenchées</span></div>' +
+        '<div class="stat-mid"><span class="stat-count" data-target="' + alerts + '">0</span> <span class="stat-cap-inline">alertes déclenchées</span></div>' +
         '<div class="stat-spam"><span class="zero">0</span> <span class="spam-cap">spam, comme promis</span></div>';
       // TODO : quand emails_this_month sera significatif, ajouter ici une ligne
-      //        '<div class="stat-mid">' + emails + ' notifications envoyées</div>' (d.emails_this_month).
+      //        '<div class="stat-mid stat-count" data-target="..."> notifications envoyées</div>' (d.emails_this_month).
+      setupStatsCounter();
     } catch (e) { /* silencieux */ }
   }
 
@@ -686,6 +727,12 @@
       // D) KPI personnalisé : actives parmi les abonnements.
       var mineActive = sources.filter(function (s) { return subMap[s.id] && s.state === 'active'; }).length;
       updateKPIMine(mineActive);
+      // Salutation à la place du h1 : « Bonjour <prénom en accent> ».
+      var h1 = document.querySelector('.hero h1');
+      if (h1) {
+        var nm = LBASession.firstName ? LBASession.firstName(email) : null;
+        h1.innerHTML = 'Bonjour' + (nm ? ' <span class="hl-name">' + esc(nm) + '</span>' : '');
+      }
     } else {
       updateKPI(sources);
     }

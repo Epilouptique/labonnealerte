@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   viewBox="0 0 1200 600"
+   preserveAspectRatio="xMidYMax slice"
+   aria-hidden="true"
+   version="1.1"
+   id="svg22"
+   sodipodi:docname="fond-constellations-jour.svg"
+   inkscape:version="1.4.2 (f4327f4, 2025-05-13)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview22"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="0.6725"
+     inkscape:cx="342.00743"
+     inkscape:cy="153.90335"
+     inkscape:window-width="1920"
+     inkscape:window-height="1009"
+     inkscape:window-x="1912"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg22" />
+  <!--
+    Fond constellations et montagnes, La Bonne Alerte.
+    Etoiles : memes points que le fond pointille (rayon ~1.4), violet discret.
+    Liens : traits fins violets, opacite faible, pour s'incruster dans le motif de points.
+    Signal : la derniere etoile de la constellation de droite est verte et "ping".
+    Montagnes : silhouette Hautes-Alpes en bas, tres legere.
+    Couleurs codees en dur (un SVG en background-image ne lit pas les variables CSS).
+    Version claire ; dupliquer avec les valeurs sombres si besoin (voir CSS fourni).
+  -->
+  <defs
+     id="defs1">
+    <style
+       id="style1">
+      .star { fill: rgba(120,95,175,.45); }
+      .link { stroke: rgba(120,95,175,.22); stroke-width: 1; fill: none; stroke-linecap: round; }
+      .mtn  { fill: rgba(120,95,175,.07); }
+      .mtn2 { fill: rgba(120,95,175,.045); }
+      .signal { fill: #16a34a; }
+      .ring { fill: none; stroke: #16a34a; stroke-width: 1.5; transform-origin: 1052px 118px; animation: ping 2.4s ease-out infinite; }
+      @keyframes ping {
+        0%   { transform: scale(1);   opacity: .8; }
+        100% { transform: scale(3.2); opacity: 0;  }
+      }
+      @media (prefers-reduced-motion: reduce) { .ring { animation: none; opacity: 0; } }
+    </style>
+  </defs>
+  <!-- Constellation 1 : « la petite balise » (gauche) -->
+  <!-- Constellation 2 : « le dahu » (centre haut) -->
+  <!-- Constellation 3 : « le signal » (droite) — se termine sur l'étoile verte -->
+  <!-- Dernière étoile : le point vert du logo, avec son anneau ping -->
+  <!-- Quelques étoiles libres pour fondre dans le motif pointillé -->
+  <!-- Montagnes : deux plans, silhouette douce type Écrins -->
+  <path
+     class="mtn2"
+     d="M0,600 L0,470 L140,380 L260,450 L400,350 L540,440 L660,370 L820,460 L960,390 L1100,455 L1200,410 L1200,600 Z"
+     id="path21" />
+  <path
+     class="mtn"
+     d="M0,600 L0,520 L180,430 L320,500 L480,410 L640,495 L800,430 L950,505 L1100,450 L1200,490 L1200,600 Z"
+     id="path22" />
+</svg>

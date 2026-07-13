@@ -13,8 +13,8 @@ body {
   background-image: radial-gradient(var(--dot) 1.2px, transparent 1.7px);
   background-size: 30px 30px;
 /* Fond constellations — pleine largeur, hauteur du hero */
-  background-image:
-    url('/img/fond-constellations.svg'),
+ background-image:
+    var(--bg-decor),
     radial-gradient(var(--dot) 1.2px, transparent 1.7px);
   background-size: cover, 30px 30px;
   background-position: bottom center, 0 0;
@@ -657,10 +657,11 @@ html[data-theme="dark"] .stats-section { background: color-mix(in srgb, var(--su
 .stat-spam .spam-cap { font-size: 15px; font-weight: 700; }
 
 /* D) home connectée épurée : masque hero (titre + tagline) et stats */
-body[data-mode="connected"] .hero h1,
+/* Connecté : le h1 reste (salutation « Bonjour <prénom> »), la tagline disparaît. */
 body[data-mode="connected"] .hero p { display: none; }
 body[data-mode="connected"] .hero { padding: 36px 0 20px; }
 body[data-mode="connected"] .hero::before, body[data-mode="connected"] .hero::after { display: none; }
+.hero h1 .hl-name { color: var(--amber); } /* prénom en accent, « Bonjour » en --ink */
 body[data-mode="connected"] #stats { display: none; }
 
 /* H) carte Proposer : transition de hauteur symétrique */
@@ -704,3 +705,9 @@ body[data-mode="connected"] #stats { display: none; }
 /* Volet B : le badge-icône suit le titre sans jamais le pousser hors flux */
 .card-top h3 { flex: 0 1 auto; min-width: 0; }
 .card-top .badge-ic { align-self: center; }
+
+/* Comptage des stats : petit pop du « 0 » (sans comptage) quand les chiffres finissent */
+@keyframes zero-pop { 0% { transform: scale(.6); } 60% { transform: scale(1.12); } 100% { transform: scale(1); } }
+.stat-spam .zero { display: inline-block; transform-origin: center bottom; }
+.stat-spam .zero.pop { animation: zero-pop .45s cubic-bezier(.34, 1.56, .64, 1) both; }
+@media (prefers-reduced-motion: reduce) { .stat-spam .zero.pop { animation: none; } }

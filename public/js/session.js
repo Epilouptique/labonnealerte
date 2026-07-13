@@ -69,12 +69,9 @@
     document.querySelectorAll('.mine-link').forEach(function (el) { el.hidden = !logged; });
 
     if (logged) {
-      if (emailEl) {
-        var name = firstName(email);
-        emailEl.textContent = name ? ('Bienvenue ' + name + ' !') : truncateEmail(email || '');
-        emailEl.title = email || ''; // tooltip : email complet
-        emailEl.hidden = !email;
-      }
+      // La salutation « Bonjour <prénom> » s'affiche désormais dans le hero (à la
+      // place du h1), gérée par site.js — le header ne l'affiche plus.
+      if (emailEl) { emailEl.hidden = true; emailEl.textContent = ''; }
       if (link) {
         link.textContent = 'Se déconnecter';
         link.setAttribute('href', '#');
@@ -95,6 +92,7 @@
     get: get, set: set, clear: clear,
     fetchAlerts: fetchAlerts,
     truncateEmail: truncateEmail,
+    firstName: firstName,
     renderHeader: renderHeader,
     logout: logout
   };
