@@ -19,6 +19,10 @@
     root.setAttribute('data-theme', next);
     try { localStorage.setItem(STORAGE_KEY, next); } catch (e) {}
   };
+  // Liaison du bouton (plus d'onclick inline — CSP script-src 'self').
+  document.addEventListener('DOMContentLoaded', function () {
+    var tb = document.querySelector('.theme-btn'); if (tb) tb.addEventListener('click', window.toggleTheme);
+  });
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {

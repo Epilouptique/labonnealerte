@@ -1,5 +1,6 @@
 const express = require('express');
 const crypto = require('crypto');
+const rateLimit = require('express-rate-limit');
 const { pool } = require('../db');
 const { sendConfirmation } = require('../mailer');
 
@@ -8,6 +9,15 @@ const { sendConfirmation } = require('../mailer');
 // (monté à la racine, sans préfixe /api).
 const apiRouter = express.Router();
 const pagesRouter = express.Router();
+
+// Limiteur strict sur l'inscription (déclenche des envois d'emails) : 8/min/IP.
+const subscribeLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 8,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Trop de requêtes, réessayez dans une minute' },
+});
 
 const DEFAULT_SOURCE = 'leboncoin-livraison';
 
@@ -61,7 +71,7 @@ function htmlPage({ title, heading, message, tone = 'ok' }) {
 
 // POST /subscribe — inscrit une adresse à une source et envoie le mail de confirmation.
 // Corps : { email, source_id? } (source_id par défaut : 'leboncoin-livraison').
-apiRouter.post('/subscribe', async (req, res) => {
+apiRouter.post('/subscribe', subscribeLimiter, async (req, res) => {
   const { email, source_id } = req.body || {};
   const sourceId = source_id || DEFAULT_SOURCE;
 
@@ -124,30 +134,6 @@ apiRouter.post('/subscribe', async (req, res) => {
   }
 });
 
-// DELETE /api/debug/subscriber/:email — [TEMPORAIRE / DEBUG]
-// Supprime un subscriber par email ; ses subscriptions partent en cascade
-// (FK ON DELETE CASCADE). Usage manuel uniquement, non lié depuis le site.
-// À RETIRER avant une mise en prod stable.
-apiRouter.delete('/debug/subscriber/:email', async (req, res) => {
-  const email = String(req.params.email || '').toLowerCase();
-
-  try {
-    const { rows } = await pool.query(
-      'DELETE FROM subscribers WHERE email = $1 RETURNING id, email',
-      [email]
-    );
-
-    if (rows.length === 0) {
-      return res.status(404).json({ error: 'Subscriber introuvable', email });
-    }
-
-    console.log(`[subscribe][debug] Subscriber supprimé : ${email} (id=${rows[0].id})`);
-    return res.status(200).json({ message: 'Subscriber supprimé', deleted: rows[0] });
-  } catch (err) {
-    console.error('[subscribe] Erreur DELETE /debug/subscriber :', err.message);
-    return res.status(503).json({ error: 'DB unavailable' });
-  }
-});
 
 // GET /confirm/:token — valide l'inscription.
 pagesRouter.get('/confirm/:token', async (req, res) => {

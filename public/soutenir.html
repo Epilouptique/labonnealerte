@@ -37,7 +37,7 @@
     <a class="brand brandmark" href="/"><span class="lig"><span class="l">l</span>a</span>bonne<span class="a">alerte</span><span class="bang"><span class="bar"></span><span class="dot"></span></span><span class="fr">fr</span></a>
     <nav class="nav-right">
       <a href="/">← Retour au kiosque</a>
-      <button class="theme-btn" type="button" onclick="toggleTheme()" aria-label="Changer de thème">◐</button>
+      <button class="theme-btn" type="button" aria-label="Changer de thème">◐</button>
     </nav>
   </div>
 </header>
@@ -76,13 +76,6 @@
   <a href="/">Kiosque</a> · <a href="/a-propos">À propos</a> · <a href="/soutenir">Nous soutenir</a> · <a href="/proposer">Espace développeur</a> · <a href="https://github.com/Epilouptique/labonnealerte" target="_blank" rel="noopener">Code source</a>
 </footer>
 
-<script>
-(function () {
-  var K = 'lba-theme', r = document.documentElement, s = null;
-  try { s = localStorage.getItem(K); } catch (e) {}
-  r.setAttribute('data-theme', (s === 'light' || s === 'dark') ? s : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
-  window.toggleTheme = function () { var n = r.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'; r.setAttribute('data-theme', n); try { localStorage.setItem(K, n); } catch (e) {} };
-})();
-</script>
+<script src="/js/theme.js"></script>
 </body>
 </html>

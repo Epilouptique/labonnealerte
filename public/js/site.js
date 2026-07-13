@@ -28,6 +28,8 @@
     var btn = document.querySelector('.theme-btn');
     if (btn && !reduce) { themeDeg += 180; btn.style.transform = 'rotateY(' + themeDeg + 'deg)'; }
   };
+  // Liaison du bouton (plus d'onclick inline — CSP script-src 'self').
+  (function () { var tb = document.querySelector('.theme-btn'); if (tb) tb.addEventListener('click', window.toggleTheme); })();
 
   /* ---------------- Abonnement : switch dans les deux modes ---------------- */
   var EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

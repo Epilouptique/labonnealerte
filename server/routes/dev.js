@@ -76,16 +76,19 @@ function isPrivateIP(ip) {
   return false;
 }
 
+// Erreur « publique » : son message est sûr à renvoyer au client (rédigé par nous).
+function pubErr(msg) { const e = new Error(msg); e.public = true; return e; }
+
 // Récupère le manifeste avec toutes les protections. Peut throw avec un message clair.
 async function fetchManifest(rawUrl) {
   let url;
   try {
     url = new URL(rawUrl);
   } catch {
-    throw new Error('URL invalide');
+    throw pubErr('URL invalide');
   }
   if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-    throw new Error('Seuls les protocoles http et https sont autorisés');
+    throw pubErr('Seuls les protocoles http et https sont autorisés');
   }
 
   // Résolution DNS + contrôle des IP (anti-SSRF).
@@ -93,10 +96,10 @@ async function fetchManifest(rawUrl) {
   try {
     addresses = await dns.lookup(url.hostname, { all: true });
   } catch {
-    throw new Error('Nom de domaine introuvable (DNS)');
+    throw pubErr('Nom de domaine introuvable (DNS)');
   }
   if (addresses.length === 0 || addresses.some((a) => isPrivateIP(a.address))) {
-    throw new Error('Cible non autorisée (adresse privée ou locale)');
+    throw pubErr('Cible non autorisée (adresse privée ou locale)');
   }
 
   const controller = new AbortController();
@@ -109,30 +112,30 @@ async function fetchManifest(rawUrl) {
       headers: { Accept: 'application/json' },
     });
   } catch (err) {
-    if (err.name === 'AbortError') throw new Error('Délai dépassé (>5s) en récupérant le manifeste');
-    throw new Error('Impossible de joindre l\'URL du manifeste');
+    if (err.name === 'AbortError') throw pubErr('Délai dépassé (>5s) en récupérant le manifeste');
+    throw pubErr('Impossible de joindre l\'URL du manifeste');
   } finally {
     clearTimeout(timer);
   }
 
   if (!res.ok) {
-    throw new Error(`Le manifeste a répondu HTTP ${res.status}`);
+    throw pubErr(`Le manifeste a répondu HTTP ${res.status}`);
   }
 
   const declared = Number(res.headers.get('content-length'));
   if (declared && declared > MAX_BYTES) {
-    throw new Error('Manifeste trop volumineux (> 100 Ko)');
+    throw pubErr('Manifeste trop volumineux (> 100 Ko)');
   }
 
   const text = await res.text();
   if (Buffer.byteLength(text, 'utf8') > MAX_BYTES) {
-    throw new Error('Manifeste trop volumineux (> 100 Ko)');
+    throw pubErr('Manifeste trop volumineux (> 100 Ko)');
   }
 
   try {
     return JSON.parse(text);
   } catch {
-    throw new Error('Le contenu récupéré n\'est pas du JSON valide');
+    throw pubErr('Le contenu récupéré n\'est pas du JSON valide');
   }
 }
 
@@ -198,7 +201,11 @@ router.post('/validate-manifest', rateLimit, async (req, res) => {
   try {
     manifest = await fetchManifest(url);
   } catch (err) {
-    return res.status(200).json({ valid: false, network_error: err.message, checks: [], manifest: null });
+    console.error('[dev] validate-manifest :', err.message);
+    // On ne renvoie que des messages « publics » rédigés par nous, jamais err.message brut.
+    const publicMsg = err && err.public ? err.message
+      : 'Impossible de récupérer le manifeste (URL invalide, injoignable ou trop volumineuse).';
+    return res.status(200).json({ valid: false, network_error: publicMsg, checks: [], manifest: null });
   }
 
   const { valid, checks } = validateManifest(manifest);

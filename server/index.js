@@ -3,6 +3,8 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const express = require('express');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const { pool } = require('./db');
 const apiRouter = require('./routes/api');
 const devRouter = require('./routes/dev');
@@ -13,11 +15,47 @@ const { startPoller } = require('./poller');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Confiance au proxy Railway pour obtenir la vraie IP client (rate-limiting dev).
-app.set('trust proxy', true);
+// Un seul proxy devant l'app (Railway) : indispensable pour l'IP réelle du client
+// (rate-limiting) sans permettre l'usurpation via X-Forwarded-For.
+app.set('trust proxy', 1);
+// Désactivé aussi explicitement via helmet (X-Powered-By).
+app.disable('x-powered-by');
+
+// B) En-têtes de sécurité + Content-Security-Policy adaptée au site.
+app.use(helmet({
+  contentSecurityPolicy: {
+    useDefaults: false,
+    directives: {
+      'default-src': ["'self'"],
+      // Google Fonts : la feuille vient de fonts.googleapis.com ; 'unsafe-inline'
+      // pour les attributs style= et blocs <style> internes.
+      'style-src': ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+      'font-src': ['https://fonts.gstatic.com'],
+      'script-src': ["'self'"], // aucun script inline (tous externalisés)
+      'img-src': ["'self'", 'data:'],
+      'connect-src': ["'self'"],
+      'base-uri': ["'self'"],
+      'form-action': ["'self'"],
+      'frame-ancestors': ["'self'"],
+      'object-src': ["'none'"],
+    },
+  },
+}));
 
 app.use(express.json());
 app.use(express.static('public'));
+
+// C) Limiteur global sur /api : 120 requêtes/minute/IP (la home fait plusieurs appels).
+//    Les limiteurs stricts (subscribe, my-alerts, dev) restent actifs en plus.
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Trop de requêtes, réessayez dans une minute' },
+});
+app.use('/api', apiLimiter);
+
 app.use('/api', apiRouter);
 app.use('/api', subscribeApiRouter);
 app.use('/api', myAlertsApiRouter);
