@@ -504,6 +504,85 @@ WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'journees-patrimoine');
 INSERT INTO source_states (source_id) SELECT 'journees-patrimoine'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'journees-patrimoine');
 
+-- ================================================================
+-- Vague 7 : RappelConso, 4 vigilances de plus, 4 statuts de plus.
+-- ================================================================
+
+-- Rappels de produits alimentaires à risque grave (RappelConso / DGCCRF).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'rappel-conso', 'Rappels produits', 'Rappels alimentaires à risque grave',
+  'Alerte quand un produit alimentaire est rappelé pour un risque grave (listéria, salmonelle, E. coli, toxine, corps étranger, allergène non déclaré). Source officielle RappelConso (DGCCRF) — filtre « risques graves uniquement » pour éviter le bruit.',
+  'internal', 'official', true, ARRAY['rappels-produits', 'alimentation', 'sante'], 34
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'rappel-conso');
+INSERT INTO source_states (source_id) SELECT 'rappel-conso'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'rappel-conso');
+
+-- Vigilances météo supplémentaires (même API/factory, un seul appel partagé).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'vigilance-meteo-31', 'Vigilance météo — Haute-Garonne', 'Alertes orange et rouge Météo-France',
+  'Alerte quand Météo-France place la Haute-Garonne en vigilance orange ou rouge (orages, canicule, pluie-inondation...). Source officielle Météo-France.',
+  'internal', 'official', false, ARRAY['vigilance-meteo', 'meteo-risques'], 27
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'vigilance-meteo-31');
+INSERT INTO source_states (source_id) SELECT 'vigilance-meteo-31'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'vigilance-meteo-31');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'vigilance-meteo-44', 'Vigilance météo — Loire-Atlantique', 'Alertes orange et rouge Météo-France',
+  'Alerte quand Météo-France place la Loire-Atlantique en vigilance orange ou rouge (tempêtes, vent violent, vagues-submersion...). Source officielle Météo-France.',
+  'internal', 'official', false, ARRAY['vigilance-meteo', 'meteo-risques'], 28
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'vigilance-meteo-44');
+INSERT INTO source_states (source_id) SELECT 'vigilance-meteo-44'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'vigilance-meteo-44');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'vigilance-meteo-67', 'Vigilance météo — Bas-Rhin', 'Alertes orange et rouge Météo-France',
+  'Alerte quand Météo-France place le Bas-Rhin en vigilance orange ou rouge (orages, neige-verglas, canicule...). Source officielle Météo-France.',
+  'internal', 'official', false, ARRAY['vigilance-meteo', 'meteo-risques'], 29
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'vigilance-meteo-67');
+INSERT INTO source_states (source_id) SELECT 'vigilance-meteo-67'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'vigilance-meteo-67');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'vigilance-meteo-35', 'Vigilance météo — Ille-et-Vilaine', 'Alertes orange et rouge Météo-France',
+  'Alerte quand Météo-France place l''Ille-et-Vilaine en vigilance orange ou rouge (tempêtes, vent violent, pluie-inondation...). Source officielle Météo-France.',
+  'internal', 'official', false, ARRAY['vigilance-meteo', 'meteo-risques'], 30
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'vigilance-meteo-35');
+INSERT INTO source_states (source_id) SELECT 'vigilance-meteo-35'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'vigilance-meteo-35');
+
+-- Statuts de service supplémentaires (standard Statuspage). Anti-flapping : TRUE.
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'statut-figma', 'Panne Figma', 'Statut officiel de Figma',
+  'Alerte quand Figma déclare une panne majeure sur sa page de statut officielle. Fini le « c''est moi ou c''est en panne ? ».',
+  'internal', 'official', true, ARRAY['pannes-services', 'tech'], 48
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'statut-figma');
+INSERT INTO source_states (source_id) SELECT 'statut-figma'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'statut-figma');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'statut-reddit', 'Panne Reddit', 'Statut officiel de Reddit',
+  'Alerte quand Reddit déclare une panne majeure sur sa page de statut officielle. Fini le « c''est moi ou c''est en panne ? ».',
+  'internal', 'official', true, ARRAY['pannes-services', 'tech'], 49
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'statut-reddit');
+INSERT INTO source_states (source_id) SELECT 'statut-reddit'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'statut-reddit');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'statut-twitch', 'Panne Twitch', 'Statut officiel de Twitch',
+  'Alerte quand Twitch déclare une panne majeure sur sa page de statut officielle. Fini le « c''est moi ou c''est en panne ? ».',
+  'internal', 'official', true, ARRAY['pannes-services', 'tech'], 50
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'statut-twitch');
+INSERT INTO source_states (source_id) SELECT 'statut-twitch'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'statut-twitch');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'statut-zoom', 'Panne Zoom', 'Statut officiel de Zoom',
+  'Alerte quand Zoom déclare une panne majeure sur sa page de statut officielle. Fini le « c''est moi ou c''est en panne ? ».',
+  'internal', 'official', true, ARRAY['pannes-services', 'tech'], 51
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'statut-zoom');
+INSERT INTO source_states (source_id) SELECT 'statut-zoom'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'statut-zoom');
+
 -- Source externe liée : service partenaire configuré sur son propre site.
 -- Pas d'abonnement LaBonneAlerte, donc pas de ligne source_states.
 INSERT INTO sources (id, name, subtitle, description, type, badge, link_url, requires_confirmation, categories, display_order)
