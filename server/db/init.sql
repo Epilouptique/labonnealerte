@@ -144,6 +144,31 @@ INSERT INTO source_states (source_id)
 SELECT 'vigilance-meteo-05'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'vigilance-meteo-05');
 
+-- Vigilance météo (mêmes API/factory que le 05, un seul appel partagé).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'vigilance-meteo-13', 'Vigilance météo — Bouches-du-Rhône', 'Alertes orange et rouge Météo-France',
+  'Alerte quand Météo-France place les Bouches-du-Rhône en vigilance orange ou rouge (canicule, orages, pluie-inondation...). Source officielle Météo-France.',
+  'internal', 'official', false, ARRAY['vigilance-meteo', 'meteo-risques'], 21
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'vigilance-meteo-13');
+INSERT INTO source_states (source_id) SELECT 'vigilance-meteo-13'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'vigilance-meteo-13');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'vigilance-meteo-69', 'Vigilance météo — Rhône', 'Alertes orange et rouge Météo-France',
+  'Alerte quand Météo-France place le Rhône en vigilance orange ou rouge (canicule, orages, neige-verglas...). Source officielle Météo-France.',
+  'internal', 'official', false, ARRAY['vigilance-meteo', 'meteo-risques'], 22
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'vigilance-meteo-69');
+INSERT INTO source_states (source_id) SELECT 'vigilance-meteo-69'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'vigilance-meteo-69');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'vigilance-meteo-75', 'Vigilance météo — Paris', 'Alertes orange et rouge Météo-France',
+  'Alerte quand Météo-France place Paris en vigilance orange ou rouge (canicule, orages, pluie-inondation...). Source officielle Météo-France.',
+  'internal', 'official', false, ARRAY['vigilance-meteo', 'meteo-risques'], 23
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'vigilance-meteo-75');
+INSERT INTO source_states (source_id) SELECT 'vigilance-meteo-75'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'vigilance-meteo-75');
+
 -- Source API officielle OAuth2 (RTE) : notification immédiate.
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
 SELECT 'ecowatt', 'EcoWatt', 'Tension du réseau électrique',
@@ -154,6 +179,24 @@ WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'ecowatt');
 INSERT INTO source_states (source_id)
 SELECT 'ecowatt'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'ecowatt');
+
+-- Source API officielle Ecogaz (GRTgaz) : le jumeau gaz d'EcoWatt.
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'ecogaz', 'Ecogaz', 'Tension du réseau de gaz',
+  'Alerte quand GRTgaz annonce un réseau de gaz tendu (orange) ou très tendu avec risque de coupures (rouge), aujourd''hui ou demain. Signal national officiel Ecogaz.',
+  'internal', 'official', false, ARRAY['energie', 'gaz'], 31
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'ecogaz');
+INSERT INTO source_states (source_id) SELECT 'ecogaz'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'ecogaz');
+
+-- Source API officielle VigiEau : restrictions sécheresse pour Gap (05061).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'vigieau-gap', 'Restrictions d''eau — Gap', 'Arrêtés sécheresse en vigueur',
+  'Alerte quand la préfecture place Gap et ses environs en restriction d''usage de l''eau (arrosage, piscines, lavage). Source officielle VigiEau.',
+  'internal', 'official', false, ARRAY['secheresse', 'meteo-risques'], 26
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'vigieau-gap');
+INSERT INTO source_states (source_id) SELECT 'vigieau-gap'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'vigieau-gap');
 
 -- Source interne récurrente (offre hebdomadaire) : notification immédiate.
 -- Le poller re-notifie à chaque nouvel « épisode » (avancée du champ since).

@@ -756,7 +756,7 @@ body[data-mode="connected"] #stats { display: none; }
 /* ---------- panneau « Mon compte » (mode connecté) ---------- */
 .account-panel { margin: 6px auto 0; }
 .acct-card.card.flip { width: 100%; }
-.card-front.acct-front { min-height: 460px; padding: 30px 32px; }
+.card-front.acct-front { min-height: 460px; padding: 30px 32px; margin-bottom: 5rem;}
 .card-back.acct-back { padding: 30px 32px; background: var(--surface); }
 .acct-head .acct-name { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
 .acct-email { color: var(--muted); font-size: 14px; margin-top: 4px; word-break: break-all; }

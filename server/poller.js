@@ -18,10 +18,12 @@ function loadSources() {
   const dir = path.join(__dirname, 'sources');
   if (!fs.existsSync(dir)) return [];
 
+  // Fichiers .js à la racine de sources/ uniquement : les sous-dossiers (lib/,
+  // helpers partagés comme la factory vigilance) ne sont PAS chargés comme sources.
   return fs
-    .readdirSync(dir)
-    .filter((f) => f.endsWith('.js'))
-    .map((f) => require(path.join(dir, f)))
+    .readdirSync(dir, { withFileTypes: true })
+    .filter((e) => e.isFile() && e.name.endsWith('.js'))
+    .map((e) => require(path.join(dir, e.name)))
     .filter((mod) => mod && mod.id && typeof mod.check === 'function');
 }
 
