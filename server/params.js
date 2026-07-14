@@ -61,4 +61,57 @@ function paramsFromQuery(schema, query) {
   return res.ok ? res.params : null;
 }
 
-module.exports = { validateParams, resolveLabel, paramsFromQuery };
+const PARAM_TYPES = ['enum', 'string', 'number'];
+
+// Valide un SCHÉMA de paramètres déclaré (manifeste externe ou interne).
+// v2 : schéma PLAT à UN SEUL paramètre (§7). Retourne { ok, error, schema }.
+function validateParamsSchema(raw) {
+  if (!Array.isArray(raw)) return { ok: false, error: 'params doit être un tableau de descripteurs' };
+  if (raw.length !== 1) return { ok: false, error: 'la v2 accepte exactement un paramètre (schéma plat)' };
+  const d = raw[0];
+  if (!d || typeof d !== 'object' || Array.isArray(d)) return { ok: false, error: 'descripteur de paramètre invalide' };
+  if (typeof d.key !== 'string' || !/^[a-z][a-z0-9_]*$/i.test(d.key)) {
+    return { ok: false, error: 'key : identifiant alphanumérique requis (ex. "departement")' };
+  }
+  if (typeof d.label !== 'string' || !d.label.trim()) return { ok: false, error: 'label : chaîne non vide requise' };
+  if (!PARAM_TYPES.includes(d.type)) return { ok: false, error: `type : l'un de ${PARAM_TYPES.join(' | ')}` };
+  if (d.type === 'enum') {
+    if (!Array.isArray(d.values) || d.values.length === 0) {
+      return { ok: false, error: 'enum : "values" non vide requis' };
+    }
+    for (const v of d.values) {
+      if (!v || typeof v !== 'object' || v.value == null || v.value === '' || typeof v.label !== 'string' || !v.label) {
+        return { ok: false, error: 'chaque valeur enum doit avoir un "value" et un "label"' };
+      }
+    }
+    const seen = new Set();
+    for (const v of d.values) {
+      const key = String(v.value);
+      if (seen.has(key)) return { ok: false, error: `valeur enum dupliquée : ${key}` };
+      seen.add(key);
+    }
+  }
+  if (d.multiple !== undefined && typeof d.multiple !== 'boolean') return { ok: false, error: 'multiple : booléen' };
+  if (d.required !== undefined && typeof d.required !== 'boolean') return { ok: false, error: 'required : booléen' };
+  // Normalisation minimale.
+  const schema = [{
+    key: d.key, label: d.label, type: d.type,
+    values: d.type === 'enum' ? d.values.map((v) => ({ value: v.value, label: v.label })) : undefined,
+    multiple: !!d.multiple, required: !!d.required, default: d.default === undefined ? null : d.default,
+  }];
+  return { ok: true, schema };
+}
+
+// Valeur d'exemple pour la sonde dynamique (1re valeur enum, ou test string/number).
+function exampleParams(schema) {
+  if (!Array.isArray(schema) || !schema.length) return null;
+  const d = schema[0];
+  let v;
+  if (d.type === 'enum') v = d.values && d.values[0] ? d.values[0].value : null;
+  else if (d.type === 'number') v = 1;
+  else v = 'test';
+  if (v == null) return null;
+  const out = {}; out[d.key] = v; return out;
+}
+
+module.exports = { validateParams, resolveLabel, paramsFromQuery, validateParamsSchema, exampleParams };

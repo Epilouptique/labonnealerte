@@ -400,25 +400,33 @@ apiRouter.get('/my-alerts/history', async (req, res) => {
     if (!auth) return res.status(401).json({ error: 'Lien invalide ou expiré' });
 
     // EXISTS (et non JOIN) : un événement apparaît UNE fois même si l'utilisateur
-    // suit plusieurs instances paramétrées de la même source.
+    // suit plusieurs instances. On exclut les sources désactivées (anciennes
+    // vigilances broadcast conservées) et on remonte params + schéma pour le libellé.
     const { rows } = await pool.query(
-      `SELECT ev.event, ev.message, ev.created_at, s.id AS source_id, s.name AS source_name
+      `SELECT ev.event, ev.message, ev.created_at, ev.params,
+              s.id AS source_id, s.name AS source_name, s.params_schema
          FROM source_events ev
          JOIN sources s ON s.id = ev.source_id
-        WHERE EXISTS (SELECT 1 FROM subscriptions sub
-                       WHERE sub.source_id = ev.source_id AND sub.subscriber_id = $1)
+        WHERE s.enabled = true
+          AND EXISTS (SELECT 1 FROM subscriptions sub
+                       WHERE sub.source_id = ev.source_id AND sub.subscriber_id = $1
+                         AND (sub.params IS NOT DISTINCT FROM ev.params OR ev.params IS NULL))
         ORDER BY ev.created_at DESC
         LIMIT 20`,
       [auth.id]
     );
 
-    const events = rows.map((r) => ({
-      event: r.event,
-      message: r.message,
-      created_at: r.created_at.toISOString(),
-      source_id: r.source_id,
-      source_name: r.source_name,
-    }));
+    const events = rows.map((r) => {
+      // Libellé résolu (« Vigilance météo — Hautes-Alpes »), jamais le JSON brut.
+      const label = r.params ? resolveLabel(r.params_schema, r.params) : '';
+      return {
+        event: r.event,
+        message: r.message,
+        created_at: r.created_at.toISOString(),
+        source_id: r.source_id,
+        source_name: label ? `${r.source_name} — ${label}` : r.source_name,
+      };
+    });
     return res.status(200).json({ events });
   } catch (err) {
     console.error('[my-alerts] Erreur GET /my-alerts/history :', err.message);

@@ -467,6 +467,8 @@
       togglePicker(card, false);
       celebrate(card);
       refreshMineDependent();
+      // Carte recommandée adoptée : l'étiquette part, une nouvelle reco est calculée.
+      if (card.classList.contains('card-reco')) setTimeout(function () { adoptReco(card); }, 800);
     } catch (e) { note(card, 'Réessaie plus tard', 'err'); }
     finally { if (btn) btn.disabled = false; }
   }

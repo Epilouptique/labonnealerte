@@ -6,6 +6,7 @@ const { sendPromoAlert } = require('./mailer');
 const { sendToSource, sendToSourceParams } = require('./webpush');
 const { cleanupExpired } = require('./sessions');
 const { resolveLabel } = require('./params');
+const { buildExternalSource } = require('./external');
 
 // Purge des sessions expirées : au plus une fois par jour.
 let lastSessionCleanup = 0;
@@ -431,6 +432,38 @@ async function runCycle() {
       }
     } catch (err) {
       console.error(`[poller] ${source.id} : erreur inattendue :`, err.message);
+    }
+  }
+
+  // Sources EXTERNES (type 'external', endpoint_url) : pas de fichier, construites à
+  // la volée. Broadcast ou paramétrées, mêmes transitions que les internes.
+  let externals = [];
+  try {
+    const { rows } = await pool.query(
+      "SELECT id, endpoint_url, params_schema, requires_confirmation " +
+      "FROM sources WHERE enabled = true AND type = 'external' AND endpoint_url IS NOT NULL"
+    );
+    externals = rows;
+  } catch (err) {
+    console.error('[poller] lecture des sources externes échouée :', err.message);
+  }
+  for (const row of externals) {
+    const src = buildExternalSource(row);
+    if (!src) continue;
+    const requires = row.requires_confirmation === false ? false : true;
+    try {
+      if (row.params_schema != null) {
+        await processParamSource(src, requires);
+      } else {
+        // Le chemin broadcast fait un UPDATE : garantir la ligne d'état (idempotent).
+        await pool.query(
+          'INSERT INTO source_states (source_id) VALUES ($1) ON CONFLICT (source_id) DO NOTHING',
+          [row.id]
+        );
+        await processSource(src, requires);
+      }
+    } catch (err) {
+      console.error(`[poller] ${row.id} (externe) : erreur inattendue :`, err.message);
     }
   }
 }

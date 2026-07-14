@@ -11,6 +11,7 @@
   }
 
   /* ---------- Validation du manifeste ---------- */
+  var lastParamsSchema = null; // schéma params du dernier manifeste validé (v2)
   var urlInput = document.getElementById('manifest-url');
   var validateBtn = document.getElementById('validate-btn');
   var resultBox = document.getElementById('validate-result');
@@ -56,7 +57,19 @@
 
     var preview = (data.valid && data.manifest) ? previewCard(data.manifest) : '';
 
-    resultBox.innerHTML = headline + '<ul class="check-list">' + items + '</ul>' + preview;
+    // Source paramétrée : mémorise le schéma (pour la soumission) + montre la sonde.
+    lastParamsSchema = (data.valid && data.manifest && data.manifest.params) ? data.manifest.params : null;
+    var probeHtml = '';
+    if (data.probe) {
+      var pv = data.probe;
+      probeHtml = '<div class="probe-block ' + (pv.valid ? 'ok' : 'err') + '">' +
+        '<strong>Sonde dynamique</strong> — interrogation avec ' +
+        '<code>' + esc(JSON.stringify(pv.example || {})) + '</code> : ' +
+        (pv.valid ? '✓ réponse conforme au manifeste v1'
+                  : '✕ ' + esc(pv.error || 'la réponse n\'est pas un manifeste v1 valide')) + '</div>';
+    }
+
+    resultBox.innerHTML = headline + '<ul class="check-list">' + items + '</ul>' + probeHtml + preview;
   }
 
   async function validate() {
@@ -194,7 +207,8 @@
       manifest_url: (fd.get('manifest_url') || '').trim(),
       github: (fd.get('github') || '').trim(),
       email: (fd.get('email') || '').trim(),
-      categories: selected.slice()
+      categories: selected.slice(),
+      params_schema: lastParamsSchema // null si source broadcast
     };
 
     submitBtn.disabled = true;

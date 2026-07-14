@@ -209,7 +209,9 @@ async function sendPromoAlert(recipients, info = {}) {
   let sent = 0;
   let failed = 0;
 
-  const statusUrl = info.id ? `${PUBLIC_SITE}/source/${info.id}/statut` : PUBLIC_SITE;
+  // info.statusUrl (posé par le poller) porte la combinaison paramétrée
+  // (?departement=XX) ; repli sur l'URL générique de la source.
+  const statusUrl = info.statusUrl || (info.id ? `${PUBLIC_SITE}/source/${info.id}/statut` : PUBLIC_SITE);
   const target = info.url || statusUrl; // lien de l'alerte, sinon la page de statut
   const name = info.name || 'Votre alerte';
   const hhmm = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });

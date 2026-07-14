@@ -62,6 +62,35 @@
   </div>
 </section>
 
+<!-- Sous-section : sources paramétrées (OpenAlert v2) -->
+<section class="dev-section">
+  <div class="wrap">
+    <h2>Sources paramétrées <span class="badge community" style="vertical-align:middle">v2</span></h2>
+    <p>Une source peut déclarer un champ <code>params</code> : l'alerte est alors évaluée <strong>par abonnement</strong> (par exemple un département de vigilance). Sans <code>params</code>, votre manifeste reste une source <em>broadcast</em> classique — <strong>rien à changer</strong>.</p>
+    <pre class="code">{
+  <span class="k">"id"</span>: <span class="s">"vigilance-meteo"</span>,
+  <span class="k">"name"</span>: <span class="s">"Vigilance météo"</span>,
+  <span class="k">"params"</span>: [
+    {
+      <span class="k">"key"</span>: <span class="s">"departement"</span>,
+      <span class="k">"label"</span>: <span class="s">"Département"</span>,
+      <span class="k">"type"</span>: <span class="s">"enum"</span>,
+      <span class="k">"values"</span>: [ { <span class="k">"value"</span>: <span class="s">"05"</span>, <span class="k">"label"</span>: <span class="s">"Hautes-Alpes"</span> } ],
+      <span class="k">"multiple"</span>: true,
+      <span class="k">"required"</span>: true
+    }
+  ]
+}</pre>
+    <ul class="field-list">
+      <li><code>type</code> ∈ <code>enum</code> | <code>string</code> | <code>number</code> — un seul paramètre (schéma plat) en v2</li>
+      <li><code>enum</code> → <code>values</code> non vide, chaque entrée <code>{ value, label }</code></li>
+      <li>La plateforme interroge votre endpoint <strong>avec la valeur en query string</strong> : <code>GET /alert.json?departement=05</code>, et attend un manifeste v1 classique en réponse.</li>
+      <li>La validation ci-dessous lance une <strong>sonde dynamique</strong> : elle appelle votre endpoint avec une valeur d'exemple et vérifie la réponse.</li>
+    </ul>
+    <a class="spec-link" href="https://github.com/Epilouptique/labonnealerte/blob/main/OPENALERT.md#sources-param%C3%A9tr%C3%A9es-v2" target="_blank" rel="noopener">Détails : « Sources paramétrées » dans OPENALERT.md →</a>
+  </div>
+</section>
+
 <!-- 4. Testez votre manifeste -->
 <section class="dev-section">
   <div class="wrap">

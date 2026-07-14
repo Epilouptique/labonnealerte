@@ -925,6 +925,11 @@ body[data-mode="connected"] #stats { display: none; }
 .dept-tab.dept-other { color: var(--amber); border-style: dashed; }
 .dept-other-form { margin-bottom: 14px; }
 .dept-other-form[hidden] { display: none; }
+/* Sonde dynamique (validateur /proposer, sources paramétrées). */
+.probe-block { margin: 12px 0; padding: 12px 14px; border-radius: 10px; font-size: 13.5px; line-height: 1.5; }
+.probe-block.ok { background: var(--green-soft); color: var(--ink); }
+.probe-block.err { background: var(--amber-soft); color: var(--ink); }
+.probe-block code { font-size: 12.5px; }
 
 /* =====================================================================
    Vue mobile « kiosque » (≤ 720px). js/mobile-header.js pose body.m-kiosk

@@ -6,16 +6,14 @@
 // Un rate-limiter en mémoire (par IP, 10 req/min) protège ces deux routes.
 
 const express = require('express');
-const dns = require('dns').promises;
-const net = require('net');
 const crypto = require('crypto');
 const { pool } = require('../db');
 const { sanitizeCategories } = require('../categories');
+const { safeFetchJson } = require('../safe-fetch');
+const { validateParamsSchema, exampleParams } = require('../params');
 
 const router = express.Router();
 
-const FETCH_TIMEOUT_MS = 5_000;
-const MAX_BYTES = 100 * 1024; // 100 Ko
 const STATE_ENUM = ['active', 'inactive', 'pending'];
 
 /* ------------------------------------------------------------------ */
@@ -47,96 +45,9 @@ setInterval(() => {
   }
 }, RATE_WINDOW_MS).unref();
 
-/* ------------------------------------------------------------------ */
-/* Anti-SSRF : refuse les IP privées / loopback / lien-local.          */
-/* ------------------------------------------------------------------ */
-function isPrivateIPv4(ip) {
-  const p = ip.split('.').map(Number);
-  if (p.length !== 4 || p.some((n) => Number.isNaN(n))) return true; // par prudence
-  if (p[0] === 10) return true;                          // 10.0.0.0/8
-  if (p[0] === 172 && p[1] >= 16 && p[1] <= 31) return true; // 172.16.0.0/12
-  if (p[0] === 192 && p[1] === 168) return true;         // 192.168.0.0/16
-  if (p[0] === 127) return true;                         // 127.0.0.0/8 (localhost)
-  if (p[0] === 169 && p[1] === 254) return true;         // 169.254.0.0/16 (link-local)
-  if (p[0] === 0) return true;                           // 0.0.0.0/8
-  return false;
-}
-
-function isPrivateIP(ip) {
-  // Normalise les adresses IPv4-mapped (::ffff:127.0.0.1).
-  const mapped = ip.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/i);
-  if (mapped) return isPrivateIPv4(mapped[1]);
-  if (net.isIPv4(ip)) return isPrivateIPv4(ip);
-  // IPv6
-  const low = ip.toLowerCase();
-  if (low === '::1') return true;               // loopback
-  if (low === '::') return true;                // unspecified
-  if (low.startsWith('fe80')) return true;      // link-local
-  if (low.startsWith('fc') || low.startsWith('fd')) return true; // unique local
-  return false;
-}
-
-// Erreur « publique » : son message est sûr à renvoyer au client (rédigé par nous).
-function pubErr(msg) { const e = new Error(msg); e.public = true; return e; }
-
-// Récupère le manifeste avec toutes les protections. Peut throw avec un message clair.
-async function fetchManifest(rawUrl) {
-  let url;
-  try {
-    url = new URL(rawUrl);
-  } catch {
-    throw pubErr('URL invalide');
-  }
-  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-    throw pubErr('Seuls les protocoles http et https sont autorisés');
-  }
-
-  // Résolution DNS + contrôle des IP (anti-SSRF).
-  let addresses;
-  try {
-    addresses = await dns.lookup(url.hostname, { all: true });
-  } catch {
-    throw pubErr('Nom de domaine introuvable (DNS)');
-  }
-  if (addresses.length === 0 || addresses.some((a) => isPrivateIP(a.address))) {
-    throw pubErr('Cible non autorisée (adresse privée ou locale)');
-  }
-
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-  let res;
-  try {
-    res = await fetch(url.href, {
-      signal: controller.signal,
-      redirect: 'error', // pas de suivi de redirection (éviter un rebond SSRF)
-      headers: { Accept: 'application/json' },
-    });
-  } catch (err) {
-    if (err.name === 'AbortError') throw pubErr('Délai dépassé (>5s) en récupérant le manifeste');
-    throw pubErr('Impossible de joindre l\'URL du manifeste');
-  } finally {
-    clearTimeout(timer);
-  }
-
-  if (!res.ok) {
-    throw pubErr(`Le manifeste a répondu HTTP ${res.status}`);
-  }
-
-  const declared = Number(res.headers.get('content-length'));
-  if (declared && declared > MAX_BYTES) {
-    throw pubErr('Manifeste trop volumineux (> 100 Ko)');
-  }
-
-  const text = await res.text();
-  if (Buffer.byteLength(text, 'utf8') > MAX_BYTES) {
-    throw pubErr('Manifeste trop volumineux (> 100 Ko)');
-  }
-
-  try {
-    return JSON.parse(text);
-  } catch {
-    throw pubErr('Le contenu récupéré n\'est pas du JSON valide');
-  }
+// Récupère le manifeste avec toutes les protections anti-SSRF (module partagé).
+function fetchManifest(rawUrl) {
+  return safeFetchJson(rawUrl);
 }
 
 /* ------------------------------------------------------------------ */
@@ -184,6 +95,14 @@ function validateManifest(m) {
   optStr('message');
   optStr('url');
 
+  // Champ optionnel `params` (OpenAlert v2). Absent = broadcast (v1 inchangé).
+  if (m.params !== undefined && m.params !== null) {
+    const ps = validateParamsSchema(m.params);
+    req('params', ps.ok, ps.ok
+      ? `schéma de paramètres valide (source paramétrée : ${m.params[0] && m.params[0].key})`
+      : `params : ${ps.error}`);
+  }
+
   const valid = checks.every((c) => c.ok);
   return { valid, checks };
 }
@@ -209,7 +128,29 @@ router.post('/validate-manifest', rateLimit, async (req, res) => {
   }
 
   const { valid, checks } = validateManifest(manifest);
-  return res.status(200).json({ valid, checks, manifest });
+
+  // Source paramétrée : SONDE DYNAMIQUE — on interroge l'endpoint avec une valeur
+  // d'exemple en query string et on vérifie que la réponse est un manifeste v1 valide.
+  let probe = null;
+  if (valid && manifest && manifest.params) {
+    const ps = validateParamsSchema(manifest.params);
+    if (ps.ok) {
+      const ex = exampleParams(ps.schema);
+      try {
+        const u = new URL(url);
+        Object.keys(ex).forEach((k) => u.searchParams.set(k, ex[k]));
+        const sample = await fetchManifest(u.href); // mêmes protections SSRF
+        const sub = validateManifest(sample);
+        probe = { url: u.href, example: ex, valid: sub.valid, checks: sub.checks };
+      } catch (err) {
+        probe = { example: ex, valid: false, error: err && err.public ? err.message : 'sonde échouée' };
+      }
+    }
+  }
+
+  // Pour une source paramétrée, la validité globale exige que la sonde passe.
+  const overallValid = valid && (!(manifest && manifest.params) || (probe && probe.valid));
+  return res.status(200).json({ valid: overallValid, checks, manifest, probe });
 });
 
 // Slug ASCII à partir d'un nom libre.
@@ -223,7 +164,7 @@ function slugify(name) {
 }
 
 router.post('/submit-source', rateLimit, async (req, res) => {
-  const { name, description, manifest_url, github, email, categories } = req.body || {};
+  const { name, description, manifest_url, github, email, categories, params_schema } = req.body || {};
 
   if (!name || typeof name !== 'string' || !manifest_url || typeof manifest_url !== 'string') {
     return res.status(400).json({ error: 'Champs requis : name et manifest_url' });
@@ -245,6 +186,14 @@ router.post('/submit-source', rateLimit, async (req, res) => {
     return res.status(400).json({ error: cat.error });
   }
 
+  // Schéma de paramètres optionnel (OpenAlert v2). Validé avant stockage.
+  let schemaJson = null;
+  if (params_schema != null) {
+    const ps = validateParamsSchema(params_schema);
+    if (!ps.ok) return res.status(400).json({ error: 'params_schema : ' + ps.error });
+    schemaJson = JSON.stringify(ps.schema);
+  }
+
   try {
     // Génère un id unique : slug, + suffixe aléatoire en cas de collision.
     const base = slugify(name);
@@ -262,8 +211,8 @@ router.post('/submit-source', rateLimit, async (req, res) => {
     await pool.query(
       `INSERT INTO sources
          (id, name, description, type, badge, enabled, endpoint_url,
-          submitted_by_github, submitted_by_email, categories)
-       VALUES ($1, $2, $3, 'external', 'community', false, $4, $5, $6, $7)`,
+          submitted_by_github, submitted_by_email, categories, params_schema)
+       VALUES ($1, $2, $3, 'external', 'community', false, $4, $5, $6, $7, $8::jsonb)`,
       [
         id,
         name.slice(0, 255),
@@ -272,6 +221,7 @@ router.post('/submit-source', rateLimit, async (req, res) => {
         github ? String(github).slice(0, 255) : null,
         email ? String(email).slice(0, 255) : null,
         cat.categories,
+        schemaJson,
       ]
     );
 
