@@ -1,0 +1,23 @@
+/* Polices auto-hébergées (RGPD : aucun appel à Google Fonts, donc aucune IP
+   visiteur transmise à Google). Fichiers variables, sous-ensemble latin. */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url('/fonts/inter.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/fonts/jetbrains-mono.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Baloo 2';
+  font-style: normal;
+  font-weight: 700 800;
+  font-display: swap;
+  src: url('/fonts/baloo2.woff2') format('woff2');
+}

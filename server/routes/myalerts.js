@@ -127,6 +127,23 @@ apiRouter.post('/logout', async (req, res) => {
 });
 
 /* ------------------------------------------------------------------ */
+/* DELETE /api/my-alerts/account — droit à l'effacement (RGPD).        */
+/* Supprime le compte : abonnements et sessions partent en CASCADE.    */
+/* ------------------------------------------------------------------ */
+apiRouter.delete('/my-alerts/account', async (req, res) => {
+  try {
+    const auth = await authenticate((req.body || {}).token);
+    if (!auth) return res.status(401).json({ error: 'Lien invalide ou expiré' });
+
+    await pool.query('DELETE FROM subscribers WHERE id = $1', [auth.id]);
+    return res.status(200).json({ ok: true });
+  } catch (err) {
+    console.error('[my-alerts] Erreur DELETE /account :', err.message);
+    return res.status(503).json({ error: 'Service indisponible' });
+  }
+});
+
+/* ------------------------------------------------------------------ */
 /* POST /api/my-alerts/toggle — abonne / désabonne une source.         */
 /* ------------------------------------------------------------------ */
 apiRouter.post('/my-alerts/toggle', async (req, res) => {

@@ -50,6 +50,38 @@
     } catch (e) { done(); }
   }
 
+  // Droit à l'effacement (RGPD) : supprime définitivement le compte, purge le
+  // stockage local, puis renvoie sur l'accueil anonyme avec un message d'adieu.
+  function deleteAccount() {
+    if (!window.confirm('Votre compte, vos abonnements et votre historique seront définitivement supprimés.')) return;
+    var t = get();
+    var done = function () {
+      clear();
+      window.location.href = '/?compte=supprime';
+    };
+    try {
+      fetch('/api/my-alerts/account', {
+        method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: t })
+      }).then(done, done);
+    } catch (e) { done(); }
+  }
+
+  // Bandeau discret d'adieu après suppression de compte (accueil anonyme).
+  function showFarewellIfNeeded() {
+    var params = new URLSearchParams(window.location.search);
+    if (params.get('compte') !== 'supprime') return;
+    history.replaceState(null, '', window.location.pathname);
+    var el = document.createElement('div');
+    el.setAttribute('role', 'status');
+    el.textContent = 'Compte supprimé. À bientôt peut-être.';
+    el.style.cssText = 'position:fixed;left:50%;top:18px;transform:translateX(-50%);z-index:9999;'
+      + 'background:var(--surface,#fff);color:var(--ink,#222);border-radius:999px;'
+      + 'padding:11px 20px;font-weight:600;font-size:14px;box-shadow:0 4px 24px rgba(30,20,50,.16);';
+    document.body.appendChild(el);
+    setTimeout(function () { el.remove(); }, 6000);
+  }
+
   // Déduit un prénom de l'email pour un accueil chaleureux. Renvoie null si peu fiable.
   function firstName(email) {
     if (!email) return null;
@@ -84,8 +116,20 @@
         link.textContent = 'Se déconnecter';
         link.setAttribute('href', '#');
         link.onclick = function (e) { e.preventDefault(); logout(); };
+        // Lien discret « Supprimer mon compte » juste à côté de la déconnexion.
+        if (!document.getElementById('auth-delete') && link.parentNode) {
+          var del = document.createElement('a');
+          del.id = 'auth-delete';
+          del.href = '#';
+          del.textContent = 'Supprimer mon compte';
+          del.style.cssText = 'font-size:12.5px;color:var(--muted);text-decoration:none;';
+          del.onclick = function (e) { e.preventDefault(); deleteAccount(); };
+          link.parentNode.insertBefore(del, link.nextSibling);
+        }
       }
     } else {
+      var delEl = document.getElementById('auth-delete');
+      if (delEl) delEl.remove();
       if (emailEl) { emailEl.hidden = true; emailEl.textContent = ''; }
       if (link) {
         link.textContent = 'Se connecter';
@@ -102,9 +146,13 @@
     truncateEmail: truncateEmail,
     firstName: firstName,
     renderHeader: renderHeader,
-    logout: logout
+    logout: logout,
+    deleteAccount: deleteAccount
   };
 
   // État initial du header dès le chargement (email complété plus tard par la home).
-  document.addEventListener('DOMContentLoaded', function () { renderHeader(null); });
+  document.addEventListener('DOMContentLoaded', function () {
+    renderHeader(null);
+    showFarewellIfNeeded();
+  });
 })();

@@ -29,10 +29,10 @@ app.use(helmet({
     useDefaults: false,
     directives: {
       'default-src': ["'self'"],
-      // Google Fonts : la feuille vient de fonts.googleapis.com ; 'unsafe-inline'
-      // pour les attributs style= et blocs <style> internes.
-      'style-src': ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
-      'font-src': ['https://fonts.gstatic.com'],
+      // Polices auto-hébergées (RGPD, aucune requête vers Google) : /css/fonts.css
+      // + /fonts/*.woff2. 'unsafe-inline' pour les attributs style= et blocs <style>.
+      'style-src': ["'self'", "'unsafe-inline'"],
+      'font-src': ["'self'"],
       'script-src': ["'self'"], // aucun script inline (tous externalisés)
       'img-src': ["'self'", 'data:'],
       'connect-src': ["'self'"],
@@ -74,6 +74,12 @@ app.get('/a-propos', (req, res) => {
 });
 app.get('/soutenir', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'soutenir.html'));
+});
+app.get('/mentions-legales', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'mentions-legales.html'));
+});
+app.get('/confidentialite', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'confidentialite.html'));
 });
 
 // Page de statut d'une source : SEO injecté côté serveur + 404 propre.
