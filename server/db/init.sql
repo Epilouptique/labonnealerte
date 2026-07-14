@@ -153,6 +153,17 @@ INSERT INTO source_states (source_id)
 SELECT 'epic-jeu-gratuit'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'epic-jeu-gratuit');
 
+-- Source interne headless (giveaway GOG ponctuel) : notification immédiate.
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'gog-jeu-offert', 'Jeu offert GOG', 'Les jeux offerts ponctuellement par GOG',
+  'GOG offre parfois un jeu PC sans DRM pendant quelques jours. Soyez prévenu dès que ça arrive.',
+  'internal', 'official', false, ARRAY['jeux-video', 'bons-plans'], 17
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'gog-jeu-offert');
+
+INSERT INTO source_states (source_id)
+SELECT 'gog-jeu-offert'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'gog-jeu-offert');
+
 -- Source externe liée : service partenaire configuré sur son propre site.
 -- Pas d'abonnement LaBonneAlerte, donc pas de ligne source_states.
 INSERT INTO sources (id, name, subtitle, description, type, badge, link_url, requires_confirmation, categories, display_order)

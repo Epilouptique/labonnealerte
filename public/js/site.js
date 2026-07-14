@@ -507,10 +507,26 @@
       if (active.closest('#chips-secondary')) {
         var sec = document.getElementById('chips-secondary');
         var tgl = document.querySelector('.chip-more-toggle');
-        if (sec) { sec.classList.add('open'); secondaryOpen = true; if (tgl) { tgl.textContent = '−'; tgl.classList.add('on'); } }
+        if (sec) { setSecOpen(sec, true); secondaryOpen = true; if (tgl) { tgl.textContent = '−'; tgl.classList.add('on'); } }
       }
     }
     apply(true);
+  }
+
+  // Ouverture/fermeture fluide de la 2e ligne de catégories : on anime la
+  // max-height depuis la hauteur RÉELLE du contenu (scrollHeight) et non depuis
+  // une valeur fixe — sinon la fin du repli se fait d'un coup (effet saccadé).
+  function setSecOpen(sec, open) {
+    if (open) {
+      sec.classList.add('open');
+      sec.style.maxHeight = sec.scrollHeight + 'px';
+    } else {
+      // Fige la hauteur courante, force un reflow, puis anime vers 0.
+      sec.style.maxHeight = sec.scrollHeight + 'px';
+      void sec.offsetHeight;
+      sec.classList.remove('open');
+      sec.style.maxHeight = '0px';
+    }
   }
 
   function scrollToGrid() {
@@ -542,7 +558,7 @@
       var toggle = e.target.closest('.chip-more-toggle');
       if (toggle) {
         var sec = document.getElementById('chips-secondary');
-        if (sec) { secondaryOpen = !secondaryOpen; sec.classList.toggle('open', secondaryOpen); toggle.textContent = secondaryOpen ? '−' : '+'; toggle.classList.toggle('on', secondaryOpen); }
+        if (sec) { secondaryOpen = !secondaryOpen; setSecOpen(sec, secondaryOpen); toggle.textContent = secondaryOpen ? '−' : '+'; toggle.classList.toggle('on', secondaryOpen); }
         return;
       }
       var b = e.target.closest('.chip-f');

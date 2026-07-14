@@ -116,20 +116,8 @@
         link.textContent = 'Se déconnecter';
         link.setAttribute('href', '#');
         link.onclick = function (e) { e.preventDefault(); logout(); };
-        // Lien discret « Supprimer mon compte » juste à côté de la déconnexion.
-        if (!document.getElementById('auth-delete') && link.parentNode) {
-          var del = document.createElement('a');
-          del.id = 'auth-delete';
-          del.href = '#';
-          del.textContent = 'Supprimer mon compte';
-          del.style.cssText = 'font-size:12.5px;color:var(--muted);text-decoration:none;';
-          del.onclick = function (e) { e.preventDefault(); deleteAccount(); };
-          link.parentNode.insertBefore(del, link.nextSibling);
-        }
       }
     } else {
-      var delEl = document.getElementById('auth-delete');
-      if (delEl) delEl.remove();
       if (emailEl) { emailEl.hidden = true; emailEl.textContent = ''; }
       if (link) {
         link.textContent = 'Se connecter';
@@ -137,6 +125,28 @@
         link.onclick = null;
       }
     }
+
+    // Lien discret « Supprimer mon compte » : dans le footer (pas le header),
+    // visible uniquement en mode connecté.
+    renderAccountDelete(logged);
+  }
+
+  // Ajoute / retire le lien de suppression de compte au pied de page.
+  function renderAccountDelete(logged) {
+    var footer = document.querySelector('footer');
+    var existing = document.getElementById('account-delete');
+    if (!logged || !footer) { if (existing) existing.remove(); return; }
+    if (existing) return;
+    var wrap = document.createElement('div');
+    wrap.id = 'account-delete';
+    wrap.style.cssText = 'margin-top:10px;';
+    var a = document.createElement('a');
+    a.href = '#';
+    a.textContent = 'Supprimer mon compte';
+    a.style.cssText = 'font-size:12.5px;color:var(--muted);text-decoration:none;';
+    a.onclick = function (e) { e.preventDefault(); deleteAccount(); };
+    wrap.appendChild(a);
+    footer.appendChild(wrap);
   }
 
   window.LBASession = {
