@@ -164,6 +164,24 @@ INSERT INTO source_states (source_id)
 SELECT 'gog-jeu-offert'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'gog-jeu-offert');
 
+-- Source API officielle Vigicrues (SCHAPI) : notification immédiate.
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'vigicrues-05', 'Crues — Hautes-Alpes', 'Vigilance crues de la Durance',
+  'Alerte quand la Durance (de Serre-Ponçon à Cadarache) passe en vigilance crues orange ou rouge. Source officielle Vigicrues (SCHAPI).',
+  'internal', 'official', false, ARRAY['crues', 'meteo-risques'], 25
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'vigicrues-05');
+
+INSERT INTO source_states (source_id)
+SELECT 'vigicrues-05'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'vigicrues-05');
+
+-- Correctif idempotent (installations existantes) : Vigicrues ne couvre que la
+-- Durance pour le 05 (GA30, GA21), ni le Buëch ni le Guil.
+UPDATE sources
+   SET subtitle = 'Vigilance crues de la Durance',
+       description = 'Alerte quand la Durance (de Serre-Ponçon à Cadarache) passe en vigilance crues orange ou rouge. Source officielle Vigicrues (SCHAPI).'
+ WHERE id = 'vigicrues-05';
+
 -- Source externe liée : service partenaire configuré sur son propre site.
 -- Pas d'abonnement LaBonneAlerte, donc pas de ligne source_states.
 INSERT INTO sources (id, name, subtitle, description, type, badge, link_url, requires_confirmation, categories, display_order)
