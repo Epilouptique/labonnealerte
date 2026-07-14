@@ -373,6 +373,63 @@ WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'vacances-zone-c');
 INSERT INTO source_states (source_id) SELECT 'vacances-zone-c'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'vacances-zone-c');
 
+-- ================================================================
+-- Vague 5 : carburants, vigilances 06/33/59, statuts npm & Vercel.
+-- (Torrents 05 et Qualité de l'air Gap écartés : données temps réel
+--  inaccessibles / API dépréciée — voir rapport de faisabilité.)
+-- ================================================================
+
+-- Prix des carburants : franchissement de seuil symbolique à la baisse.
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'carburant-seuils', 'Carburant en baisse', 'Passages sous les seuils symboliques',
+  'Alerte quand le prix moyen national du gazole ou du SP95-E10 repasse sous un seuil symbolique (1,80 / 1,70 / 1,60 / 1,50 €/L). Données officielles prix-carburants.gouv.fr.',
+  'internal', 'official', false, ARRAY['prix-carburant', 'bons-plans'], 33
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'carburant-seuils');
+INSERT INTO source_states (source_id) SELECT 'carburant-seuils'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'carburant-seuils');
+
+-- Vigilances météo supplémentaires (même API/factory, un seul appel partagé).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'vigilance-meteo-06', 'Vigilance météo — Alpes-Maritimes', 'Alertes orange et rouge Météo-France',
+  'Alerte quand Météo-France place les Alpes-Maritimes en vigilance orange ou rouge (orages, pluie-inondation, canicule...). Source officielle Météo-France.',
+  'internal', 'official', false, ARRAY['vigilance-meteo', 'meteo-risques'], 24
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'vigilance-meteo-06');
+INSERT INTO source_states (source_id) SELECT 'vigilance-meteo-06'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'vigilance-meteo-06');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'vigilance-meteo-33', 'Vigilance météo — Gironde', 'Alertes orange et rouge Météo-France',
+  'Alerte quand Météo-France place la Gironde en vigilance orange ou rouge (tempêtes, canicule, orages...). Source officielle Météo-France.',
+  'internal', 'official', false, ARRAY['vigilance-meteo', 'meteo-risques'], 25
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'vigilance-meteo-33');
+INSERT INTO source_states (source_id) SELECT 'vigilance-meteo-33'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'vigilance-meteo-33');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'vigilance-meteo-59', 'Vigilance météo — Nord', 'Alertes orange et rouge Météo-France',
+  'Alerte quand Météo-France place le Nord en vigilance orange ou rouge (vent violent, tempêtes, neige-verglas...). Source officielle Météo-France.',
+  'internal', 'official', false, ARRAY['vigilance-meteo', 'meteo-risques'], 26
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'vigilance-meteo-59');
+INSERT INTO source_states (source_id) SELECT 'vigilance-meteo-59'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'vigilance-meteo-59');
+
+-- Statuts de service supplémentaires (standard Statuspage). Anti-flapping : TRUE.
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'statut-npm', 'Panne npm', 'Statut officiel de npm',
+  'Alerte quand npm (le registre de paquets JavaScript) déclare une panne majeure sur sa page de statut officielle. Vos installs et déploiements qui échouent, expliqués.',
+  'internal', 'official', true, ARRAY['pannes-services', 'npm-packages'], 42
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'statut-npm');
+INSERT INTO source_states (source_id) SELECT 'statut-npm'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'statut-npm');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'statut-vercel', 'Panne Vercel', 'Statut officiel de Vercel',
+  'Alerte quand Vercel déclare une panne majeure sur sa page de statut officielle. Fini le « c''est mon déploiement ou c''est en panne ? ».',
+  'internal', 'official', true, ARRAY['pannes-services', 'status-cloud'], 43
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'statut-vercel');
+INSERT INTO source_states (source_id) SELECT 'statut-vercel'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'statut-vercel');
+
 -- Source externe liée : service partenaire configuré sur son propre site.
 -- Pas d'abonnement LaBonneAlerte, donc pas de ligne source_states.
 INSERT INTO sources (id, name, subtitle, description, type, badge, link_url, requires_confirmation, categories, display_order)
