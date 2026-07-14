@@ -6,7 +6,8 @@
   'use strict';
 
   var S = window.LBASession;
-  var panel = document.getElementById('notif-panel');
+  // Le contenu « Notifications » vit désormais dans le panneau « Mon compte ».
+  var panel = document.getElementById('notif-mount');
   if (!panel || !S) return;
 
   var token = S.get();
@@ -184,7 +185,7 @@
 
       renderEmail();
       renderDevice();
-      panel.hidden = false;
+      // La visibilité est gérée par le panneau « Mon compte » (pas ici).
     } catch (err) {
       console.warn('[push] init panneau échouée :', err && err.message);
     }

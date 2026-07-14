@@ -113,9 +113,15 @@
       // place du h1), gérée par site.js — le header ne l'affiche plus.
       if (emailEl) { emailEl.hidden = true; emailEl.textContent = ''; }
       if (link) {
-        link.textContent = 'Se déconnecter';
+        // « Mon compte » ouvre le panneau (défini par site.js sur la home).
+        // La déconnexion vit désormais dans ce panneau.
+        link.textContent = 'Mon compte';
         link.setAttribute('href', '#');
-        link.onclick = function (e) { e.preventDefault(); logout(); };
+        link.onclick = function (e) {
+          e.preventDefault();
+          if (window.LBAAccount && window.LBAAccount.open) window.LBAAccount.open();
+          else logout(); // repli si le panneau n'existe pas (autres pages)
+        };
       }
     } else {
       if (emailEl) { emailEl.hidden = true; emailEl.textContent = ''; }

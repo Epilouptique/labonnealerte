@@ -752,3 +752,36 @@ body[data-mode="connected"] #stats { display: none; }
 }
 .notif-toggle.on { background: var(--amber); }
 .notif-toggle.on::after { transform: translateX(19px); }
+
+/* ---------- panneau « Mon compte » (mode connecté) ---------- */
+.account-panel { margin: 6px auto 0; }
+.acct-card.card.flip { width: 100%; }
+.card-front.acct-front { min-height: 460px; padding: 30px 32px; }
+.card-back.acct-back { padding: 30px 32px; background: var(--surface); }
+.acct-head .acct-name { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
+.acct-email { color: var(--muted); font-size: 14px; margin-top: 4px; word-break: break-all; }
+.acct-close {
+  position: absolute; top: 16px; right: 16px; z-index: 3;
+  border: none; background: transparent; color: var(--muted);
+  font-size: 17px; line-height: 1; cursor: pointer; padding: 6px; border-radius: 8px;
+}
+.acct-close:hover { color: var(--amber); }
+.acct-section { margin-top: 22px; }
+.acct-section .section-label { margin-bottom: 12px; }
+.acct-links { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; margin-top: 22px; }
+.acct-link {
+  border: none; background: transparent; text-align: left; cursor: pointer;
+  font: inherit; font-size: 14.5px; font-weight: 600; color: var(--amber);
+  padding: 10px 0; border-radius: 8px;
+}
+.acct-link:hover { color: color-mix(in srgb, var(--amber) 80%, var(--ink)); }
+.acct-logout {
+  margin-top: 20px; align-self: flex-start;
+  border: none; background: transparent; cursor: pointer; font: inherit;
+  font-size: 13px; color: var(--muted); text-decoration: underline; padding: 4px 0;
+}
+.acct-logout:hover { color: var(--ink); }
+.acct-history-scroll { margin-top: 12px; max-height: 380px; overflow-y: auto; }
+@media (max-width: 620px) {
+  .card-front.acct-front, .card-back.acct-back { padding: 24px 20px; }
+}

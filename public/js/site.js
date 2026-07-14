@@ -385,6 +385,7 @@
   // cartes normales (+ la carte recommandée épinglée en 9e = 9 visibles).
   var INITIAL_ANON = 6, INITIAL_CONNECTED = 8, STEP = 9;
   var cat = 'all', visibleLimit = INITIAL_ANON, secondaryOpen = false, currentMode = 'anon';
+  var accountEmail = null; // email de la session connectée (pour le panneau compte)
   function initialLimit() { return currentMode === 'connected' ? INITIAL_CONNECTED : INITIAL_ANON; }
   var cards = [], moreBtn = null, qInput = null, grid = null, addCard = null;
   var REDUCE = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -745,15 +746,13 @@
     } catch (e) { /* silencieux */ }
   }
 
-  /* ---------------- Historique connecté (B) ---------------- */
+  /* ---------------- Historique connecté (verso du panneau compte) ---------------- */
   async function loadHistory(token) {
-    var section = document.getElementById('history-section');
     var devs = document.getElementById('openalert');
-    if (!section) return;
-    if (devs) devs.hidden = true;      // masque « // pour les développeurs »
-    section.hidden = false;            // affiche « // votre historique »
+    if (devs) devs.hidden = true;      // masque « // pour les développeurs » en connecté
     var tl = document.getElementById('history-timeline');
     var empty = document.getElementById('history-empty');
+    if (!tl) return;
     try {
       var r = await fetch('/api/my-alerts/history?token=' + encodeURIComponent(token), { headers: { Accept: 'application/json' } });
       var d = r.ok ? await r.json() : { events: [] };
@@ -844,14 +843,82 @@
     } else {
       updateKPI(sources);
     }
+    accountEmail = (mode === 'connected') ? email : null;
     LBASession.renderHeader(email);
     setupKiosk(mode);
     bindMineLinks();
     bindBrandTop();
+    if (mode === 'connected') bindAccount();
 
     loadStats();
     if (mode === 'connected') loadHistory(token);
   }
+
+  /* ---------------- Panneau « Mon compte » ---------------- */
+  // En-tête du recto : prénom déduit (même logique que le hero) + email complet.
+  function fillAccountHeader() {
+    var nameEl = document.getElementById('acct-name');
+    var emailEl = document.getElementById('acct-email');
+    var nm = (LBASession.firstName && accountEmail) ? LBASession.firstName(accountEmail) : null;
+    if (nameEl) nameEl.textContent = nm ? 'Bonjour ' + nm : 'Mon compte';
+    if (emailEl) emailEl.textContent = accountEmail || '';
+  }
+
+  // Échange animé (fondu) entre deux blocs plein-largeur.
+  function swap(hideEl, showEl) {
+    if (REDUCE) { hideEl.hidden = true; showEl.hidden = false; return; }
+    hideEl.style.transition = 'opacity .18s ease';
+    hideEl.style.opacity = '0';
+    setTimeout(function () {
+      hideEl.hidden = true; hideEl.style.opacity = ''; hideEl.style.transition = '';
+      showEl.hidden = false;
+      showEl.style.transition = 'none'; showEl.style.opacity = '0'; showEl.style.transform = 'translateY(8px)';
+      showEl.getBoundingClientRect();
+      requestAnimationFrame(function () {
+        showEl.style.transition = 'opacity .22s ease, transform .22s ease';
+        showEl.style.opacity = '1'; showEl.style.transform = '';
+      });
+      var clr = function () {
+        showEl.style.transition = ''; showEl.style.transform = ''; showEl.style.opacity = '';
+        showEl.removeEventListener('transitionend', clr);
+      };
+      showEl.addEventListener('transitionend', clr);
+    }, 180);
+  }
+
+  function openAccount() {
+    var main = document.getElementById('alertes');
+    var panel = document.getElementById('account-panel');
+    if (!main || !panel || currentMode !== 'connected' || !panel.hidden) return;
+    fillAccountHeader();
+    var card = document.getElementById('acct-card');
+    if (card) card.classList.remove('flipped'); // toujours ouvrir sur le recto
+    swap(main, panel);
+  }
+
+  function closeAccount() {
+    var main = document.getElementById('alertes');
+    var panel = document.getElementById('account-panel');
+    if (!main || !panel || panel.hidden) return;
+    var card = document.getElementById('acct-card');
+    if (card) card.classList.remove('flipped');
+    swap(panel, main);
+  }
+
+  function bindAccount() {
+    var card = document.getElementById('acct-card');
+    var toHist = document.getElementById('acct-to-history');
+    if (toHist && card) toHist.addEventListener('click', function () { card.classList.add('flipped'); });
+    // Le ↩ du verso est géré par le handler global .flip-back (retour au recto).
+    var close = document.getElementById('acct-close');
+    if (close) close.addEventListener('click', closeAccount);
+    var backGrid = document.getElementById('acct-back-grid');
+    if (backGrid) backGrid.addEventListener('click', closeAccount);
+    var lo = document.getElementById('acct-logout');
+    if (lo) lo.addEventListener('click', function () { LBASession.logout(); });
+  }
+
+  window.LBAAccount = { open: openAccount, close: closeAccount };
 
   // Volet J : sur la home, le logo remonte en haut sans recharger + reset des filtres.
   function bindBrandTop() {
@@ -859,6 +926,7 @@
     if (!brand) return;
     brand.addEventListener('click', function (e) {
       e.preventDefault();
+      closeAccount(); // si le panneau compte est ouvert, on revient à la grille
       window.scrollTo({ top: 0, behavior: 'smooth' });
       if (qInput) qInput.value = '';
       selectChip('all');

@@ -82,6 +82,46 @@
   </div>
 </main>
 
+<!-- Panneau « Mon compte » (mode connecté) : ouvert depuis le header, prend la
+     place de la grille. Carte flip : recto compte / verso historique. -->
+<section class="account-panel wrap" id="account-panel" hidden>
+  <div class="card flip acct-card" id="acct-card">
+    <div class="card-inner">
+      <!-- Recto : compte -->
+      <div class="card-face card-front acct-front">
+        <button type="button" class="acct-close" id="acct-close" aria-label="Fermer le compte">✕</button>
+        <div class="acct-head">
+          <h2 class="acct-name" id="acct-name">Mon compte</h2>
+          <div class="acct-email" id="acct-email"></div>
+        </div>
+
+        <div class="acct-section">
+          <div id="notif-mount"></div><!-- rempli par js/push.js -->
+        </div>
+
+        <div class="acct-links">
+          <button type="button" class="acct-link acct-to-history" id="acct-to-history">Mon historique →</button>
+          <button type="button" class="acct-link acct-back-grid" id="acct-back-grid">← Revenir à mes alertes</button>
+        </div>
+
+        <button type="button" class="acct-logout" id="acct-logout">Se déconnecter</button>
+      </div>
+
+      <!-- Verso : historique -->
+      <div class="card-face card-back acct-back">
+        <button type="button" class="flip-back" aria-label="Retour au compte">↩</button>
+        <div class="acct-head"><h2 class="acct-name">Mon historique</h2></div>
+        <div class="acct-history-scroll">
+          <div id="history-timeline"></div>
+          <div id="history-empty" class="history-empty" hidden>
+            Votre historique est vide — abonnez-vous à une première alerte, on s'occupe du reste.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- A/E) Bloc stats marketing — bandeau pleine largeur -->
 <section class="stats-section" id="stats">
   <div class="wrap">
@@ -98,18 +138,6 @@
         <a class="stats-cta" href="#alertes">Choisir mes alertes →</a>
       </div>
     </div>
-  </div>
-</section>
-
-<!-- Notifications (mode connecté) : panneau rempli par js/push.js -->
-<section class="notif-panel wrap" id="notif-panel" hidden></section>
-
-<!-- B) Historique connecté (remplace le bloc dev en mode connecté) -->
-<section class="hist-section wrap" id="history-section" hidden>
-  <div class="section-label">Mon historique</div>
-  <div id="history-timeline"></div>
-  <div id="history-empty" class="history-empty" hidden>
-    Votre historique est vide — abonnez-vous à une première alerte ci-dessus, on s'occupe du reste.
   </div>
 </section>
 
