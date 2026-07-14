@@ -898,3 +898,40 @@ UPDATE sources SET categories = ARRAY['astronomie', 'etoiles-filantes']
  WHERE id IN ('perseides', 'nuits-des-etoiles');
 UPDATE sources SET categories = ARRAY['vie-locale']
  WHERE id IN ('changement-heure', 'jours-feries');
+
+-- ================================================================
+-- OpenAlert v2 · étape 3 — FUSION des 15 vigilance-meteo-XX vers vigilance-meteo.
+-- 100% idempotent et rejouable. Ne supprime AUCUN ancien abonnement (purge
+-- ultérieure, après plusieurs jours de fusion validée). substr(...,17) extrait le
+-- code départemental après le préfixe « vigilance-meteo- » (16 caractères).
+-- ================================================================
+
+-- A1) Migration des abonnements : vigilance-meteo-XX (broadcast) → vigilance-meteo {XX}.
+--     ON CONFLICT sur l'index d'expression DO NOTHING : ni doublon ni erreur, même
+--     pour un utilisateur déjà abonné aux deux pendant le dual-run.
+INSERT INTO subscriptions (subscriber_id, source_id, params)
+SELECT sub.subscriber_id, 'vigilance-meteo',
+       jsonb_build_object('departement', substr(sub.source_id, 17))
+  FROM subscriptions sub
+ WHERE sub.source_id LIKE 'vigilance-meteo-%' AND sub.params IS NULL
+ON CONFLICT (subscriber_id, source_id, COALESCE(params, '{}'::jsonb)) DO NOTHING;
+
+-- A2) Report d'état en PRÉSERVANT since (le point critique : avec la canicule, la
+--     moitié des départements sont actifs — un since recopié à l'identique évite
+--     que la source paramétrée ne les traite comme une « nouvelle » alerte au 1er
+--     cycle). On ne reporte que les états non-inactive, et seulement si la
+--     combinaison n'a pas déjà un état (DO NOTHING : le dual-run a pu en créer un,
+--     qu'on préserve tel quel).
+INSERT INTO source_param_states (source_id, params, state, since, until_date, message, url, checked_at)
+SELECT 'vigilance-meteo',
+       jsonb_build_object('departement', substr(st.source_id, 17)),
+       st.state, st.since, st.until_date, st.message, st.url, st.checked_at
+  FROM source_states st
+ WHERE st.source_id LIKE 'vigilance-meteo-%' AND st.state <> 'inactive'
+ON CONFLICT (source_id, params) DO NOTHING;
+
+-- B) Retrait des 15 sources : désactivation (réversible en un seul UPDATE). Le
+--    kiosque (GET /api/sources) et le poller (runCycle) filtrent enabled=true →
+--    plus aucune carte ni notification sur les anciennes.
+UPDATE sources SET enabled = false
+ WHERE id LIKE 'vigilance-meteo-%' AND enabled = true;

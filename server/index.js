@@ -108,6 +108,11 @@ function escHtml(s) {
 }
 app.get('/source/:id/statut', async (req, res) => {
   const id = req.params.id;
+  // Fusion v2 : anciennes vigilances départementales → page paramétrée (SEO 301).
+  const oldVig = id.match(/^vigilance-meteo-(.+)$/);
+  if (oldVig) {
+    return res.redirect(301, '/source/vigilance-meteo/statut?departement=' + encodeURIComponent(oldVig[1]));
+  }
   try {
     const { rows } = await pool.query(
       'SELECT name, subtitle, description FROM sources WHERE id = $1 AND enabled = true',

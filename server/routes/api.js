@@ -6,6 +6,15 @@ const { paramsFromQuery } = require('../params');
 
 const router = express.Router();
 
+// Fusion v2 : ancien id départemental → source paramétrée (301 avec ?departement).
+const OLD_VIG = /^vigilance-meteo-(.+)$/;
+function redirectOldVig(id, suffix, res) {
+  const m = id.match(OLD_VIG);
+  if (!m) return false;
+  res.redirect(301, `/api/sources/vigilance-meteo/${suffix}?departement=${encodeURIComponent(m[1])}`);
+  return true;
+}
+
 // GET /api/categories — taxonomie complète (publique, cacheable).
 router.get('/categories', (req, res) => {
   res.set('Cache-Control', 'public, max-age=3600');
@@ -44,34 +53,38 @@ router.get('/sources', async (req, res) => {
 });
 
 // GET /api/sources/:id/alert.json — manifeste OpenAlert d'une source.
+// Paramétrée : ?departement=05 lit source_param_states de la combinaison.
 router.get('/sources/:id/alert.json', async (req, res) => {
   try {
-    const { rows } = await pool.query(
-      `SELECT s.id, s.name, s.type,
-              COALESCE(st.state, 'inactive') AS state,
-              st.since, st.until_date, st.message, st.url, st.checked_at
-         FROM sources s
-         LEFT JOIN source_states st ON st.source_id = s.id
-        WHERE s.id = $1`,
-      [req.params.id]
-    );
-
-    if (rows.length === 0) {
+    if (redirectOldVig(req.params.id, 'alert.json', res)) return;
+    const base = await pool.query('SELECT id, name, type, params_schema FROM sources WHERE id = $1', [req.params.id]);
+    if (base.rows.length === 0) {
       return res.status(404).json({ error: 'Source inconnue' });
     }
-
+    const s = base.rows[0];
     // Les sources liées (services partenaires) n'ont pas de manifeste OpenAlert.
-    if (rows[0].type === 'linked') {
+    if (s.type === 'linked') {
       return res.status(404).json({
         error: 'Cette source est un service externe lié, sans manifeste OpenAlert',
       });
     }
 
-    const r = rows[0];
+    const schema = s.params_schema || null;
+    const params = schema ? paramsFromQuery(schema, req.query) : null;
+    const stateRes = params
+      ? await pool.query(
+          `SELECT state, since, until_date, message, url, checked_at
+             FROM source_param_states WHERE source_id = $1 AND params = $2::jsonb`,
+          [s.id, JSON.stringify(params)])
+      : await pool.query(
+          `SELECT state, since, until_date, message, url, checked_at
+             FROM source_states WHERE source_id = $1`, [s.id]);
+    const r = stateRes.rows[0] || {};
+
     res.json({
-      id: r.id,
-      name: r.name,
-      state: r.state,
+      id: s.id,
+      name: s.name,
+      state: r.state || 'inactive',
       since: r.since ? r.since.toISOString() : null,
       until: r.until_date ? r.until_date.toISOString() : null,
       message: r.message ?? null,
@@ -91,6 +104,7 @@ router.get('/sources/:id/alert.json', async (req, res) => {
 router.get('/sources/:id/history', async (req, res) => {
   const id = req.params.id;
   try {
+    if (redirectOldVig(id, 'history', res)) return;
     const schemaRes = await pool.query('SELECT params_schema FROM sources WHERE id = $1', [id]);
     if (schemaRes.rows.length === 0) return res.status(404).json({ error: 'Source inconnue' });
     const schema = schemaRes.rows[0].params_schema || null;
@@ -206,6 +220,7 @@ router.get('/stats', async (req, res) => {
 router.get('/sources/:id/badge.svg', async (req, res) => {
   try {
     const id = req.params.id;
+    if (redirectOldVig(id, 'badge.svg', res)) return;
     const schemaRes = await pool.query('SELECT params_schema FROM sources WHERE id = $1 AND enabled = true', [id]);
     const schema = schemaRes.rows.length ? (schemaRes.rows[0].params_schema || null) : null;
     const params = schema ? paramsFromQuery(schema, req.query) : null;

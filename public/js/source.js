@@ -76,6 +76,21 @@
     }).join('');
   }
 
+  var myInstances = []; // instances paramétrées de l'utilisateur connecté (volet 1)
+
+  function setActiveTab(dep) {
+    document.querySelectorAll('#src-action .dept-tab').forEach(function (t) {
+      if (!t.classList.contains('dept-other')) t.classList.toggle('on', t.getAttribute('data-dept') === String(dep));
+    });
+  }
+  // Sélectionne une combinaison : met à jour l'URL (SEO/partage), recharge l'historique.
+  function selectDept(dep) {
+    currentDept = String(dep);
+    try { history.replaceState(null, '', '?departement=' + encodeURIComponent(currentDept)); } catch (e) {}
+    setActiveTab(currentDept);
+    loadHistory();
+  }
+
   // Historique (broadcast, ou par combinaison si source paramétrée).
   async function loadHistory() {
     var qs = (paramSchema && currentDept) ? ('?departement=' + encodeURIComponent(currentDept)) : '';
@@ -99,14 +114,31 @@
       return;
     }
     if (paramSchema) {
-      // Source paramétrée : sélecteur de combinaison + renvoi vers le kiosque pour s'abonner.
       var opts = (paramSchema.values || []).map(function (v) {
         return '<option value="' + esc(v.value) + '"' + (String(v.value) === String(currentDept) ? ' selected' : '') + '>' + esc(v.label) + '</option>';
       }).join('');
-      el.innerHTML =
-        '<label class="param-statut-label">' + esc(paramSchema.label) + ' : ' +
-          '<select id="dept-select" class="param-select">' + opts + '</select></label>' +
-        '<p class="param-statut-hint">Pour être alerté, choisissez votre département sur la <a href="/#alertes">page d\'accueil</a>.</p>';
+      var fullSelect = '<div class="dept-other-form"' + (myInstances.length ? ' hidden' : '') + '>' +
+          '<label class="param-statut-label">' + esc(paramSchema.label) + ' : ' +
+            '<select id="dept-select" class="param-select">' + opts + '</select></label></div>';
+
+      if (myInstances.length) {
+        // Connecté & abonné : onglets rapides de SES instances + « autre département… ».
+        var labelByDept = {};
+        (paramSchema.values || []).forEach(function (v) { labelByDept[String(v.value)] = v.label; });
+        var tabs = myInstances.map(function (inst) {
+          var dep = String(inst.params.departement);
+          return '<button type="button" class="dept-tab' + (dep === String(currentDept) ? ' on' : '') + '" data-dept="' + esc(dep) + '">' +
+            esc(inst.label || labelByDept[dep] || dep) + '</button>';
+        }).join('');
+        el.innerHTML =
+          '<div class="dept-tabs">' + tabs +
+            '<button type="button" class="dept-tab dept-other">autre département…</button>' +
+          '</div>' + fullSelect;
+      } else {
+        // Anonyme ou non abonné : sélecteur complet + renvoi vers le kiosque.
+        el.innerHTML = fullSelect +
+          '<p class="param-statut-hint">Pour être alerté, choisissez votre département sur la <a href="/#alertes">page d\'accueil</a>.</p>';
+      }
       return;
     }
     var on = connected && subscribed;
@@ -214,13 +246,16 @@
           visitorDept = mr.data.departement || null;
           var mine = (mr.data.sources || []).filter(function (s) { return s.id === ID; })[0];
           subscribed = !!(mine && mine.subscribed);
+          myInstances = (mine && Array.isArray(mine.instances)) ? mine.instances : [];
         } else if (mr.status === 401) { LBASession.clear(); }
       }
 
-      // Département courant : query string > département du visiteur > 05 (défaut).
+      // Département courant : query string > 1re instance de l'utilisateur >
+      // département de personnalisation > 05 (défaut).
       if (paramSchema) {
         var allowed = (paramSchema.values || []).map(function (v) { return String(v.value); });
-        var wanted = queryDept() || visitorDept || '05';
+        var firstInstance = myInstances[0] && myInstances[0].params ? myInstances[0].params.departement : null;
+        var wanted = queryDept() || firstInstance || visitorDept || '05';
         currentDept = allowed.indexOf(String(wanted)) >= 0 ? String(wanted) : (allowed[0] || null);
       }
 
@@ -257,13 +292,22 @@
       // Historique (par combinaison si source paramétrée).
       await loadHistory();
 
-      // Sélecteur de département : recharge l'historique de la combinaison choisie.
+      // Navigation par combinaison : onglets d'instances + sélecteur complet.
       if (paramSchema) {
-        var sel = document.getElementById('dept-select');
-        if (sel) sel.addEventListener('change', function () {
-          currentDept = sel.value;
-          try { history.replaceState(null, '', '?departement=' + encodeURIComponent(currentDept)); } catch (e) {}
-          loadHistory();
+        var actionEl = document.getElementById('src-action');
+        actionEl.addEventListener('click', function (e) {
+          var other = e.target.closest('.dept-other');
+          if (other) {
+            var form = actionEl.querySelector('.dept-other-form');
+            if (form) form.hidden = false;
+            return;
+          }
+          var tab = e.target.closest('.dept-tab');
+          if (tab) selectDept(tab.getAttribute('data-dept'));
+        });
+        actionEl.addEventListener('change', function (e) {
+          var sel = e.target.closest('#dept-select');
+          if (sel) selectDept(sel.value);
         });
       }
 

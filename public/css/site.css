@@ -913,6 +913,18 @@ body[data-mode="connected"] #stats { display: none; }
 .param-statut-label .param-select { flex: none; min-width: 180px; }
 .param-statut-hint { font-size: 13px; color: var(--muted); margin-top: 10px; }
 .param-statut-hint a { color: var(--amber); font-weight: 600; text-decoration: none; }
+/* Onglets d'instances de l'utilisateur sur la page de statut (volet 1). */
+.dept-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.dept-tab {
+  border: 1px solid var(--line); background: var(--surface); color: var(--muted);
+  font: inherit; font-size: 13px; font-weight: 600; border-radius: 999px;
+  padding: 8px 14px; cursor: pointer;
+}
+.dept-tab:hover { color: var(--ink); }
+.dept-tab.on { background: var(--amber); color: #fff; border-color: transparent; }
+.dept-tab.dept-other { color: var(--amber); border-style: dashed; }
+.dept-other-form { margin-bottom: 14px; }
+.dept-other-form[hidden] { display: none; }
 
 /* =====================================================================
    Vue mobile « kiosque » (≤ 720px). js/mobile-header.js pose body.m-kiosk
