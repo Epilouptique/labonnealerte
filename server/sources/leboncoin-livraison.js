@@ -1,63 +1,143 @@
-// Source interne : détecte la promo "Livraison à 0,99€" sur Leboncoin.
-// La logique de transition pending/active vit dans le poller, pas ici :
-// check() se contente de rapporter l'état instantané (active | inactive).
+// Source interne : détecte la promo « Livraison à 0,99 € » (Mondial Relay) sur
+// leboncoin (page /service/bons-plans).
+//
+// IMPORTANT — constat de terrain (voir rapport du chantier headless) :
+//  - Le fetch statique renvoie HTTP 200 avec le HTML Next.js SSR COMPLET
+//    (bloc __NEXT_DATA__) : le contenu de la page bons-plans y est présent,
+//    donc la promo — quand elle est active — s'y trouve aussi.
+//  - Le navigateur headless est, lui, BLOQUÉ par DataDome (HTTP 403) : Chromium
+//    automatisé est détecté. Le lancer en primaire dégraderait la source.
+//
+// Le bug historique (« le statique ne voit jamais la promo ») venait en réalité
+// du marqueur contenant des espaces insécables, que la comparaison à espace
+// simple ratait. On normalise donc les espaces avant de chercher le marqueur.
+//
+// Stratégie : statique en PRIMAIRE (fiable, léger) ; navigateur en SECOURS
+// seulement si le statique est indisponible/bloqué — et dans ce cas on throw
+// proprement si DataDome nous bloque (requires_confirmation=true absorbe).
+
+const { withPage } = require('../headless');
 
 // node-fetch v3 est ESM-only : import dynamique depuis ce module CommonJS.
 const fetchFn = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 
 const PROMO_URL = 'https://www.leboncoin.fr/service/bons-plans';
 const PROMO_MARKER = 'Livraison à 0,99';
+const UA =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
 // Cherche "du JJ/MM/AAAA à HHhMM au JJ/MM/AAAA à HHhMM"
 const DATE_REGEX =
   /du\s+(\d{2})\/(\d{2})\/(\d{4})\s+à\s+(\d{1,2})h(\d{2})\s+au\s+(\d{2})\/(\d{2})\/(\d{4})\s+à\s+(\d{1,2})h(\d{2})/i;
 
+const MOIS_FR = [
+  'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
+  'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre',
+];
+
+// Normalise tous les espaces (dont insécable   et fine insécable  ) en
+// espace simple : les marqueurs et dates de leboncoin en contiennent souvent.
+function normalizeSpaces(text) {
+  return String(text || '').replace(/[  \s]+/g, ' ');
+}
+
 function buildDate(day, month, year, hour, minute) {
-  // Mois 0-indexé pour le constructeur Date
-  return new Date(
-    Number(year),
-    Number(month) - 1,
-    Number(day),
-    Number(hour),
-    Number(minute)
+  return new Date(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute));
+}
+
+// Message humain construit depuis les groupes bruts (pas de dérive de fuseau).
+function formatUntilFr(m) {
+  const jour = Number(m[6]);
+  const mois = MOIS_FR[Number(m[7]) - 1] || `mois ${m[7]}`;
+  return `${jour} ${mois} ${m[8]} à ${m[9]}h${m[10]}`;
+}
+
+// Signatures caractéristiques d'un blocage anti-bot (DataDome / captcha).
+function looksLikeAntiBot(text, title) {
+  const hay = (normalizeSpaces(text) + ' ' + (title || '')).toLowerCase();
+  return (
+    hay.includes('captcha-delivery') ||
+    hay.includes('datadome') ||
+    hay.includes('geo.captcha') ||
+    hay.includes('pardon our interruption') ||
+    hay.includes('vous avez été bloqué') ||
+    hay.includes('verifying you are human')
   );
 }
 
-/**
- * Vérifie l'état instantané de la promo.
- * @returns {Promise<{ state: 'active'|'inactive', since: Date|null, until: Date|null, message: string|null, url: string }>}
- */
-async function check() {
-  const res = await fetchFn(PROMO_URL, {
-    headers: {
-      'User-Agent':
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36',
-      'Accept-Language': 'fr-FR,fr;q=0.9',
-    },
-  });
+// Une réponse statique est « exploitable » si c'est bien la page Next.js complète.
+function looksLikeRealPage(html) {
+  return html.includes('__NEXT_DATA__');
+}
 
-  if (!res.ok) {
-    throw new Error(`Réponse HTTP inattendue : ${res.status} ${res.statusText}`);
-  }
-
-  const html = await res.text();
-  const found = html.includes(PROMO_MARKER);
-
-  if (!found) {
-    return { state: 'inactive', since: null, until: null, message: null, url: PROMO_URL };
-  }
-
-  const match = html.match(DATE_REGEX);
+// Construit le résultat "active" à partir d'un texte normalisé contenant le marqueur.
+function buildActive(normalizedText) {
+  const match = normalizedText.match(DATE_REGEX);
   const since = match ? buildDate(match[1], match[2], match[3], match[4], match[5]) : null;
   const until = match ? buildDate(match[6], match[7], match[8], match[9], match[10]) : null;
-
+  const jusqua = match ? ` jusqu'au ${formatUntilFr(match)}` : '';
   return {
     state: 'active',
     since,
     until,
-    message: 'Livraison à 0,99€ active sur Leboncoin',
+    message: `📦 La livraison Mondial Relay passe à 0,99 € sur leboncoin${jusqua}`,
     url: PROMO_URL,
   };
+}
+
+function inactive() {
+  return { state: 'inactive', since: null, until: null, message: null, url: PROMO_URL };
+}
+
+// Étape 1 : fetch statique. Retourne { status, html } ou null (erreur réseau).
+async function staticFetch() {
+  try {
+    const res = await fetchFn(PROMO_URL, {
+      headers: { 'User-Agent': UA, 'Accept-Language': 'fr-FR,fr;q=0.9' },
+    });
+    return { status: res.status, html: await res.text() };
+  } catch (err) {
+    return null;
+  }
+}
+
+// Étape 2 (secours) : rendu navigateur. Retourne { status, title, body }.
+async function renderedPage() {
+  return withPage(async (page) => {
+    const resp = await page.goto(PROMO_URL, { waitUntil: 'domcontentloaded', timeout: 25_000 });
+    try {
+      await page.waitForLoadState('networkidle', { timeout: 8_000 });
+    } catch (err) {
+      /* certaines pages ne deviennent jamais "idle" : best-effort */
+    }
+    const status = resp ? resp.status() : null;
+    const title = await page.title();
+    const body = await page.evaluate(() => (document.body ? document.body.innerText : ''));
+    return { status, title, body };
+  });
+}
+
+/**
+ * Vérifie l'état instantané de la promo.
+ * @returns {Promise<{ state, since, until, message, url }>}
+ */
+async function check() {
+  // 1) PRIMAIRE : fetch statique. Si on obtient la page Next.js complète (200 +
+  //    __NEXT_DATA__) sans blocage, on lui fait confiance — aucun navigateur lancé.
+  const stat = await staticFetch();
+  if (stat && stat.status === 200 && looksLikeRealPage(stat.html) && !looksLikeAntiBot(stat.html)) {
+    const norm = normalizeSpaces(stat.html);
+    return norm.includes(PROMO_MARKER) ? buildActive(norm) : inactive();
+  }
+
+  // 2) SECOURS : le statique est indisponible/bloqué → tentative navigateur.
+  //    (Souvent bloqué par DataDome en 403 : on le détecte et on throw.)
+  const { status, title, body } = await renderedPage();
+  if (status === 403 || !body || looksLikeAntiBot(body, title)) {
+    throw new Error('Blocage anti-bot leboncoin');
+  }
+  const norm = normalizeSpaces(body);
+  return norm.includes(PROMO_MARKER) ? buildActive(norm) : inactive();
 }
 
 module.exports = { id: 'leboncoin-livraison', check };

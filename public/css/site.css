@@ -146,7 +146,7 @@ html[data-theme="light"] header { background: #ffffff; } /* thème clair : blanc
   transition: box-shadow .35s ease, border-color .35s ease;
   border: 2px solid transparent;
 }
-.card-front { position: relative; }              /* en flux : définit la hauteur */
+.card-front { position: relative; min-height: 285px;}              /* en flux : définit la hauteur */
 /* Verso : fond légèrement teinté (subtil), position absolue par-dessus le recto. */
 .card-back {
   position: absolute; inset: 0; transform: rotateY(180deg); gap: 14px;
@@ -285,7 +285,12 @@ a.endpoint:hover { color: var(--amber); text-decoration: underline; }
 .copy-btn:hover { color: var(--amber); background: var(--surface); }
 .copy-btn.copied { color: var(--green); }
 .copy-btn svg { width: 15px; height: 15px; }
-footer { padding: 36px 0; text-align: center; font-size: 13px; color: var(--muted); }
+footer {
+  padding: 36px 0; text-align: center; font-size: 13px; color: var(--muted);
+  background: var(--surface); /* thème sombre : fond surface (comme le header) */
+  box-shadow: 0 -1px 0 rgba(30, 20, 50, .06); /* séparation inversée du header */
+}
+html[data-theme="light"] footer { background: #ffffff; } /* thème clair : blanc pur */
 footer a { color: var(--muted); }
 
 /* ---------- bouton « Se connecter / déconnecter » ---------- */

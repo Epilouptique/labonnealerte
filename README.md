@@ -49,6 +49,35 @@ Node.js / Express · PostgreSQL · JavaScript **vanilla** côté front (aucun fr
 
 Choix assumés : **simplicité radicale**. Pas de build front (les pages sont du HTML/CSS/JS servis en statique), dépendances runtime minimales (`express`, `pg`, `resend`, `node-cron`, `node-fetch`, `helmet`, `express-rate-limit`, `dotenv`).
 
+Certaines sources (pages « SPA ») nécessitent un vrai navigateur pour lire leur
+contenu : elles passent par un runner Playwright/Chromium mutualisé
+([`server/headless.js`](server/headless.js)) — un seul navigateur à la fois,
+timeout 30 s, fermeture garantie.
+
+### Déploiement Railway avec Playwright
+
+Playwright a besoin de Chromium **et** de ses dépendances système. L'option la
+plus fiable sur Railway est de **construire via le `Dockerfile`** fourni, basé
+sur l'image officielle `mcr.microsoft.com/playwright` (navigateur + libs système
+préinstallés, à la version exacte du paquet npm). Le `railway.json` est déjà
+configuré en `builder: DOCKERFILE`.
+
+- **Version** : le tag de l'image dans le `Dockerfile`
+  (`v1.61.1-jammy`) doit suivre la version de `playwright` dans `package.json`.
+  Les deux se mettent à jour ensemble.
+- **Mémoire** : Chromium consomme ~150–250 Mo par lancement (headless shell).
+  Prévoir un service Railway avec **au moins 512 Mo de RAM** (1 Go confortable).
+- **Args conteneur** : le runner lance déjà Chromium avec `--no-sandbox`,
+  `--disable-dev-shm-usage`, `--disable-gpu` (adaptés à un conteneur contraint).
+- **Aucune variable d'environnement supplémentaire n'est requise** avec cette
+  approche Docker. (`PLAYWRIGHT_CHROMIUM_PATH` existe comme échappatoire si l'on
+  voulait pointer vers un Chromium système, mais c'est inutile ici.)
+
+> Alternative sans Docker (Nixpacks) : possible via un `nixpacks.toml` ajoutant
+> le paquet Nix `chromium` puis en lançant avec `PLAYWRIGHT_CHROMIUM_PATH`
+> pointant dessus — mais c'est plus fragile (réconciliation manuelle des libs à
+> chaque mise à jour). Le Dockerfile est recommandé.
+
 ## Lancer en local
 
 **Prérequis** : Node.js 18+ et une base PostgreSQL accessible.
