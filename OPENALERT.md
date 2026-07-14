@@ -55,6 +55,80 @@ Champs :
 - Pas de limite de fréquence imposée à la source, mais la plateforme
   ne poll jamais plus souvent que toutes les 15 minutes
 
+## Sources paramétrées (v2)
+
+Une source peut déclarer un schéma de **paramètres** : l'état de l'alerte est
+alors évalué **par abonnement** (par exemple, un département de vigilance) et
+non globalement.
+
+- Champ `params` **absent** → source *broadcast* : comportement v1 strictement
+  inchangé. **Tout manifeste v1 reste valide sans modification.**
+- Champ `params` **présent** → source *paramétrée* : chaque abonnement porte des
+  valeurs, et l'alerte est évaluée pour ces valeurs.
+
+Un seul standard, deux modes, aucune rupture.
+
+### Déclaration du schéma
+
+`params` est un tableau de descripteurs de paramètre :
+
+```json
+{
+  "id": "vigilance-meteo",
+  "name": "Vigilance météo",
+  "params": [
+    {
+      "key": "departement",
+      "label": "Département",
+      "type": "enum",
+      "values": [
+        { "value": "05", "label": "Hautes-Alpes" },
+        { "value": "13", "label": "Bouches-du-Rhône" }
+      ],
+      "multiple": true,
+      "required": true,
+      "default": null
+    }
+  ]
+}
+```
+
+Champs d'un descripteur :
+
+- **key** (string, requis) : identifiant du paramètre (clé dans l'objet `params`
+  de l'abonnement, ex. `{"departement":"05"}`)
+- **label** (string, requis) : libellé lisible pour l'UI d'abonnement
+- **type** (string, requis) : `"enum"` | `"string"` | `"number"`
+- **values** (tableau, requis si `enum`) : liste fermée `{ value, label }` des
+  valeurs acceptées
+- **multiple** (bool, défaut `false`) : l'utilisateur peut créer plusieurs
+  instances (plusieurs départements) ; chaque instance est un abonnement distinct
+- **required** (bool, défaut `false`) : une valeur est obligatoire à l'abonnement
+- **default** (défaut `null`) : valeur pré-sélectionnée proposée par l'UI
+
+Types retenus pour la v2 initiale (volontairement peu nombreux) : `enum` (liste
+fermée : département, catégorie…), `string` (texte libre validé par la source :
+un domaine), `number` (seuil borné). Le type `geo` (lat/lon) est reporté à une
+v2.1 (vie privée + UI).
+
+### Sémantique
+
+- **Absent = broadcast** : sans `params`, l'abonnement et l'état restent
+  globaux, exactement comme en v1.
+- **Interrogation des endpoints externes** : les valeurs sont passées en query
+  string, `GET /alert.json?departement=05`. La réponse reste un **manifeste v1
+  classique** (`id`, `state`, `since`, `message`…) évalué pour ces valeurs.
+- **Déterminisme exigé** : pour un même jeu de paramètres, l'endpoint doit
+  répondre de façon déterministe et documenter les valeurs qu'il accepte.
+- **Validation côté plateforme** : les valeurs soumises doivent être ⊂ du schéma
+  déclaré, sinon rejet (protection SSRF/injection du validateur d'enregistrement).
+
+### Rétrocompatibilité
+
+La v2 est strictement additive : un manifeste sans champ `params` est une source
+broadcast v1, traitée à l'identique (même chemin d'abonnement, d'état et de
+notification). Aucun changement n'est requis sur les sources existantes.
+
 ## Badges de confiance
 - **official** : source développée et hébergée par labonnealerte.fr
 - **verified** : source tierce dont le code est public et a été relu

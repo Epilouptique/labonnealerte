@@ -129,6 +129,44 @@ CREATE TABLE IF NOT EXISTS counters (
   value BIGINT NOT NULL DEFAULT 0
 );
 
+-- ================================================================
+-- OpenAlert v2 — sources paramétrées (étape 1 : schéma seul, aucune UI).
+-- Rétrocompatible : params NULL = abonnement broadcast (comportement v1).
+-- ================================================================
+
+-- Schéma de paramètres déclaré par la source (interne ou externe). NULL = broadcast.
+ALTER TABLE sources ADD COLUMN IF NOT EXISTS params_schema JSONB NULL;
+
+-- Valeurs de l'abonnement paramétré. NULL = broadcast (v1). Ex : {"departement":"05"}.
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS params JSONB NULL;
+
+-- Unicité : aujourd'hui garantie par la PK (subscriber_id, source_id). On la
+-- remplace par un index unique sur (subscriber_id, source_id, COALESCE(params,'{}'))
+-- pour autoriser plusieurs combinaisons par (abonné, source) tout en gardant
+-- l'unicité du broadcast (params NULL → '{}'). Les INSERT applicatifs ciblent
+-- désormais cette expression dans leur ON CONFLICT (subscribe.js, myalerts.js).
+ALTER TABLE subscriptions DROP CONSTRAINT IF EXISTS subscriptions_pkey;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_subscriptions_sub_src_params
+  ON subscriptions (subscriber_id, source_id, COALESCE(params, '{}'::jsonb));
+
+-- État par combinaison de paramètres (mêmes colonnes/valeurs par défaut que
+-- source_states ; PK (source_id, params)). L'existant source_states reste le
+-- chemin des sources broadcast, inchangé.
+CREATE TABLE IF NOT EXISTS source_param_states (
+  source_id VARCHAR(64) REFERENCES sources(id),
+  params JSONB NOT NULL,
+  state VARCHAR(16) NOT NULL DEFAULT 'inactive',  -- active | pending | inactive
+  since TIMESTAMPTZ,
+  until_date TIMESTAMPTZ,
+  message TEXT,
+  url TEXT,
+  checked_at TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (source_id, params)
+);
+
+-- Historique par combinaison (les événements broadcast gardent params NULL).
+ALTER TABLE source_events ADD COLUMN IF NOT EXISTS params JSONB NULL;
+
 INSERT INTO sources (id, name, subtitle, description, type, badge, categories, display_order)
 SELECT 'leboncoin-livraison', 'Livraison à 0,99 €', 'Promo Mondial Relay sur leboncoin',
   'Alerte quand la promo livraison Mondial Relay à 0,99€ est active sur leboncoin.fr',

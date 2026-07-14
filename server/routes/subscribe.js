@@ -111,9 +111,11 @@ apiRouter.post('/subscribe', subscribeLimiter, async (req, res) => {
 
     // Lie le subscriber à la source ; rows vide si l'abonnement existe déjà.
     const link = await pool.query(
+      // Broadcast : params NULL. ON CONFLICT cible l'index unique d'expression
+      // (subscriber_id, source_id, COALESCE(params,'{}')) — cf. init.sql v2.
       `INSERT INTO subscriptions (subscriber_id, source_id)
        VALUES ($1, $2)
-       ON CONFLICT (subscriber_id, source_id) DO NOTHING
+       ON CONFLICT (subscriber_id, source_id, COALESCE(params, '{}'::jsonb)) DO NOTHING
        RETURNING subscriber_id`,
       [subscriber.id, sourceId]
     );

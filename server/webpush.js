@@ -83,4 +83,61 @@ async function sendToSource(sourceId, info = {}) {
   return { sent, failed, removed: dead.length };
 }
 
-module.exports = { isEnabled, publicKey, sendToSource };
+/**
+ * Variante paramétrée (OpenAlert v2) : push aux seuls appareils des abonnés
+ * de la combinaison { source_id, params } donnée. Même logique d'envoi/purge.
+ * @param {string} sourceId
+ * @param {object} params      combinaison souscrite, ex { departement: '05' }
+ * @param {{name, message, url, statusUrl}} info
+ */
+async function sendToSourceParams(sourceId, params, info = {}) {
+  if (!enabled) return { sent: 0, failed: 0, removed: 0 };
+
+  const { rows } = await pool.query(
+    `SELECT ps.id, ps.endpoint, ps.p256dh, ps.auth
+       FROM push_subscriptions ps
+       JOIN subscriptions sub ON sub.subscriber_id = ps.subscriber_id
+      WHERE sub.source_id = $1 AND sub.params = $2::jsonb`,
+    [sourceId, JSON.stringify(params || {})]
+  );
+  if (rows.length === 0) return { sent: 0, failed: 0, removed: 0 };
+
+  const payload = JSON.stringify({
+    title: info.name || 'La Bonne Alerte',
+    body: info.message || 'Une alerte que vous suivez vient de se déclencher.',
+    url: info.url || info.statusUrl || 'https://www.labonnealerte.fr',
+  });
+
+  let sent = 0;
+  let failed = 0;
+  const dead = [];
+
+  await Promise.all(
+    rows.map(async (r) => {
+      const subscription = { endpoint: r.endpoint, keys: { p256dh: r.p256dh, auth: r.auth } };
+      try {
+        await webpush.sendNotification(subscription, payload);
+        sent += 1;
+      } catch (err) {
+        if (err.statusCode === 404 || err.statusCode === 410) {
+          dead.push(r.id);
+        } else {
+          failed += 1;
+          console.error(`[webpush] échec envoi (endpoint #${r.id}) :`, err.statusCode || err.message);
+        }
+      }
+    })
+  );
+
+  if (dead.length) {
+    try {
+      await pool.query('DELETE FROM push_subscriptions WHERE id = ANY($1)', [dead]);
+    } catch (err) {
+      console.error('[webpush] purge subscriptions mortes :', err.message);
+    }
+  }
+
+  return { sent, failed, removed: dead.length };
+}
+
+module.exports = { isEnabled, publicKey, sendToSource, sendToSourceParams };

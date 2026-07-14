@@ -3,7 +3,7 @@ const path = require('path');
 const cron = require('node-cron');
 const { pool } = require('./db');
 const { sendPromoAlert } = require('./mailer');
-const { sendToSource } = require('./webpush');
+const { sendToSource, sendToSourceParams } = require('./webpush');
 const { cleanupExpired } = require('./sessions');
 
 // Purge des sessions expirées : au plus une fois par jour.
@@ -13,7 +13,8 @@ let lastSessionCleanup = 0;
 const SCHEDULE = '*/30 * * * *';
 
 // Charge dynamiquement tous les modules de server/sources/.
-// Chaque module exporte { id, check() }.
+// Contrat d'une source : { id, check() }  (broadcast, v1)
+//   OU { id, paramsSchema, checkWithParams(paramsList) }  (paramétrée, v2).
 function loadSources() {
   const dir = path.join(__dirname, 'sources');
   if (!fs.existsSync(dir)) return [];
@@ -24,7 +25,8 @@ function loadSources() {
     .readdirSync(dir, { withFileTypes: true })
     .filter((e) => e.isFile() && e.name.endsWith('.js'))
     .map((e) => require(path.join(dir, e.name)))
-    .filter((mod) => mod && mod.id && typeof mod.check === 'function');
+    .filter((mod) => mod && mod.id &&
+      (typeof mod.check === 'function' || typeof mod.checkWithParams === 'function'));
 }
 
 const SOURCES = loadSources();
@@ -154,16 +156,78 @@ async function logFailedDedup(sourceId, message) {
   }
 }
 
-// Applique la logique de transition inactive→pending→active (et retour inactive)
-// pour une source, à partir du résultat instantané de son check().
+// ── Logique de transition FACTORISÉE ────────────────────────────────────────
+// Décision pure inactive→pending→active (et retour) à partir de l'état courant
+// et du résultat instantané. Partagée entre le chemin broadcast (source_states)
+// et le chemin paramétré (source_param_states) — une seule vérité.
 // `requiresConfirmation` : true = confirmation sur 2 cycles (scraper) ;
-// false = transition inactive→active directe avec notification immédiate (API officielle).
+// false = inactive→active directe + notification immédiate (API officielle).
+function decideTransition(current, requiresConfirmation, result, storedSince) {
+  if (result.state === 'active') {
+    if (current === 'inactive') {
+      return requiresConfirmation
+        ? { newState: 'pending', event: null, notify: false, write: true, kind: 'pending' }
+        : { newState: 'active', event: 'activated', notify: true, write: true, kind: 'immediate' };
+    }
+    if (current === 'pending') {
+      return { newState: 'active', event: 'activated', notify: true, write: true, kind: 'confirmed' };
+    }
+    // déjà active : « nouvel épisode » si le since avance d'au moins 24h.
+    const newSince = result.since ? new Date(result.since) : null;
+    const isNewEpisode = newSince && storedSince &&
+      (newSince.getTime() - storedSince.getTime()) >= EPISODE_THRESHOLD_MS;
+    return isNewEpisode
+      ? { newState: 'active', event: 'activated', notify: true, write: true, kind: 'episode' }
+      : { newState: 'active', event: null, notify: false, write: true, kind: 'refresh' };
+  }
+  if (current === 'active' || current === 'pending') {
+    return { newState: 'inactive', event: 'deactivated', notify: false, write: true, kind: 'deactivated' };
+  }
+  return { newState: 'inactive', event: null, notify: false, write: false, kind: 'still-inactive' };
+}
+
+const KIND_LOG = {
+  immediate: (l) => `ALERTE IMMÉDIATE [${l}] (sans confirmation)`,
+  pending: (l) => `${l} : inactive → PENDING`,
+  confirmed: (l) => `ALERTE CONFIRMÉE [${l}]`,
+  episode: (l) => `NOUVEL ÉPISODE [${l}]`,
+  refresh: (l) => `${l} : déjà active.`,
+  deactivated: (l) => `${l} : → INACTIVE`,
+  'still-inactive': (l) => `${l} : toujours inactive.`,
+};
+
+// Applique une décision de transition via un « store » abstrait (broadcast ou
+// paramétré). store : { getState, getStoredSince, writeState, logEvent, notify }.
+async function applyResult(store, label, result, requiresConfirmation) {
+  const current = await store.getState();
+  if (current === null) {
+    console.error(`[poller] ${label} : aucune ligne d'état (migration ?).`);
+    return;
+  }
+  const storedSince = (result.state === 'active' && current === 'active')
+    ? await store.getStoredSince() : null;
+  const d = decideTransition(current, requiresConfirmation, result, storedSince);
+
+  if (d.write) {
+    const fields = result.state === 'active'
+      ? { since: result.since, until: result.until, message: result.message, url: result.url }
+      : {};
+    await store.writeState(d.newState, fields);
+  }
+  if (d.event) await store.logEvent(d.event, d.event === 'deactivated' ? null : result.message);
+  console.log('[poller] ' + KIND_LOG[d.kind](label));
+  if (d.notify) {
+    try { await store.notify(result); }
+    catch (err) { console.error(`[poller] ${label} : échec envoi alertes :`, err.message); }
+  }
+}
+
+// ── Chemin BROADCAST (v1, inchangé) ─────────────────────────────────────────
 async function processSource(source, requiresConfirmation = true) {
   let result;
   try {
     result = await source.check();
     console.log(`[poller] ${source.id} → check state=${result.state}`);
-    // Check réussi : compteurs de vérifications (total + mois courant).
     await incCounter('checks_total');
     await incCounter('checks_' + monthKey());
   } catch (err) {
@@ -172,74 +236,147 @@ async function processSource(source, requiresConfirmation = true) {
     return;
   }
 
-  const current = await getState(source.id);
-  if (current === null) {
-    console.error(`[poller] ${source.id} : aucune ligne source_states (migration ?).`);
+  const store = {
+    getState: () => getState(source.id),
+    getStoredSince: () => getStoredSince(source.id),
+    writeState: (state, fields) => writeState(source.id, state, fields),
+    logEvent: (event, message) => logEvent(source.id, event, message),
+    notify: (res) => notifySourceSubscribers(source.id, res),
+  };
+  await applyResult(store, source.id, result, requiresConfirmation);
+}
+
+// ── Chemin PARAMÉTRÉ (v2) — état par combinaison, mêmes transitions ──────────
+async function getParamState(sourceId, params) {
+  const { rows } = await pool.query(
+    'SELECT state FROM source_param_states WHERE source_id = $1 AND params = $2::jsonb',
+    [sourceId, JSON.stringify(params)]
+  );
+  return rows[0] ? rows[0].state : 'inactive'; // pas de ligne = combinaison jamais activée
+}
+
+async function getParamStoredSince(sourceId, params) {
+  const { rows } = await pool.query(
+    'SELECT since FROM source_param_states WHERE source_id = $1 AND params = $2::jsonb',
+    [sourceId, JSON.stringify(params)]
+  );
+  return rows[0] && rows[0].since ? new Date(rows[0].since) : null;
+}
+
+async function writeParamState(sourceId, params, state, fields = {}) {
+  const { since = null, until = null, message = null, url = null } = fields;
+  await pool.query(
+    `INSERT INTO source_param_states (source_id, params, state, since, until_date, message, url, checked_at)
+     VALUES ($1, $2::jsonb, $3, $4, $5, $6, $7, NOW())
+     ON CONFLICT (source_id, params) DO UPDATE
+       SET state = EXCLUDED.state, since = EXCLUDED.since, until_date = EXCLUDED.until_date,
+           message = EXCLUDED.message, url = EXCLUDED.url, checked_at = NOW()`,
+    [sourceId, JSON.stringify(params), state, since, until, message, url]
+  );
+}
+
+async function logParamEvent(sourceId, params, event, message = null) {
+  try {
+    await pool.query(
+      'INSERT INTO source_events (source_id, event, message, params) VALUES ($1, $2, $3, $4::jsonb)',
+      [sourceId, event, message, JSON.stringify(params)]
+    );
+  } catch (err) {
+    console.error('[poller] logParamEvent :', err.message);
+  }
+}
+
+async function confirmedEmailsForSourceParams(sourceId, params) {
+  const { rows } = await pool.query(
+    `SELECT s.email, s.token
+       FROM subscribers s
+       JOIN subscriptions sub ON sub.subscriber_id = s.id
+      WHERE sub.source_id = $1 AND sub.params = $2::jsonb
+        AND s.confirmed = true AND s.email_enabled = true`,
+    [sourceId, JSON.stringify(params)]
+  );
+  return rows.map((r) => ({ email: r.email, token: r.token }));
+}
+
+async function notifyParamSubscribers(sourceId, params, result = {}) {
+  let name = sourceId;
+  try {
+    const { rows } = await pool.query('SELECT name FROM sources WHERE id = $1', [sourceId]);
+    if (rows[0]) name = rows[0].name;
+  } catch (err) { /* repli = id */ }
+
+  // Libellé résolu minimal (le raffinement UI viendra à l'étape 4) : « Nom — valeur ».
+  const value = Object.values(params || {}).join(', ');
+  const resolved = value ? `${name} — ${value}` : name;
+
+  const info = {
+    id: sourceId,
+    name: resolved,
+    message: result.message || null,
+    url: result.url || null,
+    statusUrl: `https://www.labonnealerte.fr/source/${sourceId}/statut`,
+  };
+
+  const recipients = await confirmedEmailsForSourceParams(sourceId, params);
+  const [emailOut, pushOut] = await Promise.allSettled([
+    recipients.length ? sendPromoAlert(recipients, info) : Promise.resolve({ sent: 0, failed: 0 }),
+    sendToSourceParams(sourceId, params, info),
+  ]);
+  const email = emailOut.status === 'fulfilled' ? emailOut.value : { sent: 0, failed: 'err' };
+  const push = pushOut.status === 'fulfilled' ? pushOut.value : { sent: 0, failed: 'err', removed: 0 };
+  if (emailOut.status === 'rejected') console.error(`[poller] ${sourceId} email :`, emailOut.reason && emailOut.reason.message);
+  if (pushOut.status === 'rejected') console.error(`[poller] ${sourceId} push :`, pushOut.reason && pushOut.reason.message);
+  console.log(
+    `[poller] Alerte ${sourceId} ${JSON.stringify(params)} : email ${email.sent} OK/${email.failed} · ` +
+    `push ${push.sent} OK/${push.failed}/${push.removed} purgé(s).`
+  );
+}
+
+// Collecte les combinaisons EFFECTIVEMENT souscrites, appelle checkWithParams
+// (un seul appel réseau côté factory), écrit un état par combinaison.
+async function processParamSource(source, requiresConfirmation = true) {
+  let combos;
+  try {
+    const { rows } = await pool.query(
+      'SELECT DISTINCT params FROM subscriptions WHERE source_id = $1 AND params IS NOT NULL',
+      [source.id]
+    );
+    combos = rows.map((r) => r.params); // pg renvoie déjà des objets JS
+  } catch (err) {
+    console.error(`[poller] ${source.id} : lecture des combinaisons échouée :`, err.message);
+    return;
+  }
+  if (combos.length === 0) {
+    console.log(`[poller] ${source.id} : 0 combinaison souscrite — aucun appel.`);
     return;
   }
 
-  const fields = {
-    since: result.since,
-    until: result.until,
-    message: result.message,
-    url: result.url,
-  };
+  let results;
+  try {
+    results = await source.checkWithParams(combos);
+    console.log(`[poller] ${source.id} → checkWithParams (${combos.length} combinaison(s))`);
+    await incCounter('checks_total');
+    await incCounter('checks_' + monthKey());
+  } catch (err) {
+    console.error(`[poller] ${source.id} : échec checkWithParams :`, err.message);
+    await logFailedDedup(source.id, err.message);
+    return;
+  }
 
-  if (result.state === 'active') {
-    if (current === 'inactive' && !requiresConfirmation) {
-      // Source fiable (API officielle) : activation directe + notification immédiate.
-      await writeState(source.id, 'active', fields);
-      await logEvent(source.id, 'activated', result.message);
-      console.log(`[poller] ALERTE IMMÉDIATE [${source.id}] (sans confirmation)`);
-      try {
-        await notifySourceSubscribers(source.id, result);
-      } catch (err) {
-        console.error(`[poller] ${source.id} : échec envoi alertes :`, err.message);
-      }
-    } else if (current === 'inactive') {
-      await writeState(source.id, 'pending', fields);
-      console.log(`[poller] ${source.id} : inactive → PENDING`);
-    } else if (current === 'pending') {
-      await writeState(source.id, 'active', fields);
-      await logEvent(source.id, 'activated', result.message);
-      console.log(`[poller] ALERTE CONFIRMÉE [${source.id}]`);
-      try {
-        await notifySourceSubscribers(source.id, result);
-      } catch (err) {
-        console.error(`[poller] ${source.id} : échec envoi alertes :`, err.message);
-      }
-    } else {
-      // déjà active : détecter un « nouvel épisode ». Si le since renvoyé avance
-      // d'au moins 24h par rapport au since stocké, c'est une nouvelle occurrence
-      // (offre hebdomadaire, etc.) → on re-notifie comme une (ré)activation.
-      const storedSince = await getStoredSince(source.id);
-      const newSince = result.since ? new Date(result.since) : null;
-      const isNewEpisode =
-        newSince && storedSince &&
-        (newSince.getTime() - storedSince.getTime()) >= EPISODE_THRESHOLD_MS;
-
-      if (isNewEpisode) {
-        await writeState(source.id, 'active', fields);
-        await logEvent(source.id, 'activated', result.message);
-        console.log(`[poller] NOUVEL ÉPISODE [${source.id}]`);
-        try {
-          await notifySourceSubscribers(source.id, result);
-        } catch (err) {
-          console.error(`[poller] ${source.id} : échec envoi alertes :`, err.message);
-        }
-      } else {
-        // simple rafraîchissement des métadonnées
-        await writeState(source.id, 'active', fields);
-        console.log(`[poller] ${source.id} : déjà active.`);
-      }
-    }
-  } else {
-    if (current === 'active' || current === 'pending') {
-      await writeState(source.id, 'inactive', {});
-      await logEvent(source.id, 'deactivated', null);
-      console.log(`[poller] ${source.id} : ${current} → INACTIVE`);
-    } else {
-      console.log(`[poller] ${source.id} : toujours inactive.`);
+  for (const res of (results || [])) {
+    const params = res.params || {};
+    const label = `${source.id} ${JSON.stringify(params)}`;
+    const store = {
+      getState: () => getParamState(source.id, params),
+      getStoredSince: () => getParamStoredSince(source.id, params),
+      writeState: (state, fields) => writeParamState(source.id, params, state, fields),
+      logEvent: (event, message) => logParamEvent(source.id, params, event, message),
+      notify: (r) => notifyParamSubscribers(source.id, params, r),
+    };
+    try {
+      await applyResult(store, label, res, requiresConfirmation);
+    } catch (err) {
+      console.error(`[poller] ${label} : erreur transition :`, err.message);
     }
   }
 }
@@ -255,14 +392,16 @@ async function runCycle() {
 
   let enabledIds;
   let confirmFlags; // id -> requires_confirmation
+  let paramIds;     // ids dont params_schema est non NULL → chemin paramétré
   try {
     // Les sources 'linked' (services partenaires externes) n'ont pas de check :
     // elles sont configurées sur leur propre site, donc hors du cycle du poller.
     const { rows } = await pool.query(
-      "SELECT id, requires_confirmation FROM sources WHERE enabled = true AND type <> 'linked'"
+      "SELECT id, requires_confirmation, params_schema FROM sources WHERE enabled = true AND type <> 'linked'"
     );
     enabledIds = new Set(rows.map((r) => r.id));
     confirmFlags = new Map(rows.map((r) => [r.id, r.requires_confirmation]));
+    paramIds = new Set(rows.filter((r) => r.params_schema != null).map((r) => r.id));
   } catch (err) {
     console.error('[poller] DB indisponible — cycle ignoré :', err.message);
     return;
@@ -277,8 +416,15 @@ async function runCycle() {
   for (const source of active) {
     try {
       // Défaut prudent à true si le flag est absent (colonne pas encore migrée).
-      const requires = confirmFlags.get(source.id);
-      await processSource(source, requires === false ? false : true);
+      const requires = confirmFlags.get(source.id) === false ? false : true;
+      // Source paramétrée : schéma déclaré en base ET module exposant checkWithParams.
+      if (paramIds.has(source.id) && typeof source.checkWithParams === 'function') {
+        await processParamSource(source, requires);
+      } else if (typeof source.check === 'function') {
+        await processSource(source, requires); // broadcast (chemin v1 inchangé)
+      } else {
+        console.warn(`[poller] ${source.id} : ni check() ni params_schema+checkWithParams — ignorée.`);
+      }
     } catch (err) {
       console.error(`[poller] ${source.id} : erreur inattendue :`, err.message);
     }
@@ -295,4 +441,5 @@ function startPoller() {
   cron.schedule(SCHEDULE, runCycle);
 }
 
-module.exports = { startPoller, runCycle };
+// processSource/processParamSource/decideTransition exposés pour le banc d'essai.
+module.exports = { startPoller, runCycle, processSource, processParamSource, decideTransition };

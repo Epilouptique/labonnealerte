@@ -132,6 +132,9 @@ async function fetchCarte() {
 // Pour les tests : réinitialise le cache mutualisé.
 function _resetCache() { carteCache = { at: 0, payload: null, error: null }; inflight = null; }
 
+// Pour les tests : injecte une carte en cache (évite l'appel réseau / la clé API).
+function _setCacheForTest(payload) { carteCache = { at: Date.now(), payload, error: null }; inflight = null; }
+
 /* ------------------------------------------------------------------ */
 /* Extraction par échéance (J / J1) pour un département donné.         */
 /* ------------------------------------------------------------------ */
@@ -174,8 +177,51 @@ function phenomenaText(map) {
   return list.length ? list.join(', ') : 'phénomène non précisé';
 }
 
+// Évalue l'état de vigilance d'UN département à partir de la carte déjà chargée.
+// Logique commune aux sources broadcast (une par département) et à la source
+// paramétrée (un département par combinaison). Retourne un état OpenAlert.
+function evaluateDept(payload, dept, nomDepartement, publicUrl, logId) {
+  const ech = extractByEcheance(payload, dept);
+  const jColor = ech.J ? ech.J.maxColor : 0;
+  const j1Color = ech.J1 ? ech.J1.maxColor : 0;
+
+  // Log debug demandé : niveau de J et J1.
+  console.log(`[poller] ${logId} : J=${NIVEAU_NOM[jColor] || 'vert'} J1=${NIVEAU_NOM[j1Color] || 'vert'}`);
+
+  const lines = [];
+  let since = null;
+  let until = null;
+  const active = []; // échéances actives, pour choisir l'émoji le plus grave
+  const consider = (info, prefix) => {
+    if (!info || info.maxColor < 3) return;
+    const label = COLOR_LABEL[info.maxColor] || 'ORANGE';
+    lines.push(`${prefix} vigilance ${label} dans ${nomDepartement} : ${phenomenaText(info.phenomena)}`);
+    active.push(info);
+    if (info.begin && (!since || info.begin < since)) since = info.begin;
+    if (info.end && (!until || info.end > until)) until = info.end;
+  };
+  consider(ech.J, "Aujourd'hui :");
+  consider(ech.J1, 'Demain :');
+
+  if (lines.length === 0) {
+    return { state: 'inactive', since: null, until: null, message: null, url: publicUrl };
+  }
+
+  // Émoji du phénomène le plus grave, toutes échéances actives confondues.
+  const merged = new Map();
+  for (const info of active) {
+    for (const [id, color] of info.phenomena) {
+      const c = Number(color) || 0;
+      if (c > (merged.get(id) || 0)) merged.set(id, c);
+    }
+  }
+  const emoji = emojiForEcheance({ phenomena: merged });
+
+  return { state: 'active', since, until, message: `${emoji} ${lines.join('\n')}`, url: publicUrl };
+}
+
 /**
- * Crée une source de vigilance pour un département.
+ * Crée une source de vigilance broadcast pour un département (chemin v1, inchangé).
  * @param {string} dept              code département ('05', '13', ...)
  * @param {string} nomDepartement    libellé pour le message ('les Hautes-Alpes', 'Paris'...)
  * @param {string} slugUrl           slug de l'URL publique ('hautes-alpes'...)
@@ -187,46 +233,37 @@ function createVigilanceSource(dept, nomDepartement, slugUrl) {
 
   async function check() {
     const payload = await fetchCarte(); // mutualisé (1 appel pour tous les départements)
-    const ech = extractByEcheance(payload, dept);
-    const jColor = ech.J ? ech.J.maxColor : 0;
-    const j1Color = ech.J1 ? ech.J1.maxColor : 0;
-
-    // Log debug demandé : niveau de J et J1.
-    console.log(`[poller] ${id} : J=${NIVEAU_NOM[jColor] || 'vert'} J1=${NIVEAU_NOM[j1Color] || 'vert'}`);
-
-    const lines = [];
-    let since = null;
-    let until = null;
-    const active = []; // échéances actives, pour choisir l'émoji le plus grave
-    const consider = (info, prefix) => {
-      if (!info || info.maxColor < 3) return;
-      const label = COLOR_LABEL[info.maxColor] || 'ORANGE';
-      lines.push(`${prefix} vigilance ${label} dans ${nomDepartement} : ${phenomenaText(info.phenomena)}`);
-      active.push(info);
-      if (info.begin && (!since || info.begin < since)) since = info.begin;
-      if (info.end && (!until || info.end > until)) until = info.end;
-    };
-    consider(ech.J, "Aujourd'hui :");
-    consider(ech.J1, 'Demain :');
-
-    if (lines.length === 0) {
-      return { state: 'inactive', since: null, until: null, message: null, url: publicUrl };
-    }
-
-    // Émoji du phénomène le plus grave, toutes échéances actives confondues.
-    const merged = new Map();
-    for (const info of active) {
-      for (const [id, color] of info.phenomena) {
-        const c = Number(color) || 0;
-        if (c > (merged.get(id) || 0)) merged.set(id, c);
-      }
-    }
-    const emoji = emojiForEcheance({ phenomena: merged });
-
-    return { state: 'active', since, until, message: `${emoji} ${lines.join('\n')}`, url: publicUrl };
+    return evaluateDept(payload, dept, nomDepartement, publicUrl, id);
   }
 
   return { id, check };
 }
 
-module.exports = { createVigilanceSource, _resetCache };
+/**
+ * Crée une source de vigilance PARAMÉTRÉE (OpenAlert v2) : un seul objet source
+ * dont l'état est évalué par combinaison { departement }. Réutilise le cache
+ * mutualisé → UN appel Météo-France par cycle quel que soit le nombre de
+ * départements souscrits.
+ * @param {{ id:string, nameFor:(code:string)=>string, urlFor:(code:string)=>string,
+ *           paramsSchema:object }} cfg
+ * @returns {{ id:string, paramsSchema:object, checkWithParams:(list:Array<object>)=>Promise<Array<object>> }}
+ */
+function createVigilanceParamSource(cfg) {
+  const { id, nameFor, urlFor, paramsSchema } = cfg;
+
+  // paramsList : combinaisons EFFECTIVEMENT souscrites, ex [{departement:'05'}, ...].
+  async function checkWithParams(paramsList) {
+    const list = Array.isArray(paramsList) ? paramsList : [];
+    if (list.length === 0) return [];
+    const payload = await fetchCarte(); // un seul appel, partagé entre toutes les combinaisons
+    return list.map((params) => {
+      const dept = String(params && params.departement || '');
+      const res = evaluateDept(payload, dept, nameFor(dept), urlFor(dept), `${id}[${dept}]`);
+      return Object.assign({ params }, res);
+    });
+  }
+
+  return { id, paramsSchema, checkWithParams };
+}
+
+module.exports = { createVigilanceSource, createVigilanceParamSource, evaluateDept, _resetCache, _setCacheForTest };

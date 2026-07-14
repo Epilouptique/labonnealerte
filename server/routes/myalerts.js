@@ -281,8 +281,9 @@ apiRouter.post('/my-alerts/toggle', async (req, res) => {
 
     if (subscribed) {
       await pool.query(
+        // Broadcast (params NULL) : ON CONFLICT cible l'index d'expression v2.
         `INSERT INTO subscriptions (subscriber_id, source_id)
-         VALUES ($1, $2) ON CONFLICT (subscriber_id, source_id) DO NOTHING`,
+         VALUES ($1, $2) ON CONFLICT (subscriber_id, source_id, COALESCE(params, '{}'::jsonb)) DO NOTHING`,
         [auth.id, source_id]
       );
     } else {
