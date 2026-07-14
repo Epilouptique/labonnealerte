@@ -35,7 +35,7 @@ BEGIN
   ) THEN
     UPDATE sources SET categories = CASE category
         WHEN 'plans'   THEN ARRAY['bons-plans']
-        WHEN 'risques' THEN ARRAY['meteo-risques']
+        WHEN 'risques' THEN ARRAY['vigilance-meteo']
         WHEN 'tech'    THEN ARRAY['tech']
         WHEN 'energie' THEN ARRAY['energie']
         ELSE ARRAY['autre']
@@ -74,6 +74,12 @@ ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS magic_token_expires_at TIMESTAM
 ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS google_id TEXT;
 ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS github_id TEXT;
 ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS github_username TEXT;
+
+-- Personnalisation de l'affichage (facultative). NULL = non renseigné ; la France
+-- n'est un défaut que côté UI, jamais en base. Départements en TEXT (Corse 2A/2B).
+ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS country TEXT;
+ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS departement TEXT;
+ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS interests TEXT[];
 
 -- Sessions durables (90 jours, expiration glissante). Le lien magique ne sert
 -- qu'à ouvrir une session ; l'authentification des routes se fait via ce token.
@@ -137,7 +143,7 @@ WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'leboncoin-livra
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
 SELECT 'vigilance-meteo-05', 'Vigilance météo — 05', 'Alertes orange et rouge Météo-France',
   'Alerte quand Météo-France place les Hautes-Alpes en vigilance orange ou rouge (orages, neige, avalanches, canicule...). Source officielle Météo-France.',
-  'internal', 'official', false, ARRAY['meteo-risques'], 20
+  'internal', 'official', false, ARRAY['vigilance-meteo'], 20
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'vigilance-meteo-05');
 
 INSERT INTO source_states (source_id)
@@ -148,7 +154,7 @@ WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'vigilance-meteo
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
 SELECT 'vigilance-meteo-13', 'Vigilance météo — Bouches-du-Rhône', 'Alertes orange et rouge Météo-France',
   'Alerte quand Météo-France place les Bouches-du-Rhône en vigilance orange ou rouge (canicule, orages, pluie-inondation...). Source officielle Météo-France.',
-  'internal', 'official', false, ARRAY['vigilance-meteo', 'meteo-risques'], 21
+  'internal', 'official', false, ARRAY['vigilance-meteo'], 21
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'vigilance-meteo-13');
 INSERT INTO source_states (source_id) SELECT 'vigilance-meteo-13'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'vigilance-meteo-13');
@@ -156,7 +162,7 @@ WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'vigilance-meteo
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
 SELECT 'vigilance-meteo-69', 'Vigilance météo — Rhône', 'Alertes orange et rouge Météo-France',
   'Alerte quand Météo-France place le Rhône en vigilance orange ou rouge (canicule, orages, neige-verglas...). Source officielle Météo-France.',
-  'internal', 'official', false, ARRAY['vigilance-meteo', 'meteo-risques'], 22
+  'internal', 'official', false, ARRAY['vigilance-meteo'], 22
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'vigilance-meteo-69');
 INSERT INTO source_states (source_id) SELECT 'vigilance-meteo-69'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'vigilance-meteo-69');
@@ -164,7 +170,7 @@ WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'vigilance-meteo
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
 SELECT 'vigilance-meteo-75', 'Vigilance météo — Paris', 'Alertes orange et rouge Météo-France',
   'Alerte quand Météo-France place Paris en vigilance orange ou rouge (canicule, orages, pluie-inondation...). Source officielle Météo-France.',
-  'internal', 'official', false, ARRAY['vigilance-meteo', 'meteo-risques'], 23
+  'internal', 'official', false, ARRAY['vigilance-meteo'], 23
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'vigilance-meteo-75');
 INSERT INTO source_states (source_id) SELECT 'vigilance-meteo-75'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'vigilance-meteo-75');
@@ -193,7 +199,7 @@ WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'ecogaz');
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
 SELECT 'vigieau-gap', 'Restrictions d''eau — Gap', 'Arrêtés sécheresse en vigueur',
   'Alerte quand la préfecture place Gap et ses environs en restriction d''usage de l''eau (arrosage, piscines, lavage). Source officielle VigiEau.',
-  'internal', 'official', false, ARRAY['secheresse', 'meteo-risques'], 26
+  'internal', 'official', false, ARRAY['secheresse', 'vigilance-meteo'], 26
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'vigieau-gap');
 INSERT INTO source_states (source_id) SELECT 'vigieau-gap'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'vigieau-gap');
@@ -225,7 +231,7 @@ WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'gog-jeu-offert'
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
 SELECT 'vigicrues-05', 'Crues — Hautes-Alpes', 'Vigilance crues de la Durance',
   'Alerte quand la Durance (de Serre-Ponçon à Cadarache) passe en vigilance crues orange ou rouge. Source officielle Vigicrues (SCHAPI).',
-  'internal', 'official', false, ARRAY['crues', 'meteo-risques'], 25
+  'internal', 'official', false, ARRAY['crues', 'vigilance-meteo'], 25
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'vigicrues-05');
 
 INSERT INTO source_states (source_id)
@@ -278,7 +284,7 @@ WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'statut-discord'
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
 SELECT 'changement-heure', 'Changement d''heure', 'Été et hiver, ne l''oubliez plus',
   'Un rappel quelques jours avant le passage à l''heure d''été ou d''hiver, pour ne plus jamais être pris au dépourvu par l''horloge.',
-  'internal', 'official', false, ARRAY['autre', 'vie-locale'], 50
+  'internal', 'official', false, ARRAY['vie-locale'], 50
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'changement-heure');
 INSERT INTO source_states (source_id) SELECT 'changement-heure'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'changement-heure');
@@ -294,7 +300,7 @@ WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'soldes');
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
 SELECT 'perseides', 'Nuit des étoiles filantes', 'Le pic des Perséides en août',
   'Un rappel avant le pic des Perséides, la plus belle pluie d''étoiles filantes de l''année, dans la nuit du 12 au 13 août.',
-  'internal', 'official', false, ARRAY['astronomie', 'autre'], 52
+  'internal', 'official', false, ARRAY['astronomie', 'etoiles-filantes'], 52
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'perseides');
 INSERT INTO source_states (source_id) SELECT 'perseides'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'perseides');
@@ -333,7 +339,7 @@ WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'aurores-france'
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
 SELECT 'seismes-france', 'Séisme en France', 'Secousses ressenties en métropole',
   'Alerte quand un séisme de magnitude 4 ou plus est détecté en France métropolitaine au cours des dernières heures. Données du centre sismologique euro-méditerranéen (EMSC).',
-  'internal', 'official', false, ARRAY['seismes', 'meteo-risques'], 27
+  'internal', 'official', false, ARRAY['seismes', 'vigilance-meteo'], 27
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'seismes-france');
 INSERT INTO source_states (source_id) SELECT 'seismes-france'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'seismes-france');
@@ -392,7 +398,7 @@ WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'carburant-seuil
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
 SELECT 'vigilance-meteo-06', 'Vigilance météo — Alpes-Maritimes', 'Alertes orange et rouge Météo-France',
   'Alerte quand Météo-France place les Alpes-Maritimes en vigilance orange ou rouge (orages, pluie-inondation, canicule...). Source officielle Météo-France.',
-  'internal', 'official', false, ARRAY['vigilance-meteo', 'meteo-risques'], 24
+  'internal', 'official', false, ARRAY['vigilance-meteo'], 24
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'vigilance-meteo-06');
 INSERT INTO source_states (source_id) SELECT 'vigilance-meteo-06'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'vigilance-meteo-06');
@@ -400,7 +406,7 @@ WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'vigilance-meteo
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
 SELECT 'vigilance-meteo-33', 'Vigilance météo — Gironde', 'Alertes orange et rouge Météo-France',
   'Alerte quand Météo-France place la Gironde en vigilance orange ou rouge (tempêtes, canicule, orages...). Source officielle Météo-France.',
-  'internal', 'official', false, ARRAY['vigilance-meteo', 'meteo-risques'], 25
+  'internal', 'official', false, ARRAY['vigilance-meteo'], 25
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'vigilance-meteo-33');
 INSERT INTO source_states (source_id) SELECT 'vigilance-meteo-33'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'vigilance-meteo-33');
@@ -408,7 +414,7 @@ WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'vigilance-meteo
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
 SELECT 'vigilance-meteo-59', 'Vigilance météo — Nord', 'Alertes orange et rouge Météo-France',
   'Alerte quand Météo-France place le Nord en vigilance orange ou rouge (vent violent, tempêtes, neige-verglas...). Source officielle Météo-France.',
-  'internal', 'official', false, ARRAY['vigilance-meteo', 'meteo-risques'], 26
+  'internal', 'official', false, ARRAY['vigilance-meteo'], 26
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'vigilance-meteo-59');
 INSERT INTO source_states (source_id) SELECT 'vigilance-meteo-59'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'vigilance-meteo-59');
@@ -482,7 +488,7 @@ WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'statut-railway'
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
 SELECT 'jours-feries', 'Fériés & ponts', 'Les prochains jours fériés et leurs ponts',
   'Une semaine avant chaque jour férié, un rappel — et le bon plan pont quand le férié tombe un mardi ou un jeudi. Calendrier officiel de l''administration française.',
-  'internal', 'official', false, ARRAY['autre', 'vie-locale'], 58
+  'internal', 'official', false, ARRAY['vie-locale'], 58
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'jours-feries');
 INSERT INTO source_states (source_id) SELECT 'jours-feries'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'jours-feries');
@@ -521,7 +527,7 @@ WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'rappel-conso');
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
 SELECT 'vigilance-meteo-31', 'Vigilance météo — Haute-Garonne', 'Alertes orange et rouge Météo-France',
   'Alerte quand Météo-France place la Haute-Garonne en vigilance orange ou rouge (orages, canicule, pluie-inondation...). Source officielle Météo-France.',
-  'internal', 'official', false, ARRAY['vigilance-meteo', 'meteo-risques'], 27
+  'internal', 'official', false, ARRAY['vigilance-meteo'], 27
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'vigilance-meteo-31');
 INSERT INTO source_states (source_id) SELECT 'vigilance-meteo-31'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'vigilance-meteo-31');
@@ -529,7 +535,7 @@ WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'vigilance-meteo
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
 SELECT 'vigilance-meteo-44', 'Vigilance météo — Loire-Atlantique', 'Alertes orange et rouge Météo-France',
   'Alerte quand Météo-France place la Loire-Atlantique en vigilance orange ou rouge (tempêtes, vent violent, vagues-submersion...). Source officielle Météo-France.',
-  'internal', 'official', false, ARRAY['vigilance-meteo', 'meteo-risques'], 28
+  'internal', 'official', false, ARRAY['vigilance-meteo'], 28
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'vigilance-meteo-44');
 INSERT INTO source_states (source_id) SELECT 'vigilance-meteo-44'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'vigilance-meteo-44');
@@ -537,7 +543,7 @@ WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'vigilance-meteo
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
 SELECT 'vigilance-meteo-67', 'Vigilance météo — Bas-Rhin', 'Alertes orange et rouge Météo-France',
   'Alerte quand Météo-France place le Bas-Rhin en vigilance orange ou rouge (orages, neige-verglas, canicule...). Source officielle Météo-France.',
-  'internal', 'official', false, ARRAY['vigilance-meteo', 'meteo-risques'], 29
+  'internal', 'official', false, ARRAY['vigilance-meteo'], 29
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'vigilance-meteo-67');
 INSERT INTO source_states (source_id) SELECT 'vigilance-meteo-67'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'vigilance-meteo-67');
@@ -545,7 +551,7 @@ WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'vigilance-meteo
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
 SELECT 'vigilance-meteo-35', 'Vigilance météo — Ille-et-Vilaine', 'Alertes orange et rouge Météo-France',
   'Alerte quand Météo-France place l''Ille-et-Vilaine en vigilance orange ou rouge (tempêtes, vent violent, pluie-inondation...). Source officielle Météo-France.',
-  'internal', 'official', false, ARRAY['vigilance-meteo', 'meteo-risques'], 30
+  'internal', 'official', false, ARRAY['vigilance-meteo'], 30
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'vigilance-meteo-35');
 INSERT INTO source_states (source_id) SELECT 'vigilance-meteo-35'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'vigilance-meteo-35');
@@ -624,6 +630,54 @@ WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'geminides');
 INSERT INTO source_states (source_id) SELECT 'geminides'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'geminides');
 
+-- ================================================================
+-- Vague 9 (sources) : échéances fiscales, Loi Montagne, 3 statuts.
+-- (Notion écarté : status.notion.so est une SPA sans JSON de statut.)
+-- ================================================================
+
+-- Grandes échéances fiscales des particuliers (dates codées par année).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'echeances-fiscales', 'Échéances impôts', 'Les dates limites à ne pas rater',
+  'Rappel une semaine avant les grandes échéances de paiement des particuliers : taxe foncière (octobre) et taxe d''habitation sur les résidences secondaires (décembre). Dates officielles impots.gouv.fr.',
+  'internal', 'official', false, ARRAY['impots', 'vie-locale'], 59
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'echeances-fiscales');
+INSERT INTO source_states (source_id) SELECT 'echeances-fiscales'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'echeances-fiscales');
+
+-- Loi Montagne : rappel de l'obligation d'équipements hiver au 1er novembre.
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'loi-montagne', 'Pneus hiver', 'Obligation Loi Montagne au 1er novembre',
+  'Rappel de l''entrée en vigueur de la Loi Montagne au 1er novembre : dans les départements concernés, équipements hiver obligatoires (pneus hiver, 4 saisons 3PMSF ou chaînes/chaussettes à bord).',
+  'internal', 'official', false, ARRAY['trafic-routier', 'transports', 'vie-locale'], 37
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'loi-montagne');
+INSERT INTO source_states (source_id) SELECT 'loi-montagne'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'loi-montagne');
+
+-- Statuts de service supplémentaires. Anti-flapping : requires_confirmation = TRUE.
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'statut-canva', 'Panne Canva', 'Statut officiel de Canva',
+  'Alerte quand Canva déclare une panne majeure sur sa page de statut officielle. Fini le « c''est moi ou c''est en panne ? ».',
+  'internal', 'official', true, ARRAY['pannes-services', 'tech'], 52
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'statut-canva');
+INSERT INTO source_states (source_id) SELECT 'statut-canva'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'statut-canva');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'statut-dropbox', 'Panne Dropbox', 'Statut officiel de Dropbox',
+  'Alerte quand Dropbox déclare une panne majeure sur sa page de statut officielle. Fini le « c''est moi ou c''est en panne ? ».',
+  'internal', 'official', true, ARRAY['pannes-services', 'tech'], 53
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'statut-dropbox');
+INSERT INTO source_states (source_id) SELECT 'statut-dropbox'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'statut-dropbox');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'statut-slack', 'Panne Slack', 'Statut officiel de Slack',
+  'Alerte quand Slack déclare une panne majeure sur son statut officiel. Fini le « c''est moi ou c''est en panne ? ».',
+  'internal', 'official', true, ARRAY['pannes-services', 'tech'], 54
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'statut-slack');
+INSERT INTO source_states (source_id) SELECT 'statut-slack'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'statut-slack');
+
 -- Source externe liée : service partenaire configuré sur son propre site.
 -- Pas d'abonnement LaBonneAlerte, donc pas de ligne source_states.
 INSERT INTO sources (id, name, subtitle, description, type, badge, link_url, requires_confirmation, categories, display_order)
@@ -632,12 +686,137 @@ SELECT 'doomname', 'DoomName', 'Surveillance de noms de domaine',
   'linked', 'official', 'https://doomname.com', false, ARRAY['tech'], 40
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'doomname');
 
+-- ================================================================
+-- Vague 10 (sources) : alertes CERT-FR, taux du Livret A, 4 vigilances.
+-- ================================================================
+
+-- Alertes de sécurité critiques du CERT-FR (flux RSS officiel ANSSI, pas les avis).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'cert-fr-alertes', 'Alertes CERT-FR', 'Menaces de sécurité critiques (ANSSI)',
+  'Alerte quand le CERT-FR (ANSSI) publie une alerte de sécurité : vulnérabilité critique activement exploitée, réservée aux menaces majeures (pas les avis quotidiens). Pour le grand public comme pour les équipes tech, la source officielle française en cybersécurité.',
+  'internal', 'official', false, ARRAY['securite', 'tech'], 55
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'cert-fr-alertes');
+INSERT INTO source_states (source_id) SELECT 'cert-fr-alertes'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'cert-fr-alertes');
+
+-- Révisions du taux du Livret A (dates codées : 1er février / 1er août).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'taux-livret-a', 'Taux du Livret A', 'Les révisions du taux de l''épargne réglementée',
+  'Rappel autour de chaque révision du taux du Livret A (1er février et 1er août) : le taux passe ou reste au niveau annoncé. Source service-public.gouv.fr.',
+  'internal', 'official', false, ARRAY['epargne', 'bons-plans'], 60
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'taux-livret-a');
+INSERT INTO source_states (source_id) SELECT 'taux-livret-a'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'taux-livret-a');
+
+-- 4 vigilances météo supplémentaires (factory mutualisée, 0 appel API en plus).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'vigilance-meteo-34', 'Vigilance météo — Hérault', 'Alertes orange et rouge Météo-France',
+  'Alerte de vigilance météo (orange ou rouge) émise par Météo-France pour l''Hérault (34).',
+  'internal', 'official', false, ARRAY['vigilance-meteo'], 31
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'vigilance-meteo-34');
+INSERT INTO source_states (source_id) SELECT 'vigilance-meteo-34'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'vigilance-meteo-34');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'vigilance-meteo-38', 'Vigilance météo — Isère', 'Alertes orange et rouge Météo-France',
+  'Alerte de vigilance météo (orange ou rouge) émise par Météo-France pour l''Isère (38).',
+  'internal', 'official', false, ARRAY['vigilance-meteo'], 32
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'vigilance-meteo-38');
+INSERT INTO source_states (source_id) SELECT 'vigilance-meteo-38'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'vigilance-meteo-38');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'vigilance-meteo-83', 'Vigilance météo — Var', 'Alertes orange et rouge Météo-France',
+  'Alerte de vigilance météo (orange ou rouge) émise par Météo-France pour le Var (83).',
+  'internal', 'official', false, ARRAY['vigilance-meteo'], 33
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'vigilance-meteo-83');
+INSERT INTO source_states (source_id) SELECT 'vigilance-meteo-83'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'vigilance-meteo-83');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'vigilance-meteo-74', 'Vigilance météo — Haute-Savoie', 'Alertes orange et rouge Météo-France',
+  'Alerte de vigilance météo (orange ou rouge) émise par Météo-France pour la Haute-Savoie (74).',
+  'internal', 'official', false, ARRAY['vigilance-meteo'], 34
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'vigilance-meteo-74');
+INSERT INTO source_states (source_id) SELECT 'vigilance-meteo-74'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'vigilance-meteo-74');
+
+-- ================================================================
+-- Vague 11 · Session 1 (société) : fêtes (4), élections, 2 humour.
+-- (Épidémies France ÉCARTÉ : le seuil épidémique Sentinelles n'est exposé nulle
+--  part en machine-readable — modèle de Serfling hebdo, bulletins/graphiques
+--  seulement. Le coder à la main = seuil inventé, refusé par le brief.)
+-- ================================================================
+
+-- Fêtes chrétiennes (dates codées, ton informatif et respectueux).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'fetes-chretiennes', 'Fêtes chrétiennes', 'Pâques, Noël et les grandes fêtes',
+  'Rappel une semaine avant les grandes fêtes chrétiennes : Pâques, Ascension, Pentecôte, Assomption, Toussaint, Noël, Épiphanie. Dates mobiles vérifiées.',
+  'internal', 'official', false, ARRAY['fetes', 'vie-locale'], 62
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'fetes-chretiennes');
+INSERT INTO source_states (source_id) SELECT 'fetes-chretiennes'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'fetes-chretiennes');
+
+-- Fêtes musulmanes (dates prévisionnelles, confirmées par l'observation lunaire).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'fetes-musulmanes', 'Fêtes musulmanes', 'Ramadan, Aïd el-Fitr, Aïd el-Adha',
+  'Rappel une semaine avant les grandes fêtes musulmanes : début du Ramadan, Aïd el-Fitr, Aïd el-Adha, nouvel an hégirien. Les dates dépendent de l''observation lunaire et peuvent varier d''un jour (confirmées par la Grande Mosquée de Paris).',
+  'internal', 'official', false, ARRAY['fetes', 'vie-locale'], 63
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'fetes-musulmanes');
+INSERT INTO source_states (source_id) SELECT 'fetes-musulmanes'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'fetes-musulmanes');
+
+-- Fêtes juives (calendrier hébraïque, dates fixes fiables).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'fetes-juives', 'Fêtes juives', 'Roch Hachana, Kippour, Hanoucca, Pessah',
+  'Rappel une semaine avant les grandes fêtes juives : Roch Hachana, Yom Kippour, Hanoucca, Pourim, Pessah. Dates du calendrier hébraïque.',
+  'internal', 'official', false, ARRAY['fetes', 'vie-locale'], 64
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'fetes-juives');
+INSERT INTO source_states (source_id) SELECT 'fetes-juives'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'fetes-juives');
+
+-- Fêtes laïques (solstices, Fête de la musique, Halloween, Nouvel An chinois…).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'fetes-laiques', 'Fêtes laïques', 'Solstices, Fête de la musique, Halloween…',
+  'Rappel une semaine avant les rendez-vous du calendrier laïque : solstices et équinoxes, Fête de la musique, Halloween, Saint-Valentin, Nouvel An chinois. (Le 14 juillet est couvert par « Jours fériés & ponts ».)',
+  'internal', 'official', false, ARRAY['fetes', 'vie-locale'], 65
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'fetes-laiques');
+INSERT INTO source_states (source_id) SELECT 'fetes-laiques'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'fetes-laiques');
+
+-- Élections (source en sommeil : aucune date tant que le décret n'est pas publié).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'elections-france', 'Élections', 'Scrutins et dates limites d''inscription',
+  'Rappel des échéances électorales nationales : date limite d''inscription sur les listes, veille et jour de scrutin. Messages strictement factuels. En attente des dates officielles de la présidentielle 2027.',
+  'internal', 'official', false, ARRAY['elections', 'vie-locale'], 66
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'elections-france');
+INSERT INTO source_states (source_id) SELECT 'elections-france'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'elections-france');
+
+-- Vendredi 13 (calendrier grégorien pur, ton décalé).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'vendredi-13', 'Vendredi 13', 'Jour de (mal)chance',
+  'Un petit rappel la veille de chaque vendredi 13 : superstition, chat noir ou grille de loto, à vous de voir.',
+  'internal', 'official', false, ARRAY['humour', 'insolite'], 70
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'vendredi-13');
+INSERT INTO source_states (source_id) SELECT 'vendredi-13'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'vendredi-13');
+
+-- 1er avril (poisson d'avril, ton complice).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'premier-avril', '1er avril', 'Poisson d''avril',
+  'Un clin d''œil la veille et le jour du 1er avril : méfiez-vous de tout ce que vous lisez… sauf de vos alertes.',
+  'internal', 'official', false, ARRAY['humour', 'insolite'], 71
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'premier-avril');
+INSERT INTO source_states (source_id) SELECT 'premier-avril'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'premier-avril');
+
 -- Métadonnées des sources existantes (idempotent) : titres courts, sous-titres,
 -- catégories (tags) et ordre d'affichage.
 UPDATE sources SET name = 'Livraison à 0,99 €', subtitle = 'Promo Mondial Relay sur leboncoin',
        categories = ARRAY['bons-plans'], display_order = 10 WHERE id = 'leboncoin-livraison';
 UPDATE sources SET name = 'Vigilance météo — 05', subtitle = 'Alertes orange et rouge Météo-France',
-       categories = ARRAY['meteo-risques'], display_order = 20 WHERE id = 'vigilance-meteo-05';
+       categories = ARRAY['vigilance-meteo'], display_order = 20 WHERE id = 'vigilance-meteo-05';
 UPDATE sources SET name = 'EcoWatt', subtitle = 'Tension du réseau électrique',
        categories = ARRAY['energie'], display_order = 30 WHERE id = 'ecowatt';
 UPDATE sources SET name = 'DoomName', subtitle = 'Surveillance de noms de domaine',
@@ -646,3 +825,25 @@ UPDATE sources SET name = 'DoomName', subtitle = 'Surveillance de noms de domain
 -- Auteur GitHub des sources maison (affiché au verso des cartes).
 UPDATE sources SET submitted_by_github = 'Epilouptique'
  WHERE id IN ('leboncoin-livraison', 'doomname') AND submitted_by_github IS DISTINCT FROM 'Epilouptique';
+
+-- ================================================================
+-- Vague 9 (UX) : refonte des catégories (idempotent, corrige la prod).
+-- ================================================================
+
+-- Fusion 'meteo-risques' -> 'vigilance-meteo' (dédup en préservant l'ordre).
+UPDATE sources SET categories = (
+    SELECT array_agg(c ORDER BY ord)
+      FROM (
+        SELECT c, MIN(ord) AS ord
+          FROM unnest(array_replace(categories, 'meteo-risques', 'vigilance-meteo'))
+               WITH ORDINALITY AS u(c, ord)
+         GROUP BY c
+      ) d
+  )
+ WHERE 'meteo-risques' = ANY(categories);
+
+-- Recatégorisation : sortir de 'autre', ranger avec l'astronomie / la vie locale.
+UPDATE sources SET categories = ARRAY['astronomie', 'etoiles-filantes']
+ WHERE id IN ('perseides', 'nuits-des-etoiles');
+UPDATE sources SET categories = ARRAY['vie-locale']
+ WHERE id IN ('changement-heure', 'jours-feries');

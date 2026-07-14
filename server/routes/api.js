@@ -1,6 +1,7 @@
 const express = require('express');
 const { pool } = require('../db');
 const { CATEGORIES } = require('../categories');
+const { COUNTRIES, DEPARTEMENTS } = require('../geo');
 
 const router = express.Router();
 
@@ -8,6 +9,12 @@ const router = express.Router();
 router.get('/categories', (req, res) => {
   res.set('Cache-Control', 'public, max-age=3600');
   res.json(CATEGORIES);
+});
+
+// GET /api/geo — référentiel pays + départements (personnalisation, cacheable).
+router.get('/geo', (req, res) => {
+  res.set('Cache-Control', 'public, max-age=86400');
+  res.json({ countries: COUNTRIES, departements: DEPARTEMENTS });
 });
 
 // GET /api/sources — liste des sources avec leur état courant.

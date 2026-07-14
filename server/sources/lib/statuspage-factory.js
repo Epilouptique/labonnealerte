@@ -156,4 +156,48 @@ function createInstatusSource(cfg) {
   return { id, check };
 }
 
-module.exports = { createStatusSource, createInstatusSource };
+/**
+ * Variante « Slack » (status.slack.com/api/v2.0.0/current). Format PROPRE à Slack,
+ * simple et stable :
+ *   { status: "ok"|"active", date_updated, active_incidents: [{ title, type, date_created, ... }] }
+ * type d'incident ∈ incident | outage | notice | maintenance. On n'alerte que sur
+ * les pannes majeures (outage/incident), jamais sur notice/maintenance (anti-spam).
+ * requires_confirmation = true côté init.sql pour l'anti-flapping.
+ * @param {{ id:string, serviceName:string, apiUrl:string, url:string }} cfg
+ */
+function createSlackSource(cfg) {
+  const { id, serviceName, apiUrl, url } = cfg;
+  const MAJOR_TYPES = new Set(['outage', 'incident']);
+
+  async function check() {
+    const payload = await getJson(apiUrl);
+    if (!payload || typeof payload.status !== 'string') {
+      throw new Error(`Structure Slack inattendue (${serviceName}) : status manquant`);
+    }
+    const incidents = Array.isArray(payload.active_incidents) ? payload.active_incidents : [];
+    const major = incidents.filter((i) => i && MAJOR_TYPES.has(String(i.type || '').toLowerCase()));
+
+    if (payload.status === 'ok' || major.length === 0) {
+      return { state: 'inactive', since: null, until: null, message: null, url };
+    }
+
+    const titles = major.map((i) => i.title).filter(Boolean);
+    let since = null;
+    major.forEach((i) => {
+      const d = parseDate(i.date_created);
+      if (d && (!since || d < since)) since = d;
+    });
+
+    return {
+      state: 'active',
+      since: since || new Date(),
+      until: null,
+      message: `⚠️ ${serviceName} rencontre une panne : ${titles.join(' · ') || 'incident en cours'}`,
+      url,
+    };
+  }
+
+  return { id, check };
+}
+
+module.exports = { createStatusSource, createInstatusSource, createSlackSource };

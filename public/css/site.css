@@ -143,7 +143,7 @@ html[data-theme="light"] header { background: #ffffff; } /* thème clair : blanc
   position: relative; min-height: 100%;
   transform-style: preserve-3d; transition: transform .5s;
 }
-.card.flipped .card-inner { transform: rotateY(180deg); }
+.card.flipped .card-inner { transform: rotateY(180deg); margin-bottom: 5rem;}
 .card-face {
   display: flex; flex-direction: column; gap: 12px;
   background: var(--surface); border-radius: 24px; padding: 22px;
@@ -293,10 +293,14 @@ a.endpoint:hover { color: var(--amber); text-decoration: underline; }
 footer {
   margin-top: auto; /* D) pousse le footer en bas quand le contenu est court */
   padding: 36px 0; text-align: center; font-size: 13px; color: var(--muted);
-  background: var(--surface); /* thème sombre : fond surface (comme le header) */
+  /* D) Effet verre : fond semi-transparent + flou du fond constellations derrière.
+     Le fond fixe du body reste visible sous le footer → le blur s'applique bien. */
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  backdrop-filter: blur(14px) saturate(1.2);
   box-shadow: 0 -1px 0 rgba(30, 20, 50, .06); /* séparation inversée du header */
 }
-html[data-theme="light"] footer { background: #ffffff; } /* thème clair : blanc pur */
+html[data-theme="light"] footer { background: color-mix(in srgb, #ffffff 66%, transparent); } /* thème clair : verre blanc */
 footer a { color: var(--muted); }
 
 /* ---------- bouton « Se connecter / déconnecter » ---------- */
@@ -737,6 +741,8 @@ body[data-mode="connected"] #stats { display: none; }
   padding: 18px 0;
 }
 .notif-row + .notif-row { border-top: 1px solid color-mix(in srgb, var(--ink) 8%, transparent); }
+/* Le display:flex ne doit pas défaire l'attribut [hidden] (ex. ligne Département). */
+.notif-row[hidden] { display: none; }
 .notif-txt strong { display: block; font-size: 15px; font-weight: 700; color: var(--ink); }
 .notif-sub { display: block; margin-top: 3px; font-size: 13px; color: var(--muted); line-height: 1.5; max-width: 420px; }
 .notif-btn {
@@ -761,10 +767,33 @@ body[data-mode="connected"] #stats { display: none; }
 .notif-toggle.on { background: var(--amber); }
 .notif-toggle.on::after { transform: translateX(19px); }
 
+/* ---------- C) Personnaliser les alertes (panneau Mon compte) ---------- */
+.pref-select {
+  flex: none; max-width: 60%; font: inherit; font-size: 14px; color: var(--ink);
+  background: var(--bg); border: 1.5px solid var(--line); border-radius: 10px;
+  padding: 8px 12px; cursor: pointer;
+}
+.pref-select:focus { outline: none; border-color: var(--amber); }
+.pref-interests-row { flex-direction: column; align-items: stretch; gap: 12px; }
+.pref-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.pref-chip {
+  border: 1.5px solid var(--line); background: transparent; color: var(--muted);
+  font: inherit; font-size: 13px; font-weight: 600; border-radius: 999px;
+  padding: 7px 14px; cursor: pointer; transition: background .15s, color .15s, border-color .15s;
+}
+.pref-chip:hover { border-color: var(--amber); color: var(--ink); }
+.pref-chip.on { background: var(--amber); border-color: var(--amber); color: #fff; }
+.pref-feedback {
+  font-size: 11px; font-weight: 700; letter-spacing: 0; text-transform: none;
+  color: var(--green); opacity: 0; transition: opacity .2s; margin-left: 8px;
+}
+.pref-feedback.show { opacity: 1; }
+.pref-feedback.err { color: var(--amber); }
+
 /* ---------- panneau « Mon compte » (mode connecté) ---------- */
 .account-panel { margin: 6px auto 0; }
 .acct-card.card.flip { width: 100%; }
-.card-front.acct-front { min-height: 460px; padding: 30px 32px; margin-bottom: 4rem;}
+.card-front.acct-front { min-height: 460px; padding: 30px 32px; }
 .card-back.acct-back { padding: 30px 32px; background: var(--surface); }
 .acct-head .acct-name { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
 .acct-email { color: var(--muted); font-size: 14px; margin-top: 4px; word-break: break-all; }
@@ -776,19 +805,17 @@ body[data-mode="connected"] #stats { display: none; }
 .acct-close:hover { color: var(--amber); }
 .acct-section { margin-top: 22px; }
 .acct-section .section-label { margin-bottom: 12px; }
-.acct-links { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; margin-top: 22px; }
-.acct-link {
-  border: none; background: transparent; text-align: left; cursor: pointer;
-  font: inherit; font-size: 14.5px; font-weight: 600; color: var(--amber);
-  padding: 10px 0; border-radius: 8px;
+/* B) Entrées de navigation au style notif-row (Mon historique, Proposer, Se déconnecter,
+   Toutes les façons d'aider) : la ligne entière est cliquable, chevron à droite. */
+.notif-nav {
+  width: 100%; border: none; background: transparent; cursor: pointer;
+  font: inherit; text-align: left; text-decoration: none; color: inherit;
 }
-.acct-link:hover { color: color-mix(in srgb, var(--amber) 80%, var(--ink)); }
-.acct-logout {
-  margin-top: 20px; align-self: flex-start;
-  border: none; background: transparent; cursor: pointer; font: inherit;
-  font-size: 13px; color: var(--muted); text-decoration: underline; padding: 4px 0;
-}
-.acct-logout:hover { color: var(--ink); }
+.notif-chevron { flex: none; color: var(--muted); font-size: 16px; transition: color .15s, transform .15s; }
+.notif-nav:hover .notif-txt strong { color: var(--amber); }
+.notif-nav:hover .notif-chevron { color: var(--amber); }
+/* B) « Nous soutenir » : la rangée peut passer les boutons de don à la ligne sur mobile. */
+.acct-support-row { flex-wrap: wrap; }
 .acct-history-scroll { margin-top: 12px; max-height: 380px; overflow-y: auto; }
 
 /* B1) Le × de fermeture est masqué au verso (comme le ⓘ des cartes). */
@@ -824,14 +851,6 @@ body[data-mode="connected"] #stats { display: none; }
 }
 .acct-delete-link:hover { color: var(--ink); }
 
-/* G) Repli « Proposer une source » (aucune source soumise). */
-.acct-propose-link {
-  display: block; margin-top: 16px; font-size: 13px; font-weight: 600;
-  color: var(--amber); text-decoration: none;
-}
-.acct-propose-link[hidden] { display: none; } /* le display:block ne doit pas défaire [hidden] */
-.acct-propose-link:hover { text-decoration: underline; }
-
 /* G) Liste « Mes sources ». */
 .acct-src-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
 .acct-src-item, .acct-src-link {
@@ -843,11 +862,6 @@ body[data-mode="connected"] #stats { display: none; }
 .acct-src-status { flex: none; font-size: 11.5px; font-weight: 700; border-radius: 999px; padding: 3px 10px; }
 .acct-src-status.ok { background: var(--green-soft); color: var(--green); }
 .acct-src-status.pending { background: var(--line); color: var(--muted); }
-
-/* F) Nous soutenir (rubrique du panneau). */
-.acct-support-intro { font-size: 14px; color: var(--muted); margin-bottom: 12px; }
-.acct-support-all { display: inline-block; margin-top: 12px; font-size: 13px; font-weight: 600; color: var(--amber); text-decoration: none; }
-.acct-support-all:hover { text-decoration: underline; }
 
 /* Composant boutons de don — partagé avec /soutenir (même style, désactivé). */
 .sup-actions { display: flex; gap: 10px; flex-wrap: wrap; }
@@ -865,4 +879,65 @@ body[data-mode="connected"] #stats { display: none; }
 
 @media (max-width: 620px) {
   .card-front.acct-front, .card-back.acct-back { padding: 24px 20px; }
+}
+
+/* =====================================================================
+   Vue mobile « kiosque » (≤ 720px). js/mobile-header.js pose body.m-kiosk
+   et relocalise la recherche + les catégories dans le header, sous le titre.
+   ===================================================================== */
+@media (max-width: 720px) {
+
+  /* Fix débordement horizontal : le halo .hero::before (640px, décalé vers la
+     droite par son animation) dépassait le viewport → marge vide à droite +
+     scroll horizontal. overflow-x: clip coupe le débord SANS créer de conteneur
+     de défilement (préserve le position:sticky du header, contrairement à hidden). */
+  html, body { overflow-x: clip; }
+
+  /* En-tête empilé : titre / recherche / catégories. */
+  body.m-kiosk header .nav {
+    position: relative;
+    height: auto;
+    flex-wrap: wrap;
+    row-gap: 12px;
+    padding-top: 12px;
+    padding-bottom: 14px;
+  }
+
+  /* Titre centré, pleine largeur. */
+  body.m-kiosk .brand { flex: 1 1 100%; justify-content: center; }
+
+  /* Menu masqué : hamburger caché, boîte .nav-right dissoute (display:contents)
+     pour ne conserver que l'icône de compte, tous les autres liens masqués. */
+  body.m-kiosk .nav-toggle { display: none !important; }
+  body.m-kiosk .nav-right { display: contents; }
+  body.m-kiosk .nav-right > *:not(#auth-link) { display: none !important; }
+
+  /* Icône de connexion (à droite du titre), qui devient icône de compte connecté. */
+  body.m-kiosk #auth-link.btn-login {
+    position: absolute; top: 8px; right: 0;
+    margin: 0; padding: 0; width: 40px; height: 40px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 50%; background: var(--surface); color: var(--ink);
+    font-size: 0; /* masque le libellé « Se connecter » / « Mon compte » */
+    box-shadow: 0 1px 3px rgba(30, 20, 50, .12);
+  }
+  body.m-kiosk #auth-link.btn-login::before { content: "\1F464"; font-size: 19px; line-height: 1; }
+  body.m-kiosk[data-mode="connected"] #auth-link.btn-login { background: var(--amber); color: #fff; }
+
+  /* Recherche puis catégories, relocalisées dans le header sous le titre. */
+  body.m-kiosk header .nav .toolbar {
+    flex: 1 1 100%; flex-direction: column; align-items: stretch; gap: 10px; margin: 0;
+  }
+  body.m-kiosk header .nav .toolbar .search { min-width: 0; }
+  body.m-kiosk header .nav .chips-secondary-wrap { flex: 1 1 100%; }
+
+  /* « Le kiosque » et le compteur d'alertes actives masqués (pour l'instant). */
+  body.m-kiosk main#alertes > .section-label { display: none; }
+  body.m-kiosk .hero .kpi { display: none; }
+
+  /* Cartes : description (.card p) et état (.state) masqués ; révélés au tap. */
+  body.m-kiosk .grid .card .card-front > p,
+  body.m-kiosk .grid .card .card-front > .state { display: none; }
+  body.m-kiosk .grid .card.revealed .card-front > p { display: block; }
+  body.m-kiosk .grid .card.revealed .card-front > .state { display: flex; }
 }

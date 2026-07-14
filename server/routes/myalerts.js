@@ -9,6 +9,8 @@ const crypto = require('crypto');
 const { pool } = require('../db');
 const { sendMagicLink } = require('../mailer');
 const { authenticate, deleteSession } = require('../sessions');
+const { isValidCountry, isValidDepartement } = require('../geo');
+const { VALID_SLUGS } = require('../categories');
 
 const apiRouter = express.Router();
 const pagesRouter = express.Router();
@@ -105,15 +107,16 @@ apiRouter.get('/my-alerts', async (req, res) => {
       [auth.id]
     );
 
-    // Préférences de notification : email activé + nombre d'appareils push.
+    // Préférences : email activé, appareils push, et personnalisation d'affichage.
     const prefs = await pool.query(
-      `SELECT s.email_enabled,
+      `SELECT s.email_enabled, s.country, s.departement, s.interests,
               (SELECT COUNT(*)::int FROM push_subscriptions p WHERE p.subscriber_id = s.id) AS push_endpoints_count
          FROM subscribers s WHERE s.id = $1`,
       [auth.id]
     );
-    const emailEnabled = prefs.rows[0] ? prefs.rows[0].email_enabled : true;
-    const pushCount = prefs.rows[0] ? prefs.rows[0].push_endpoints_count : 0;
+    const pr = prefs.rows[0] || {};
+    const emailEnabled = pr.email_enabled !== undefined ? pr.email_enabled : true;
+    const pushCount = pr.push_endpoints_count || 0;
 
     // On renvoie le token de session (potentiellement issu de l'échange du magic
     // token) pour que le client mette à jour son localStorage.
@@ -123,6 +126,9 @@ apiRouter.get('/my-alerts', async (req, res) => {
       token: auth.sessionToken,
       email_enabled: emailEnabled,
       push_endpoints_count: pushCount,
+      country: pr.country || null,
+      departement: pr.departement || null,
+      interests: pr.interests || [],
     });
   } catch (err) {
     console.error('[my-alerts] Erreur GET /my-alerts :', err.message);
@@ -177,6 +183,47 @@ apiRouter.post('/my-alerts/preferences', async (req, res) => {
     return res.status(200).json({ email_enabled });
   } catch (err) {
     console.error('[my-alerts] Erreur POST /preferences :', err.message);
+    return res.status(503).json({ error: 'Service indisponible' });
+  }
+});
+
+/* ------------------------------------------------------------------ */
+/* POST /api/my-alerts/profile — personnalisation d'affichage.          */
+/* Tout est optionnel ; validation stricte. NULL = non renseigné.       */
+/* ------------------------------------------------------------------ */
+apiRouter.post('/my-alerts/profile', async (req, res) => {
+  const body = req.body || {};
+  const { token } = body;
+
+  // country : null ou code autorisé.
+  let country = body.country == null || body.country === '' ? null : body.country;
+  if (country !== null && !isValidCountry(country)) {
+    return res.status(400).json({ error: 'Pays invalide' });
+  }
+
+  // departement : uniquement si France ET code valide, sinon forcé à null.
+  let departement = body.departement == null || body.departement === '' ? null : body.departement;
+  if (country !== 'FR') departement = null;
+  if (departement !== null && !isValidDepartement(departement)) {
+    return res.status(400).json({ error: 'Département invalide' });
+  }
+
+  // interests : sous-ensemble des slugs de catégories existants (dédupliqué).
+  let interests = Array.isArray(body.interests) ? body.interests : [];
+  interests = interests
+    .filter((s) => typeof s === 'string' && VALID_SLUGS.includes(s))
+    .filter((s, i, a) => a.indexOf(s) === i);
+
+  try {
+    const auth = await authenticate(token);
+    if (!auth) return res.status(401).json({ error: 'Session invalide ou expirée' });
+    await pool.query(
+      'UPDATE subscribers SET country = $1, departement = $2, interests = $3 WHERE id = $4',
+      [country, departement, interests.length ? interests : null, auth.id]
+    );
+    return res.status(200).json({ country, departement, interests });
+  } catch (err) {
+    console.error('[my-alerts] Erreur POST /profile :', err.message);
     return res.status(503).json({ error: 'Service indisponible' });
   }
 });

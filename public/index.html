@@ -102,36 +102,62 @@
           <div id="notif-mount"></div><!-- rempli par js/push.js -->
         </div>
 
-        <!-- G) Mes sources (espace développeur embryonnaire) : rempli par site.js,
+        <!-- C) Personnaliser les alertes : rempli par js/profile.js. -->
+        <div class="acct-section">
+          <div id="profile-mount"></div>
+        </div>
+
+        <!-- Mes sources (espace développeur embryonnaire) : rempli par site.js,
              visible seulement si l'utilisateur a soumis au moins une source. -->
         <div class="acct-section acct-sources" id="acct-sources" hidden>
           <div class="acct-subhead">Mes sources</div>
-          <ul class="acct-src-list" id="acct-src-list"></ul>
-        </div>
-
-        <!-- F) Nous soutenir : rubrique courte, boutons de don désactivés
-             (même composant que /soutenir, « bientôt disponible »). -->
-        <div class="acct-section acct-support">
-          <div class="acct-subhead">Nous soutenir</div>
-          <p class="acct-support-intro">LaBonneAlerte est gratuit et le restera.</p>
-          <div class="sup-actions">
-            <button class="sup-btn primary" type="button" disabled>PayPal <span class="soon">bientôt</span></button>
-            <button class="sup-btn primary" type="button" disabled>Ko-fi <span class="soon">bientôt</span></button>
+          <div class="notif-card">
+            <ul class="acct-src-list" id="acct-src-list"></ul>
           </div>
-          <a class="acct-support-all" href="/soutenir">Toutes les façons d'aider →</a>
         </div>
 
-        <div class="acct-links">
-          <button type="button" class="acct-link acct-to-history" id="acct-to-history">Mon historique →</button>
+        <!-- B) Nous soutenir — style notif-card unifié. -->
+        <div class="acct-section">
+          <div class="acct-subhead">Nous soutenir</div>
+          <div class="notif-card">
+            <div class="notif-row acct-support-row">
+              <div class="notif-txt"><strong>Soutenir le projet</strong>
+                <span class="notif-sub">LaBonneAlerte est gratuit et le restera.</span></div>
+              <div class="sup-actions">
+                <button class="sup-btn primary" type="button" disabled>PayPal <span class="soon">bientôt</span></button>
+                <button class="sup-btn primary" type="button" disabled>Ko-fi <span class="soon">bientôt</span></button>
+              </div>
+            </div>
+            <a class="notif-row notif-nav" href="/soutenir">
+              <span class="notif-txt"><strong>Toutes les façons d'aider</strong></span>
+              <span class="notif-chevron" aria-hidden="true">→</span>
+            </a>
+          </div>
         </div>
 
-        <!-- C) Retour aux alertes : vrai bouton, pleine largeur. -->
+        <!-- B) Navigation du compte — même style notif-card. « Proposer » et
+             « Se déconnecter » sont AU-DESSUS du bouton « Revenir » (dernière action). -->
+        <div class="acct-section">
+          <div class="notif-card">
+            <button type="button" class="notif-row notif-nav acct-to-history" id="acct-to-history">
+              <span class="notif-txt"><strong>Mon historique</strong>
+                <span class="notif-sub">Les alertes que vous avez reçues</span></span>
+              <span class="notif-chevron" aria-hidden="true">→</span>
+            </button>
+            <a class="notif-row notif-nav acct-propose-link" id="acct-propose-link" href="/proposer">
+              <span class="notif-txt"><strong>Proposer une source d'alerte</strong>
+                <span class="notif-sub">Vous avez un détecteur ? Exposez un JSON.</span></span>
+              <span class="notif-chevron" aria-hidden="true">→</span>
+            </a>
+            <button type="button" class="notif-row notif-nav acct-logout" id="acct-logout">
+              <span class="notif-txt"><strong>Se déconnecter</strong></span>
+              <span class="notif-chevron" aria-hidden="true">↪</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- C) Retour aux alertes : vrai bouton, pleine largeur, dernière action. -->
         <button type="button" class="acct-return-btn acct-back-grid" id="acct-back-grid">← Revenir à mes alertes</button>
-
-        <button type="button" class="acct-logout" id="acct-logout">Se déconnecter</button>
-
-        <!-- G) Repli : aucun source soumise → lien discret pour en proposer une. -->
-        <a class="acct-propose-link" id="acct-propose-link" href="/proposer" hidden>Proposer une source d'alerte →</a>
 
         <!-- E) Suppression de compte : lien discret, tout en bas du recto. -->
         <button type="button" class="acct-delete-link" id="acct-delete-link">Supprimer mon compte</button>
@@ -203,8 +229,10 @@
 <script src="/js/share.js"></script>
 <script src="/js/site.js"></script>
 <script src="/js/nav.js"></script>
+<script src="/js/mobile-header.js"></script>
 <script src="/js/copy.js"></script>
 <script src="/js/push.js"></script>
+<script src="/js/profile.js"></script>
 <script src="/js/pwa.js"></script>
 </body>
 </html>

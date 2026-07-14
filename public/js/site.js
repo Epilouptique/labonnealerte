@@ -82,26 +82,42 @@
     card.classList.add('flipped', 'face-share');
   });
 
-  // Ignorer la recommandation → la carte perd son habillage et reprend sa
-  // position normale (FLIP) ; la reco ne réapparaît plus de la session.
+  // A) Ensemble des recommandations REFUSÉES (par id), persisté le temps de la
+  // session (survit à un rechargement dans l'onglet).
+  function dismissedSet() {
+    try { var a = JSON.parse(sessionStorage.getItem('lba-reco-dismissed') || '[]'); return Array.isArray(a) ? a : []; }
+    catch (e) { return []; }
+  }
+  function addDismissed(id) {
+    try {
+      var s = dismissedSet();
+      if (s.indexOf(id) === -1) { s.push(id); sessionStorage.setItem('lba-reco-dismissed', JSON.stringify(s)); }
+    } catch (e) {}
+  }
+
+  // Ignorer la recommandation → elle est refusée (session) et REMPLACÉE sans
+  // rechargement par la reco pertinente suivante (ou une carte normale non suivie
+  // s'il n'y en a plus), pour ne jamais laisser de trou dans la grille.
   document.addEventListener('click', function (e) {
     var x = e.target.closest('.reco-x');
     if (!x) return;
     e.preventDefault(); e.stopPropagation();
     var card = x.closest('.card.card-reco');
     if (!card) return;
-    try { sessionStorage.setItem('lba-reco-dismissed', '1'); } catch (e2) {}
-    undressReco(card);
+    dismissReco(card);
   });
 
-  // Sélectionne la meilleure source à recommander (connecté, sources non suivies).
+  // Sélectionne la meilleure source à recommander (connecté, sources non suivies,
+  // hors recommandations déjà refusées dans la session).
   function pickReco(sources, subMap) {
-    try { if (sessionStorage.getItem('lba-reco-dismissed')) return null; } catch (e) {}
+    var dismissed = dismissedSet();
     var followedCats = {};
     sources.forEach(function (s) {
       if (subMap[s.id]) (s.categories || []).forEach(function (c) { followedCats[c] = true; });
     });
-    var candidates = sources.filter(function (s) { return s.type !== 'linked' && !subMap[s.id]; });
+    var candidates = sources.filter(function (s) {
+      return s.type !== 'linked' && !subMap[s.id] && dismissed.indexOf(s.id) === -1;
+    });
     if (!candidates.length) return null;
     var maxSub = 0;
     candidates.forEach(function (s) { maxSub = Math.max(maxSub, s.subscriber_count || 0); });
@@ -110,7 +126,11 @@
       var common = (s.categories || []).filter(function (c) { return followedCats[c]; }).length;
       var recent = (s.last_activated_at && (now - new Date(s.last_activated_at).getTime()) < 30 * 86400000) ? 1 : 0;
       var pop = maxSub > 0 ? (s.subscriber_count || 0) / maxSub : 0;
-      s._score = 3 * common + 2 * recent + 1 * pop;
+      // D) Personnalisation : le département (le plus fort) puis les centres d'intérêt
+      // passent devant les critères historiques.
+      var dept = sourceMatchesDept(s) ? 1 : 0;
+      var interest = sourceMatchesInterest(s) ? 1 : 0;
+      s._score = 4 * dept + 3 * interest + 3 * common + 2 * recent + 1 * pop;
     });
     candidates.sort(function (a, b) { return b._score - a._score || (b.subscriber_count || 0) - (a.subscriber_count || 0); });
     return candidates[0];
@@ -146,14 +166,50 @@
     grid.insertBefore(card, ref || extras || null);
   }
 
-  // Retire l'habillage reco et rend la carte à sa position normale (avec FLIP).
-  function undressReco(card) {
+  // État d'abonnement courant, lu depuis le DOM (source de vérité en direct).
+  function currentSubMap() {
+    var m = {};
+    cards.forEach(function (c) { m[c.getAttribute('data-source-id')] = c.dataset.subscribed === '1'; });
+    return m;
+  }
+
+  // A) Comble l'emplacement libéré par une carte normale NON suivie (épinglée sans
+  // habillage reco) : garantit que la grille ne présente jamais de trou en vue par
+  // défaut. On préfère une carte actuellement masquée (entrée en fin de grille).
+  function fillEmptySlot(excludeId) {
+    var subMap = currentSubMap();
+    var extras = document.getElementById('static-extras');
+    var pick = null;
+    for (var i = 0; i < sourcesData.length; i++) {
+      var s = sourcesData[i];
+      if (s.type === 'linked' || subMap[s.id] || s.id === excludeId) continue;
+      var c = cardById(s.id);
+      if (!c || c.classList.contains('card-filler') || c.classList.contains('card-reco')) continue;
+      if (c.classList.contains('hidden-more')) { pick = c; break; }
+      if (!pick) pick = c; // repli : n'importe quelle carte non suivie
+    }
+    if (pick) { pick.classList.add('card-filler'); grid.insertBefore(pick, extras || null); }
+  }
+
+  // A) Fermeture (×) d'une recommandation : elle est refusée, retirée de la grille
+  // (retour à sa place naturelle) et REMPLACÉE — reco suivante pertinente si elle
+  // existe, sinon une carte normale non suivie — le tout animé (FLIP).
+  function dismissReco(card) {
     if (!card || !card.classList.contains('card-reco')) return;
+    var id = card.getAttribute('data-source-id');
+    addDismissed(id);
+    var next = pickReco(sourcesData, currentSubMap());
     apply(true, function () {
       card.classList.remove('card-reco');
-      var label = card.querySelector('.reco-label');
-      if (label) label.remove();
+      stripRecoLabel(card);
       placeByOrder(card);
+      var extras = document.getElementById('static-extras');
+      if (next && next.id !== id) {
+        var newCard = cardById(next.id);
+        if (newCard) { dressReco(newCard); grid.insertBefore(newCard, extras || null); }
+      } else {
+        fillEmptySlot(id); // plus de reco : on comble pour éviter tout trou
+      }
       refreshCards();
     });
   }
@@ -178,12 +234,8 @@
   function adoptReco(card) {
     if (!card || !card.classList.contains('card-reco')) return;
     // État d'abonnement courant, lu depuis le DOM (inclut la carte tout juste adoptée).
-    var subMap = {};
-    cards.forEach(function (c) {
-      subMap[c.getAttribute('data-source-id')] = c.dataset.subscribed === '1';
-    });
     var adoptedId = card.getAttribute('data-source-id');
-    var next = pickReco(sourcesData, subMap);
+    var next = pickReco(sourcesData, currentSubMap());
 
     if (next && next.id !== adoptedId) {
       // Relève disponible : la carte adoptée reprend sa place, la nouvelle reco
@@ -439,6 +491,22 @@
   function initialLimit() { return currentMode === 'connected' ? INITIAL_CONNECTED : INITIAL_ANON; }
   var cards = [], moreBtn = null, qInput = null, grid = null, addCard = null;
   var sourcesData = []; // liste des sources (pour recalculer une recommandation à l'adoption)
+  // D) Personnalisation (connecté) : renseignée depuis /api/my-alerts au chargement.
+  var profile = { departement: null, interests: [] };
+  // Une source est-elle géolocalisée sur le département choisi ? Signal simple et
+  // lisible : son id se termine par « -<dept> » (vigilance-meteo-05, vigicrues-05…).
+  function sourceMatchesDept(s) {
+    if (!profile.departement) return false;
+    return new RegExp('-' + profile.departement + '$').test(s.id || '');
+  }
+  // Une catégorie de la source figure-t-elle dans les centres d'intérêt ?
+  function sourceMatchesInterest(s) {
+    if (!profile.interests || !profile.interests.length) return false;
+    return (s.categories || []).some(function (c) { return profile.interests.indexOf(c) !== -1; });
+  }
+  function hasPersonalization() {
+    return !!profile.departement || (profile.interests && profile.interests.length > 0);
+  }
   var REDUCE = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
   function catsOf(c) { return (c.dataset.cats || '').split(' ').filter(Boolean); }
@@ -492,7 +560,8 @@
     var idx = 0, hiddenMore = 0;
     cards.forEach(function (c) {
       var elig = matches(c, q);
-      var isReco = c.classList.contains('card-reco');
+      // Épinglées (ne consomment pas de créneau) : la reco ET la carte de comblement.
+      var isReco = c.classList.contains('card-reco') || c.classList.contains('card-filler');
       var show;
       if (!elig) show = false;
       else if (searching) show = true;      // sous filtre/recherche : comme les autres cartes
@@ -860,10 +929,26 @@
           mode = 'connected';
           email = s.data.email;
           (s.data.sources || []).forEach(function (x) { subMap[x.id] = x.subscribed; });
+          profile.departement = s.data.departement || null;
+          profile.interests = s.data.interests || [];
         }
       } catch (e) { /* réseau : on reste anonyme */ }
     }
     currentMode = mode;
+
+    // D) Ordre personnalisé (connecté) : les sources matchant département/intérêts
+    // remontent, tri secondaire STABLE sur l'ordre serveur (display_order). Si aucun
+    // champ n'est renseigné, l'ordre reste STRICTEMENT celui du serveur.
+    if (mode === 'connected' && hasPersonalization()) {
+      sources = sources
+        .map(function (s, i) {
+          var score = (sourceMatchesDept(s) ? 2 : 0) + (sourceMatchesInterest(s) ? 1 : 0);
+          return { s: s, i: i, score: score };
+        })
+        .sort(function (a, b) { return b.score - a.score || a.i - b.i; })
+        .map(function (x) { return x.s; });
+    }
+
     sourcesData = sources; // conservé pour recalculer une reco à l'adoption
 
     var html = sources.map(function (sc) {
@@ -992,7 +1077,6 @@
   async function loadMySources() {
     var section = document.getElementById('acct-sources');
     var list = document.getElementById('acct-src-list');
-    var propose = document.getElementById('acct-propose-link');
     if (!section || !list) return;
     var token = LBASession.get();
     if (!token) return;
@@ -1002,13 +1086,12 @@
       if (r.ok) { var d = await r.json(); sources = (d && d.sources) || []; }
     } catch (e) { /* réseau : on n'affiche rien */ }
 
+    // « Proposer une source » est désormais une entrée permanente du panneau (B) ;
+    // la rubrique « Mes sources » n'apparaît que si l'utilisateur a soumis une source.
     if (!sources.length) {
-      // Aucune source soumise : pas de rubrique, mais un lien discret « Proposer ».
       section.hidden = true;
-      if (propose) propose.hidden = false;
       return;
     }
-    if (propose) propose.hidden = true;
 
     list.innerHTML = sources.map(function (s) {
       var published = !!s.enabled;
