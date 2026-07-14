@@ -85,6 +85,9 @@
 <!-- Panneau « Mon compte » (mode connecté) : ouvert depuis le header, prend la
      place de la grille. Carte flip : recto compte / verso historique. -->
 <section class="account-panel wrap" id="account-panel" hidden>
+  <!-- B2) Label de section fixe (hors du conteneur qui tourne) : son texte
+       change selon la face affichée — « Mon compte » / « Mon historique ». -->
+  <div class="acct-panel-label" id="acct-panel-label">Mon compte</div>
   <div class="card flip acct-card" id="acct-card">
     <div class="card-inner">
       <!-- Recto : compte -->
@@ -99,18 +102,44 @@
           <div id="notif-mount"></div><!-- rempli par js/push.js -->
         </div>
 
-        <div class="acct-links">
-          <button type="button" class="acct-link acct-to-history" id="acct-to-history">Mon historique →</button>
-          <button type="button" class="acct-link acct-back-grid" id="acct-back-grid">← Revenir à mes alertes</button>
+        <!-- G) Mes sources (espace développeur embryonnaire) : rempli par site.js,
+             visible seulement si l'utilisateur a soumis au moins une source. -->
+        <div class="acct-section acct-sources" id="acct-sources" hidden>
+          <div class="acct-subhead">Mes sources</div>
+          <ul class="acct-src-list" id="acct-src-list"></ul>
         </div>
 
+        <!-- F) Nous soutenir : rubrique courte, boutons de don désactivés
+             (même composant que /soutenir, « bientôt disponible »). -->
+        <div class="acct-section acct-support">
+          <div class="acct-subhead">Nous soutenir</div>
+          <p class="acct-support-intro">LaBonneAlerte est gratuit et le restera.</p>
+          <div class="sup-actions">
+            <button class="sup-btn primary" type="button" disabled>PayPal <span class="soon">bientôt</span></button>
+            <button class="sup-btn primary" type="button" disabled>Ko-fi <span class="soon">bientôt</span></button>
+          </div>
+          <a class="acct-support-all" href="/soutenir">Toutes les façons d'aider →</a>
+        </div>
+
+        <div class="acct-links">
+          <button type="button" class="acct-link acct-to-history" id="acct-to-history">Mon historique →</button>
+        </div>
+
+        <!-- C) Retour aux alertes : vrai bouton, pleine largeur. -->
+        <button type="button" class="acct-return-btn acct-back-grid" id="acct-back-grid">← Revenir à mes alertes</button>
+
         <button type="button" class="acct-logout" id="acct-logout">Se déconnecter</button>
+
+        <!-- G) Repli : aucun source soumise → lien discret pour en proposer une. -->
+        <a class="acct-propose-link" id="acct-propose-link" href="/proposer" hidden>Proposer une source d'alerte →</a>
+
+        <!-- E) Suppression de compte : lien discret, tout en bas du recto. -->
+        <button type="button" class="acct-delete-link" id="acct-delete-link">Supprimer mon compte</button>
       </div>
 
       <!-- Verso : historique -->
       <div class="card-face card-back acct-back">
         <button type="button" class="flip-back" aria-label="Retour au compte">↩</button>
-        <div class="acct-head"><h2 class="acct-name">Mon historique</h2></div>
         <div class="acct-history-scroll">
           <div id="history-timeline"></div>
           <div id="history-empty" class="history-empty" hidden>

@@ -131,6 +131,38 @@ apiRouter.get('/my-alerts', async (req, res) => {
 });
 
 /* ------------------------------------------------------------------ */
+/* GET /api/my-alerts/sources?token=xxx — sources soumises par ce compte */
+/* (toutes : enabled ou en cours d'examen). Espace développeur.         */
+/* ------------------------------------------------------------------ */
+apiRouter.get('/my-alerts/sources', async (req, res) => {
+  try {
+    const auth = await authenticate(req.query.token);
+    if (!auth) return res.status(401).json({ error: 'Lien invalide ou expiré' });
+
+    const { rows } = await pool.query(
+      `SELECT id, name, badge, enabled, endpoint_url, created_at
+         FROM sources
+        WHERE submitted_by_email = $1
+        ORDER BY created_at DESC NULLS LAST, id`,
+      [auth.email]
+    );
+
+    const sources = rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      badge: r.badge,
+      enabled: r.enabled,
+      endpoint_url: r.endpoint_url,
+      created_at: r.created_at ? r.created_at.toISOString() : null,
+    }));
+    return res.status(200).json({ sources });
+  } catch (err) {
+    console.error('[my-alerts] Erreur GET /my-alerts/sources :', err.message);
+    return res.status(503).json({ error: 'Service indisponible' });
+  }
+});
+
+/* ------------------------------------------------------------------ */
 /* POST /api/my-alerts/preferences — met à jour email_enabled.         */
 /* ------------------------------------------------------------------ */
 apiRouter.post('/my-alerts/preferences', async (req, res) => {

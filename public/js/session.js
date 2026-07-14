@@ -132,27 +132,8 @@
       }
     }
 
-    // Lien discret « Supprimer mon compte » : dans le footer (pas le header),
-    // visible uniquement en mode connecté.
-    renderAccountDelete(logged);
-  }
-
-  // Ajoute / retire le lien de suppression de compte au pied de page.
-  function renderAccountDelete(logged) {
-    var footer = document.querySelector('footer');
-    var existing = document.getElementById('account-delete');
-    if (!logged || !footer) { if (existing) existing.remove(); return; }
-    if (existing) return;
-    var wrap = document.createElement('div');
-    wrap.id = 'account-delete';
-    wrap.style.cssText = 'margin-top:10px;';
-    var a = document.createElement('a');
-    a.href = '#';
-    a.textContent = 'Supprimer mon compte';
-    a.style.cssText = 'font-size:12.5px;color:var(--muted);text-decoration:none;';
-    a.onclick = function (e) { e.preventDefault(); deleteAccount(); };
-    wrap.appendChild(a);
-    footer.appendChild(wrap);
+    // Le lien « Supprimer mon compte » ne vit plus dans le footer : il a été
+    // déplacé tout en bas du panneau « Mon compte » (recto), câblé par site.js.
   }
 
   window.LBASession = {

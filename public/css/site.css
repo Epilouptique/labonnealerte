@@ -9,6 +9,11 @@ body {
   background: var(--bg);
   color: var(--ink);
   line-height: 1.55;
+  /* D) footer collé en bas : colonne flex pleine hauteur ; le footer (dernier
+     enfant direct) est poussé en bas via margin-top:auto quand le contenu est court. */
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
   transition: background .25s, color .25s;
   background-image: radial-gradient(var(--dot) 1.2px, transparent 1.7px);
   background-size: 30px 30px;
@@ -286,6 +291,7 @@ a.endpoint:hover { color: var(--amber); text-decoration: underline; }
 .copy-btn.copied { color: var(--green); }
 .copy-btn svg { width: 15px; height: 15px; }
 footer {
+  margin-top: auto; /* D) pousse le footer en bas quand le contenu est court */
   padding: 36px 0; text-align: center; font-size: 13px; color: var(--muted);
   background: var(--surface); /* thème sombre : fond surface (comme le header) */
   box-shadow: 0 -1px 0 rgba(30, 20, 50, .06); /* séparation inversée du header */
@@ -661,13 +667,15 @@ html[data-theme="dark"] .stats-section { background: color-mix(in srgb, var(--su
 .stat-spam .zero { font-size: clamp(44px, 9vw, 68px); font-weight: 800; line-height: 1; background: none; padding: 0; border-radius: 0; }
 .stat-spam .spam-cap { font-size: 15px; font-weight: 700; }
 
-/* D) home connectée épurée : masque hero (titre + tagline) et stats */
-/* Connecté : le h1 reste (salutation « Bonjour <prénom> »), la tagline disparaît. */
+/* D) home connectée épurée : masque le titre + la tagline, garde le halo et le KPI */
+/* On dissocie le halo (::before) du contenu : le conteneur .hero reste présent
+   avec son halo violet animé ; seuls h1 et la tagline sont masqués. Le KPI
+   personnalisé reste visible et centré. */
+body[data-mode="connected"] .hero h1,
 body[data-mode="connected"] .hero p { display: none; }
-body[data-mode="connected"] .hero { padding: 36px 0 20px; }
-body[data-mode="connected"] .hero::before, body[data-mode="connected"] .hero::after { display: none; }
-.hero h1 .hl-name { color: var(--amber); } /* prénom en accent, « Bonjour » en --ink */
+body[data-mode="connected"] .hero { padding: 40px 0 22px; }
 body[data-mode="connected"] #stats { display: none; }
+.hero h1 .hl-name { color: var(--amber); } /* prénom en accent, « Bonjour » en --ink */
 
 /* H) carte Proposer : transition de hauteur symétrique */
 .card.add { transition: min-height .3s ease, background .15s ease, border-color .15s ease; }
@@ -756,7 +764,7 @@ body[data-mode="connected"] #stats { display: none; }
 /* ---------- panneau « Mon compte » (mode connecté) ---------- */
 .account-panel { margin: 6px auto 0; }
 .acct-card.card.flip { width: 100%; }
-.card-front.acct-front { min-height: 460px; padding: 30px 32px; margin-bottom: 5rem;}
+.card-front.acct-front { min-height: 460px; padding: 30px 32px; margin-bottom: 4rem;}
 .card-back.acct-back { padding: 30px 32px; background: var(--surface); }
 .acct-head .acct-name { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
 .acct-email { color: var(--muted); font-size: 14px; margin-top: 4px; word-break: break-all; }
@@ -782,6 +790,79 @@ body[data-mode="connected"] #stats { display: none; }
 }
 .acct-logout:hover { color: var(--ink); }
 .acct-history-scroll { margin-top: 12px; max-height: 380px; overflow-y: auto; }
+
+/* B1) Le × de fermeture est masqué au verso (comme le ⓘ des cartes). */
+.acct-card.flipped .acct-close { display: none; }
+
+/* B2) Label fixe du panneau (hors du conteneur qui tourne) : style section-label,
+   mais jamais renvoyé dans la marge gauche (pas la classe .section-label). */
+.acct-panel-label {
+  font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .14em;
+  color: var(--amber); margin-bottom: 12px;
+}
+/* Sous-titres internes du recto (Mes sources, Nous soutenir). */
+.acct-subhead {
+  font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em;
+  color: var(--muted); margin-bottom: 12px;
+}
+
+/* C) Retour aux alertes : vrai bouton pleine largeur (design system). */
+.acct-return-btn {
+  display: block; width: 100%; margin-top: 8px;
+  border: none; background: var(--amber); color: #fff;
+  font: inherit; font-weight: 700; font-size: 14px; border-radius: 12px;
+  padding: 13px 0; cursor: pointer; text-align: center;
+  box-shadow: 0 1px 3px rgba(30, 20, 50, .2); transition: background .15s, box-shadow .15s;
+}
+.acct-return-btn:hover { background: color-mix(in srgb, var(--amber) 88%, #000); box-shadow: 0 2px 6px rgba(30, 20, 50, .3); }
+
+/* E) Suppression de compte : lien discret tout en bas du recto. */
+.acct-delete-link {
+  display: block; margin-top: 14px; align-self: flex-start;
+  border: none; background: transparent; cursor: pointer; font: inherit;
+  font-size: 12.5px; color: var(--muted); text-decoration: none; padding: 4px 0;
+}
+.acct-delete-link:hover { color: var(--ink); }
+
+/* G) Repli « Proposer une source » (aucune source soumise). */
+.acct-propose-link {
+  display: block; margin-top: 16px; font-size: 13px; font-weight: 600;
+  color: var(--amber); text-decoration: none;
+}
+.acct-propose-link[hidden] { display: none; } /* le display:block ne doit pas défaire [hidden] */
+.acct-propose-link:hover { text-decoration: underline; }
+
+/* G) Liste « Mes sources ». */
+.acct-src-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.acct-src-item, .acct-src-link {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 14px; color: var(--ink); text-decoration: none;
+}
+.acct-src-link:hover .acct-src-name { color: var(--amber); }
+.acct-src-name { font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acct-src-status { flex: none; font-size: 11.5px; font-weight: 700; border-radius: 999px; padding: 3px 10px; }
+.acct-src-status.ok { background: var(--green-soft); color: var(--green); }
+.acct-src-status.pending { background: var(--line); color: var(--muted); }
+
+/* F) Nous soutenir (rubrique du panneau). */
+.acct-support-intro { font-size: 14px; color: var(--muted); margin-bottom: 12px; }
+.acct-support-all { display: inline-block; margin-top: 12px; font-size: 13px; font-weight: 600; color: var(--amber); text-decoration: none; }
+.acct-support-all:hover { text-decoration: underline; }
+
+/* Composant boutons de don — partagé avec /soutenir (même style, désactivé). */
+.sup-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.sup-btn {
+  display: inline-flex; align-items: center; gap: 8px; border-radius: 999px;
+  padding: 11px 20px; font-weight: 700; font-size: 14px; text-decoration: none;
+  border: none; cursor: pointer; font-family: inherit;
+}
+.sup-btn.primary { background: var(--amber); color: #fff; }
+.sup-btn.primary:hover { background: color-mix(in srgb, var(--amber) 88%, #000); }
+.sup-btn.ghost { border: 1.5px solid var(--amber); color: var(--amber); background: transparent; }
+.sup-btn.ghost:hover { background: var(--amber-soft); }
+.sup-btn[disabled] { opacity: .5; cursor: default; background: var(--line); color: var(--muted); border: none; }
+.sup-btn .soon { font-size: 12px; color: var(--muted); font-weight: 600; margin-left: 4px; }
+
 @media (max-width: 620px) {
   .card-front.acct-front, .card-back.acct-back { padding: 24px 20px; }
 }

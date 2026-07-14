@@ -21,6 +21,7 @@
 
 // node-fetch v3 est ESM-only : import dynamique depuis ce module CommonJS.
 const fetchFn = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
+const { formatDateFr } = require('./lib/format-fr');
 
 const PROMO_URL = 'https://www.leboncoin.fr/service/bons-plans';
 const PROMO_MARKER = 'Livraison à 0,99';
@@ -72,11 +73,6 @@ function storeCookies(res) {
 const DATE_REGEX =
   /du\s+(\d{2})\/(\d{2})\/(\d{4})\s+à\s+(\d{1,2})h(\d{2})\s+au\s+(\d{2})\/(\d{2})\/(\d{4})\s+à\s+(\d{1,2})h(\d{2})/i;
 
-const MOIS_FR = [
-  'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
-  'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre',
-];
-
 // Normalise tous les espaces (dont insécable   et fine insécable  ) en
 // espace simple : les marqueurs et dates de leboncoin en contiennent souvent.
 function normalizeSpaces(text) {
@@ -85,13 +81,6 @@ function normalizeSpaces(text) {
 
 function buildDate(day, month, year, hour, minute) {
   return new Date(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute));
-}
-
-// Message humain construit depuis les groupes bruts (pas de dérive de fuseau).
-function formatUntilFr(m) {
-  const jour = Number(m[6]);
-  const mois = MOIS_FR[Number(m[7]) - 1] || `mois ${m[7]}`;
-  return `${jour} ${mois} ${m[8]} à ${m[9]}h${m[10]}`;
 }
 
 // Signatures caractéristiques d'un blocage anti-bot (DataDome / captcha).
@@ -117,7 +106,7 @@ function buildActive(normalizedText) {
   const match = normalizedText.match(DATE_REGEX);
   const since = match ? buildDate(match[1], match[2], match[3], match[4], match[5]) : null;
   const until = match ? buildDate(match[6], match[7], match[8], match[9], match[10]) : null;
-  const jusqua = match ? ` jusqu'au ${formatUntilFr(match)}` : '';
+  const jusqua = until ? ` jusqu'au ${formatDateFr(until, { withTime: true })}` : '';
   return {
     state: 'active',
     since,

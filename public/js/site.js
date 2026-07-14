@@ -886,6 +886,12 @@
     }, 180);
   }
 
+  // B2) Le label fixe du panneau suit la face affichée (recto / verso).
+  function setAccountLabel(verso) {
+    var lbl = document.getElementById('acct-panel-label');
+    if (lbl) lbl.textContent = verso ? 'Mon historique' : 'Mon compte';
+  }
+
   function openAccount() {
     var main = document.getElementById('alertes');
     var panel = document.getElementById('account-panel');
@@ -893,6 +899,7 @@
     fillAccountHeader();
     var card = document.getElementById('acct-card');
     if (card) card.classList.remove('flipped'); // toujours ouvrir sur le recto
+    setAccountLabel(false);
     swap(main, panel);
   }
 
@@ -902,20 +909,69 @@
     if (!main || !panel || panel.hidden) return;
     var card = document.getElementById('acct-card');
     if (card) card.classList.remove('flipped');
+    setAccountLabel(false);
     swap(panel, main);
   }
 
   function bindAccount() {
     var card = document.getElementById('acct-card');
     var toHist = document.getElementById('acct-to-history');
-    if (toHist && card) toHist.addEventListener('click', function () { card.classList.add('flipped'); });
-    // Le ↩ du verso est géré par le handler global .flip-back (retour au recto).
+    if (toHist && card) toHist.addEventListener('click', function () { card.classList.add('flipped'); setAccountLabel(true); });
+    // Le ↩ du verso est géré par le handler global .flip-back (retour au recto) :
+    // on remet le label sur « Mon compte » via un écouteur dédié sur le verso.
+    var flipBack = card ? card.querySelector('.flip-back') : null;
+    if (flipBack) flipBack.addEventListener('click', function () { setAccountLabel(false); });
     var close = document.getElementById('acct-close');
     if (close) close.addEventListener('click', closeAccount);
     var backGrid = document.getElementById('acct-back-grid');
     if (backGrid) backGrid.addEventListener('click', closeAccount);
     var lo = document.getElementById('acct-logout');
     if (lo) lo.addEventListener('click', function () { LBASession.logout(); });
+    // E) Suppression de compte, désormais dans le panneau (recto).
+    var del = document.getElementById('acct-delete-link');
+    if (del) del.addEventListener('click', function () { LBASession.deleteAccount(); });
+    // G) Charge « Mes sources » (espace développeur embryonnaire).
+    loadMySources();
+  }
+
+  /* ---------------- G) Mes sources (recto du panneau compte) ---------------- */
+  async function loadMySources() {
+    var section = document.getElementById('acct-sources');
+    var list = document.getElementById('acct-src-list');
+    var propose = document.getElementById('acct-propose-link');
+    if (!section || !list) return;
+    var token = LBASession.get();
+    if (!token) return;
+    var sources = [];
+    try {
+      var r = await fetch('/api/my-alerts/sources?token=' + encodeURIComponent(token), { headers: { Accept: 'application/json' } });
+      if (r.ok) { var d = await r.json(); sources = (d && d.sources) || []; }
+    } catch (e) { /* réseau : on n'affiche rien */ }
+
+    if (!sources.length) {
+      // Aucune source soumise : pas de rubrique, mais un lien discret « Proposer ».
+      section.hidden = true;
+      if (propose) propose.hidden = false;
+      return;
+    }
+    if (propose) propose.hidden = true;
+
+    list.innerHTML = sources.map(function (s) {
+      var published = !!s.enabled;
+      var statut = published
+        ? '<span class="acct-src-status ok">Publiée ✓</span>'
+        : '<span class="acct-src-status pending">En examen</span>';
+      var badgeIc = LBACards && LBACards.badgeFor ? LBACards.badgeFor(s.badge) : '';
+      var inner =
+        '<span class="acct-src-name">' + esc(s.name || s.id) + '</span>' +
+        badgeIc + statut;
+      if (published) {
+        var sel = encodeURIComponent(s.id);
+        return '<li class="acct-src-item"><a class="acct-src-link" href="/source/' + sel + '/statut">' + inner + '</a></li>';
+      }
+      return '<li class="acct-src-item">' + inner + '</li>';
+    }).join('');
+    section.hidden = false;
   }
 
   window.LBAAccount = { open: openAccount, close: closeAccount };

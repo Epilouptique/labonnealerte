@@ -22,7 +22,7 @@ const GROUPS = {
   'culture-medias': ['culture', 'livres', 'sorties-livres', 'bd', 'manga', 'musique', 'sorties-albums', 'vinyles', 'streaming', 'films', 'series', 'podcasts', 'jeux-de-societe', 'patrimoine'],
   'gaming': ['jeux-video', 'sorties-jeux', 'precommandes-jeux', 'dlc', 'patchs-jeux', 'e-sport', 'tournois', 'twitch', 'free-to-play', 'retrogaming'],
   'sport': ['sport', 'football', 'rugby', 'tennis', 'cyclisme', 'ski', 'randonnee', 'trail', 'natation', 'resultats-sportifs', 'transferts', 'inscriptions-courses'],
-  'vie-locale': ['local', 'evenements-locaux', 'marches-locaux', 'brocantes', 'vide-greniers', 'travaux-voirie', 'coupures-circulation', 'collecte-dechets', 'dechetteries', 'piscines', 'bibliotheques', 'ecoles', 'cantines', 'mairie'],
+  'vie-locale': ['local', 'evenements-locaux', 'marches-locaux', 'brocantes', 'vide-greniers', 'travaux-voirie', 'coupures-circulation', 'collecte-dechets', 'dechetteries', 'piscines', 'bibliotheques', 'ecoles', 'vacances-scolaires', 'cantines', 'mairie'],
   'alimentation': ['alimentation', 'restaurants', 'food-trucks', 'produits-locaux', 'vins', 'bieres', 'recoltes'],
   'agriculture-jardin': ['agriculture', 'meteo-agricole', 'gel-cultures', 'vendanges', 'jardinage', 'semis', 'champignons', 'chasse', 'peche', 'apiculture'],
   'auto-moto': ['automobile', 'rappels-vehicules', 'controle-technique', 'prix-occasion', 'nouveautes-auto', 'moto', 'zfe', 'vignette-critair', 'radars', 'permis-points'],

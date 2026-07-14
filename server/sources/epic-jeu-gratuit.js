@@ -12,6 +12,8 @@
 // Comme les autres sources, check() rapporte l'état instantané ; la logique de
 // transition (et de « nouvel épisode ») vit dans le poller.
 
+const { formatDateFr } = require('./lib/format-fr');
+
 const fetchFn = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 
 const API_URL =
@@ -26,13 +28,6 @@ function parseDate(value) {
   if (!value) return null;
   const d = new Date(value);
   return Number.isNaN(d.getTime()) ? null : d;
-}
-
-// Formatage « 16 juillet 2026 » (fuseau Paris pour une date stable côté FR).
-function formatDateFr(date) {
-  return new Intl.DateTimeFormat('fr-FR', {
-    day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Paris',
-  }).format(date);
 }
 
 // URL de la page produit : productSlug > catalogNs > offerMappings > urlSlug.
@@ -133,7 +128,7 @@ async function check() {
 
   const titles = free.map((g) => g.title);
   const verb = free.length === 1 ? 'est gratuit' : 'sont gratuits';
-  const message = `🎮 ${joinFr(titles)} ${verb} sur l'Epic Games Store jusqu'au ${formatDateFr(until)}`;
+  const message = `🎮 ${joinFr(titles)} ${verb} sur l'Epic Games Store jusqu'au ${formatDateFr(until, { withTime: true })}`;
 
   // Un seul jeu → sa page ; plusieurs → la page des jeux gratuits.
   const url = free.length === 1 && free[0].url ? free[0].url : FREE_GAMES_URL;

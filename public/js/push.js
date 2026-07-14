@@ -37,8 +37,9 @@
   var state = { emailEnabled: true, vapidKey: '', deviceOn: false };
 
   // Squelette du panneau.
+  // Le label de section du panneau (« Mon compte ») vit désormais hors du
+  // conteneur qui tourne (voir index.html #acct-panel-label) — plus de titre ici.
   panel.innerHTML =
-    '<div class="section-label">Notifications</div>' +
     '<div class="notif-card">' +
     '  <div class="notif-row">' +
     '    <div class="notif-txt"><strong>Sur cet appareil</strong>' +

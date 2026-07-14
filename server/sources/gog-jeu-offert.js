@@ -12,6 +12,7 @@
 // La logique de transition vit dans le poller ; check() rapporte l'état instantané.
 
 const { withPage } = require('../headless');
+const { formatDateFr } = require('./lib/format-fr');
 
 const fetchFn = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 
@@ -19,15 +20,6 @@ const GIVEAWAY_URL = 'https://www.gog.com/giveaway';
 const HOME_URL = 'https://www.gog.com/fr'; // locale fr
 const UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
-
-const MOIS_FR = [
-  'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
-  'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre',
-];
-
-function formatDateFr(date) {
-  return `${date.getDate()} ${MOIS_FR[date.getMonth()]} ${date.getFullYear()}`;
-}
 
 function inactive() {
   return { state: 'inactive', since: null, until: null, message: null, url: GIVEAWAY_URL };

@@ -32,8 +32,39 @@ const PHENOMENON_LABEL = {
   9: 'vagues-submersion',
 };
 
+// Émoji par type de phénomène (préfixe du message, phénomène le plus grave).
+const PHENOMENON_EMOJI = {
+  1: '💨', // vent
+  2: '🌧️', // pluie-inondation
+  3: '⛈️', // orages
+  4: '🌊', // crues
+  5: '❄️', // neige-verglas
+  6: '🌡️', // canicule
+  7: '🥶', // grand froid
+  8: '🏔️', // avalanches
+  9: '🌊', // vagues-submersion
+};
+const DEFAULT_EMOJI = '⛈️';
+
 function labelForPhenomenon(id) {
   return PHENOMENON_LABEL[Number(id)] || `phénomène ${id}`;
+}
+
+// Émoji du phénomène le plus grave d'une échéance : couleur max, puis (à couleur
+// égale) le plus petit identifiant de phénomène (ordre officiel Météo-France).
+function emojiForEcheance(info) {
+  if (!info || !info.phenomena || info.phenomena.size === 0) return DEFAULT_EMOJI;
+  let bestId = null;
+  let bestColor = -1;
+  for (const [id, color] of info.phenomena) {
+    const c = Number(color) || 0;
+    const nid = Number(id);
+    if (c > bestColor || (c === bestColor && (bestId === null || nid < bestId))) {
+      bestColor = c;
+      bestId = nid;
+    }
+  }
+  return PHENOMENON_EMOJI[bestId] || DEFAULT_EMOJI;
 }
 
 function parseDate(value) {
@@ -166,20 +197,33 @@ function createVigilanceSource(dept, nomDepartement, slugUrl) {
     const lines = [];
     let since = null;
     let until = null;
+    const active = []; // échéances actives, pour choisir l'émoji le plus grave
     const consider = (info, prefix) => {
       if (!info || info.maxColor < 3) return;
       const label = COLOR_LABEL[info.maxColor] || 'ORANGE';
       lines.push(`${prefix} vigilance ${label} dans ${nomDepartement} : ${phenomenaText(info.phenomena)}`);
+      active.push(info);
       if (info.begin && (!since || info.begin < since)) since = info.begin;
       if (info.end && (!until || info.end > until)) until = info.end;
     };
-    consider(ech.J, 'Actuellement,');
-    consider(ech.J1, 'Demain,');
+    consider(ech.J, "Aujourd'hui :");
+    consider(ech.J1, 'Demain :');
 
     if (lines.length === 0) {
       return { state: 'inactive', since: null, until: null, message: null, url: publicUrl };
     }
-    return { state: 'active', since, until, message: lines.join('\n'), url: publicUrl };
+
+    // Émoji du phénomène le plus grave, toutes échéances actives confondues.
+    const merged = new Map();
+    for (const info of active) {
+      for (const [id, color] of info.phenomena) {
+        const c = Number(color) || 0;
+        if (c > (merged.get(id) || 0)) merged.set(id, c);
+      }
+    }
+    const emoji = emojiForEcheance({ phenomena: merged });
+
+    return { state: 'active', since, until, message: `${emoji} ${lines.join('\n')}`, url: publicUrl };
   }
 
   return { id, check };

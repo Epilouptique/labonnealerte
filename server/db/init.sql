@@ -325,6 +325,54 @@ WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'aurores-france');
 INSERT INTO source_states (source_id) SELECT 'aurores-france'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'aurores-france');
 
+-- ================================================================
+-- Vague 4 : séismes (EMSC), vacances scolaires (zones A/B/C), SNCF.
+-- ================================================================
+
+-- Séismes ressentis en métropole (EMSC / centre euro-méditerranéen).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'seismes-france', 'Séisme en France', 'Secousses ressenties en métropole',
+  'Alerte quand un séisme de magnitude 4 ou plus est détecté en France métropolitaine au cours des dernières heures. Données du centre sismologique euro-méditerranéen (EMSC).',
+  'internal', 'official', false, ARRAY['seismes', 'meteo-risques'], 27
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'seismes-france');
+INSERT INTO source_states (source_id) SELECT 'seismes-france'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'seismes-france');
+
+-- Grandes perturbations SNCF (grève / mouvement social). Heuristique par mots-clés
+-- → requires_confirmation = TRUE (anti faux positif).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'sncf-perturbations', 'Perturbations SNCF', 'Grèves et mouvements sociaux',
+  'Alerte quand une grève ou un mouvement social provoque de grandes perturbations sur le réseau ferroviaire national. Données Navitia / SNCF.',
+  'internal', 'official', true, ARRAY['greves', 'transports'], 35
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'sncf-perturbations');
+INSERT INTO source_states (source_id) SELECT 'sncf-perturbations'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'sncf-perturbations');
+
+-- Vacances scolaires — compte à rebours du départ (7 jours avant), par zone.
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'vacances-zone-a', 'Vacances — Zone A', 'Le compte à rebours des vacances',
+  'Le compte à rebours des vacances scolaires de la zone A (Besançon, Bordeaux, Clermont-Ferrand, Dijon, Grenoble, Lyon, Poitiers…). Prévenu une semaine avant le départ. Calendrier officiel Éducation nationale.',
+  'internal', 'official', false, ARRAY['vacances-scolaires', 'vie-locale'], 60
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'vacances-zone-a');
+INSERT INTO source_states (source_id) SELECT 'vacances-zone-a'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'vacances-zone-a');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'vacances-zone-b', 'Vacances — Zone B', 'Le compte à rebours des vacances',
+  'Le compte à rebours des vacances scolaires de la zone B (Aix-Marseille, Lille, Nantes, Nice, Rennes, Rouen, Strasbourg…). Prévenu une semaine avant le départ. Calendrier officiel Éducation nationale.',
+  'internal', 'official', false, ARRAY['vacances-scolaires', 'vie-locale'], 61
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'vacances-zone-b');
+INSERT INTO source_states (source_id) SELECT 'vacances-zone-b'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'vacances-zone-b');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'vacances-zone-c', 'Vacances — Zone C', 'Le compte à rebours des vacances',
+  'Le compte à rebours des vacances scolaires de la zone C (Paris, Créteil, Versailles, Montpellier, Toulouse). Prévenu une semaine avant le départ. Calendrier officiel Éducation nationale.',
+  'internal', 'official', false, ARRAY['vacances-scolaires', 'vie-locale'], 62
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'vacances-zone-c');
+INSERT INTO source_states (source_id) SELECT 'vacances-zone-c'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'vacances-zone-c');
+
 -- Source externe liée : service partenaire configuré sur son propre site.
 -- Pas d'abonnement LaBonneAlerte, donc pas de ligne source_states.
 INSERT INTO sources (id, name, subtitle, description, type, badge, link_url, requires_confirmation, categories, display_order)
