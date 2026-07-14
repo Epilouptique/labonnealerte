@@ -105,11 +105,46 @@ apiRouter.get('/my-alerts', async (req, res) => {
       [auth.id]
     );
 
+    // Préférences de notification : email activé + nombre d'appareils push.
+    const prefs = await pool.query(
+      `SELECT s.email_enabled,
+              (SELECT COUNT(*)::int FROM push_subscriptions p WHERE p.subscriber_id = s.id) AS push_endpoints_count
+         FROM subscribers s WHERE s.id = $1`,
+      [auth.id]
+    );
+    const emailEnabled = prefs.rows[0] ? prefs.rows[0].email_enabled : true;
+    const pushCount = prefs.rows[0] ? prefs.rows[0].push_endpoints_count : 0;
+
     // On renvoie le token de session (potentiellement issu de l'échange du magic
     // token) pour que le client mette à jour son localStorage.
-    return res.status(200).json({ email: auth.email, sources: rows, token: auth.sessionToken });
+    return res.status(200).json({
+      email: auth.email,
+      sources: rows,
+      token: auth.sessionToken,
+      email_enabled: emailEnabled,
+      push_endpoints_count: pushCount,
+    });
   } catch (err) {
     console.error('[my-alerts] Erreur GET /my-alerts :', err.message);
+    return res.status(503).json({ error: 'Service indisponible' });
+  }
+});
+
+/* ------------------------------------------------------------------ */
+/* POST /api/my-alerts/preferences — met à jour email_enabled.         */
+/* ------------------------------------------------------------------ */
+apiRouter.post('/my-alerts/preferences', async (req, res) => {
+  const { token, email_enabled } = req.body || {};
+  if (typeof email_enabled !== 'boolean') {
+    return res.status(400).json({ error: 'email_enabled invalide' });
+  }
+  try {
+    const auth = await authenticate(token);
+    if (!auth) return res.status(401).json({ error: 'Session invalide ou expirée' });
+    await pool.query('UPDATE subscribers SET email_enabled = $1 WHERE id = $2', [email_enabled, auth.id]);
+    return res.status(200).json({ email_enabled });
+  } catch (err) {
+    console.error('[my-alerts] Erreur POST /preferences :', err.message);
     return res.status(503).json({ error: 'Service indisponible' });
   }
 });

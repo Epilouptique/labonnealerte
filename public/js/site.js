@@ -82,19 +82,16 @@
     card.classList.add('flipped', 'face-share');
   });
 
-  // D) Ignorer la recommandation → départ animé + mémorisé pour la session.
+  // Ignorer la recommandation → la carte perd son habillage et reprend sa
+  // position normale (FLIP) ; la reco ne réapparaît plus de la session.
   document.addEventListener('click', function (e) {
     var x = e.target.closest('.reco-x');
     if (!x) return;
     e.preventDefault(); e.stopPropagation();
-    var card = x.closest('.card.reco');
+    var card = x.closest('.card.card-reco');
     if (!card) return;
     try { sessionStorage.setItem('lba-reco-dismissed', '1'); } catch (e2) {}
-    if (REDUCE) { card.remove(); return; }
-    card.style.transition = 'transform .22s ease, opacity .22s ease';
-    card.style.transform = 'translateX(24px) scale(.97)';
-    card.style.opacity = '0';
-    setTimeout(function () { card.remove(); }, 230);
+    undressReco(card);
   });
 
   // Sélectionne la meilleure source à recommander (connecté, sources non suivies).
@@ -119,15 +116,61 @@
     return candidates[0];
   }
 
-  // Insère la carte de recommandation en fin de grille (avant la carte Proposer masquée).
-  function renderReco(g, extras, reco) {
-    if (!reco || !extras) return;
-    var label = '<span class="reco-label">Recommandée pour vous ' +
-      '<button type="button" class="reco-x" aria-label="Ignorer la recommandation">×</button></span>';
-    var rc = LBACards.cardHTML(reco, 'connected')
-      .replace('class="card flip"', 'class="card flip reco"')
-      .replace('<div class="card-inner">', label + '<div class="card-inner">');
-    extras.insertAdjacentHTML('beforebegin', rc);
+  // Rebuild du tableau `cards` depuis le DOM (après un déplacement de carte).
+  function refreshCards() {
+    if (grid) cards = Array.prototype.slice.call(grid.querySelectorAll('.card[data-cats]'));
+  }
+
+  // Habille une carte existante en « recommandée » (étiquette + classe).
+  function dressReco(card) {
+    if (!card) return;
+    card.classList.add('card-reco');
+    if (!card.querySelector('.reco-label')) {
+      card.insertAdjacentHTML('afterbegin',
+        '<span class="reco-label">Recommandée pour vous ' +
+        '<button type="button" class="reco-x" aria-label="Ignorer la recommandation">×</button></span>');
+    }
+  }
+
+  // Réinsère une carte à sa place d'origine (ordre source, via data-order).
+  function placeByOrder(card) {
+    if (!grid) return;
+    var extras = document.getElementById('static-extras');
+    var order = +card.dataset.order || 0;
+    var sibs = grid.querySelectorAll('.card[data-cats]');
+    var ref = null;
+    for (var i = 0; i < sibs.length; i++) {
+      if (sibs[i] === card) continue;
+      if ((+sibs[i].dataset.order || 0) > order) { ref = sibs[i]; break; }
+    }
+    grid.insertBefore(card, ref || extras || null);
+  }
+
+  // Retire l'habillage reco et rend la carte à sa position normale (avec FLIP).
+  function undressReco(card) {
+    if (!card || !card.classList.contains('card-reco')) return;
+    apply(true, function () {
+      card.classList.remove('card-reco');
+      var label = card.querySelector('.reco-label');
+      if (label) label.remove();
+      placeByOrder(card);
+      refreshCards();
+    });
+  }
+
+  // Connecté : la source recommandée n'est PAS dupliquée — sa carte unique est
+  // habillée et déplacée en dernière position de la grille.
+  function applyReco(reco) {
+    // Appelé AVANT setupKiosk : la variable module `grid` n'est pas encore
+    // affectée → on résout l'élément directement.
+    var gg = grid || document.getElementById('grid');
+    if (!reco || !gg) return;
+    var sel = (window.CSS && CSS.escape) ? CSS.escape(reco.id) : reco.id;
+    var card = gg.querySelector('.card[data-source-id="' + sel + '"]');
+    if (!card) return;
+    var extras = document.getElementById('static-extras');
+    dressReco(card);
+    gg.insertBefore(card, extras || null); // dernière position (avant Proposer masquée)
   }
 
   // Flip recto ⇄ verso-info ⇄ verso-partage. flip-back ramène toujours au recto.
@@ -223,10 +266,25 @@
         body: JSON.stringify({ token: LBASession.get(), source_id: sourceId, subscribed: desired })
       });
       if (!res.ok) throw new Error('http ' + res.status);
-      if (desired) celebrate(card); // célébration seulement à l'abonnement
+      // Succès : on met à jour l'appartenance interne + tout ce qui en dépend.
+      card.dataset.subscribed = desired ? '1' : '0';
+      refreshMineDependent();
+      if (desired) {
+        celebrate(card); // célébration seulement à l'abonnement
+        // Carte recommandée adoptée : après la célébration, on retire l'habillage
+        // et elle reprend sa place normale (une autre reco pourra apparaître au
+        // prochain chargement, pas immédiatement).
+        if (card.classList.contains('card-reco')) {
+          setTimeout(function () { undressReco(card); }, 800);
+        }
+      }
     } catch (e) {
-      input.checked = !desired; // rollback
+      input.checked = !desired; // rollback du switch
       setLabel(card, !desired ? 'Abonné' : 'Non abonné', !desired);
+      // data-subscribed n'est modifié qu'en cas de succès : rien à annuler ici,
+      // on resynchronise par sûreté (compteur/KPI/état interne cohérents).
+      card.dataset.subscribed = card.dataset.subscribed === '1' ? '1' : '0';
+      refreshMineDependent();
     } finally {
       input.disabled = false;
     }
@@ -299,10 +357,35 @@
       : (n === 1 ? '1 de vos alertes est active en ce moment' : n + ' de vos alertes sont actives en ce moment');
   }
 
+  // Une carte est-elle « active » (source déclenchée) ? (état rendu dans .state)
+  function cardIsActive(c) {
+    var st = c.querySelector('.state');
+    return !!(st && st.classList.contains('active'));
+  }
+
+  // Recalcule tout ce qui dépend de la liste des abonnements, sans rechargement :
+  // compteur du chip « Mes alertes », KPI perso, et re-filtrage si « mine » actif.
+  function refreshMineDependent() {
+    var mineCount = cards.filter(function (c) { return c.dataset.subscribed === '1'; }).length;
+    var mineChipN = document.querySelector('.chip-f[data-cat="mine"] .n');
+    if (mineChipN) mineChipN.textContent = mineCount;
+
+    var mineActive = cards.filter(function (c) {
+      return c.dataset.subscribed === '1' && cardIsActive(c);
+    }).length;
+    updateKPIMine(mineActive);
+
+    // Sur le filtre « Mes alertes », la carte désabonnée doit sortir (FLIP).
+    if (cat === 'mine') apply(true);
+  }
+
   /* ---------------- Kiosque : recherche + catégories + pagination ---------------- */
   var esc = LBACards.esc;
-  var INITIAL = 6, STEP = 9;
-  var cat = 'all', visibleLimit = INITIAL, secondaryOpen = false, currentMode = 'anon';
+  // Seuil de pagination par défaut : anonyme 6 (+ carte Proposer), connecté 8
+  // cartes normales (+ la carte recommandée épinglée en 9e = 9 visibles).
+  var INITIAL_ANON = 6, INITIAL_CONNECTED = 8, STEP = 9;
+  var cat = 'all', visibleLimit = INITIAL_ANON, secondaryOpen = false, currentMode = 'anon';
+  function initialLimit() { return currentMode === 'connected' ? INITIAL_CONNECTED : INITIAL_ANON; }
   var cards = [], moreBtn = null, qInput = null, grid = null, addCard = null;
   var REDUCE = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
@@ -356,12 +439,13 @@
     var searching = q.length > 0 || cat !== 'all';
     var idx = 0, hiddenMore = 0;
     cards.forEach(function (c) {
-      // La carte de recommandation reste toujours visible, en fin de grille (comme Proposer).
-      if (c.classList.contains('reco')) { c._elig = true; c._show = true; return; }
       var elig = matches(c, q);
+      var isReco = c.classList.contains('card-reco');
       var show;
       if (!elig) show = false;
-      else { if (searching) show = true; else { show = idx < visibleLimit; if (!show) hiddenMore++; } idx++; }
+      else if (searching) show = true;      // sous filtre/recherche : comme les autres cartes
+      else if (isReco) show = true;         // vue par défaut : épinglée, ne consomme pas de créneau
+      else { show = idx < visibleLimit; if (!show) hiddenMore++; idx++; }
       c._elig = elig; c._show = show;
     });
     return { searching: searching, hiddenMore: hiddenMore };
@@ -461,13 +545,15 @@
     });
   }
 
-  function apply(animate) {
+  function apply(animate, mutate) {
     if (!grid || !qInput) return;
     var doAnim = animate && !REDUCE;
     var beforeVisible = cards.filter(isShown);
     var first = doAnim ? snapshot(positionedShown()) : null;
     var fromH = grid.offsetHeight;
     var fromAddH = (doAnim && addCard) ? addCard.getBoundingClientRect().height : 0;
+    // Mutation DOM éventuelle (ré-ordonnancement) APRÈS le snapshot → animée par FLIP.
+    if (mutate) mutate();
     var info = computeShow();
     var leaving = doAnim ? beforeVisible.filter(function (c) { return !c._show; }) : [];
 
@@ -497,7 +583,7 @@
 
   function selectChip(slug) {
     cat = slug;
-    visibleLimit = INITIAL;
+    visibleLimit = initialLimit();
     document.querySelectorAll('.chip-f').forEach(function (x) {
       if (!x.classList.contains('chip-more-toggle')) x.classList.remove('on');
     });
@@ -543,6 +629,7 @@
     if (!grid || !moreBtn || !qInput) return;
     cards = Array.prototype.slice.call(grid.querySelectorAll('.card[data-cats]'));
     addCard = grid.querySelector('.card.add:not(.reco-hidden)'); // Proposer masquée en mode connecté
+    visibleLimit = initialLimit(); // 6 (anon) ou 8 (connecté, + reco épinglée)
     renderChips(mode);
 
     var meb = document.getElementById('mine-empty-btn');
@@ -733,11 +820,14 @@
 
     removeSkeletons(g);
     if (extras) extras.insertAdjacentHTML('beforebegin', html);
+    // Mémorise l'ordre source de chaque carte (pour restaurer sa position après reco).
+    g.querySelectorAll('.card[data-cats]').forEach(function (c, i) { c.dataset.order = i; });
 
-    // D) Connecté : carte Proposer masquée, remplacée par une recommandation.
+    // Connecté : Proposer masquée ; la source recommandée est HABILLÉE (jamais
+    // dupliquée) et déplacée en dernière position — une source = une seule carte.
     if (mode === 'connected') {
       if (extras) extras.classList.add('reco-hidden');
-      renderReco(g, extras, pickReco(sources, subMap));
+      applyReco(pickReco(sources, subMap));
     }
 
     document.body.setAttribute('data-mode', mode);

@@ -9,6 +9,10 @@
 <link rel="stylesheet" href="/css/fonts.css">
 <link rel="stylesheet" href="/css/tokens.css">
 <link rel="stylesheet" href="/css/site.css">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#fdfaff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1419" media="(prefers-color-scheme: dark)">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 </head>
 <body>
 
@@ -97,6 +101,9 @@
   </div>
 </section>
 
+<!-- Notifications (mode connecté) : panneau rempli par js/push.js -->
+<section class="notif-panel wrap" id="notif-panel" hidden></section>
+
 <!-- B) Historique connecté (remplace le bloc dev en mode connecté) -->
 <section class="hist-section wrap" id="history-section" hidden>
   <div class="section-label">Mon historique</div>
@@ -140,5 +147,7 @@
 <script src="/js/site.js"></script>
 <script src="/js/nav.js"></script>
 <script src="/js/copy.js"></script>
+<script src="/js/push.js"></script>
+<script src="/js/pwa.js"></script>
 </body>
 </html>

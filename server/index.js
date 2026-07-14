@@ -11,6 +11,7 @@ const devRouter = require('./routes/dev');
 const { apiRouter: subscribeApiRouter, pagesRouter } = require('./routes/subscribe');
 const { apiRouter: myAlertsApiRouter, pagesRouter: myAlertsPagesRouter } = require('./routes/myalerts');
 const authRouter = require('./routes/auth');
+const pushRouter = require('./routes/push');
 const { cleanupExpired } = require('./sessions');
 const { startPoller } = require('./poller');
 
@@ -36,6 +37,9 @@ app.use(helmet({
       'script-src': ["'self'"], // aucun script inline (tous externalisés)
       'img-src': ["'self'", 'data:'],
       'connect-src': ["'self'"],
+      // PWA : service worker et manifeste, même origine.
+      'worker-src': ["'self'"],
+      'manifest-src': ["'self'"],
       'base-uri': ["'self'"],
       'form-action': ["'self'"],
       'frame-ancestors': ["'self'"],
@@ -45,6 +49,21 @@ app.use(helmet({
 }));
 
 app.use(express.json());
+
+// PWA — servis explicitement AVANT le static pour maîtriser les en-têtes.
+const publicDir = path.join(__dirname, '..', 'public');
+app.get('/manifest.webmanifest', (req, res) => {
+  res.type('application/manifest+json');
+  res.sendFile(path.join(publicDir, 'manifest.webmanifest'));
+});
+app.get('/sw.js', (req, res) => {
+  res.type('application/javascript');
+  // Autorise un scope racine et force la revalidation (mises à jour du SW).
+  res.set('Service-Worker-Allowed', '/');
+  res.set('Cache-Control', 'no-cache');
+  res.sendFile(path.join(publicDir, 'sw.js'));
+});
+
 app.use(express.static('public'));
 
 // C) Limiteur global sur /api : 120 requêtes/minute/IP (la home fait plusieurs appels).
@@ -61,6 +80,7 @@ app.use('/api', apiLimiter);
 app.use('/api', apiRouter);
 app.use('/api', subscribeApiRouter);
 app.use('/api', myAlertsApiRouter);
+app.use('/api', pushRouter);
 app.use('/api/dev', devRouter);
 // Connexion OAuth (Google / GitHub) — redirections serveur.
 app.use('/auth', authRouter);

@@ -3,6 +3,7 @@ const path = require('path');
 const cron = require('node-cron');
 const { pool } = require('./db');
 const { sendPromoAlert } = require('./mailer');
+const { sendToSource } = require('./webpush');
 const { cleanupExpired } = require('./sessions');
 
 // Purge des sessions expirées : au plus une fois par jour.
@@ -26,33 +27,51 @@ function loadSources() {
 
 const SOURCES = loadSources();
 
-// Abonnés confirmés inscrits à CETTE source (email + token pour la désinscription 1-clic).
+// Abonnés confirmés à CETTE source qui ont GARDÉ l'email activé (email + token
+// pour la désinscription 1-clic). Le push a son propre opt-in, indépendant.
 async function confirmedEmailsForSource(sourceId) {
   const { rows } = await pool.query(
     `SELECT s.email, s.token
        FROM subscribers s
        JOIN subscriptions sub ON sub.subscriber_id = s.id
-      WHERE sub.source_id = $1 AND s.confirmed = true`,
+      WHERE sub.source_id = $1 AND s.confirmed = true AND s.email_enabled = true`,
     [sourceId]
   );
   return rows.map((r) => ({ email: r.email, token: r.token }));
 }
 
 async function notifySourceSubscribers(sourceId, result = {}) {
-  const recipients = await confirmedEmailsForSource(sourceId);
-  if (recipients.length === 0) {
-    console.log(`[poller] Aucun abonné confirmé pour ${sourceId}.`);
-    return;
-  }
   let name = sourceId;
   try {
     const { rows } = await pool.query('SELECT name FROM sources WHERE id = $1', [sourceId]);
     if (rows[0]) name = rows[0].name;
   } catch (err) { /* nom de repli = id */ }
-  const info = { id: sourceId, name, message: result.message || null, url: result.url || null };
-  console.log(`[poller] Envoi de l'alerte à ${recipients.length} abonné(s) de ${sourceId}...`);
-  const { sent, failed } = await sendPromoAlert(recipients, info);
-  console.log(`[poller] Alerte ${sourceId} : ${sent} OK, ${failed} échec(s).`);
+
+  const info = {
+    id: sourceId,
+    name,
+    message: result.message || null,
+    url: result.url || null,
+    statusUrl: `https://www.labonnealerte.fr/source/${sourceId}/statut`,
+  };
+
+  const recipients = await confirmedEmailsForSource(sourceId);
+
+  // Email et push partent EN PARALLÈLE : l'échec de l'un n'empêche pas l'autre.
+  const [emailOut, pushOut] = await Promise.allSettled([
+    recipients.length ? sendPromoAlert(recipients, info) : Promise.resolve({ sent: 0, failed: 0 }),
+    sendToSource(sourceId, info),
+  ]);
+
+  const email = emailOut.status === 'fulfilled' ? emailOut.value : { sent: 0, failed: 'err' };
+  const push = pushOut.status === 'fulfilled' ? pushOut.value : { sent: 0, failed: 'err', removed: 0 };
+  if (emailOut.status === 'rejected') console.error(`[poller] ${sourceId} email :`, emailOut.reason && emailOut.reason.message);
+  if (pushOut.status === 'rejected') console.error(`[poller] ${sourceId} push :`, pushOut.reason && pushOut.reason.message);
+
+  console.log(
+    `[poller] Alerte ${sourceId} : email ${email.sent} OK/${email.failed} échec · ` +
+    `push ${push.sent} OK/${push.failed} échec/${push.removed} purgé(s).`
+  );
 }
 
 async function getState(sourceId) {

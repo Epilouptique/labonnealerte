@@ -92,6 +92,20 @@ CREATE TABLE IF NOT EXISTS subscriptions (
   PRIMARY KEY (subscriber_id, source_id)
 );
 
+-- Abonnements push web (une entrée par appareil/navigateur d'un abonné).
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  id SERIAL PRIMARY KEY,
+  subscriber_id INTEGER REFERENCES subscribers(id) ON DELETE CASCADE,
+  endpoint TEXT UNIQUE NOT NULL,
+  p256dh TEXT NOT NULL,
+  auth TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_push_subscriber ON push_subscriptions (subscriber_id);
+
+-- Préférence d'envoi email (le push a son propre opt-in via push_subscriptions).
+ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS email_enabled BOOLEAN DEFAULT true;
+
 -- Historique des événements de surveillance (transparence / status pages).
 CREATE TABLE IF NOT EXISTS source_events (
   id SERIAL PRIMARY KEY,

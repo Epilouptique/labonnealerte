@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hors ligne — La Bonne Alerte</title>
+<meta name="theme-color" content="#0f1419">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: #0f1419; color: #f4f0fa;
+    min-height: 100vh; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center;
+    padding: 32px; gap: 18px;
+  }
+  .logo { width: 72px; height: 72px; }
+  h1 { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
+  p { color: #b9b2c9; font-size: 15px; max-width: 340px; line-height: 1.55; }
+  a.retry {
+    margin-top: 6px; background: #a567e3; color: #fff;
+    font-weight: 700; font-size: 15px; text-decoration: none;
+    border-radius: 999px; padding: 12px 24px; display: inline-block;
+  }
+</style>
+</head>
+<body>
+  <svg class="logo" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <rect width="512" height="512" rx="115" fill="#171b22"/>
+    <rect x="224" y="90" width="64" height="205" rx="32" fill="#a567e3"/>
+    <circle cx="256" cy="384" r="45" fill="#16a34a"/>
+  </svg>
+  <h1>Vous êtes hors ligne</h1>
+  <p>Impossible de joindre La Bonne Alerte. Vérifiez votre connexion, puis réessayez.</p>
+  <a class="retry" href="/">Réessayer</a>
+</body>
+</html>

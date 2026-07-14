@@ -681,7 +681,7 @@ body[data-mode="connected"] #stats { display: none; }
 
 /* D) carte de recommandation */
 .card.add.reco-hidden { display: none; }
-.card.reco { position: relative; }
+.card.card-reco { position: relative; }
 .reco-label {
   position: absolute; top: -10px; left: 16px; z-index: 6;
   display: inline-flex; align-items: center; gap: 4px;
@@ -716,3 +716,39 @@ body[data-mode="connected"] #stats { display: none; }
 .stat-spam .zero { display: inline-block; transform-origin: center bottom; }
 .stat-spam .zero.pop { animation: zero-pop .45s cubic-bezier(.34, 1.56, .64, 1) both; }
 @media (prefers-reduced-motion: reduce) { .stat-spam .zero.pop { animation: none; } }
+
+/* ---------- panneau Notifications (mode connecté) ---------- */
+.notif-panel { margin: 10px auto 0; }
+.notif-panel .section-label { margin-bottom: 14px; }
+.notif-card {
+  background: var(--surface); border-radius: 20px; padding: 6px 22px;
+  box-shadow: 0 1px 3px rgba(30, 20, 50, .06);
+}
+.notif-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 18px 0;
+}
+.notif-row + .notif-row { border-top: 1px solid color-mix(in srgb, var(--ink) 8%, transparent); }
+.notif-txt strong { display: block; font-size: 15px; font-weight: 700; color: var(--ink); }
+.notif-sub { display: block; margin-top: 3px; font-size: 13px; color: var(--muted); line-height: 1.5; max-width: 420px; }
+.notif-btn {
+  flex: none; border: 1.5px solid var(--amber); background: transparent; color: var(--amber);
+  font: inherit; font-weight: 700; font-size: 14px; border-radius: 999px;
+  padding: 9px 18px; cursor: pointer; transition: background .15s, color .15s;
+}
+.notif-btn:hover { background: var(--amber-soft); }
+.notif-btn.on { background: var(--amber); color: #fff; }
+.notif-btn:disabled { opacity: .6; cursor: default; }
+/* Interrupteur email */
+.notif-toggle {
+  flex: none; position: relative; width: 46px; height: 27px; border: none; cursor: pointer;
+  border-radius: 999px; background: color-mix(in srgb, var(--ink) 20%, transparent);
+  transition: background .18s;
+}
+.notif-toggle::after {
+  content: ""; position: absolute; top: 3px; left: 3px; width: 21px; height: 21px;
+  border-radius: 50%; background: #fff; transition: transform .18s;
+  box-shadow: 0 1px 2px rgba(0,0,0,.25);
+}
+.notif-toggle.on { background: var(--amber); }
+.notif-toggle.on::after { transform: translateX(19px); }
