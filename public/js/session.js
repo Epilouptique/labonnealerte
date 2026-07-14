@@ -119,7 +119,8 @@
         link.setAttribute('href', '#');
         link.onclick = function (e) {
           e.preventDefault();
-          if (window.LBAAccount && window.LBAAccount.open) window.LBAAccount.open();
+          // « Mon compte » bascule le panneau (ouvre s'il est fermé, ferme s'il est ouvert).
+          if (window.LBAAccount && window.LBAAccount.toggle) window.LBAAccount.toggle();
           else logout(); // repli si le panneau n'existe pas (autres pages)
         };
       }

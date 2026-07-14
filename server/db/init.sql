@@ -430,6 +430,80 @@ WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'statut-vercel');
 INSERT INTO source_states (source_id) SELECT 'statut-vercel'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'statut-vercel');
 
+-- ================================================================
+-- Vague 6 : espace, Node LTS, statuts (Anthropic/Netlify/Railway),
+--           fériés & ponts, Black Friday, Journées du patrimoine.
+-- ================================================================
+
+-- Lancements spatiaux européens (Launch Library 2).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'lancement-spatial', 'Lancement spatial', 'Les fusées européennes qui décollent',
+  'Alerte quand une fusée européenne (Ariane, Vega, ESA) décolle dans les prochaines 24h, avec l''heure de Paris et le lieu. Données Launch Library 2.',
+  'internal', 'official', false, ARRAY['lancements-spatiaux', 'espace'], 57
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'lancement-spatial');
+INSERT INTO source_states (source_id) SELECT 'lancement-spatial'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'lancement-spatial');
+
+-- Nouvelles versions LTS de Node.js.
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'node-lts', 'Node.js LTS', 'Nouvelles versions LTS de Node',
+  'Alerte à la sortie d''une nouvelle version LTS (support long terme) de Node.js, avec son numéro et son nom de code. Source officielle nodejs.org.',
+  'internal', 'official', false, ARRAY['versions-logiciels', 'tech'], 45
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'node-lts');
+INSERT INTO source_states (source_id) SELECT 'node-lts'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'node-lts');
+
+-- Statuts de service supplémentaires. Anti-flapping : requires_confirmation = TRUE.
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'statut-anthropic', 'Panne Anthropic', 'Statut officiel de Claude / Anthropic',
+  'Alerte quand Anthropic déclare une panne majeure de Claude sur sa page de statut officielle. Fini le « c''est moi ou c''est en panne ? ».',
+  'internal', 'official', true, ARRAY['pannes-services', 'tech'], 44
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'statut-anthropic');
+INSERT INTO source_states (source_id) SELECT 'statut-anthropic'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'statut-anthropic');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'statut-netlify', 'Panne Netlify', 'Statut officiel de Netlify',
+  'Alerte quand Netlify déclare une panne majeure sur sa page de statut officielle. Fini le « c''est mon déploiement ou c''est en panne ? ».',
+  'internal', 'official', true, ARRAY['pannes-services', 'status-cloud'], 46
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'statut-netlify');
+INSERT INTO source_states (source_id) SELECT 'statut-netlify'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'statut-netlify');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'statut-railway', 'Panne Railway', 'Statut officiel de Railway',
+  'Alerte quand Railway déclare une panne sur sa page de statut officielle (format Instatus). Fini le « c''est mon app ou c''est l''hébergeur ? ».',
+  'internal', 'official', true, ARRAY['pannes-services', 'status-cloud'], 47
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'statut-railway');
+INSERT INTO source_states (source_id) SELECT 'statut-railway'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'statut-railway');
+
+-- Jours fériés & ponts (API calendrier gouv).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'jours-feries', 'Fériés & ponts', 'Les prochains jours fériés et leurs ponts',
+  'Une semaine avant chaque jour férié, un rappel — et le bon plan pont quand le férié tombe un mardi ou un jeudi. Calendrier officiel de l''administration française.',
+  'internal', 'official', false, ARRAY['autre', 'vie-locale'], 58
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'jours-feries');
+INSERT INTO source_states (source_id) SELECT 'jours-feries'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'jours-feries');
+
+-- Sources calculées (zéro API) supplémentaires.
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'black-friday', 'Black Friday', 'Le rendez-vous shopping de novembre',
+  'Rappel quelques jours avant le Black Friday (le vendredi après Thanksgiving). Et un conseil : comparez les prix, méfiez-vous des fausses promos.',
+  'internal', 'official', false, ARRAY['deals-du-jour', 'bons-plans'], 51
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'black-friday');
+INSERT INTO source_states (source_id) SELECT 'black-friday'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'black-friday');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'journees-patrimoine', 'Journées du patrimoine', 'Le 3e week-end de septembre',
+  'Rappel avant les Journées européennes du patrimoine : le 3e week-end de septembre, des monuments et lieux habituellement fermés ouvrent gratuitement.',
+  'internal', 'official', false, ARRAY['patrimoine', 'culture'], 59
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'journees-patrimoine');
+INSERT INTO source_states (source_id) SELECT 'journees-patrimoine'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'journees-patrimoine');
+
 -- Source externe liée : service partenaire configuré sur son propre site.
 -- Pas d'abonnement LaBonneAlerte, donc pas de ligne source_states.
 INSERT INTO sources (id, name, subtitle, description, type, badge, link_url, requires_confirmation, categories, display_order)

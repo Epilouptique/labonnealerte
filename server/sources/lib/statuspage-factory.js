@@ -108,4 +108,52 @@ function createStatusSource(cfg) {
   return { id, check };
 }
 
-module.exports = { createStatusSource };
+/**
+ * Variante « Instatus » (railway.instatus.com…). Format DIFFÉRENT de Statuspage :
+ *   GET <statusHost>/summary.json
+ *     → { page: { name, url, status: "UP"|"HASISSUES"|"UNDERMAINTENANCE" },
+ *         activeIncidents?: [{ name, impact, started, ... }] }
+ * On alerte sur une perturbation en cours (page.status = HASISSUES avec incident
+ * actif). requires_confirmation = true côté init.sql couvre l'anti-flapping.
+ * @param {{ id:string, serviceName:string, statusHost:string, url:string }} cfg
+ */
+function createInstatusSource(cfg) {
+  const { id, serviceName, statusHost, url } = cfg;
+  const SUMMARY_URL = `${statusHost.replace(/\/$/, '')}/summary.json`;
+
+  async function check() {
+    const payload = await getJson(SUMMARY_URL);
+    const page = payload && payload.page;
+    if (!page || typeof page.status !== 'string') {
+      throw new Error(`Structure Instatus inattendue (${serviceName}) : page.status manquant`);
+    }
+    const incidents = Array.isArray(payload.activeIncidents) ? payload.activeIncidents : [];
+
+    // « UP » ou « UNDERMAINTENANCE » (maintenance planifiée) → pas d'alerte panne.
+    // On alerte si le service signale des problèmes ET a au moins un incident actif.
+    const hasIssues = page.status.toUpperCase() === 'HASISSUES' && incidents.length > 0;
+    if (!hasIssues) {
+      return { state: 'inactive', since: null, until: null, message: null, url };
+    }
+
+    const names = incidents.map((i) => i && i.name).filter(Boolean);
+    const incidentText = names.join(' · ') || 'perturbation en cours';
+    let since = null;
+    incidents.forEach((i) => {
+      const d = parseDate(i && (i.started || i.startedAt || i.created_at));
+      if (d && (!since || d < since)) since = d;
+    });
+
+    return {
+      state: 'active',
+      since: since || new Date(),
+      until: null,
+      message: `⚠️ ${serviceName} rencontre une panne : ${incidentText}`,
+      url,
+    };
+  }
+
+  return { id, check };
+}
+
+module.exports = { createStatusSource, createInstatusSource };

@@ -158,6 +158,57 @@
     });
   }
 
+  // Retire juste l'étiquette « Recommandée » (la carte reste épinglée en place).
+  function stripRecoLabel(card) {
+    if (!card) return;
+    var label = card.querySelector('.reco-label');
+    if (label) label.remove();
+  }
+
+  // Résout l'élément carte d'une source par son id (échappement CSS sûr).
+  function cardById(id) {
+    if (!grid || !id) return null;
+    var sel = (window.CSS && CSS.escape) ? CSS.escape(id) : id;
+    return grid.querySelector('.card[data-source-id="' + sel + '"]');
+  }
+
+  // B) Adoption de la recommandée : l'étiquette part, la carte reste, et une
+  // nouvelle recommandation est calculée immédiatement parmi les sources non
+  // suivies restantes. Aucun trou, aucun rechargement.
+  function adoptReco(card) {
+    if (!card || !card.classList.contains('card-reco')) return;
+    // État d'abonnement courant, lu depuis le DOM (inclut la carte tout juste adoptée).
+    var subMap = {};
+    cards.forEach(function (c) {
+      subMap[c.getAttribute('data-source-id')] = c.dataset.subscribed === '1';
+    });
+    var adoptedId = card.getAttribute('data-source-id');
+    var next = pickReco(sourcesData, subMap);
+
+    if (next && next.id !== adoptedId) {
+      // Relève disponible : la carte adoptée reprend sa place, la nouvelle reco
+      // arrive en fin de grille avec son étiquette — le tout animé (FLIP + apparition).
+      apply(true, function () {
+        card.classList.remove('card-reco');
+        stripRecoLabel(card);
+        placeByOrder(card);
+        var extras = document.getElementById('static-extras');
+        var newCard = cardById(next.id);
+        if (newCard) {
+          dressReco(newCard);
+          grid.insertBefore(newCard, extras || null); // fin de grille (Proposer masquée)
+        }
+        refreshCards();
+      });
+    } else {
+      // Aucune relève : la carte reste épinglée en place, sans étiquette (grille pleine).
+      apply(true, function () {
+        stripRecoLabel(card);
+        refreshCards();
+      });
+    }
+  }
+
   // Connecté : la source recommandée n'est PAS dupliquée — sa carte unique est
   // habillée et déplacée en dernière position de la grille.
   function applyReco(reco) {
@@ -271,11 +322,10 @@
       refreshMineDependent();
       if (desired) {
         celebrate(card); // célébration seulement à l'abonnement
-        // Carte recommandée adoptée : après la célébration, on retire l'habillage
-        // et elle reprend sa place normale (une autre reco pourra apparaître au
-        // prochain chargement, pas immédiatement).
+        // Carte recommandée adoptée : après la célébration, l'étiquette part et une
+        // nouvelle recommandation est calculée immédiatement (voir adoptReco).
         if (card.classList.contains('card-reco')) {
-          setTimeout(function () { undressReco(card); }, 800);
+          setTimeout(function () { adoptReco(card); }, 800);
         }
       }
     } catch (e) {
@@ -388,6 +438,7 @@
   var accountEmail = null; // email de la session connectée (pour le panneau compte)
   function initialLimit() { return currentMode === 'connected' ? INITIAL_CONNECTED : INITIAL_ANON; }
   var cards = [], moreBtn = null, qInput = null, grid = null, addCard = null;
+  var sourcesData = []; // liste des sources (pour recalculer une recommandation à l'adoption)
   var REDUCE = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
   function catsOf(c) { return (c.dataset.cats || '').split(' ').filter(Boolean); }
@@ -459,8 +510,7 @@
   }
   function updateMore(info) {
     if (!moreBtn) return;
-    var nSpan = moreBtn.querySelector('.n');
-    if (nSpan) nSpan.textContent = '(+' + Math.min(STEP, info.hiddenMore) + ')';
+    // A) Plus de compteur « (+X) » : le bouton dit simplement « Afficher plus d'alertes ».
     moreBtn.style.display = (info.searching || info.hiddenMore === 0) ? 'none' : '';
   }
   function snapshot(list) { var m = new Map(); list.forEach(function (c) { m.set(c, c.getBoundingClientRect()); }); return m; }
@@ -678,6 +728,9 @@
       a.addEventListener('click', function (e) {
         if (currentMode === 'connected') {
           e.preventDefault();
+          // C) Si le panneau compte est ouvert, on le ferme d'abord, puis on
+          // applique le comportement normal (filtre « mine » + scroll).
+          if (window.LBAAccount && window.LBAAccount.close) window.LBAAccount.close();
           selectChip('mine');
           scrollToGrid();
         }
@@ -811,6 +864,7 @@
       } catch (e) { /* réseau : on reste anonyme */ }
     }
     currentMode = mode;
+    sourcesData = sources; // conservé pour recalculer une reco à l'adoption
 
     var html = sources.map(function (sc) {
       if (mode === 'connected') sc.subscribed = !!subMap[sc.id];
@@ -974,7 +1028,14 @@
     section.hidden = false;
   }
 
-  window.LBAAccount = { open: openAccount, close: closeAccount };
+  // C) Depuis le header : « Mon compte » bascule (ouvre / ferme) le panneau.
+  function toggleAccount() {
+    var panel = document.getElementById('account-panel');
+    if (panel && !panel.hidden) closeAccount();
+    else openAccount();
+  }
+
+  window.LBAAccount = { open: openAccount, close: closeAccount, toggle: toggleAccount };
 
   // Volet J : sur la home, le logo remonte en haut sans recharger + reset des filtres.
   function bindBrandTop() {
