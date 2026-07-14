@@ -63,6 +63,19 @@ async function getState(sourceId) {
   return rows[0] ? rows[0].state : null;
 }
 
+// `since` actuellement stocké pour une source (Date) ou null.
+async function getStoredSince(sourceId) {
+  const { rows } = await pool.query(
+    'SELECT since FROM source_states WHERE source_id = $1',
+    [sourceId]
+  );
+  return rows[0] && rows[0].since ? new Date(rows[0].since) : null;
+}
+
+// Seuil « nouvel épisode » : le since doit avancer d'au moins 24h pour qu'on
+// re-notifie. Évite toute re-notification sur un flottement de l'API.
+const EPISODE_THRESHOLD_MS = 24 * 3600 * 1000;
+
 async function writeState(sourceId, state, fields = {}) {
   const { since = null, until = null, message = null, url = null } = fields;
   await pool.query(
@@ -175,9 +188,29 @@ async function processSource(source, requiresConfirmation = true) {
         console.error(`[poller] ${source.id} : échec envoi alertes :`, err.message);
       }
     } else {
-      // déjà active : on rafraîchit les métadonnées
-      await writeState(source.id, 'active', fields);
-      console.log(`[poller] ${source.id} : déjà active.`);
+      // déjà active : détecter un « nouvel épisode ». Si le since renvoyé avance
+      // d'au moins 24h par rapport au since stocké, c'est une nouvelle occurrence
+      // (offre hebdomadaire, etc.) → on re-notifie comme une (ré)activation.
+      const storedSince = await getStoredSince(source.id);
+      const newSince = result.since ? new Date(result.since) : null;
+      const isNewEpisode =
+        newSince && storedSince &&
+        (newSince.getTime() - storedSince.getTime()) >= EPISODE_THRESHOLD_MS;
+
+      if (isNewEpisode) {
+        await writeState(source.id, 'active', fields);
+        await logEvent(source.id, 'activated', result.message);
+        console.log(`[poller] NOUVEL ÉPISODE [${source.id}]`);
+        try {
+          await notifySourceSubscribers(source.id, result);
+        } catch (err) {
+          console.error(`[poller] ${source.id} : échec envoi alertes :`, err.message);
+        }
+      } else {
+        // simple rafraîchissement des métadonnées
+        await writeState(source.id, 'active', fields);
+        console.log(`[poller] ${source.id} : déjà active.`);
+      }
     }
   } else {
     if (current === 'active' || current === 'pending') {

@@ -141,6 +141,18 @@ INSERT INTO source_states (source_id)
 SELECT 'ecowatt'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'ecowatt');
 
+-- Source interne récurrente (offre hebdomadaire) : notification immédiate.
+-- Le poller re-notifie à chaque nouvel « épisode » (avancée du champ since).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'epic-jeu-gratuit', 'Jeu gratuit Epic', 'Le jeu PC offert de la semaine',
+  'Chaque semaine, l''Epic Games Store offre un jeu PC. Soyez prévenu dès qu''un nouveau jeu devient gratuit, avec son nom et la date limite.',
+  'internal', 'official', false, ARRAY['jeux-video', 'bons-plans'], 15
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'epic-jeu-gratuit');
+
+INSERT INTO source_states (source_id)
+SELECT 'epic-jeu-gratuit'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'epic-jeu-gratuit');
+
 -- Source externe liée : service partenaire configuré sur son propre site.
 -- Pas d'abonnement LaBonneAlerte, donc pas de ligne source_states.
 INSERT INTO sources (id, name, subtitle, description, type, badge, link_url, requires_confirmation, categories, display_order)

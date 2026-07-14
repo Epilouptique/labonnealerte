@@ -47,6 +47,11 @@ Champs :
 - L'endpoint doit être accessible sans authentification
 - Le champ `state` est la seule donnée qui déclenche une notification
   côté plateforme, sur la transition `inactive → active`
+- Si une source active fait avancer son champ `since`, la plateforme
+  considère qu'un nouvel épisode commence et peut notifier à nouveau.
+  Utile pour les alertes récurrentes (offre hebdomadaire, etc.). Un
+  seuil de 24h évite toute re-notification sur un simple flottement de
+  la date renvoyée par la source.
 - Pas de limite de fréquence imposée à la source, mais la plateforme
   ne poll jamais plus souvent que toutes les 15 minutes
 
