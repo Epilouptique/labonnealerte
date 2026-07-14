@@ -136,7 +136,7 @@ async function sendMagicLink(email, token) {
     text:
       `Bonjour,\n\n` +
       `Voici ton lien de connexion pour gérer tes alertes :\n${magicUrl}\n\n` +
-      `Ce lien est valable 24 heures et ne fonctionne qu'une seule fois par demande.\n` +
+      `Ce lien est valable 30 minutes et ne peut être utilisé qu'une fois.\n` +
       `Si tu n'es pas à l'origine de cette demande, ignore cet email.` +
       `\n\n—\nGérer mes alertes : ${MYALERTS_URL}`,
     html: emailShell({
@@ -144,7 +144,7 @@ async function sendMagicLink(email, token) {
       intro: 'Clique sur le bouton ci-dessous pour accéder à tes alertes et gérer tes abonnements. Aucun mot de passe requis.',
       button: { url: magicUrl, label: 'Me connecter à mes alertes →' },
       fallbackUrl: magicUrl,
-      note: 'Ce lien est valable <strong>24 heures</strong>. Si tu n\'es pas à l\'origine de cette demande, ignore simplement cet email.',
+      note: 'Ce lien est valable <strong>30 minutes</strong> et ne peut être utilisé qu\'une fois. Si tu n\'es pas à l\'origine de cette demande, ignore simplement cet email.',
     }),
   });
 }

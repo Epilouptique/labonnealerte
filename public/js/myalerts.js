@@ -87,17 +87,34 @@
     existing.textContent = text;
   }
 
+  // Message discret en cas d'échec OAuth.
+  function showOauthError(code) {
+    var el = document.getElementById('cx-oauth-error');
+    if (!el) return;
+    el.textContent = code === 'email_non_verifie'
+      ? "Votre email n'est pas vérifié chez ce fournisseur. Vérifiez-le puis réessayez."
+      : "La connexion a échoué. Réessayez.";
+    el.hidden = false;
+  }
+
   /* ---------------- Aiguillage ---------------- */
+  // 1) Atterrissage OAuth : le token de session est dans le fragment (#session=...).
+  var hashMatch = (window.location.hash || '').match(/session=([a-f0-9]+)/i);
+  if (hashMatch) {
+    S.set(hashMatch[1]);
+    history.replaceState(null, '', '/connexion');
+    window.location.replace('/');
+    return;
+  }
+
+  // 2) Échec OAuth → formulaire + message discret.
+  var erreur = new URLSearchParams(window.location.search).get('erreur');
+
   async function routeMagicLink() {
     try {
-      var r = await S.fetchAlerts(URL_TOKEN);
-      if (r.status === 401 || !r.ok) {
-        history.replaceState(null, '', '/connexion');
-        showForm(true);
-        return;
-      }
-      S.set(URL_TOKEN);
+      var r = await S.fetchAlerts(URL_TOKEN); // persiste le token de session renvoyé
       history.replaceState(null, '', '/connexion');
+      if (r.status === 401 || !r.ok || !r.data || !r.data.token) { showForm(true); return; }
       window.location.replace('/'); // accueil connecté
     } catch (e) {
       showForm(false);
@@ -110,5 +127,6 @@
     window.location.replace('/'); // déjà connecté → accueil
   } else {
     showForm(false);
+    if (erreur) showOauthError(erreur);
   }
 })();

@@ -70,6 +70,22 @@ CREATE TABLE IF NOT EXISTS subscribers (
 ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS magic_token VARCHAR(64);
 ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS magic_token_expires_at TIMESTAMPTZ;
 
+-- Identités OAuth (fusion de compte par email vérifié).
+ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS google_id TEXT;
+ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS github_id TEXT;
+ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS github_username TEXT;
+
+-- Sessions durables (90 jours, expiration glissante). Le lien magique ne sert
+-- qu'à ouvrir une session ; l'authentification des routes se fait via ce token.
+CREATE TABLE IF NOT EXISTS sessions (
+  token VARCHAR(64) PRIMARY KEY,
+  subscriber_id INTEGER REFERENCES subscribers(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  expires_at TIMESTAMPTZ NOT NULL,
+  last_seen_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions (expires_at);
+
 CREATE TABLE IF NOT EXISTS subscriptions (
   subscriber_id INTEGER REFERENCES subscribers(id) ON DELETE CASCADE,
   source_id VARCHAR(64) REFERENCES sources(id) ON DELETE CASCADE,

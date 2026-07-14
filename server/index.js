@@ -10,6 +10,8 @@ const apiRouter = require('./routes/api');
 const devRouter = require('./routes/dev');
 const { apiRouter: subscribeApiRouter, pagesRouter } = require('./routes/subscribe');
 const { apiRouter: myAlertsApiRouter, pagesRouter: myAlertsPagesRouter } = require('./routes/myalerts');
+const authRouter = require('./routes/auth');
+const { cleanupExpired } = require('./sessions');
 const { startPoller } = require('./poller');
 
 const app = express();
@@ -60,6 +62,8 @@ app.use('/api', apiRouter);
 app.use('/api', subscribeApiRouter);
 app.use('/api', myAlertsApiRouter);
 app.use('/api/dev', devRouter);
+// Connexion OAuth (Google / GitHub) — redirections serveur.
+app.use('/auth', authRouter);
 // Page développeur « Proposer une source » (palette Veille de nuit).
 app.get('/proposer', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'proposer.html'));
@@ -115,5 +119,6 @@ app.use('/', myAlertsPagesRouter);
 
 app.listen(PORT, () => {
   console.log(`[server] Écoute sur http://localhost:${PORT}`);
+  cleanupExpired(); // purge des sessions expirées au démarrage
   startPoller();
 });

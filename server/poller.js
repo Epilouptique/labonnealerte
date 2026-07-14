@@ -3,6 +3,10 @@ const path = require('path');
 const cron = require('node-cron');
 const { pool } = require('./db');
 const { sendPromoAlert } = require('./mailer');
+const { cleanupExpired } = require('./sessions');
+
+// Purge des sessions expirées : au plus une fois par jour.
+let lastSessionCleanup = 0;
 
 // Toutes les 30 minutes
 const SCHEDULE = '*/30 * * * *';
@@ -188,6 +192,12 @@ async function processSource(source, requiresConfirmation = true) {
 
 async function runCycle() {
   console.log(`\n[poller] ── Cycle ${new Date().toISOString()} ──`);
+
+  // Purge des sessions expirées au plus une fois par jour.
+  if (Date.now() - lastSessionCleanup > 24 * 3600 * 1000) {
+    lastSessionCleanup = Date.now();
+    await cleanupExpired();
+  }
 
   let enabledIds;
   let confirmFlags; // id -> requires_confirmation

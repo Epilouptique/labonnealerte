@@ -13,13 +13,15 @@
   function clear() { try { localStorage.removeItem(KEY); } catch (e) {} }
 
   // Récupère les alertes de l'utilisateur pour un token donné.
-  // -> { status, ok, data }
+  // Persiste automatiquement le token de session renvoyé (rotation : échange d'un
+  // magic token, ou simple confirmation). -> { status, ok, data }
   async function fetchAlerts(token) {
     var res = await fetch(API + '?token=' + encodeURIComponent(token), {
       headers: { Accept: 'application/json' }
     });
     var data = null;
     try { data = await res.json(); } catch (e) {}
+    if (res.ok && data && data.token && data.token !== get()) set(data.token);
     return { status: res.status, ok: res.ok, data: data };
   }
 
@@ -38,8 +40,14 @@
   }
 
   function logout() {
-    clear();
-    window.location.reload();
+    var t = get();
+    var done = function () { clear(); window.location.reload(); };
+    try {
+      fetch('/api/logout', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: t })
+      }).then(done, done);
+    } catch (e) { done(); }
   }
 
   // Déduit un prénom de l'email pour un accueil chaleureux. Renvoie null si peu fiable.

@@ -8,6 +8,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { pool } = require('../db');
 const { sendMagicLink } = require('../mailer');
+const { authenticate, deleteSession } = require('../sessions');
 
 const apiRouter = express.Router();
 const pagesRouter = express.Router();
@@ -42,16 +43,6 @@ setInterval(() => {
   }
 }, RATE_WINDOW_MS).unref();
 
-// Résout un magic_token valide (existant + non expiré) vers son subscriber.
-async function subscriberForToken(token) {
-  if (!token || typeof token !== 'string') return null;
-  const { rows } = await pool.query(
-    `SELECT id, email FROM subscribers
-      WHERE magic_token = $1 AND magic_token_expires_at > NOW()`,
-    [token]
-  );
-  return rows[0] || null;
-}
 
 /* ------------------------------------------------------------------ */
 /* POST /api/my-alerts/request — envoie un lien magique.               */
@@ -73,7 +64,7 @@ apiRouter.post('/my-alerts/request', rateLimit, async (req, res) => {
         const token = crypto.randomBytes(32).toString('hex');
         await pool.query(
           `UPDATE subscribers
-              SET magic_token = $1, magic_token_expires_at = NOW() + INTERVAL '24 hours'
+              SET magic_token = $1, magic_token_expires_at = NOW() + INTERVAL '30 minutes'
             WHERE id = $2`,
           [token, rows[0].id]
         );
@@ -98,8 +89,8 @@ apiRouter.post('/my-alerts/request', rateLimit, async (req, res) => {
 /* ------------------------------------------------------------------ */
 apiRouter.get('/my-alerts', async (req, res) => {
   try {
-    const sub = await subscriberForToken(req.query.token);
-    if (!sub) return res.status(401).json({ error: 'Lien invalide ou expiré' });
+    const auth = await authenticate(req.query.token);
+    if (!auth) return res.status(401).json({ error: 'Lien invalide ou expiré' });
 
     const { rows } = await pool.query(
       `SELECT s.id, s.name, s.description, s.badge,
@@ -111,14 +102,28 @@ apiRouter.get('/my-alerts', async (req, res) => {
                 ON sub.source_id = s.id AND sub.subscriber_id = $1
         WHERE s.enabled = true AND s.type <> 'linked'
         ORDER BY s.id`,
-      [sub.id]
+      [auth.id]
     );
 
-    return res.status(200).json({ email: sub.email, sources: rows });
+    // On renvoie le token de session (potentiellement issu de l'échange du magic
+    // token) pour que le client mette à jour son localStorage.
+    return res.status(200).json({ email: auth.email, sources: rows, token: auth.sessionToken });
   } catch (err) {
     console.error('[my-alerts] Erreur GET /my-alerts :', err.message);
     return res.status(503).json({ error: 'Service indisponible' });
   }
+});
+
+/* ------------------------------------------------------------------ */
+/* POST /api/logout — supprime la session courante.                    */
+/* ------------------------------------------------------------------ */
+apiRouter.post('/logout', async (req, res) => {
+  try {
+    await deleteSession((req.body || {}).token);
+  } catch (err) {
+    console.error('[my-alerts] Erreur POST /logout :', err.message);
+  }
+  return res.status(200).json({ ok: true });
 });
 
 /* ------------------------------------------------------------------ */
@@ -131,8 +136,8 @@ apiRouter.post('/my-alerts/toggle', async (req, res) => {
   }
 
   try {
-    const sub = await subscriberForToken(token);
-    if (!sub) return res.status(401).json({ error: 'Lien invalide ou expiré' });
+    const auth = await authenticate(token);
+    if (!auth) return res.status(401).json({ error: 'Lien invalide ou expiré' });
 
     // La source doit exister, être active et abonnable (pas 'linked').
     const src = await pool.query(
@@ -147,12 +152,12 @@ apiRouter.post('/my-alerts/toggle', async (req, res) => {
       await pool.query(
         `INSERT INTO subscriptions (subscriber_id, source_id)
          VALUES ($1, $2) ON CONFLICT (subscriber_id, source_id) DO NOTHING`,
-        [sub.id, source_id]
+        [auth.id, source_id]
       );
     } else {
       await pool.query(
         'DELETE FROM subscriptions WHERE subscriber_id = $1 AND source_id = $2',
-        [sub.id, source_id]
+        [auth.id, source_id]
       );
     }
 
@@ -168,8 +173,8 @@ apiRouter.post('/my-alerts/toggle', async (req, res) => {
 /* ------------------------------------------------------------------ */
 apiRouter.get('/my-alerts/history', async (req, res) => {
   try {
-    const sub = await subscriberForToken(req.query.token);
-    if (!sub) return res.status(401).json({ error: 'Lien invalide ou expiré' });
+    const auth = await authenticate(req.query.token);
+    if (!auth) return res.status(401).json({ error: 'Lien invalide ou expiré' });
 
     const { rows } = await pool.query(
       `SELECT ev.event, ev.message, ev.created_at, s.id AS source_id, s.name AS source_name
@@ -179,7 +184,7 @@ apiRouter.get('/my-alerts/history', async (req, res) => {
         WHERE sub.subscriber_id = $1
         ORDER BY ev.created_at DESC
         LIMIT 20`,
-      [sub.id]
+      [auth.id]
     );
 
     const events = rows.map((r) => ({

@@ -52,10 +52,24 @@
 .cx-form button:hover { background: color-mix(in srgb, var(--amber) 88%, #000); }
 .cx-form button:disabled { opacity: .6; cursor: default; }
 
-.cx-expired {
+.cx-expired, .cx-oauth-error {
   margin-bottom: 18px; background: var(--amber-soft); color: var(--amber); font-weight: 600;
   border-radius: 12px; padding: 11px 14px; font-size: 13.5px;
 }
+/* Boutons OAuth (Google / GitHub). */
+.cx-oauth { display: grid; gap: 10px; }
+.cx-provider {
+  display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%;
+  border: 1.5px solid color-mix(in srgb, var(--ink) 16%, transparent);
+  background: var(--surface); color: var(--ink); font-weight: 600; font-size: 15px;
+  border-radius: 999px; padding: 12px 0; text-decoration: none; transition: border-color .15s, background .15s;
+}
+.cx-provider:hover { border-color: color-mix(in srgb, var(--ink) 34%, transparent); }
+.cx-ic { display: inline-flex; }
+.cx-privacy { color: var(--muted); font-size: 12.5px; margin: 10px 0 0; }
+.cx-sep { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 12.5px; margin: 18px 0; }
+.cx-sep::before, .cx-sep::after { content: ""; flex: 1; height: 1px; background: color-mix(in srgb, var(--ink) 14%, transparent); }
+.cx-card.sent .cx-oauth, .cx-card.sent .cx-privacy, .cx-card.sent .cx-sep { display: none; }
 /* État de succès soigné (icône + message). */
 .cx-success { display: none; }
 .cx-card.sent .cx-form, .cx-card.sent .sub { display: none; }
@@ -79,9 +93,23 @@
   <section id="cx-view" hidden>
     <div class="cx-card" id="cx-card">
       <div class="cx-expired" id="cx-expired" hidden>Lien expiré, redemandez un accès.</div>
+      <div class="cx-oauth-error" id="cx-oauth-error" hidden></div>
 
       <h1>Gérer mes alertes</h1>
-      <p class="sub">Recevez un lien d'accès par email — pas de mot de passe.</p>
+      <p class="sub">Connectez-vous pour gérer vos alertes — sans mot de passe.</p>
+
+      <div class="cx-oauth">
+        <a class="cx-provider" href="/auth/google">
+          <span class="cx-ic"><svg viewBox="0 0 48 48" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M24 9.5c3.5 0 6.3 1.2 8.4 3.2l6.3-6.3C34.9 2.8 29.9 1 24 1 14.6 1 6.5 6.4 2.6 14.3l7.3 5.7C11.8 14 17.4 9.5 24 9.5z"/><path fill="currentColor" d="M46.1 24.5c0-1.6-.1-2.8-.4-4.1H24v7.4h12.7c-.3 2.1-1.6 5.2-4.6 7.3l7.1 5.5C43.6 37.2 46.1 31.4 46.1 24.5z"/><path fill="currentColor" d="M10 28.6c-.5-1.5-.8-3-.8-4.6s.3-3.1.8-4.6l-7.3-5.7C1 17 0 20.4 0 24s1 7 2.6 10.3l7.4-5.7z"/><path fill="currentColor" d="M24 47c6 0 11-2 14.6-5.4l-7.1-5.5c-1.9 1.3-4.5 2.2-7.5 2.2-6.6 0-11-4.4-12.8-9.8L2.6 34.3C6.5 42.2 14.6 47 24 47z"/></svg></span>
+          Continuer avec Google
+        </a>
+        <a class="cx-provider" href="/auth/github">
+          <span class="cx-ic"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.46-1.16-1.11-1.47-1.11-1.47-.9-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.9 1.53 2.34 1.09 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02a9.5 9.5 0 0 1 5 0c1.9-1.29 2.74-1.02 2.74-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85v2.74c0 .27.18.58.69.48A10 10 0 0 0 12 2z"/></svg></span>
+          Continuer avec GitHub
+        </a>
+      </div>
+      <p class="cx-privacy">On ne lit que votre email — rien d'autre.</p>
+      <div class="cx-sep"><span>ou par email</span></div>
 
       <form class="cx-form" id="cx-form">
         <input type="email" name="email" required placeholder="votre@email.fr" aria-label="Adresse email">
