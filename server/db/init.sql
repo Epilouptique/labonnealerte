@@ -239,6 +239,92 @@ UPDATE sources
        description = 'Alerte quand la Durance (de Serre-Ponçon à Cadarache) passe en vigilance crues orange ou rouge. Source officielle Vigicrues (SCHAPI).'
  WHERE id = 'vigicrues-05';
 
+-- Sources « panne de service » (standard Statuspage). requires_confirmation =
+-- TRUE : anti-flapping — une page de statut peut passer brièvement en « major »
+-- puis revenir ; la confirmation sur 2 cycles évite de notifier un hoquet.
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'statut-github', 'Panne GitHub', 'Statut officiel de GitHub',
+  'Alerte quand GitHub déclare une panne majeure sur sa page de statut officielle. Fini le « c''est moi ou c''est en panne ? ».',
+  'internal', 'official', true, ARRAY['pannes-services', 'github'], 40
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'statut-github');
+INSERT INTO source_states (source_id) SELECT 'statut-github'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'statut-github');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'statut-cloudflare', 'Panne Cloudflare', 'Statut officiel de Cloudflare',
+  'Alerte quand Cloudflare déclare une panne majeure sur sa page de statut officielle. Fini le « c''est moi ou c''est en panne ? ».',
+  'internal', 'official', true, ARRAY['pannes-services', 'status-cloud'], 41
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'statut-cloudflare');
+INSERT INTO source_states (source_id) SELECT 'statut-cloudflare'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'statut-cloudflare');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'statut-openai', 'Panne OpenAI', 'Statut officiel de OpenAI',
+  'Alerte quand OpenAI déclare une panne majeure sur sa page de statut officielle. Fini le « c''est moi ou c''est en panne ? ».',
+  'internal', 'official', true, ARRAY['pannes-services', 'tech'], 42
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'statut-openai');
+INSERT INTO source_states (source_id) SELECT 'statut-openai'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'statut-openai');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'statut-discord', 'Panne Discord', 'Statut officiel de Discord',
+  'Alerte quand Discord déclare une panne majeure sur sa page de statut officielle. Fini le « c''est moi ou c''est en panne ? ».',
+  'internal', 'official', true, ARRAY['pannes-services', 'tech'], 43
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'statut-discord');
+INSERT INTO source_states (source_id) SELECT 'statut-discord'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'statut-discord');
+
+-- Sources « calculées » (zéro API) : l'état se déduit de dates.
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'changement-heure', 'Changement d''heure', 'Été et hiver, ne l''oubliez plus',
+  'Un rappel quelques jours avant le passage à l''heure d''été ou d''hiver, pour ne plus jamais être pris au dépourvu par l''horloge.',
+  'internal', 'official', false, ARRAY['autre', 'vie-locale'], 50
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'changement-heure');
+INSERT INTO source_states (source_id) SELECT 'changement-heure'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'changement-heure');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'soldes', 'Soldes nationales', 'Début des soldes officielles',
+  'Soyez prévenu à l''approche des soldes nationales d''hiver et d''été, puis pendant toute leur durée.',
+  'internal', 'official', false, ARRAY['soldes', 'bons-plans'], 51
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'soldes');
+INSERT INTO source_states (source_id) SELECT 'soldes'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'soldes');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'perseides', 'Nuit des étoiles filantes', 'Le pic des Perséides en août',
+  'Un rappel avant le pic des Perséides, la plus belle pluie d''étoiles filantes de l''année, dans la nuit du 12 au 13 août.',
+  'internal', 'official', false, ARRAY['astronomie', 'autre'], 52
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'perseides');
+INSERT INTO source_states (source_id) SELECT 'perseides'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'perseides');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'beaujolais-nouveau', 'Beaujolais nouveau', 'Le 3e jeudi de novembre',
+  'Chaque 3e jeudi de novembre, le Beaujolais nouveau est arrivé. On vous prévient — pour que vous soyez prêt, et que vous ayez une excuse toute trouvée.',
+  'internal', 'official', false, ARRAY['vins', 'alimentation'], 53
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'beaujolais-nouveau');
+INSERT INTO source_states (source_id) SELECT 'beaujolais-nouveau'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'beaujolais-nouveau');
+
+-- Source Steam (heuristique sur les soldes saisonnières) : requires_confirmation true.
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'soldes-steam', 'Soldes Steam', 'Les grandes soldes saisonnières',
+  'Alerte au lancement des grandes soldes saisonnières Steam (été, hiver, automne, printemps). Des milliers de jeux PC en promo.',
+  'internal', 'official', true, ARRAY['jeux-video', 'soldes'], 54
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'soldes-steam');
+INSERT INTO source_states (source_id) SELECT 'soldes-steam'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'soldes-steam');
+
+-- Source aurores boréales (NOAA SWPC, données scientifiques).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'aurores-france', 'Aurores en France', 'Tempêtes géomagnétiques visibles',
+  'Alerte quand une tempête géomagnétique (indice Kp ≥ 7) rend possible l''observation d''aurores boréales depuis la France. Données officielles NOAA.',
+  'internal', 'official', false, ARRAY['aurores-boreales', 'astronomie'], 55
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'aurores-france');
+INSERT INTO source_states (source_id) SELECT 'aurores-france'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'aurores-france');
+
 -- Source externe liée : service partenaire configuré sur son propre site.
 -- Pas d'abonnement LaBonneAlerte, donc pas de ligne source_states.
 INSERT INTO sources (id, name, subtitle, description, type, badge, link_url, requires_confirmation, categories, display_order)
