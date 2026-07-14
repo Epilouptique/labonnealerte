@@ -583,6 +583,47 @@ WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'statut-zoom');
 INSERT INTO source_states (source_id) SELECT 'statut-zoom'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'statut-zoom');
 
+-- ================================================================
+-- Vague 8 : Bison Futé (calendrier figé) + 3 calculées « ciel ».
+-- (Pollens Gap différé : nécessite un compte Atmo Data — voir rapport.)
+-- ================================================================
+
+-- Bison Futé : jours rouges/noirs nationaux (calendrier 2026 codé en dur).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'bison-fute', 'Bison Futé', 'Jours rouges et noirs sur les routes',
+  'Alerte la veille et le jour même des journées classées rouge ou noir par Bison Futé au niveau national (grands départs et retours). Calendrier officiel Bison Futé.',
+  'internal', 'official', false, ARRAY['trafic-routier', 'transports'], 36
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'bison-fute');
+INSERT INTO source_states (source_id) SELECT 'bison-fute'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'bison-fute');
+
+-- Éclipse de Soleil (dates connues, fenêtre J-7 → J).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'eclipse-solaire', 'Éclipse de Soleil', 'Les éclipses visibles de France',
+  'Rappel avant une éclipse de Soleil visible depuis la France (avec la consigne de sécurité : lunettes homologuées obligatoires). La prochaine : la grande éclipse partielle du 12 août 2026.',
+  'internal', 'official', false, ARRAY['eclipses', 'astronomie'], 56
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'eclipse-solaire');
+INSERT INTO source_states (source_id) SELECT 'eclipse-solaire'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'eclipse-solaire');
+
+-- Nuits des Étoiles (AFA), dates annuelles codées en dur.
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'nuits-des-etoiles', 'Nuits des Étoiles', 'Le grand rendez-vous d''astronomie de l''été',
+  'Rappel avant les Nuits des Étoiles : trois soirées d''observation gratuites organisées partout en France par l''Association Française d''Astronomie. Édition 2026 : 7 au 9 août.',
+  'internal', 'official', false, ARRAY['astronomie', 'etoiles-filantes'], 56
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'nuits-des-etoiles');
+INSERT INTO source_states (source_id) SELECT 'nuits-des-etoiles'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'nuits-des-etoiles');
+
+-- Géminides (pic annuel, nuit du 13 au 14 décembre).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'geminides', 'Géminides', 'Le grand essaim d''étoiles filantes d''hiver',
+  'Rappel avant le maximum des Géminides, l''une des plus belles pluies d''étoiles filantes de l''année (jusqu''à 120 par heure), dans la nuit du 13 au 14 décembre.',
+  'internal', 'official', false, ARRAY['etoiles-filantes', 'astronomie'], 56
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'geminides');
+INSERT INTO source_states (source_id) SELECT 'geminides'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'geminides');
+
 -- Source externe liée : service partenaire configuré sur son propre site.
 -- Pas d'abonnement LaBonneAlerte, donc pas de ligne source_states.
 INSERT INTO sources (id, name, subtitle, description, type, badge, link_url, requires_confirmation, categories, display_order)
