@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
 const { pool } = require('../db');
 const { sendConfirmation } = require('../mailer');
+const { validateParams } = require('../params');
 
 // apiRouter : endpoints JSON destinés aux machines (monté sous /api).
 // pagesRouter : pages HTML destinées aux humains, liens cliqués depuis un email
@@ -72,7 +73,7 @@ function htmlPage({ title, heading, message, tone = 'ok' }) {
 // POST /subscribe — inscrit une adresse à une source et envoie le mail de confirmation.
 // Corps : { email, source_id? } (source_id par défaut : 'leboncoin-livraison').
 apiRouter.post('/subscribe', subscribeLimiter, async (req, res) => {
-  const { email, source_id } = req.body || {};
+  const { email, source_id, params } = req.body || {};
   const sourceId = source_id || DEFAULT_SOURCE;
 
   if (!email || typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -82,10 +83,20 @@ apiRouter.post('/subscribe', subscribeLimiter, async (req, res) => {
   const normalized = email.toLowerCase();
 
   try {
-    // La source doit exister (sinon la FK échouerait).
-    const src = await pool.query('SELECT 1 FROM sources WHERE id = $1', [sourceId]);
+    // La source doit exister (sinon la FK échouerait). On récupère aussi son schéma.
+    const src = await pool.query('SELECT params_schema FROM sources WHERE id = $1', [sourceId]);
     if (src.rows.length === 0) {
       return res.status(404).json({ error: 'Source inconnue' });
+    }
+
+    // Source paramétrée (v2) : params requis et validés contre le schéma. Source
+    // broadcast : params ignoré (chemin v1 inchangé, abonnement à params NULL).
+    const schema = src.rows[0].params_schema || null;
+    let canonicalParams = null;
+    if (schema) {
+      const check = validateParams(schema, params);
+      if (!check.ok) return res.status(400).json({ error: check.error });
+      canonicalParams = check.params;
     }
 
     // Trouve ou crée le subscriber (unique par email).
@@ -110,14 +121,14 @@ apiRouter.post('/subscribe', subscribeLimiter, async (req, res) => {
     }
 
     // Lie le subscriber à la source ; rows vide si l'abonnement existe déjà.
+    // params NULL = broadcast (v1) ; JSONB = instance paramétrée (v2). ON CONFLICT
+    // cible l'index unique d'expression (subscriber_id, source_id, COALESCE(params,'{}')).
     const link = await pool.query(
-      // Broadcast : params NULL. ON CONFLICT cible l'index unique d'expression
-      // (subscriber_id, source_id, COALESCE(params,'{}')) — cf. init.sql v2.
-      `INSERT INTO subscriptions (subscriber_id, source_id)
-       VALUES ($1, $2)
+      `INSERT INTO subscriptions (subscriber_id, source_id, params)
+       VALUES ($1, $2, $3)
        ON CONFLICT (subscriber_id, source_id, COALESCE(params, '{}'::jsonb)) DO NOTHING
        RETURNING subscriber_id`,
-      [subscriber.id, sourceId]
+      [subscriber.id, sourceId, canonicalParams ? JSON.stringify(canonicalParams) : null]
     );
 
     if (link.rows.length === 0) {

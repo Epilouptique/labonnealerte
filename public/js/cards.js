@@ -67,12 +67,52 @@
 
   var SHARE_SVG = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>';
 
+  // Source paramétrée (OpenAlert v2) : schéma plat à au moins un paramètre.
+  function isParam(s) { return Array.isArray(s.params_schema) && s.params_schema.length > 0; }
+
+  // Bloc d'abonnement paramétré : instances suivies (mode connecté) + sélecteur
+  // générique construit depuis le schéma enum. Aucun code spécifique vigilance.
+  function paramFace(s, mode) {
+    var schema = s.params_schema[0];
+    var instances = Array.isArray(s.instances) ? s.instances : [];
+    var def = (window.LBADefaults && window.LBADefaults[schema.key]) || schema.default || null;
+    var opts = (schema.values || []).map(function (v) {
+      var sel = (def != null && String(v.value) === String(def)) ? ' selected' : '';
+      return '<option value="' + esc(v.value) + '"' + sel + '>' + esc(v.label) + '</option>';
+    }).join('');
+
+    var chips = instances.length
+      ? '<div class="param-chips">' + instances.map(function (inst) {
+          return '<span class="param-chip" data-params="' + esc(JSON.stringify(inst.params)) + '">' +
+            '<span class="pc-dot' + (inst.state === 'active' ? ' on' : '') + '"></span>' +
+            esc(inst.label) +
+            '<button type="button" class="param-remove" aria-label="Se désabonner de ' + esc(inst.label) + '">✕</button>' +
+          '</span>';
+        }).join('') + '</div>'
+      : '';
+    var addBtn = instances.length
+      ? '<button type="button" class="param-add">+ ajouter</button>' : '';
+    var picker =
+      '<div class="param-form"' + (instances.length ? ' hidden' : '') + '>' +
+        '<select class="param-select" data-key="' + esc(schema.key) + '" aria-label="' + esc(schema.label) + '">' + opts + '</select>' +
+        '<button type="button" class="sub-btn param-follow">Suivre</button>' +
+      '</div>';
+    // Parcours anonyme : email (réutilise .sub-form), les params sont joints au submit.
+    var anon = (mode !== 'connected')
+      ? '<div class="sub-form param-subform"><input type="email" placeholder="votre@email.fr" aria-label="Adresse email"><button type="button">OK</button></div>'
+      : '';
+    return chips + addBtn + picker + anon;
+  }
+
   function frontFace(s, mode, isLinked) {
     var state, action;
     if (isLinked) {
       state = '<div class="state partner"><span class="dot-idle"></span> Service partenaire</div>';
       action = '<a class="link-btn" href="' + esc(s.link_url) + '" target="_blank" rel="noopener">' +
         'Configurer sur ' + esc(domainOf(s.link_url)) + ' →</a>';
+    } else if (isParam(s)) {
+      state = stateFor(s.state); // état de la/les instance(s) de l'utilisateur (le pire), sinon neutre
+      action = paramFace(s, mode);
     } else {
       state = stateFor(s.state);
       action = switchRow(mode === 'connected' && !!s.subscribed) + (mode === 'connected' ? '' : subForm());
@@ -146,7 +186,9 @@
     var cats = Array.isArray(s.categories) ? s.categories : [];
     var dataCats = cats.map(esc).join(' ');
     var isLinked = s.type === 'linked';
-    var sub = mode === 'connected' && !!s.subscribed ? '1' : '0';
+    // Abonné = broadcast souscrit OU au moins une instance paramétrée.
+    var hasInstances = Array.isArray(s.instances) && s.instances.length > 0;
+    var sub = mode === 'connected' && (!!s.subscribed || hasInstances) ? '1' : '0';
     return '' +
       '<div class="card flip" data-cats="' + dataCats + '" data-source-id="' + esc(s.id) + '"' +
         ' data-subscribed="' + sub + '" data-search="' + esc(searchText(s, cats)) + '">' +

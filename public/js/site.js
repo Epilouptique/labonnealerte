@@ -332,10 +332,12 @@
     var okBtn = card.querySelector('.sub-form button');
     if (okBtn) okBtn.disabled = true;
     try {
+      var payload = sourceId ? { email: email, source_id: sourceId } : { email: email };
+      if (card._pendingParams) payload.params = card._pendingParams; // instance paramétrée (anonyme)
       var res = await fetch('/api/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(sourceId ? { email: email, source_id: sourceId } : { email: email })
+        body: JSON.stringify(payload)
       });
       if (res.status === 200 || res.status === 409) {
         var row = rowOf(card); if (row) row.classList.remove('pending');
@@ -411,6 +413,104 @@
   document.addEventListener('click', function (e) {
     var ok = e.target.closest('.sub-form button');
     if (ok) { e.preventDefault(); submitAnon(ok.closest('.card')); }
+  });
+
+  /* ---- Abonnement paramétré (OpenAlert v2) : select + instances ---- */
+  var escP = LBACards.esc;
+  function ensureAddBtn(card) {
+    if (card.querySelector('.param-add')) return;
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'param-add'; b.textContent = '+ ajouter';
+    var form = card.querySelector('.param-form');
+    if (form) form.parentNode.insertBefore(b, form);
+  }
+  function chipsContainer(card) {
+    var c = card.querySelector('.param-chips');
+    if (!c) {
+      c = document.createElement('div'); c.className = 'param-chips';
+      var form = card.querySelector('.param-form');
+      if (form) form.parentNode.insertBefore(c, form);
+    }
+    return c;
+  }
+  function addChip(card, params, label) {
+    var c = chipsContainer(card);
+    var key = JSON.stringify(params);
+    var dup = [].some.call(c.querySelectorAll('.param-chip'), function (ch) { return ch.getAttribute('data-params') === key; });
+    if (!dup) {
+      var span = document.createElement('span');
+      span.className = 'param-chip'; span.setAttribute('data-params', key);
+      span.innerHTML = '<span class="pc-dot"></span>' + escP(label) +
+        '<button type="button" class="param-remove" aria-label="Se désabonner">✕</button>';
+      c.appendChild(span);
+    }
+    ensureAddBtn(card);
+  }
+  function togglePicker(card, show) {
+    var f = card.querySelector('.param-form'); if (f) f.hidden = !show;
+  }
+
+  async function followParamConnected(card) {
+    var sel = card.querySelector('.param-select'); if (!sel) return;
+    var params = {}; params[sel.getAttribute('data-key')] = sel.value;
+    var label = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : sel.value;
+    var btn = card.querySelector('.param-follow'); if (btn) btn.disabled = true;
+    try {
+      var res = await fetch('/api/my-alerts/toggle-param', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: LBASession.get(), source_id: card.getAttribute('data-source-id'), params: params, subscribed: true })
+      });
+      if (!res.ok) throw new Error('http');
+      var data = await res.json();
+      addChip(card, data.params || params, data.label || label);
+      card.dataset.subscribed = '1';
+      togglePicker(card, false);
+      celebrate(card);
+      refreshMineDependent();
+    } catch (e) { note(card, 'Réessaie plus tard', 'err'); }
+    finally { if (btn) btn.disabled = false; }
+  }
+
+  async function removeParam(card, chip) {
+    var params;
+    try { params = JSON.parse(chip.getAttribute('data-params')); } catch (e) { return; }
+    try {
+      var res = await fetch('/api/my-alerts/toggle-param', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: LBASession.get(), source_id: card.getAttribute('data-source-id'), params: params, subscribed: false })
+      });
+      if (!res.ok) throw new Error('http');
+      chip.remove();
+      var c = card.querySelector('.param-chips');
+      if (c && !c.querySelector('.param-chip')) {
+        card.dataset.subscribed = '0';
+        var add = card.querySelector('.param-add'); if (add) add.remove();
+        togglePicker(card, true);
+      }
+      refreshMineDependent();
+    } catch (e) { /* silencieux */ }
+  }
+
+  function followParamAnon(card) {
+    var sel = card.querySelector('.param-select'); if (!sel) return;
+    card._pendingParams = {}; card._pendingParams[sel.getAttribute('data-key')] = sel.value;
+    var sf = card.querySelector('.param-subform');
+    if (sf) { sf.style.display = 'flex'; var i = sf.querySelector('input'); if (i) i.focus(); }
+  }
+
+  document.addEventListener('click', function (e) {
+    var card = e.target.closest('.card'); if (!card) return;
+    if (e.target.closest('.param-follow')) {
+      e.preventDefault();
+      if (document.body.getAttribute('data-mode') === 'connected') followParamConnected(card);
+      else followParamAnon(card);
+    } else if (e.target.closest('.param-remove')) {
+      e.preventDefault();
+      removeParam(card, e.target.closest('.param-chip'));
+    } else if (e.target.closest('.param-add')) {
+      e.preventDefault();
+      togglePicker(card, true);
+    }
   });
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Enter' && e.target.matches('.sub-form input')) {
@@ -919,7 +1019,7 @@
     }
 
     // Session : mode connecté si token valide.
-    var mode = 'anon', subMap = {}, email = null;
+    var mode = 'anon', subMap = {}, mineMap = {}, email = null;
     var token = LBASession.get();
     if (token) {
       try {
@@ -928,13 +1028,15 @@
         else if (s.ok && s.data) {
           mode = 'connected';
           email = s.data.email;
-          (s.data.sources || []).forEach(function (x) { subMap[x.id] = x.subscribed; });
+          (s.data.sources || []).forEach(function (x) { subMap[x.id] = x.subscribed; mineMap[x.id] = x; });
           profile.departement = s.data.departement || null;
           profile.interests = s.data.interests || [];
         }
       } catch (e) { /* réseau : on reste anonyme */ }
     }
     currentMode = mode;
+    // Valeur par défaut du sélecteur paramétré (personnalisation département).
+    window.LBADefaults = { departement: profile.departement || null };
 
     // D) Ordre personnalisé (connecté) : les sources matchant département/intérêts
     // remontent, tri secondaire STABLE sur l'ordre serveur (display_order). Si aucun
@@ -952,7 +1054,15 @@
     sourcesData = sources; // conservé pour recalculer une reco à l'adoption
 
     var html = sources.map(function (sc) {
-      if (mode === 'connected') sc.subscribed = !!subMap[sc.id];
+      if (mode === 'connected') {
+        sc.subscribed = !!subMap[sc.id];
+        // Source paramétrée : instances suivies + état (le pire) depuis /my-alerts.
+        var mine = mineMap[sc.id];
+        if (mine && Array.isArray(sc.params_schema) && sc.params_schema.length) {
+          sc.instances = mine.instances || [];
+          if (sc.instances.length) sc.state = mine.state;
+        }
+      }
       return LBACards.cardHTML(sc, mode);
     }).join('');
 

@@ -11,6 +11,15 @@ const { sendMagicLink } = require('../mailer');
 const { authenticate, deleteSession } = require('../sessions');
 const { isValidCountry, isValidDepartement } = require('../geo');
 const { VALID_SLUGS } = require('../categories');
+const { validateParams, resolveLabel } = require('../params');
+
+// État « le pire » d'un ensemble d'instances (pour l'affichage de la carte).
+const STATE_RANK = { active: 3, pending: 2, inactive: 1 };
+function worstState(states) {
+  let worst = 'inactive';
+  for (const s of states) if ((STATE_RANK[s] || 0) > (STATE_RANK[worst] || 0)) worst = s;
+  return worst;
+}
 
 const apiRouter = express.Router();
 const pagesRouter = express.Router();
@@ -101,11 +110,45 @@ apiRouter.get('/my-alerts', async (req, res) => {
          FROM sources s
          LEFT JOIN source_states st ON st.source_id = s.id
          LEFT JOIN subscriptions sub
-                ON sub.source_id = s.id AND sub.subscriber_id = $1
+                ON sub.source_id = s.id AND sub.subscriber_id = $1 AND sub.params IS NULL
         WHERE s.enabled = true AND s.type <> 'linked'
         ORDER BY s.id`,
       [auth.id]
     );
+
+    // Instances paramétrées (OpenAlert v2) : une entrée par combinaison souscrite,
+    // avec libellé résolu et état de source_param_states. On enrichit la carte
+    // correspondante (subscribed = a des instances ; state = le pire des instances).
+    const paramSubs = await pool.query(
+      `SELECT sub.source_id, sub.params, s.params_schema,
+              COALESCE(sps.state, 'inactive') AS state
+         FROM subscriptions sub
+         JOIN sources s ON s.id = sub.source_id
+         LEFT JOIN source_param_states sps
+                ON sps.source_id = sub.source_id AND sps.params = sub.params
+        WHERE sub.subscriber_id = $1 AND sub.params IS NOT NULL AND s.enabled = true`,
+      [auth.id]
+    );
+    const byId = {};
+    rows.forEach((r) => { byId[r.id] = r; r.params_schema = null; r.instances = []; });
+    // Réexpose le schéma pour les sources paramétrées (le SELECT principal ne le renvoie pas).
+    const schemaRows = await pool.query(
+      "SELECT id, params_schema FROM sources WHERE params_schema IS NOT NULL AND enabled = true AND type <> 'linked'"
+    );
+    schemaRows.rows.forEach((sr) => { if (byId[sr.id]) byId[sr.id].params_schema = sr.params_schema; });
+
+    paramSubs.rows.forEach((ps) => {
+      const row = byId[ps.source_id];
+      if (!row) return;
+      row.instances.push({ params: ps.params, label: resolveLabel(ps.params_schema, ps.params), state: ps.state });
+    });
+    // Pour chaque source paramétrée abonnée : subscribed=true, state = pire instance.
+    Object.values(byId).forEach((r) => {
+      if (r.instances.length) {
+        r.subscribed = true;
+        r.state = worstState(r.instances.map((i) => i.state));
+      }
+    });
 
     // Préférences : email activé, appareils push, et personnalisation d'affichage.
     const prefs = await pool.query(
@@ -301,6 +344,54 @@ apiRouter.post('/my-alerts/toggle', async (req, res) => {
 });
 
 /* ------------------------------------------------------------------ */
+/* POST /api/my-alerts/toggle-param — abonne/désabonne UNE instance     */
+/* paramétrée (OpenAlert v2). Corps : { token, source_id, params,       */
+/* subscribed }. params validé contre le schéma déclaré de la source.   */
+/* ------------------------------------------------------------------ */
+apiRouter.post('/my-alerts/toggle-param', async (req, res) => {
+  const { token, source_id, params, subscribed } = req.body || {};
+  if (!source_id || typeof subscribed !== 'boolean') {
+    return res.status(400).json({ error: 'Paramètres invalides' });
+  }
+  try {
+    const auth = await authenticate(token);
+    if (!auth) return res.status(401).json({ error: 'Lien invalide ou expiré' });
+
+    const src = await pool.query(
+      "SELECT params_schema FROM sources WHERE id = $1 AND enabled = true AND type <> 'linked'",
+      [source_id]
+    );
+    if (src.rows.length === 0 || src.rows[0].params_schema == null) {
+      return res.status(404).json({ error: 'Source paramétrée inconnue' });
+    }
+    const check = validateParams(src.rows[0].params_schema, params);
+    if (!check.ok) return res.status(400).json({ error: check.error });
+    const canonical = check.params;
+
+    if (subscribed) {
+      await pool.query(
+        `INSERT INTO subscriptions (subscriber_id, source_id, params)
+         VALUES ($1, $2, $3::jsonb)
+         ON CONFLICT (subscriber_id, source_id, COALESCE(params, '{}'::jsonb)) DO NOTHING`,
+        [auth.id, source_id, JSON.stringify(canonical)]
+      );
+    } else {
+      await pool.query(
+        'DELETE FROM subscriptions WHERE subscriber_id = $1 AND source_id = $2 AND params = $3::jsonb',
+        [auth.id, source_id, JSON.stringify(canonical)]
+      );
+    }
+    return res.status(200).json({
+      source_id, subscribed, params: canonical,
+      label: resolveLabel(src.rows[0].params_schema, canonical),
+    });
+  } catch (err) {
+    console.error('[my-alerts] Erreur POST /toggle-param :', err.message);
+    return res.status(503).json({ error: 'Service indisponible' });
+  }
+});
+
+/* ------------------------------------------------------------------ */
 /* GET /api/my-alerts/history?token=xxx — events des sources abonnées.  */
 /* ------------------------------------------------------------------ */
 apiRouter.get('/my-alerts/history', async (req, res) => {
@@ -308,12 +399,14 @@ apiRouter.get('/my-alerts/history', async (req, res) => {
     const auth = await authenticate(req.query.token);
     if (!auth) return res.status(401).json({ error: 'Lien invalide ou expiré' });
 
+    // EXISTS (et non JOIN) : un événement apparaît UNE fois même si l'utilisateur
+    // suit plusieurs instances paramétrées de la même source.
     const { rows } = await pool.query(
       `SELECT ev.event, ev.message, ev.created_at, s.id AS source_id, s.name AS source_name
          FROM source_events ev
-         JOIN subscriptions sub ON sub.source_id = ev.source_id
          JOIN sources s ON s.id = ev.source_id
-        WHERE sub.subscriber_id = $1
+        WHERE EXISTS (SELECT 1 FROM subscriptions sub
+                       WHERE sub.source_id = ev.source_id AND sub.subscriber_id = $1)
         ORDER BY ev.created_at DESC
         LIMIT 20`,
       [auth.id]

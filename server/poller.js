@@ -5,6 +5,7 @@ const { pool } = require('./db');
 const { sendPromoAlert } = require('./mailer');
 const { sendToSource, sendToSourceParams } = require('./webpush');
 const { cleanupExpired } = require('./sessions');
+const { resolveLabel } = require('./params');
 
 // Purge des sessions expirées : au plus une fois par jour.
 let lastSessionCleanup = 0;
@@ -300,21 +301,24 @@ async function confirmedEmailsForSourceParams(sourceId, params) {
 
 async function notifyParamSubscribers(sourceId, params, result = {}) {
   let name = sourceId;
+  let schema = null;
   try {
-    const { rows } = await pool.query('SELECT name FROM sources WHERE id = $1', [sourceId]);
-    if (rows[0]) name = rows[0].name;
+    const { rows } = await pool.query('SELECT name, params_schema FROM sources WHERE id = $1', [sourceId]);
+    if (rows[0]) { name = rows[0].name; schema = rows[0].params_schema || null; }
   } catch (err) { /* repli = id */ }
 
-  // Libellé résolu minimal (le raffinement UI viendra à l'étape 4) : « Nom — valeur ».
-  const value = Object.values(params || {}).join(', ');
+  // Libellé résolu via le schéma (ex. « Vigilance météo — Hautes-Alpes »).
+  const value = resolveLabel(schema, params) || Object.values(params || {}).join(', ');
   const resolved = value ? `${name} — ${value}` : name;
 
+  const qs = Object.keys(params || {})
+    .map((k) => `${encodeURIComponent(k)}=${encodeURIComponent(params[k])}`).join('&');
   const info = {
     id: sourceId,
     name: resolved,
     message: result.message || null,
     url: result.url || null,
-    statusUrl: `https://www.labonnealerte.fr/source/${sourceId}/statut`,
+    statusUrl: `https://www.labonnealerte.fr/source/${sourceId}/statut${qs ? '?' + qs : ''}`,
   };
 
   const recipients = await confirmedEmailsForSourceParams(sourceId, params);

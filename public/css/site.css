@@ -881,6 +881,39 @@ body[data-mode="connected"] #stats { display: none; }
   .card-front.acct-front, .card-back.acct-back { padding: 24px 20px; }
 }
 
+/* ---------- Abonnement paramétré (OpenAlert v2) ---------- */
+.param-form { display: flex; gap: 8px; align-items: center; margin-top: auto; }
+.param-form[hidden] { display: none; }
+.param-select {
+  flex: 1; min-width: 0; font: inherit; font-size: 13.5px; color: var(--ink);
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 10px; padding: 10px 12px; cursor: pointer;
+}
+.param-follow { flex: none; padding: 11px 16px; }
+.param-subform { display: none; } /* révélé en JS (parcours anonyme) */
+.param-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.param-chip {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: var(--amber-soft); color: var(--ink);
+  border-radius: 999px; padding: 6px 8px 6px 11px; font-size: 12.5px; font-weight: 600;
+}
+.param-chip .pc-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); opacity: .5; }
+.param-chip .pc-dot.on { background: var(--green); opacity: 1; }
+.param-remove {
+  border: none; background: transparent; color: var(--muted); cursor: pointer;
+  font-size: 13px; line-height: 1; padding: 2px 4px; border-radius: 6px;
+}
+.param-remove:hover { color: var(--amber); }
+.param-add {
+  border: none; background: transparent; color: var(--amber); cursor: pointer;
+  font: inherit; font-size: 13px; font-weight: 600; padding: 4px 0; text-align: left;
+}
+.param-add:hover { text-decoration: underline; }
+.param-statut-label { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: var(--ink); }
+.param-statut-label .param-select { flex: none; min-width: 180px; }
+.param-statut-hint { font-size: 13px; color: var(--muted); margin-top: 10px; }
+.param-statut-hint a { color: var(--amber); font-weight: 600; text-decoration: none; }
+
 /* =====================================================================
    Vue mobile « kiosque » (≤ 720px). js/mobile-header.js pose body.m-kiosk
    et relocalise la recherche + les catégories dans le header, sous le titre.

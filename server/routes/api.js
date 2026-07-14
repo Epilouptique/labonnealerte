@@ -2,6 +2,7 @@ const express = require('express');
 const { pool } = require('../db');
 const { CATEGORIES } = require('../categories');
 const { COUNTRIES, DEPARTEMENTS } = require('../geo');
+const { paramsFromQuery } = require('../params');
 
 const router = express.Router();
 
@@ -22,7 +23,7 @@ router.get('/sources', async (req, res) => {
   try {
     const { rows } = await pool.query(
       `SELECT s.id, s.name, s.subtitle, s.description, s.badge, s.type, s.link_url,
-              s.categories, s.submitted_by_github,
+              s.categories, s.submitted_by_github, s.params_schema,
               CASE WHEN s.type = 'linked' THEN NULL
                    ELSE COALESCE(st.state, 'inactive') END AS state,
               (SELECT COUNT(*) FROM subscriptions sub
@@ -84,22 +85,39 @@ router.get('/sources/:id/alert.json', async (req, res) => {
 });
 
 // GET /api/sources/:id/history — 50 derniers events + 90 jours d'uptime.
+// Sources paramétrées : ?departement=05 (etc.) filtre l'historique sur la
+// combinaison (source_param_states / source_events.params). Sans param valide,
+// on retombe sur le chemin broadcast (source_states) — inchangé.
 router.get('/sources/:id/history', async (req, res) => {
   const id = req.params.id;
   try {
+    const schemaRes = await pool.query('SELECT params_schema FROM sources WHERE id = $1', [id]);
+    if (schemaRes.rows.length === 0) return res.status(404).json({ error: 'Source inconnue' });
+    const schema = schemaRes.rows[0].params_schema || null;
+    const params = schema ? paramsFromQuery(schema, req.query) : null;
+
     const src = await pool.query(
-      `SELECT s.created_at, COALESCE(st.state,'inactive') AS state
-         FROM sources s LEFT JOIN source_states st ON st.source_id = s.id
-        WHERE s.id = $1`,
-      [id]
+      params
+        ? `SELECT s.created_at, COALESCE(sps.state,'inactive') AS state
+             FROM sources s LEFT JOIN source_param_states sps
+               ON sps.source_id = s.id AND sps.params = $2::jsonb
+            WHERE s.id = $1`
+        : `SELECT s.created_at, COALESCE(st.state,'inactive') AS state
+             FROM sources s LEFT JOIN source_states st ON st.source_id = s.id
+            WHERE s.id = $1`,
+      params ? [id, JSON.stringify(params)] : [id]
     );
     if (src.rows.length === 0) return res.status(404).json({ error: 'Source inconnue' });
     const createdAt = new Date(src.rows[0].created_at);
 
+    // Filtre événementiel : par combinaison si paramétré, sinon broadcast (params NULL).
+    const paramFilter = params ? 'AND params = $2::jsonb' : '';
+    const evArgs = params ? [id, JSON.stringify(params)] : [id];
+
     const evRes = await pool.query(
       `SELECT event, message, created_at FROM source_events
-        WHERE source_id = $1 ORDER BY created_at DESC LIMIT 50`,
-      [id]
+        WHERE source_id = $1 ${paramFilter} ORDER BY created_at DESC LIMIT 50`,
+      evArgs
     );
     const events = evRes.rows.map((r) => ({
       event: r.event, message: r.message, created_at: r.created_at.toISOString(),
@@ -108,8 +126,8 @@ router.get('/sources/:id/history', async (req, res) => {
     // Tous les events (asc) pour reconstruire les intervalles actifs + compter les échecs.
     const allRes = await pool.query(
       `SELECT event, created_at FROM source_events
-        WHERE source_id = $1 ORDER BY created_at ASC`,
-      [id]
+        WHERE source_id = $1 ${paramFilter} ORDER BY created_at ASC`,
+      evArgs
     );
     const all = allRes.rows;
 
@@ -187,18 +205,29 @@ router.get('/stats', async (req, res) => {
 // GET /api/sources/:id/badge.svg — badge SVG dynamique auto-contenu.
 router.get('/sources/:id/badge.svg', async (req, res) => {
   try {
+    const id = req.params.id;
+    const schemaRes = await pool.query('SELECT params_schema FROM sources WHERE id = $1 AND enabled = true', [id]);
+    const schema = schemaRes.rows.length ? (schemaRes.rows[0].params_schema || null) : null;
+    const params = schema ? paramsFromQuery(schema, req.query) : null;
+
     const { rows } = await pool.query(
-      `SELECT s.name, COALESCE(st.state,'inactive') AS state
-         FROM sources s LEFT JOIN source_states st ON st.source_id = s.id
-        WHERE s.id = $1 AND s.enabled = true`,
-      [req.params.id]
+      params
+        ? `SELECT s.name, COALESCE(sps.state,'inactive') AS state
+             FROM sources s LEFT JOIN source_param_states sps
+               ON sps.source_id = s.id AND sps.params = $2::jsonb
+            WHERE s.id = $1 AND s.enabled = true`
+        : `SELECT s.name, COALESCE(st.state,'inactive') AS state
+             FROM sources s LEFT JOIN source_states st ON st.source_id = s.id
+            WHERE s.id = $1 AND s.enabled = true`,
+      params ? [id, JSON.stringify(params)] : [id]
     );
     // Dernier event pour distinguer « erreur » du calme.
     let recentFailed = false;
     if (rows.length) {
       const ev = await pool.query(
-        `SELECT event, created_at FROM source_events WHERE source_id = $1 ORDER BY created_at DESC LIMIT 1`,
-        [req.params.id]
+        `SELECT event, created_at FROM source_events
+          WHERE source_id = $1 ${params ? 'AND params = $2::jsonb' : ''} ORDER BY created_at DESC LIMIT 1`,
+        params ? [id, JSON.stringify(params)] : [id]
       );
       const last = ev.rows[0];
       recentFailed = last && last.event === 'failed' && (Date.now() - new Date(last.created_at).getTime()) < 5400_000;

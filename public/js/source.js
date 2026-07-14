@@ -36,6 +36,13 @@
   var ID = m ? decodeURIComponent(m[1]) : null;
   var SHARE_URL = 'https://www.labonnealerte.fr/source/' + (ID || '') + '/statut';
 
+  // Sources paramétrées : département courant (query string prioritaire).
+  var paramSchema = null, currentDept = null;
+  function queryDept() {
+    var mm = window.location.search.match(/[?&]departement=([^&]+)/);
+    return mm ? decodeURIComponent(mm[1]) : null;
+  }
+
   var loading = document.getElementById('src-loading');
   var view = document.getElementById('src-view');
   var errorEl = document.getElementById('src-error');
@@ -69,6 +76,19 @@
     }).join('');
   }
 
+  // Historique (broadcast, ou par combinaison si source paramétrée).
+  async function loadHistory() {
+    var qs = (paramSchema && currentDept) ? ('?departement=' + encodeURIComponent(currentDept)) : '';
+    try {
+      var hres = await fetch('/api/sources/' + encodeURIComponent(ID) + '/history' + qs, { headers: { Accept: 'application/json' } });
+      if (hres.ok) {
+        var hist = await hres.json();
+        renderUptime(hist.days || []);
+        LBATimeline.render(document.getElementById('timeline'), hist.events || []);
+      }
+    } catch (e) { /* silencieux */ }
+  }
+
   /* ---- Abonnement (switch) ---- */
   var source = null, subscribed = false, connected = false, token = null;
 
@@ -76,6 +96,17 @@
     var el = document.getElementById('src-action');
     if (source.type === 'linked') {
       el.innerHTML = '<a class="link-btn" href="' + esc(source.link_url) + '" target="_blank" rel="noopener">Configurer sur le service partenaire →</a>';
+      return;
+    }
+    if (paramSchema) {
+      // Source paramétrée : sélecteur de combinaison + renvoi vers le kiosque pour s'abonner.
+      var opts = (paramSchema.values || []).map(function (v) {
+        return '<option value="' + esc(v.value) + '"' + (String(v.value) === String(currentDept) ? ' selected' : '') + '>' + esc(v.label) + '</option>';
+      }).join('');
+      el.innerHTML =
+        '<label class="param-statut-label">' + esc(paramSchema.label) + ' : ' +
+          '<select id="dept-select" class="param-select">' + opts + '</select></label>' +
+        '<p class="param-statut-hint">Pour être alerté, choisissez votre département sur la <a href="/#alertes">page d\'accueil</a>.</p>';
       return;
     }
     var on = connected && subscribed;
@@ -170,15 +201,27 @@
       source = (list || []).filter(function (s) { return s.id === ID; })[0];
       if (!source) return showError('Cette source n\'existe pas ou n\'est plus disponible.');
 
+      // Source paramétrée ? (schéma exposé par /api/sources)
+      paramSchema = (Array.isArray(source.params_schema) && source.params_schema.length) ? source.params_schema[0] : null;
+      var visitorDept = null;
+
       // Session : mode connecté ?
       try { token = localStorage.getItem('lba-token'); } catch (e) {}
       if (token) {
         var mr = await LBASession.fetchAlerts(token);
         if (mr.ok && mr.data) {
           connected = true;
+          visitorDept = mr.data.departement || null;
           var mine = (mr.data.sources || []).filter(function (s) { return s.id === ID; })[0];
           subscribed = !!(mine && mine.subscribed);
         } else if (mr.status === 401) { LBASession.clear(); }
+      }
+
+      // Département courant : query string > département du visiteur > 05 (défaut).
+      if (paramSchema) {
+        var allowed = (paramSchema.values || []).map(function (v) { return String(v.value); });
+        var wanted = queryDept() || visitorDept || '05';
+        currentDept = allowed.indexOf(String(wanted)) >= 0 ? String(wanted) : (allowed[0] || null);
       }
 
       document.getElementById('src-name').textContent = source.name;
@@ -211,16 +254,21 @@
       loading.hidden = true;
       view.hidden = false;
 
-      // Historique
-      var hres = await fetch('/api/sources/' + encodeURIComponent(ID) + '/history', { headers: { Accept: 'application/json' } });
-      if (hres.ok) {
-        var hist = await hres.json();
-        renderUptime(hist.days || []);
-        LBATimeline.render(document.getElementById('timeline'), hist.events || []);
+      // Historique (par combinaison si source paramétrée).
+      await loadHistory();
+
+      // Sélecteur de département : recharge l'historique de la combinaison choisie.
+      if (paramSchema) {
+        var sel = document.getElementById('dept-select');
+        if (sel) sel.addEventListener('change', function () {
+          currentDept = sel.value;
+          try { history.replaceState(null, '', '?departement=' + encodeURIComponent(currentDept)); } catch (e) {}
+          loadHistory();
+        });
       }
 
-      // Manifeste OpenAlert live (pas pour les sources liées).
-      if (source.type !== 'linked') {
+      // Manifeste OpenAlert live (pas pour les sources liées ni paramétrées).
+      if (source.type !== 'linked' && !paramSchema) {
         try {
           var ares = await fetch('/api/sources/' + encodeURIComponent(ID) + '/alert.json', { headers: { Accept: 'application/json' } });
           if (ares.ok) {
