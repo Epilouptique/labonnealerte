@@ -66,18 +66,21 @@ html[data-theme="light"] header { background: #ffffff; } /* thème clair : blanc
   content: ""; position: absolute; top: -120px; left: 50%; transform: translate(-50%, 0) scale(1);
   width: 640px; height: 420px; pointer-events: none;
   background: radial-gradient(closest-side, color-mix(in srgb, var(--amber) 22%, transparent), transparent 70%);
-  animation: hero-halo 12s ease-in-out infinite alternate;
+  animation: hero-halo 16s ease-in-out infinite alternate;
 }
+/* J) Halo vivant mais sobre : déformation douce de la taille + variation SUBTILE
+   de teinte (hue-rotate lent). */
 @keyframes hero-halo {
-  0%   { transform: translate(-50%, 0) scale(1);      opacity: .8; }
-  100% { transform: translate(-46%, 22px) scale(1.08); opacity: 1; }
+  0%   { transform: translate(-50%, 0) scale(1);           opacity: .8;  filter: hue-rotate(-6deg); }
+  50%  { transform: translate(-48%, 12px) scale(1.05, 1.09); opacity: .92; filter: hue-rotate(4deg); }
+  100% { transform: translate(-46%, 22px) scale(1.09, 1.04); opacity: 1;   filter: hue-rotate(10deg); }
 }
 @media (prefers-reduced-motion: reduce) { .hero::before { animation: none; } }
 .hero > * { position: relative; }
 .hero h1 { font-size: clamp(32px, 5.4vw, 52px); font-weight: 800; letter-spacing: -0.03em; line-height: 1.08; font-family: 'Baloo 2',sans-serif;}
 .hero h1 .hl { color: var(--amber); }
 .hero p { color: var(--muted); font-size: 18px; margin: 18px auto 0; max-width: 520px; }
-.hero .kpi {
+.kpi {
   margin-top: 28px; display: inline-flex; gap: 8px; align-items: center;
   font-size: 13px; color: var(--muted);
   border: none; background: var(--surface);
@@ -112,7 +115,9 @@ html[data-theme="light"] header { background: #ffffff; } /* thème clair : blanc
 
 /* ---------- grid ---------- */
 .section-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .14em; color: var(--amber); margin-bottom: 14px; }
-.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; padding-bottom: 26px; }
+/* G) padding-top ; rangées à hauteur auto alignées en haut (évite l'étirement
+   d'une rangée unique en mode connecté). */
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; padding-top: 2rem; padding-bottom: 26px; grid-auto-rows: auto; align-content: start; }
 @media (max-width: 900px) { .grid { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 620px) { .grid { grid-template-columns: 1fr; } }
 .card {
@@ -143,7 +148,7 @@ html[data-theme="light"] header { background: #ffffff; } /* thème clair : blanc
   position: relative; min-height: 100%;
   transform-style: preserve-3d; transition: transform .5s;
 }
-.card.flipped .card-inner { transform: rotateY(180deg); margin-bottom: 5rem;}
+.card.flipped .card-inner { transform: rotateY(180deg);}
 .card-face {
   display: flex; flex-direction: column; gap: 12px;
   background: var(--surface); border-radius: 24px; padding: 22px;
@@ -172,6 +177,9 @@ html[data-theme="light"] header { background: #ffffff; } /* thème clair : blanc
   font-size: 16px; line-height: 1; cursor: pointer; padding: 4px; border-radius: 8px;
 }
 .flip-btn:hover, .flip-back:hover { color: var(--amber); }
+/* C) Flèche retour en SVG inline (rendu identique tous OS) : taille contrôlée. */
+.flip-back { display: inline-flex; align-items: center; justify-content: center; }
+.flip-back svg { width: 18px; height: 18px; display: block; }
 
 /* Verso : contenu dev. */
 .back-tags { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -531,7 +539,19 @@ body {
 /* ---------- page de statut ---------- */
 .src-main { max-width: 760px; padding: 40px 0 80px; }
 .src-loading, .src-error { text-align: center; color: var(--muted); padding: 60px 0; }
-.src-head { background: var(--surface); border-radius: 24px; padding: 28px; box-shadow: var(--shadow); }
+.src-head { position: relative; background: var(--surface); border-radius: 24px; padding: 28px; box-shadow: var(--shadow); }
+/* I) Flèche « Mes alertes » : même flèche que .flip-back, en plus grand, alignée
+   à droite à hauteur du titre. */
+.src-back {
+  position: absolute; top: 22px; right: 22px; z-index: 2;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--muted); padding: 6px; border-radius: 10px; text-decoration: none;
+  transition: color .15s;
+}
+.src-back:hover { color: var(--amber); }
+.src-back svg { width: 30px; height: 30px; display: block; }
+/* Le titre ne passe pas sous la flèche. */
+.src-head-top { padding-right: 44px; }
 .src-head-top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .src-head h1 { font-size: clamp(22px, 4vw, 28px); font-weight: 800; letter-spacing: -0.02em; }
 .src-subtitle { color: var(--muted); font-weight: 600; margin-top: 4px; }
@@ -581,6 +601,11 @@ html { scroll-padding-top: 84px; }
 
 /* E) grille stable : au moins une rangée réservée */
 .grid { min-height: 230px; }
+/* G) Connecté : pas de hauteur minimale imposée (une seule rangée ne doit pas
+   réserver 230px de vide) ; l'espace au-dessus des cartes suffit à loger le label
+   « Recommandée » sans qu'il déborde sur la rangée du dessous. */
+body[data-mode="connected"] .grid { min-height: 0; }
+.card.card-reco { margin-top: 8px; }
 
 /* I) rotation du bouton de thème */
 .theme-btn { transition: transform .4s ease; }
@@ -794,7 +819,9 @@ body[data-mode="connected"] #stats { display: none; }
 .account-panel { margin: 6px auto 0; }
 .acct-card.card.flip { width: 100%; }
 .card-front.acct-front { min-height: 460px; padding: 30px 32px; }
-.card-back.acct-back { padding: 30px 32px; background: var(--surface); }
+/* A) Verso « Mon historique » en colonne : la zone de scroll prend toute la
+   hauteur disponible de la card back (au lieu d'un max-height fixe). */
+.card-back.acct-back { padding: 30px 32px; background: var(--surface); display: flex; flex-direction: column; }
 .acct-head .acct-name { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
 .acct-email { color: var(--muted); font-size: 14px; margin-top: 4px; word-break: break-all; }
 .acct-close {
@@ -816,7 +843,7 @@ body[data-mode="connected"] #stats { display: none; }
 .notif-nav:hover .notif-chevron { color: var(--amber); }
 /* B) « Nous soutenir » : la rangée peut passer les boutons de don à la ligne sur mobile. */
 .acct-support-row { flex-wrap: wrap; }
-.acct-history-scroll { margin-top: 12px; max-height: 380px; overflow-y: auto; }
+.acct-history-scroll { margin-top: 12px; flex: 1; min-height: 0; overflow-y: auto; }
 
 /* B1) Le × de fermeture est masqué au verso (comme le ⓘ des cartes). */
 .acct-card.flipped .acct-close { display: none; }
@@ -884,6 +911,9 @@ body[data-mode="connected"] #stats { display: none; }
 /* ---------- Abonnement paramétré (OpenAlert v2) ---------- */
 .param-form { display: flex; gap: 8px; align-items: center; margin-top: auto; }
 .param-form[hidden] { display: none; }
+/* H) Indicateur d'abonnement permanent des cartes paramétrées (comme les broadcast). */
+.param-status { display: flex; align-items: center; }
+.param-status .switch-label { font-size: 13px; }
 .param-select, .param-input {
   flex: 1; min-width: 0; font: inherit; font-size: 13.5px; color: var(--ink);
   background: var(--surface); border: 1px solid var(--line);
@@ -964,16 +994,27 @@ body[data-mode="connected"] #stats { display: none; }
   body.m-kiosk .nav-right { display: contents; }
   body.m-kiosk .nav-right > *:not(#auth-link) { display: none !important; }
 
-  /* Icône de connexion (à droite du titre), qui devient icône de compte connecté. */
+  /* Icône de connexion (à droite du titre), qui devient icône de compte connecté.
+     D) fond UNI violet de la charte dans les deux états ; styles UA neutralisés
+     (appearance:none) pour empêcher le rendu « bleu » sur Android ; léger retrait
+     du bord droit. */
   body.m-kiosk #auth-link.btn-login {
-    position: absolute; top: 8px; right: 0;
+    position: absolute; top: 8px; right: 6px;
     margin: 0; padding: 0; width: 40px; height: 40px;
     display: inline-flex; align-items: center; justify-content: center;
-    border-radius: 50%; background: var(--surface); color: var(--ink);
+    border-radius: 50%; background: var(--amber); color: #fff;
     font-size: 0; /* masque le libellé « Se connecter » / « Mon compte » */
-    box-shadow: 0 1px 3px rgba(30, 20, 50, .12);
+    box-shadow: 0 1px 3px rgba(30, 20, 50, .18);
+    -webkit-appearance: none; appearance: none; border: none;
+    -webkit-tap-highlight-color: transparent;
   }
-  body.m-kiosk #auth-link.btn-login::before { content: "\1F464"; font-size: 19px; line-height: 1; }
+  /* Glyphe « personne » monochrome (masque SVG teinté par currentColor = blanc),
+     lisible sur le fond violet — remplace l'emoji multicolore \1F464. */
+  body.m-kiosk #auth-link.btn-login::before {
+    content: ""; width: 20px; height: 20px; background: currentColor;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23000' d='M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm0 2c-5 0-9 2.5-9 6v1h18v-1c0-3.5-4-6-9-6z'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23000' d='M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm0 2c-5 0-9 2.5-9 6v1h18v-1c0-3.5-4-6-9-6z'/%3E%3C/svg%3E") center / contain no-repeat;
+  }
   body.m-kiosk[data-mode="connected"] #auth-link.btn-login { background: var(--amber); color: #fff; }
 
   /* Recherche puis catégories, relocalisées dans le header sous le titre. */
@@ -987,9 +1028,93 @@ body[data-mode="connected"] #stats { display: none; }
   body.m-kiosk main#alertes > .section-label { display: none; }
   body.m-kiosk .hero .kpi { display: none; }
 
-  /* Cartes : description (.card p) et état (.state) masqués ; révélés au tap. */
+  /* C1) Cartes compactes par défaut : la description (.card p) et l'état (.state)
+     sont repliés (max-height:0) et se déploient FLUIDEMENT au tap (.revealed) —
+     pas de saut. Le min-height fixe du recto est abaissé sur mobile pour que la
+     carte se réduise vraiment. */
+  body.m-kiosk .grid .card .card-front { min-height: 0; }
   body.m-kiosk .grid .card .card-front > p,
-  body.m-kiosk .grid .card .card-front > .state { display: none; }
-  body.m-kiosk .grid .card.revealed .card-front > p { display: block; }
-  body.m-kiosk .grid .card.revealed .card-front > .state { display: flex; }
+  body.m-kiosk .grid .card .card-front > .state {
+    overflow: hidden; max-height: 0; opacity: 0; margin-top: 0;
+    transition: max-height .3s ease, opacity .25s ease, margin-top .3s ease;
+  }
+  body.m-kiosk .grid .card.revealed .card-front > p { max-height: 220px; opacity: 1; }
+  body.m-kiosk .grid .card.revealed .card-front > .state { max-height: 48px; opacity: 1; }
+  @media (prefers-reduced-motion: reduce) {
+    body.m-kiosk .grid .card .card-front > p,
+    body.m-kiosk .grid .card .card-front > .state { transition: none; }
+  }
+
+  /* E1) Panneau « Mon compte » ouvert : la refonte d'en-tête (recherche + tags)
+     est masquée — voir aussi la règle globale body.account-open plus bas. */
+  body.m-kiosk.account-open header .nav .toolbar,
+  body.m-kiosk.account-open header .nav .chips-secondary-wrap { display: none; }
+
+  /* E2) Header condensé au scroll : le titre s'efface, ne restent que la barre de
+     recherche (avec l'icône de connexion à sa droite). Transitions fluides. */
+  body.m-kiosk .brand,
+  body.m-kiosk header .nav .toolbar .chips,
+  body.m-kiosk header .nav .chips-secondary-wrap {
+    overflow: hidden;
+    transition: max-height .3s ease, opacity .25s ease, margin .3s ease;
+    max-height: 300px; opacity: 1;
+  }
+  body.m-kiosk.m-scrolled .brand { max-height: 0; opacity: 0; margin: 0; }
+  body.m-kiosk.m-scrolled header .nav .toolbar .chips,
+  body.m-kiosk.m-scrolled header .nav .chips-secondary-wrap { max-height: 0; opacity: 0; margin: 0; }
+  /* Place l'icône de connexion à droite de la recherche une fois condensé. */
+  body.m-kiosk.m-scrolled header .nav .toolbar { margin-right: 48px; }
+  @media (prefers-reduced-motion: reduce) {
+    body.m-kiosk .brand,
+    body.m-kiosk header .nav .toolbar .chips,
+    body.m-kiosk header .nav .chips-secondary-wrap { transition: none; }
+  }
+
+  /* E3) iPhone SE (~≤375px) : police des catégories réduite pour tenir sur 2 lignes. */
+  @media (max-width: 375px) {
+    body.m-kiosk header .chip-f { font-size: 12px; padding: 7px 12px; }
+  }
 }
+
+/* F) ==================== En-tête enrichi — DESKTOP, home uniquement ====================
+   Sur la home (body.m-kiosk), au-dessus de 720px, la recherche est relocalisée
+   dans le header (centrée), les catégories sur la ligne du dessous, et le KPI est
+   à droite du bouton thème. Les autres pages n'ont pas body.m-kiosk → intactes. */
+@media (min-width: 721px) {
+  body.m-kiosk header .nav {
+    flex-wrap: wrap; height: auto; align-items: center;
+    row-gap: 8px; padding: 12px 0;
+  }
+  body.m-kiosk .brand { font-size: 33px; }          /* F3) titre 33px en desktop */
+  body.m-kiosk header .nav-right { order: 2; }
+  /* Recherche centrée sur sa propre ligne pleine largeur. */
+  body.m-kiosk header .nav .toolbar {
+    order: 5; flex: 1 1 100%; margin: 4px 0 0;
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+  }
+  body.m-kiosk header .nav .toolbar .search { width: 100%; max-width: 480px; flex: none; }
+  body.m-kiosk header .nav .toolbar .chips { width: 100%; }
+  body.m-kiosk header .nav .toolbar .chips .chips-row { justify-content: center; }
+  /* Catégories secondaires : ligne centrée sous la recherche. */
+  body.m-kiosk header .nav .chips-secondary-wrap { order: 6; flex: 1 1 100%; }
+  body.m-kiosk header .nav .chips-secondary-wrap .chips-row { justify-content: center; }
+  /* F2) KPI dans le header (à droite du bouton thème). */
+  body.m-kiosk .nav-right .kpi { margin-top: 0; }
+}
+/* F2) PC étroit : le KPI se réduit à l'icône clignotante + le nombre (data-n). */
+@media (min-width: 721px) and (max-width: 980px) {
+  body.m-kiosk .nav-right .kpi #kpi-text { display: none; }
+  body.m-kiosk .nav-right .kpi::after {
+    content: attr(data-n); font-weight: 700; color: var(--ink);
+  }
+}
+/* F3) titre 1.7rem en mobile (home). */
+@media (max-width: 720px) {
+  body.m-kiosk .brand { font-size: 1.7rem; }
+}
+
+/* E1) Règle globale (mobile + desktop) : quand le panneau « Mon compte » est ouvert,
+   la refonte d'en-tête est masquée (la home est la seule page avec .account-open). */
+body.account-open header .nav .toolbar,
+body.account-open header .nav .chips-secondary-wrap,
+body.account-open .nav-right .kpi { display: none; }

@@ -8,11 +8,26 @@ const router = express.Router();
 
 // Fusion v2 : ancien id départemental → source paramétrée (301 avec ?departement).
 const OLD_VIG = /^vigilance-meteo-(.+)$/;
+// Fusion v2 (vague 12) : anciens ids broadcast retirés → source paramétrée.
+const FUSED_REDIRECTS = {
+  'vigieau-gap': { to: 'vigieau', qs: 'commune=05061' },
+  'vacances-zone-a': { to: 'vacances-scolaires', qs: 'zone=A' },
+  'vacances-zone-b': { to: 'vacances-scolaires', qs: 'zone=B' },
+  'vacances-zone-c': { to: 'vacances-scolaires', qs: 'zone=C' },
+  'carburant-seuils': { to: 'carburant', qs: '' },
+};
 function redirectOldVig(id, suffix, res) {
   const m = id.match(OLD_VIG);
-  if (!m) return false;
-  res.redirect(301, `/api/sources/vigilance-meteo/${suffix}?departement=${encodeURIComponent(m[1])}`);
-  return true;
+  if (m) {
+    res.redirect(301, `/api/sources/vigilance-meteo/${suffix}?departement=${encodeURIComponent(m[1])}`);
+    return true;
+  }
+  const f = FUSED_REDIRECTS[id];
+  if (f) {
+    res.redirect(301, `/api/sources/${f.to}/${suffix}${f.qs ? '?' + f.qs : ''}`);
+    return true;
+  }
+  return false;
 }
 
 // GET /api/categories — taxonomie complète (publique, cacheable).

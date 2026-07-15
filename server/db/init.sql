@@ -946,6 +946,266 @@ UPDATE sources SET enabled = false
 UPDATE sources SET
     type = 'external',
     badge = 'verified',
-    endpoint_url = 'https://doomname.com/alert.json',
+    endpoint_url = 'https://www.doomname.com/alert.json',
     params_schema = '[{"key":"domaine","label":"Nom de domaine","type":"string","multiple":true,"required":true,"placeholder":"mondomaine.fr","lowercase":true,"pattern":"^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z]{2,})+$"}]'::jsonb
  WHERE id = 'doomname';
+
+-- ================================================================
+-- Vague 12 · Sources PARAMÉTRÉES v2 (fusions) + nouvelles broadcast.
+-- Toutes les fusions suivent le patron vigilance (étape 3) : migration
+-- idempotente des abonnements + report d'état/since (zéro notification
+-- parasite), anciennes sources enabled=false (réversibles), redirections
+-- 301 côté routes. 100% rejouable sans dégât.
+-- ================================================================
+
+-- ---------------------------------------------------------------
+-- 2A-1) VACANCES SCOLAIRES paramétrée (fusion des zones A/B/C).
+-- ---------------------------------------------------------------
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
+SELECT 'vacances-scolaires', 'Vacances scolaires', 'La zone de votre choix',
+  'Le compte à rebours du départ en vacances scolaires, pour la ou les zones de votre choix (A, B, C). Prévenu une semaine avant. Calendrier officiel Éducation nationale.',
+  'internal', 'official', false, ARRAY['vacances-scolaires', 'vie-locale'], 61,
+  '[{"key":"zone","label":"Zone","type":"enum","values":[{"value":"A","label":"Zone A (Besançon, Bordeaux, Clermont, Dijon, Grenoble, Lyon, Poitiers…)"},{"value":"B","label":"Zone B (Aix-Marseille, Lille, Nantes, Nice, Rennes, Rouen, Strasbourg…)"},{"value":"C","label":"Zone C (Paris, Créteil, Versailles, Montpellier, Toulouse)"}],"multiple":true,"required":true,"default":null}]'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'vacances-scolaires');
+-- Rejouable : force le schéma même si la ligne existait déjà.
+UPDATE sources SET params_schema = '[{"key":"zone","label":"Zone","type":"enum","values":[{"value":"A","label":"Zone A (Besançon, Bordeaux, Clermont, Dijon, Grenoble, Lyon, Poitiers…)"},{"value":"B","label":"Zone B (Aix-Marseille, Lille, Nantes, Nice, Rennes, Rouen, Strasbourg…)"},{"value":"C","label":"Zone C (Paris, Créteil, Versailles, Montpellier, Toulouse)"}],"multiple":true,"required":true,"default":null}]'::jsonb
+ WHERE id = 'vacances-scolaires';
+
+-- Migration des abonnements : vacances-zone-{a,b,c} → vacances-scolaires {zone:X}.
+INSERT INTO subscriptions (subscriber_id, source_id, params)
+SELECT sub.subscriber_id, 'vacances-scolaires',
+       jsonb_build_object('zone', upper(substr(sub.source_id, 15)))
+  FROM subscriptions sub
+ WHERE sub.source_id IN ('vacances-zone-a', 'vacances-zone-b', 'vacances-zone-c')
+   AND sub.params IS NULL
+ON CONFLICT (subscriber_id, source_id, COALESCE(params, '{}'::jsonb)) DO NOTHING;
+
+-- Report d'état (préserve since) pour les états non-inactive éventuels.
+INSERT INTO source_param_states (source_id, params, state, since, until_date, message, url, checked_at)
+SELECT 'vacances-scolaires',
+       jsonb_build_object('zone', upper(substr(st.source_id, 15))),
+       st.state, st.since, st.until_date, st.message, st.url, st.checked_at
+  FROM source_states st
+ WHERE st.source_id IN ('vacances-zone-a', 'vacances-zone-b', 'vacances-zone-c')
+   AND st.state <> 'inactive'
+ON CONFLICT (source_id, params) DO NOTHING;
+
+-- Retrait des 3 cartes (réversible).
+UPDATE sources SET enabled = false
+ WHERE id IN ('vacances-zone-a', 'vacances-zone-b', 'vacances-zone-c') AND enabled = true;
+
+-- ---------------------------------------------------------------
+-- 2A-2) VIGIEAU paramétrée (commune INSEE au choix). Fusion vigieau-gap.
+-- ---------------------------------------------------------------
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
+SELECT 'vigieau', 'Restrictions d''eau', 'La commune de votre choix',
+  'Restrictions d''usage de l''eau (sécheresse) pour la ou les communes de votre choix : arrêtés préfectoraux en vigueur (alerte, alerte renforcée, crise). Le niveau « vigilance » est exclu (anti-bruit). Source officielle VigiEau.',
+  'internal', 'official', false, ARRAY['secheresse', 'eau'], 26,
+  '[{"key":"commune","label":"Code commune (INSEE)","type":"string","placeholder":"05061","pattern":"^(?:[0-9]{2}|2[AB])[0-9]{3}$","lowercase":false,"multiple":true,"required":true,"default":null}]'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'vigieau');
+UPDATE sources SET params_schema = '[{"key":"commune","label":"Code commune (INSEE)","type":"string","placeholder":"05061","pattern":"^(?:[0-9]{2}|2[AB])[0-9]{3}$","lowercase":false,"multiple":true,"required":true,"default":null}]'::jsonb
+ WHERE id = 'vigieau';
+
+-- Migration : abonnés vigieau-gap (broadcast) → vigieau {commune:"05061"}.
+INSERT INTO subscriptions (subscriber_id, source_id, params)
+SELECT sub.subscriber_id, 'vigieau', jsonb_build_object('commune', '05061')
+  FROM subscriptions sub
+ WHERE sub.source_id = 'vigieau-gap' AND sub.params IS NULL
+ON CONFLICT (subscriber_id, source_id, COALESCE(params, '{}'::jsonb)) DO NOTHING;
+
+-- Report d'état (préserve since).
+INSERT INTO source_param_states (source_id, params, state, since, until_date, message, url, checked_at)
+SELECT 'vigieau', jsonb_build_object('commune', '05061'),
+       st.state, st.since, st.until_date, st.message, st.url, st.checked_at
+  FROM source_states st
+ WHERE st.source_id = 'vigieau-gap' AND st.state <> 'inactive'
+ON CONFLICT (source_id, params) DO NOTHING;
+
+UPDATE sources SET enabled = false WHERE id = 'vigieau-gap' AND enabled = true;
+
+-- ---------------------------------------------------------------
+-- 2A-3) RAPPELCONSO paramétrée par catégorie (upgrade EN PLACE, même id).
+--       Les abonnés broadcast actuels → {categorie:"alimentation"} : le
+--       comportement (rappels alimentaires graves) est préservé à l'identique.
+-- ---------------------------------------------------------------
+UPDATE sources SET
+    name = 'Rappels produits', subtitle = 'La catégorie de votre choix',
+    description = 'Alerte quand un produit est rappelé pour un RISQUE GRAVE, dans la ou les catégories de votre choix (alimentation, maison, appareils électriques, jouets, mode…). Filtre « risques graves uniquement » (microbien, toxique, blessure, brûlure, incendie, étouffement, chimique…) pour éviter le bruit. Source officielle RappelConso (DGCCRF).',
+    categories = ARRAY['rappels-produits', 'sante', 'securite'],
+    params_schema = '[{"key":"categorie","label":"Catégorie de produit","type":"enum","values":[{"value":"alimentation","label":"Alimentation"},{"value":"bébés-enfants (hors alimentaire)","label":"Bébés & enfants"},{"value":"maison-habitat","label":"Maison & habitat"},{"value":"appareils électriques, outils","label":"Appareils électriques & outils"},{"value":"vêtements, mode, epi","label":"Vêtements & mode"},{"value":"hygiène-beauté","label":"Hygiène & beauté"},{"value":"sports-loisirs","label":"Sports & loisirs"},{"value":"automobiles et moyens de déplacement","label":"Auto & mobilité"},{"value":"equipements de communication","label":"Équipements de communication"},{"value":"autres","label":"Autres produits"}],"multiple":true,"required":true,"default":"alimentation"}]'::jsonb
+ WHERE id = 'rappel-conso';
+
+-- Report d'état broadcast → combinaison {alimentation} (préserve since) AVANT de
+-- convertir les abonnements, pour éviter toute re-notification au 1er cycle.
+INSERT INTO source_param_states (source_id, params, state, since, until_date, message, url, checked_at)
+SELECT 'rappel-conso', jsonb_build_object('categorie', 'alimentation'),
+       st.state, st.since, st.until_date, st.message, st.url, st.checked_at
+  FROM source_states st
+ WHERE st.source_id = 'rappel-conso' AND st.state <> 'inactive'
+ON CONFLICT (source_id, params) DO NOTHING;
+
+-- Neutralise l'ancienne ligne broadcast : le poller n'écrit plus que dans
+-- source_param_states pour cette source paramétrée ; sans ce reset, une carte
+-- kiosque resterait bloquée sur un état « active » périmé.
+UPDATE source_states
+   SET state = 'inactive', since = NULL, until_date = NULL, message = NULL
+ WHERE source_id = 'rappel-conso' AND state <> 'inactive';
+
+-- Conversion des abonnements broadcast (params NULL) → {categorie:"alimentation"}.
+INSERT INTO subscriptions (subscriber_id, source_id, params)
+SELECT sub.subscriber_id, 'rappel-conso', jsonb_build_object('categorie', 'alimentation')
+  FROM subscriptions sub
+ WHERE sub.source_id = 'rappel-conso' AND sub.params IS NULL
+ON CONFLICT (subscriber_id, source_id, COALESCE(params, '{}'::jsonb)) DO NOTHING;
+-- Retire l'ancien abonnement broadcast une fois la combinaison créée (le poller
+-- paramétré ignore les params NULL : sans cette purge, plus aucune notification).
+DELETE FROM subscriptions old
+ WHERE old.source_id = 'rappel-conso' AND old.params IS NULL
+   AND EXISTS (SELECT 1 FROM subscriptions n
+                WHERE n.subscriber_id = old.subscriber_id AND n.source_id = 'rappel-conso'
+                  AND n.params = jsonb_build_object('categorie', 'alimentation'));
+
+-- ---------------------------------------------------------------
+-- 2A-4) CARBURANT paramétré par type. Fusion carburant-seuils.
+--       Le module carburant.js s'auto-initialise sans alerter au 1er cycle
+--       (aucun report d'état nécessaire — logique par counters, pas par state).
+-- ---------------------------------------------------------------
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
+SELECT 'carburant', 'Carburant en baisse', 'Le carburant de votre choix',
+  'Alerte quand le prix moyen national d''un carburant (Gazole, SP95-E10, SP98, E85, GPLc) repasse sous un seuil symbolique. Données officielles prix-carburants.gouv.fr.',
+  'internal', 'official', false, ARRAY['prix-carburant', 'bons-plans'], 33,
+  '[{"key":"carburant","label":"Carburant","type":"enum","values":[{"value":"gazole","label":"Gazole"},{"value":"e10","label":"SP95-E10"},{"value":"sp98","label":"SP98"},{"value":"e85","label":"E85"},{"value":"gplc","label":"GPLc"}],"multiple":true,"required":true,"default":"gazole"}]'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'carburant');
+UPDATE sources SET params_schema = '[{"key":"carburant","label":"Carburant","type":"enum","values":[{"value":"gazole","label":"Gazole"},{"value":"e10","label":"SP95-E10"},{"value":"sp98","label":"SP98"},{"value":"e85","label":"E85"},{"value":"gplc","label":"GPLc"}],"multiple":true,"required":true,"default":"gazole"}]'::jsonb
+ WHERE id = 'carburant';
+
+-- Migration : chaque abonné carburant-seuils → 2 instances équivalentes (gazole + e10).
+INSERT INTO subscriptions (subscriber_id, source_id, params)
+SELECT sub.subscriber_id, 'carburant', jsonb_build_object('carburant', 'gazole')
+  FROM subscriptions sub
+ WHERE sub.source_id = 'carburant-seuils' AND sub.params IS NULL
+ON CONFLICT (subscriber_id, source_id, COALESCE(params, '{}'::jsonb)) DO NOTHING;
+INSERT INTO subscriptions (subscriber_id, source_id, params)
+SELECT sub.subscriber_id, 'carburant', jsonb_build_object('carburant', 'e10')
+  FROM subscriptions sub
+ WHERE sub.source_id = 'carburant-seuils' AND sub.params IS NULL
+ON CONFLICT (subscriber_id, source_id, COALESCE(params, '{}'::jsonb)) DO NOTHING;
+
+UPDATE sources SET enabled = false WHERE id = 'carburant-seuils' AND enabled = true;
+
+-- ================================================================
+-- Vague 12 · Sources BROADCAST nouvelles (ciel & sciences, statuts).
+-- French Days et Steam « free to keep » ÉCARTÉS (dates automne 2026 non
+-- annoncées officiellement ; aucun flux Steam public fiable) — voir rapport.
+-- Hub'Eau nappes ÉCARTÉ (aucun indicateur/seuil normalisé, valeurs brutes).
+-- ================================================================
+
+-- Rendez-vous célestes (œil nu / jumelles), source calculée.
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'evenements-astro', 'Rendez-vous du ciel', 'Le ciel à l''œil nu ce mois-ci',
+  'Prévenu quelques jours avant les grands rendez-vous célestes visibles à l''œil nu ou aux jumelles depuis la France : oppositions de planètes, pluies d''étoiles filantes, conjonctions. Dates vérifiées (Stelvision / IMCCE).',
+  'internal', 'official', false, ARRAY['astronomie', 'espace'], 72
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'evenements-astro');
+INSERT INTO source_states (source_id) SELECT 'evenements-astro'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'evenements-astro');
+
+-- Fête de la science (calendrier officiel).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'fete-science', 'Fête de la science', 'Le grand rendez-vous annuel',
+  'Rappel une semaine avant la Fête de la science : conférences, portes ouvertes et ateliers gratuits partout en France. Dates officielles fetedelascience.fr.',
+  'internal', 'official', false, ARRAY['science', 'vie-locale'], 73
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'fete-science');
+INSERT INTO source_states (source_id) SELECT 'fete-science'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'fete-science');
+
+-- Grandes marées (coefficient >= 100).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'grandes-marees', 'Grandes marées', 'Coefficient 100 et plus',
+  'Prévenu quelques jours avant les grandes marées (coefficient >= 100) sur le littoral français : pêche à pied exceptionnelle mais prudence accrue près de l''eau. Calendrier officiel SHOM / maree.info.',
+  'internal', 'official', false, ARRAY['grandes-marees', 'marees'], 74
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'grandes-marees');
+INSERT INTO source_states (source_id) SELECT 'grandes-marees'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'grandes-marees');
+
+-- Indice UV élevé à Gap (Open-Meteo, seuil >= 8).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'indice-uv-gap', 'Indice UV — Gap', 'Alerte UV très élevé',
+  'Alerte quand l''indice UV maximal du jour atteint 8 ou plus à Gap (protection solaire recommandée). Données Open-Meteo.',
+  'internal', 'official', false, ARRAY['uv', 'sante'], 75
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'indice-uv-gap');
+INSERT INTO source_states (source_id) SELECT 'indice-uv-gap'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'indice-uv-gap');
+
+-- Semaine des prix Nobel (calendrier officiel).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'nobel-prix', 'Prix Nobel', 'La semaine des annonces',
+  'Rappel à l''ouverture de la semaine des prix Nobel : les lauréats sont dévoilés jour après jour, début octobre. Dates officielles nobelprize.org.',
+  'internal', 'official', false, ARRAY['science', 'culture'], 76
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'nobel-prix');
+INSERT INTO source_states (source_id) SELECT 'nobel-prix'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'nobel-prix');
+
+-- Statuts de services (standard Statuspage). Anti-flapping : requires_confirmation = true.
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'statut-atlassian', 'Panne Atlassian', 'Statut officiel de Jira / Atlassian',
+  'Alerte quand Atlassian (Jira, Confluence, Trello…) déclare une panne majeure sur sa page de statut officielle.',
+  'internal', 'official', true, ARRAY['pannes-services', 'status-cloud'], 80
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'statut-atlassian');
+INSERT INTO source_states (source_id) SELECT 'statut-atlassian'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'statut-atlassian');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'statut-bitbucket', 'Panne Bitbucket', 'Statut officiel de Bitbucket',
+  'Alerte quand Bitbucket déclare une panne majeure sur sa page de statut officielle. Vos push et pipelines qui échouent, expliqués.',
+  'internal', 'official', true, ARRAY['pannes-services', 'github'], 81
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'statut-bitbucket');
+INSERT INTO source_states (source_id) SELECT 'statut-bitbucket'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'statut-bitbucket');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'statut-pypi', 'Panne PyPI', 'Statut officiel de PyPI / Python',
+  'Alerte quand PyPI (le registre de paquets Python) déclare une panne majeure. Vos pip install qui échouent, expliqués.',
+  'internal', 'official', true, ARRAY['pannes-services', 'npm-packages'], 82
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'statut-pypi');
+INSERT INTO source_states (source_id) SELECT 'statut-pypi'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'statut-pypi');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'statut-digitalocean', 'Panne DigitalOcean', 'Statut officiel de DigitalOcean',
+  'Alerte quand DigitalOcean déclare une panne majeure sur sa page de statut officielle.',
+  'internal', 'official', true, ARRAY['pannes-services', 'status-cloud'], 83
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'statut-digitalocean');
+INSERT INTO source_states (source_id) SELECT 'statut-digitalocean'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'statut-digitalocean');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'statut-supabase', 'Panne Supabase', 'Statut officiel de Supabase',
+  'Alerte quand Supabase déclare une panne majeure sur sa page de statut officielle.',
+  'internal', 'official', true, ARRAY['pannes-services', 'status-cloud'], 84
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'statut-supabase');
+INSERT INTO source_states (source_id) SELECT 'statut-supabase'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'statut-supabase');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'statut-zapier', 'Panne Zapier', 'Statut officiel de Zapier',
+  'Alerte quand Zapier déclare une panne majeure sur sa page de statut officielle. Vos automatisations à l''arrêt, expliquées.',
+  'internal', 'official', true, ARRAY['pannes-services', 'status-cloud'], 85
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'statut-zapier');
+INSERT INTO source_states (source_id) SELECT 'statut-zapier'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'statut-zapier');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'statut-airtable', 'Panne Airtable', 'Statut officiel d''Airtable',
+  'Alerte quand Airtable déclare une panne majeure sur sa page de statut officielle.',
+  'internal', 'official', true, ARRAY['pannes-services', 'status-cloud'], 86
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'statut-airtable');
+INSERT INTO source_states (source_id) SELECT 'statut-airtable'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'statut-airtable');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'statut-linear', 'Panne Linear', 'Statut officiel de Linear',
+  'Alerte quand Linear déclare une panne majeure sur sa page de statut officielle.',
+  'internal', 'official', true, ARRAY['pannes-services', 'status-cloud'], 87
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'statut-linear');
+INSERT INTO source_states (source_id) SELECT 'statut-linear'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'statut-linear');

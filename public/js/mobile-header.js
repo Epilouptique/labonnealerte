@@ -1,9 +1,14 @@
-/* mobile-header.js — refonte de l'en-tête sur smartphone (≤ 720px), page kiosque.
-   - Déplace la barre de recherche + les catégories DANS le header, sous le titre
-     (relocalisation DOM : les écouteurs déjà attachés suivent les nœuds).
-   - Pose body.m-kiosk (active le bloc CSS mobile dédié).
-   - Tap sur une carte → révèle sa description (.card p) et son état (.state).
-   Sur desktop (> 720px), tout revient à sa place d'origine. */
+/* mobile-header.js — refonte de l'en-tête de la PAGE KIOSQUE (home uniquement).
+   - Relocalise la barre de recherche + les catégories DANS le header (sous le titre
+     sur mobile, en ligne centrée sur desktop) — relocalisation DOM : les écouteurs
+     déjà attachés suivent les nœuds.
+   - Relocalise le KPI « alertes actives » dans le header (à droite du bouton thème).
+   - Pose body.m-kiosk (active les blocs CSS dédiés à la home).
+   - Condense le header au scroll (body.m-scrolled) avec hystérésis.
+   - Tap sur une carte (mobile) → révèle sa description (.card p) et son état (.state).
+
+   GARDE : si la page n'a pas de <main .toolbar> (donc pas la home), on sort tout de
+   suite → les autres pages (/a-propos, /source/…) n'héritent JAMAIS de cette refonte. */
 
 (function () {
   'use strict';
@@ -13,30 +18,35 @@
   if (!nav || !toolbar) return; // pas la page kiosque : rien à faire.
 
   var secondary = document.getElementById('chips-secondary-wrap');
+  var navRight = nav.querySelector('.nav-right');
+  var kpi = document.querySelector('.hero .kpi');
   var grid = document.getElementById('grid');
   var mq = window.matchMedia('(max-width: 720px)');
 
   document.body.classList.add('m-kiosk');
 
-  // Mémorise l'emplacement d'origine (dans <main>) pour restaurer en desktop.
-  var moved = [];
-  function remember(el) { if (el) moved.push({ el: el, parent: el.parentNode, next: el.nextSibling }); }
-  remember(toolbar);
-  remember(secondary);
+  // Relocalisation dans le header (valable pour mobile ET desktop : le CSS gère les
+  // deux mises en page). La refonte reste circonscrite à la home (garde ci-dessus).
+  nav.appendChild(toolbar);
+  if (secondary) nav.appendChild(secondary);
+  // KPI : dernière position de .nav-right → à droite du bouton thème.
+  if (kpi && navRight) navRight.appendChild(kpi);
 
-  function toHeader() {
-    nav.appendChild(toolbar);
-    if (secondary) nav.appendChild(secondary);
+  /* -------- Condensation du header au scroll (hystérésis) -------- */
+  var scrolled = false;
+  function onScroll() {
+    if (!mq.matches) { // condensation active uniquement sur mobile
+      if (scrolled) { document.body.classList.remove('m-scrolled'); scrolled = false; }
+      return;
+    }
+    var y = window.pageYOffset || document.documentElement.scrollTop || 0;
+    if (!scrolled && y > 60) { scrolled = true; document.body.classList.add('m-scrolled'); }
+    else if (scrolled && y < 30) { scrolled = false; document.body.classList.remove('m-scrolled'); }
   }
-  function toMain() {
-    moved.forEach(function (m) { m.parent.insertBefore(m.el, m.next); });
-  }
-  function apply() { if (mq.matches) toHeader(); else toMain(); }
-  apply();
-
-  // matchMedia : addEventListener moderne, addListener pour Safari ancien.
-  if (mq.addEventListener) mq.addEventListener('change', apply);
-  else if (mq.addListener) mq.addListener(apply);
+  window.addEventListener('scroll', onScroll, { passive: true });
+  if (mq.addEventListener) mq.addEventListener('change', onScroll);
+  else if (mq.addListener) mq.addListener(onScroll);
+  onScroll();
 
   // Tap sur le corps d'une carte → bascule .revealed (description + état).
   // On ignore les éléments interactifs (switch, boutons ⓘ/partage, liens, form)

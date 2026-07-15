@@ -67,6 +67,11 @@
 
   var SHARE_SVG = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>';
 
+  // Flèche « retour » (identique au rendu PC de « ↩ ») : rendu cohérent sur tous
+  // les OS/navigateurs (iOS/Firefox tombaient sur un glyphe système, Android/Chrome
+  // l'écrasait). Taille pilotée par le CSS (.flip-back svg / .src-back svg).
+  var BACK_SVG = '<svg class="ic-back" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 5 5v3"/></svg>';
+
   // Source paramétrée (OpenAlert v2) : schéma plat à au moins un paramètre.
   function isParam(s) { return Array.isArray(s.params_schema) && s.params_schema.length > 0; }
 
@@ -115,7 +120,15 @@
     var anon = (mode !== 'connected')
       ? '<div class="sub-form param-subform"><input type="email" placeholder="votre@email.fr" aria-label="Adresse email"><button type="button">OK</button></div>'
       : '';
-    return chips + addBtn + picker + anon;
+    // H) Indicateur d'abonnement TOUJOURS visible (comme les cartes broadcast) :
+    // en mode connecté, « Abonné » si ≥1 instance suivie, sinon « Non abonné ».
+    // (state.js met à jour ce libellé à l'ajout/retrait d'instance.)
+    var on = instances.length > 0;
+    var status = (mode === 'connected')
+      ? '<div class="param-status"><span class="switch-label' + (on ? ' on' : '') + '">' +
+        (on ? 'Abonné' : 'Non abonné') + '</span></div>'
+      : '';
+    return status + chips + addBtn + picker + anon;
   }
 
   function frontFace(s, mode, isLinked) {
@@ -171,7 +184,7 @@
 
     return '' +
       '<div class="card-face card-back">' +
-        '<button class="flip-back" type="button" aria-label="Retour" title="Retour">↩</button>' +
+        '<button class="flip-back" type="button" aria-label="Retour" title="Retour">' + BACK_SVG + '</button>' +
         topRow(s) +
         endpoint + tags + author + statut +
         '<a class="back-propose" href="/proposer">Proposez la vôtre →</a>' +
@@ -182,7 +195,7 @@
   function shareFace() {
     return '' +
       '<div class="card-face card-share-face">' +
-        '<button class="flip-back" type="button" aria-label="Retour" title="Retour">↩</button>' +
+        '<button class="flip-back" type="button" aria-label="Retour" title="Retour">' + BACK_SVG + '</button>' +
         '<div class="share-face-title">Partager</div>' +
         '<div class="share-grid share-face-grid"></div>' +
       '</div>';
@@ -215,6 +228,7 @@
   }
 
   window.LBACards = {
-    esc: esc, badgeFor: badgeFor, stateFor: stateFor, domainOf: domainOf, cardHTML: cardHTML, catLabel: catLabel
+    esc: esc, badgeFor: badgeFor, stateFor: stateFor, domainOf: domainOf, cardHTML: cardHTML, catLabel: catLabel,
+    BACK_SVG: BACK_SVG
   };
 })();

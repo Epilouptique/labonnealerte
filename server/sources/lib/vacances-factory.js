@@ -158,4 +158,51 @@ function createVacancesSource(zone) {
   return { id, check };
 }
 
-module.exports = { createVacancesSource, _resetCache };
+/**
+ * Source PARAMÉTRÉE (OpenAlert v2) : vacances scolaires, une ou plusieurs zones
+ * au choix de l'abonné. Un seul appel API par cycle (cache mutualisé 24h), quel
+ * que soit le nombre de zones. Contrat v2 : { id, paramsSchema, checkWithParams }.
+ * paramsList = combinaisons souscrites, ex. [{ zone:'A' }, { zone:'C' }].
+ */
+function createVacancesParamSource(cfg) {
+  const id = (cfg && cfg.id) || 'vacances-scolaires';
+  const paramsSchema = cfg && cfg.paramsSchema;
+  const publicUrl = 'https://www.education.gouv.fr/calendrier-scolaire';
+
+  async function checkWithParams(paramsList) {
+    const events = await fetchEvents(); // mutualisé (1 appel pour toutes les zones)
+    const now = Date.now();
+    const combos = Array.isArray(paramsList) ? paramsList : [];
+
+    return combos.map((params) => {
+      const letter = String((params && params.zone) || '').toUpperCase();
+      const zone = `Zone ${letter}`;
+
+      // Prochaine période de la zone dans la fenêtre d'annonce [start-7j, start).
+      let hit = null;
+      for (const ev of events) {
+        if (ev.zone !== zone) continue;
+        const start = ev.start.getTime();
+        if (now >= start - ANNOUNCE_MS && now < start) {
+          if (!hit || ev.start < hit.start) hit = ev;
+        }
+      }
+
+      if (!hit) {
+        return { params, state: 'inactive', since: null, until: null, message: null, url: publicUrl };
+      }
+      return {
+        params,
+        state: 'active',
+        since: new Date(hit.start.getTime() - ANNOUNCE_MS),
+        until: hit.start,
+        message: `🎒 Zone ${letter} : les vacances ${nomVacances(hit.description)} commencent le ${formatDepartParis(hit.start)}`,
+        url: publicUrl,
+      };
+    });
+  }
+
+  return { id, paramsSchema, checkWithParams };
+}
+
+module.exports = { createVacancesSource, createVacancesParamSource, _resetCache };

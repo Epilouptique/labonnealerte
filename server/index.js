@@ -102,6 +102,16 @@ app.get('/confidentialite', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'confidentialite.html'));
 });
 
+// Fusion v2 (vague 12) : anciens ids broadcast → source paramétrée (qs = query
+// string vers la combinaison équivalente ; vide = page source sans préréglage).
+const FUSED_REDIRECTS = {
+  'vigieau-gap': { to: 'vigieau', qs: 'commune=05061' },
+  'vacances-zone-a': { to: 'vacances-scolaires', qs: 'zone=A' },
+  'vacances-zone-b': { to: 'vacances-scolaires', qs: 'zone=B' },
+  'vacances-zone-c': { to: 'vacances-scolaires', qs: 'zone=C' },
+  'carburant-seuils': { to: 'carburant', qs: '' },
+};
+
 // Page de statut d'une source : SEO injecté côté serveur + 404 propre.
 function escHtml(s) {
   return String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -112,6 +122,11 @@ app.get('/source/:id/statut', async (req, res) => {
   const oldVig = id.match(/^vigilance-meteo-(.+)$/);
   if (oldVig) {
     return res.redirect(301, '/source/vigilance-meteo/statut?departement=' + encodeURIComponent(oldVig[1]));
+  }
+  // Fusion v2 (vague 12) : sources broadcast retirées → source paramétrée (SEO 301).
+  const fused = FUSED_REDIRECTS[id];
+  if (fused) {
+    return res.redirect(301, `/source/${fused.to}/statut${fused.qs ? '?' + fused.qs : ''}`);
   }
   try {
     const { rows } = await pool.query(

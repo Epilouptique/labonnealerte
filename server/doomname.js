@@ -4,7 +4,7 @@
 // serait jamais surveillé. Best-effort : un échec ne bloque jamais l'abonnement
 // (le poller réessaie chaque cycle, l'appel est idempotent côté DoomName).
 
-const BASE = (process.env.DOOMNAME_TRACK_URL || 'https://doomname.com').replace(/\/$/, '');
+const BASE = (process.env.DOOMNAME_TRACK_URL || 'https://www.doomname.com').replace(/\/$/, '');
 const KEY = (process.env.DOOMNAME_INTERNAL_KEY || '').trim();
 const TIMEOUT_MS = 5_000;
 

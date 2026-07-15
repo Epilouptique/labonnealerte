@@ -1,23 +1,20 @@
-// Source interne : rappels de produits alimentaires à RISQUE GRAVE (RappelConso).
+// Source PARAMÉTRÉE (OpenAlert v2) : rappels de produits à RISQUE GRAVE
+// (RappelConso), par CATÉGORIE au choix de l'abonné. Remplace la source
+// broadcast historique (alimentaire uniquement) : les abonnés existants sont
+// migrés vers {categorie:"alimentation"} — comportement préservé à l'identique.
 //
 // API : dataset Opendatasoft 'rappelconso-v2-gtin-trie' (data.economie.gouv.fr,
-// public sans clé — même famille qu'Ecogaz/carburants). ⚠️ bien la V2 (la V1
-// 'rappelconso0' est dépréciée).
+// public sans clé, bien la V2). Un SEUL appel par cycle couvre toutes les
+// catégories souscrites (where categorie_produit IN (...)), puis regroupement
+// côté serveur → 1 état par combinaison, comme la vigilance-factory.
 //
-// STRUCTURE RÉELLE CONSTATÉE (juillet 2026) : champs plats dont
-//   categorie_produit (normalisé : 'alimentation', 'maison-habitat'…),
-//   sous_categorie_produit, libelle (nom produit, minuscule), marque_produit,
-//   risques_encourus (texte libre, parfois séparé par '|', ex. 'listeria
-//   monocytogenes …'), motif_rappel (texte libre), lien_vers_la_fiche_rappel,
-//   date_publication (ISO). Fraîcheur : versement CONTINU (fiches du jour même
-//   observées), pas seulement hebdomadaire.
-//
-// ANTI-SPAM STRICT : on ne retient que les rappels ALIMENTAIRES dont le risque/
-// motif contient un motif GRAVE (microbiologique / toxique / corps étranger /
-// allergène non déclaré). Les blessures, surpressions, etc. sont ignorées.
-// Actif si ≥ 1 fiche grave publiée dans les dernières 72h. requires_confirmation
-// = true (filtre par mots-clés → confirmation sur 2 cycles). since = date de la
-// fiche la plus récente retenue (une nouvelle fiche ≥24h plus tard re-notifie).
+// ANTI-SPAM STRICT : on ne retient que les fiches dont le risque/motif contient
+// un motif GRAVE. La liste de mots-clés couvre TOUTES les catégories :
+//   - alimentaire : microbiologique / toxique / corps étranger / allergène ;
+//   - non alimentaire : blessure, brûlure, choc électrique, incendie,
+//     étouffement, strangulation, arrêt respiratoire, intoxication, chimique.
+// Actif si ≥ 1 fiche grave publiée dans les dernières 72h pour la catégorie.
+// requires_confirmation = true. since = fiche la plus récente retenue.
 
 const fetchFn = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 
@@ -27,8 +24,36 @@ const PORTAL_URL = 'https://rappel.conso.gouv.fr/';
 const TIMEOUT_MS = 10_000;
 const WINDOW_MS = 72 * 60 * 60 * 1000;
 
-// Motifs graves : { motif (normalisé, sans accent) → libellé affiché }.
+// Catégories exposées (value = valeur EXACTE normalisée du champ categorie_produit,
+// constatée par group_by ; label = libellé FR propre). multiple:true.
+const CATS = [
+  { value: 'alimentation', label: 'Alimentation' },
+  { value: 'bébés-enfants (hors alimentaire)', label: 'Bébés & enfants' },
+  { value: 'maison-habitat', label: 'Maison & habitat' },
+  { value: 'appareils électriques, outils', label: 'Appareils électriques & outils' },
+  { value: 'vêtements, mode, epi', label: 'Vêtements & mode' },
+  { value: 'hygiène-beauté', label: 'Hygiène & beauté' },
+  { value: 'sports-loisirs', label: 'Sports & loisirs' },
+  { value: 'automobiles et moyens de déplacement', label: 'Auto & mobilité' },
+  { value: 'equipements de communication', label: 'Équipements de communication' },
+  { value: 'autres', label: 'Autres produits' },
+];
+
+const paramsSchema = [
+  {
+    key: 'categorie',
+    label: 'Catégorie de produit',
+    type: 'enum',
+    values: CATS,
+    multiple: true,
+    required: true,
+    default: 'alimentation',
+  },
+];
+
+// Motifs graves (normalisés, sans accent) → libellé affiché.
 const GRAVE = [
+  // Alimentaire / microbiologique / toxique.
   { kw: 'listeria', label: 'listéria' },
   { kw: 'salmonell', label: 'salmonelle' },
   { kw: 'escherichia', label: 'E. coli' },
@@ -38,13 +63,24 @@ const GRAVE = [
   { kw: 'toxine', label: 'toxine' },
   { kw: 'corps etranger', label: 'corps étranger' },
   { kw: 'allergene', label: 'allergène non déclaré' },
+  // Non alimentaire (blessures, feu, électricité, chimique…).
+  { kw: 'blessure', label: 'risque de blessure' },
+  { kw: 'brulure', label: 'brûlure' },
+  { kw: 'choc electrique', label: 'choc électrique' },
+  { kw: 'electrocu', label: 'électrocution' },
+  { kw: 'incendie', label: 'incendie' },
+  { kw: 'inflammati', label: 'inflammation' },
+  { kw: 'etouffement', label: 'étouffement' },
+  { kw: 'strangulation', label: 'strangulation' },
+  { kw: 'arret respiratoire', label: 'arrêt respiratoire' },
+  { kw: 'intoxication', label: 'intoxication' },
+  { kw: 'chimique', label: 'risque chimique' },
 ];
 
 function norm(s) {
   return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 }
 
-// Libellés graves trouvés dans une fiche (risques + motif), sans doublon.
 function graveLabels(row) {
   const hay = norm(row.risques_encourus) + ' ' + norm(row.motif_rappel);
   const found = [];
@@ -56,7 +92,7 @@ function graveLabels(row) {
 
 function cleanLibelle(s) {
   const t = String(s || '').replace(/\s+/g, ' ').trim();
-  return t ? t.charAt(0).toUpperCase() + t.slice(1) : 'Produit alimentaire';
+  return t ? t.charAt(0).toUpperCase() + t.slice(1) : 'Produit';
 }
 
 function parseDate(value) {
@@ -65,13 +101,47 @@ function parseDate(value) {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-async function check() {
+// Construit l'état d'UNE catégorie à partir de ses fiches graves.
+function resultFor(params, isFood, grave) {
+  if (grave.length === 0) {
+    return { params, state: 'inactive', since: null, until: null, message: null, url: PORTAL_URL };
+  }
+  const mostRecent = grave.reduce((a, b) => (b.date && (!a.date || b.date > a.date) ? b : a), grave[0]);
+  const since = mostRecent.date || new Date();
+  const noun = isFood ? 'alimentaire' : 'produit';
+
+  let message;
+  let url;
+  if (grave.length === 1) {
+    const r = mostRecent.row;
+    const marque = r.marque_produit && String(r.marque_produit).trim().toLowerCase() !== 'sans marque'
+      ? ` – ${String(r.marque_produit).trim()}` : '';
+    message = `⚠️ Rappel ${noun} : ${cleanLibelle(r.libelle)}${marque} (${mostRecent.labels[0]})`;
+    url = r.lien_vers_la_fiche_rappel || PORTAL_URL;
+  } else {
+    const distinct = [];
+    grave.forEach((g) => g.labels.forEach((l) => { if (distinct.indexOf(l) === -1) distinct.push(l); }));
+    message = `⚠️ ${grave.length} rappels ${noun}s à risque grave (${distinct.slice(0, 3).join(', ')}) — vérifiez vos achats`;
+    url = PORTAL_URL;
+  }
+  return { params, state: 'active', since, until: null, message, url };
+}
+
+async function checkWithParams(paramsList) {
+  const combos = Array.isArray(paramsList) ? paramsList : [];
+  if (combos.length === 0) return [];
+
+  const wanted = combos.map((p) => String((p && p.categorie) || '')).filter(Boolean);
+  const uniqueCats = Array.from(new Set(wanted));
   const since = new Date(Date.now() - WINDOW_MS).toISOString();
+
+  // Un seul appel : toutes les catégories souscrites, 72h, tri desc.
+  const inList = uniqueCats.map((c) => `"${c.replace(/"/g, '\\"')}"`).join(', ');
   const params = new URLSearchParams({
-    limit: '20',
+    limit: '100',
     order_by: 'date_publication desc',
-    where: `categorie_produit="alimentation" and date_publication >= "${since}"`,
-    select: 'date_publication,libelle,marque_produit,risques_encourus,motif_rappel,lien_vers_la_fiche_rappel',
+    where: `categorie_produit in (${inList}) and date_publication >= "${since}"`,
+    select: 'date_publication,categorie_produit,libelle,marque_produit,risques_encourus,motif_rappel,lien_vers_la_fiche_rappel',
   });
   const url = `${API_BASE}?${params.toString()}`;
 
@@ -89,44 +159,26 @@ async function check() {
   if (!res.ok) throw new Error(`Réponse HTTP inattendue RappelConso : ${res.status} ${res.statusText}`);
 
   let payload;
-  try {
-    payload = await res.json();
-  } catch (err) {
-    throw new Error(`Réponse RappelConso illisible (JSON invalide) : ${err.message}`);
-  }
+  try { payload = await res.json(); }
+  catch (err) { throw new Error(`Réponse RappelConso illisible (JSON invalide) : ${err.message}`); }
   const rows = Array.isArray(payload && payload.results) ? payload.results : [];
 
-  // Fiches alimentaires à risque grave (le tri date desc vient de l'API).
-  const grave = [];
+  // Regroupe les fiches graves par catégorie.
+  const byCat = new Map();
   for (const r of rows) {
     const labels = graveLabels(r);
-    if (labels.length) grave.push({ row: r, labels, date: parseDate(r.date_publication) });
+    if (!labels.length) continue;
+    const cat = r.categorie_produit;
+    if (!byCat.has(cat)) byCat.set(cat, []);
+    byCat.get(cat).push({ row: r, labels, date: parseDate(r.date_publication) });
   }
 
-  if (grave.length === 0) {
-    return { state: 'inactive', since: null, until: null, message: null, url: PORTAL_URL };
-  }
-
-  // Épisode : since = date de la fiche la plus récente retenue.
-  const mostRecent = grave.reduce((a, b) => (b.date && (!a.date || b.date > a.date) ? b : a), grave[0]);
-  const since2 = mostRecent.date || new Date();
-
-  let message;
-  let url2;
-  if (grave.length === 1) {
-    const r = mostRecent.row;
-    const marque = r.marque_produit && String(r.marque_produit).trim().toLowerCase() !== 'sans marque'
-      ? ` – ${String(r.marque_produit).trim()}` : '';
-    message = `⚠️ Rappel alimentaire : ${cleanLibelle(r.libelle)}${marque} (${mostRecent.labels[0]})`;
-    url2 = r.lien_vers_la_fiche_rappel || PORTAL_URL;
-  } else {
-    const distinct = [];
-    grave.forEach((g) => g.labels.forEach((l) => { if (distinct.indexOf(l) === -1) distinct.push(l); }));
-    message = `⚠️ ${grave.length} rappels alimentaires à risque grave (${distinct.slice(0, 3).join(', ')}) — vérifiez vos placards`;
-    url2 = PORTAL_URL;
-  }
-
-  return { state: 'active', since: since2, until: null, message, url: url2 };
+  // Un résultat par combinaison souscrite.
+  return combos.map((p) => {
+    const cat = String((p && p.categorie) || '');
+    const grave = byCat.get(cat) || [];
+    return resultFor(p, cat === 'alimentation', grave);
+  });
 }
 
-module.exports = { id: 'rappel-conso', check };
+module.exports = { id: 'rappel-conso', paramsSchema, checkWithParams };

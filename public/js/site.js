@@ -116,7 +116,15 @@
       if (subMap[s.id]) (s.categories || []).forEach(function (c) { followedCats[c] = true; });
     });
     var candidates = sources.filter(function (s) {
-      return s.type !== 'linked' && !subMap[s.id] && dismissed.indexOf(s.id) === -1;
+      if (s.type === 'linked' || subMap[s.id] || dismissed.indexOf(s.id) !== -1) return false;
+      // B1) Jamais recommander une source désactivée (bug « vigilance Paris »).
+      if (s.enabled === false || s.disabled === true) return false;
+      // B2) Source géo « fixe » d'un AUTRE département que le profil : jamais recommandée.
+      if (profile.departement) {
+        var gd = fixedGeoDept(s);
+        if (gd && String(gd) !== String(profile.departement)) return false;
+      }
+      return true;
     });
     if (!candidates.length) return null;
     var maxSub = 0;
@@ -449,6 +457,13 @@
   function togglePicker(card, show) {
     var f = card.querySelector('.param-form'); if (f) f.hidden = !show;
   }
+  // H) Maintient l'indicateur « Abonné / Non abonné » d'une carte paramétrée.
+  function setParamStatus(card, on) {
+    var l = card.querySelector('.param-status .switch-label');
+    if (!l) return;
+    l.textContent = on ? 'Abonné' : 'Non abonné';
+    l.classList.toggle('on', !!on);
+  }
 
   // Lit le contrôle de saisie (select enum OU input string/number) et valide
   // le format côté client (attribut pattern). Retourne { params, label } ou null.
@@ -482,6 +497,7 @@
       var data = await res.json();
       addChip(card, data.params || params, data.label || label);
       card.dataset.subscribed = '1';
+      setParamStatus(card, true);
       togglePicker(card, false);
       celebrate(card);
       refreshMineDependent();
@@ -504,6 +520,7 @@
       var c = card.querySelector('.param-chips');
       if (c && !c.querySelector('.param-chip')) {
         card.dataset.subscribed = '0';
+        setParamStatus(card, false);
         var add = card.querySelector('.param-add'); if (add) add.remove();
         togglePicker(card, true);
       }
@@ -563,6 +580,8 @@
     if (!sources) { dot.className = 'dot-idle'; txt.textContent = ''; return; }
     var n = sources.filter(function (s) { return s.state === 'active'; }).length;
     dot.className = n > 0 ? 'dot-live' : 'dot-idle';
+    // F2) Nombre exposé sur le conteneur → forme compacte (icône + X) sur PC étroit.
+    if (dot.parentElement) dot.parentElement.dataset.n = n;
     txt.textContent = n === 0
       ? 'Aucune alerte active — tout est calme'
       : (n === 1 ? '1 alerte active en ce moment' : n + ' alertes actives en ce moment');
@@ -574,6 +593,7 @@
     var txt = document.getElementById('kpi-text');
     if (!dot || !txt) return;
     dot.className = n > 0 ? 'dot-live' : 'dot-idle';
+    if (dot.parentElement) dot.parentElement.dataset.n = n;
     txt.textContent = n === 0
       ? "Aucune de vos alertes n'est active — tout est calme"
       : (n === 1 ? '1 de vos alertes est active en ce moment' : n + ' de vos alertes sont actives en ce moment');
@@ -617,7 +637,24 @@
   // lisible : son id se termine par « -<dept> » (vigilance-meteo-05, vigicrues-05…).
   function sourceMatchesDept(s) {
     if (!profile.departement) return false;
-    return new RegExp('-' + profile.departement + '$').test(s.id || '');
+    // 1) source géo « fixe » : son id se termine par « -<dept> » (vigilance-meteo-05…)
+    if (new RegExp('-' + profile.departement + '$').test(s.id || '')) return true;
+    // 2) B) source PARAMÉTRÉE : une valeur enum de son schéma correspond au département
+    //    profil (ex. vigilance météo paramétrée par département) → même boost.
+    if (Array.isArray(s.params_schema)) {
+      return s.params_schema.some(function (sch) {
+        return sch && sch.type === 'enum' && (sch.values || []).some(function (v) {
+          return String(v.value) === String(profile.departement);
+        });
+      });
+    }
+    return false;
+  }
+  // B) Une source est-elle géolocalisée « en dur » (id suffixé par un département) ?
+  //    Sert à écarter de la reco une source géo d'un AUTRE département que le profil.
+  function fixedGeoDept(s) {
+    var m = String(s.id || '').match(/-(\d{2,3}|2[ab])$/i);
+    return m ? m[1] : null;
   }
   // Une catégorie de la source figure-t-elle dans les centres d'intérêt ?
   function sourceMatchesInterest(s) {
@@ -1169,6 +1206,8 @@
     var card = document.getElementById('acct-card');
     if (card) card.classList.remove('flipped'); // toujours ouvrir sur le recto
     setAccountLabel(false);
+    // E1) Panneau compte ouvert → masque la refonte d'en-tête (recherche + catégories).
+    document.body.classList.add('account-open');
     swap(main, panel);
   }
 
@@ -1179,6 +1218,7 @@
     var card = document.getElementById('acct-card');
     if (card) card.classList.remove('flipped');
     setAccountLabel(false);
+    document.body.classList.remove('account-open');
     swap(panel, main);
   }
 
