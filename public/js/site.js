@@ -594,12 +594,14 @@
     // F2) Nombre exposé sur le conteneur → forme compacte (icône + X) sur PC étroit.
     if (dot.parentElement) { dot.parentElement.dataset.n = n; dot.parentElement.dataset.active = n > 0; }
     setKpiNum(n);
-    txt.textContent = n === 0
+    var full = n === 0
       ? 'Aucune alerte active — tout est calme'
       : (n === 1 ? '1 alerte active en ce moment' : n + ' alertes actives en ce moment');
-    // A11y : le texte complet reste lisible par lecteur d'écran même quand la forme
-    // compacte (nombre seul) est affichée (le libellé étendu n'apparaît qu'au survol).
-    if (dot.parentElement) dot.parentElement.setAttribute('aria-label', txt.textContent);
+    // A11y : le libellé complet (avec le nombre) reste lisible par lecteur d'écran.
+    if (dot.parentElement) dot.parentElement.setAttribute('aria-label', full);
+    // L'overlay de survol suit le « ● N » compact déjà visible → on retire le nombre
+    // en tête pour éviter de l'afficher deux fois.
+    txt.textContent = full.replace(/^\d+\s*/, '');
   }
 
   // KPI personnalisé (connecté) : alertes actives PARMI les abonnements.
@@ -610,10 +612,11 @@
     dot.className = n > 0 ? 'dot-live' : 'dot-idle';
     if (dot.parentElement) { dot.parentElement.dataset.n = n; dot.parentElement.dataset.active = n > 0; }
     setKpiNum(n);
-    txt.textContent = n === 0
+    var full = n === 0
       ? "Aucune de vos alertes n'est active — tout est calme"
       : (n === 1 ? '1 de vos alertes est active en ce moment' : n + ' de vos alertes sont actives en ce moment');
-    if (dot.parentElement) dot.parentElement.setAttribute('aria-label', txt.textContent);
+    if (dot.parentElement) dot.parentElement.setAttribute('aria-label', full);
+    txt.textContent = full.replace(/^\d+\s*/, '');
   }
 
   // Une carte est-elle « active » (source déclenchée) ? (état rendu dans .state)
@@ -704,12 +707,14 @@
     var slugs = Object.keys(counts).sort(function (a, b) {
       return counts[b] - counts[a] || LBACat.label(a).localeCompare(LBACat.label(b));
     });
-    // 7 puces visibles par défaut sur desktop (≥1024px) avant le « + », 5 sur
-    // mobile (comportement inchangé). Total visible = Toutes [+ Mes alertes] + primary.
+    // Mobile (≤720px) : rail horizontal unique — TOUTES les catégories dans la 1re
+    // ligne (pas de « + » ni de 2e ligne). Desktop : 7 puces visibles ≥1024px (sinon 5)
+    // avant le « + ». Total visible = Toutes [+ Mes alertes] + primary.
+    var mobile = !!(window.matchMedia && window.matchMedia('(max-width: 720px)').matches);
     var wide = !!(window.matchMedia && window.matchMedia('(min-width: 1024px)').matches);
-    var primaryN = mode === 'connected' ? (wide ? 5 : 3) : (wide ? 6 : 4);
+    var primaryN = mobile ? slugs.length : (mode === 'connected' ? (wide ? 5 : 3) : (wide ? 6 : 4));
     var primary = slugs.slice(0, primaryN);
-    var secondary = slugs.slice(primaryN, primaryN + 8);
+    var secondary = mobile ? [] : slugs.slice(primaryN, primaryN + 8);
     var mineCount = cards.filter(function (c) { return c.dataset.subscribed === '1'; }).length;
 
     function chip(slug, label, count) {
@@ -932,8 +937,16 @@
     var meb = document.getElementById('mine-empty-btn');
     if (meb) meb.addEventListener('click', function () { if (qInput) qInput.value = ''; selectChip('all'); });
 
+    // Point 3 : header identique en tout contexte → si le panneau compte est ouvert,
+    // toute interaction avec la recherche/les catégories du header revient à la grille.
+    function backToGridIfAccount() {
+      var panel = document.getElementById('account-panel');
+      if (panel && !panel.hidden && window.LBAAccount && LBAAccount.close) LBAAccount.close();
+    }
+
     var searchTimer = null;
     qInput.addEventListener('input', function () {
+      backToGridIfAccount();
       clearTimeout(searchTimer);
       searchTimer = setTimeout(function () { apply(true); }, 120);
     });
@@ -947,6 +960,7 @@
     });
 
     function onChipClick(e) {
+      backToGridIfAccount();
       var toggle = e.target.closest('.chip-more-toggle');
       if (toggle) {
         var sec = document.getElementById('chips-secondary');
@@ -1220,10 +1234,14 @@
     }, 180);
   }
 
-  // B2) Le label fixe du panneau suit la face affichée (recto / verso).
-  function setAccountLabel(verso) {
+  // B2) Le label fixe du panneau suit la face affichée (recto / historique / soutenir).
+  function setAccountLabel(text) {
     var lbl = document.getElementById('acct-panel-label');
-    if (lbl) lbl.textContent = verso ? 'Mon historique' : 'Mon compte';
+    if (lbl) lbl.textContent = text || 'Mon compte';
+  }
+  // Point 6/7 : remonte la page en haut du panneau (respecte reduced-motion).
+  function scrollAcctTop() {
+    window.scrollTo({ top: 0, behavior: REDUCE ? 'auto' : 'smooth' });
   }
 
   function openAccount() {
@@ -1232,9 +1250,8 @@
     if (!main || !panel || currentMode !== 'connected' || !panel.hidden) return;
     fillAccountHeader();
     var card = document.getElementById('acct-card');
-    if (card) card.classList.remove('flipped'); // toujours ouvrir sur le recto
-    setAccountLabel(false);
-    // E1) Panneau compte ouvert → masque la refonte d'en-tête (recherche + catégories).
+    if (card) card.classList.remove('flipped', 'acct-face-support'); // toujours ouvrir sur le recto
+    setAccountLabel('Mon compte');
     document.body.classList.add('account-open');
     swap(main, panel);
   }
@@ -1244,8 +1261,8 @@
     var panel = document.getElementById('account-panel');
     if (!main || !panel || panel.hidden) return;
     var card = document.getElementById('acct-card');
-    if (card) card.classList.remove('flipped');
-    setAccountLabel(false);
+    if (card) card.classList.remove('flipped', 'acct-face-support');
+    setAccountLabel('Mon compte');
     document.body.classList.remove('account-open');
     swap(panel, main);
   }
@@ -1253,11 +1270,29 @@
   function bindAccount() {
     var card = document.getElementById('acct-card');
     var toHist = document.getElementById('acct-to-history');
-    if (toHist && card) toHist.addEventListener('click', function () { card.classList.add('flipped'); setAccountLabel(true); });
-    // Le ↩ du verso est géré par le handler global .flip-back (retour au recto) :
-    // on remet le label sur « Mon compte » via un écouteur dédié sur le verso.
-    var flipBack = card ? card.querySelector('.flip-back') : null;
-    if (flipBack) flipBack.addEventListener('click', function () { setAccountLabel(false); });
+    // Point 6 : « Mon historique » → flip + remontée en haut de page (voir le début).
+    if (toHist && card) toHist.addEventListener('click', function () {
+      card.classList.remove('acct-face-support');
+      card.classList.add('flipped');
+      setAccountLabel('Mon historique');
+      scrollAcctTop();
+    });
+    // Point 7 : « Toutes les façons d'aider » → 3e face « Nous soutenir » (flip).
+    var toSupport = document.getElementById('acct-to-support');
+    if (toSupport && card) toSupport.addEventListener('click', function () {
+      card.classList.add('flipped', 'acct-face-support');
+      setAccountLabel('Nous soutenir');
+      scrollAcctTop();
+    });
+    // Le ↩ de chaque face est géré par le handler global .flip-back (retour au recto) :
+    // on remet le label sur « Mon compte » et on retire la 3e face (après la rotation,
+    // pour éviter tout flicker de la face historique).
+    if (card) card.querySelectorAll('.flip-back').forEach(function (fb) {
+      fb.addEventListener('click', function () {
+        setAccountLabel('Mon compte');
+        setTimeout(function () { card.classList.remove('acct-face-support'); }, REDUCE ? 0 : 520);
+      });
+    });
     var close = document.getElementById('acct-close');
     if (close) close.addEventListener('click', closeAccount);
     var backGrid = document.getElementById('acct-back-grid');

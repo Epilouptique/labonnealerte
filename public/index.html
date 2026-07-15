@@ -103,6 +103,7 @@
         </div>
 
         <div class="acct-section">
+          <div class="acct-subhead">Notifications</div>
           <div id="notif-mount"></div><!-- rempli par js/push.js -->
         </div>
 
@@ -137,16 +138,17 @@
                 <button class="sup-btn primary" type="button" disabled>Ko-fi <span class="soon">bientôt</span></button>
               </div>
             </div>
-            <a class="notif-row notif-nav" href="/soutenir">
+            <button type="button" class="notif-row notif-nav acct-to-support" id="acct-to-support">
               <span class="notif-txt"><strong>Toutes les façons d'aider</strong></span>
               <span class="notif-chevron" aria-hidden="true">→</span>
-            </a>
+            </button>
           </div>
         </div>
 
         <!-- B) Navigation du compte — même style notif-card. « Proposer » et
              « Se déconnecter » sont AU-DESSUS du bouton « Revenir » (dernière action). -->
         <div class="acct-section">
+          <div class="acct-subhead">Divers</div>
           <div class="notif-card">
             <button type="button" class="notif-row notif-nav acct-to-history" id="acct-to-history">
               <span class="notif-txt"><strong>Mon historique</strong>
@@ -179,6 +181,50 @@
           <div id="history-timeline"></div>
           <div id="history-empty" class="history-empty" hidden>
             Votre historique est vide — abonnez-vous à une première alerte, on s'occupe du reste.
+          </div>
+        </div>
+      </div>
+
+      <!-- 3e face : « Nous soutenir » (contenu de /soutenir, adapté). Même mécanique
+           à 3 faces que les cartes de sources (recto / verso / face support). -->
+      <div class="card-face acct-support-face">
+        <button type="button" class="flip-back" aria-label="Retour au compte"><svg class="ic-back" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 5 5v3"/></svg></button>
+        <div class="acct-support-scroll">
+          <p class="acct-support-lead">La Bonne Alerte est gratuite, sans pub, et le restera. Si le service vous est utile, voici quelques façons d'aider — la plupart ne coûtent rien.</p>
+
+          <div class="acct-subhead">💜 Soutien financier</div>
+          <div class="notif-card">
+            <div class="notif-row acct-support-row">
+              <div class="notif-txt"><strong>Un coup de pouce</strong>
+                <span class="notif-sub">Pour couvrir l'hébergement et le développement. Les dons arrivent bientôt.</span></div>
+              <div class="sup-actions">
+                <button class="sup-btn primary" type="button" disabled>PayPal <span class="soon">bientôt</span></button>
+                <button class="sup-btn primary" type="button" disabled>Ko-fi <span class="soon">bientôt</span></button>
+              </div>
+            </div>
+          </div>
+
+          <div class="acct-subhead" style="margin-top:18px">⭐ Soutenir sans dépenser</div>
+          <div class="notif-card">
+            <a class="notif-row notif-nav" href="https://github.com/Epilouptique/labonnealerte" target="_blank" rel="noopener">
+              <span class="notif-txt"><strong>Mettre une étoile sur GitHub</strong>
+                <span class="notif-sub">Le plus efficace, et totalement gratuit.</span></span>
+              <span class="notif-chevron" aria-hidden="true">→</span>
+            </a>
+            <a class="notif-row notif-nav" href="/proposer">
+              <span class="notif-txt"><strong>Proposer une source</strong>
+                <span class="notif-sub">Enrichissez le kiosque avec votre détecteur.</span></span>
+              <span class="notif-chevron" aria-hidden="true">→</span>
+            </a>
+          </div>
+
+          <div class="acct-subhead" style="margin-top:18px">🏢 Entreprises</div>
+          <div class="notif-card">
+            <a class="notif-row notif-nav" href="https://dahu-concept.fr/contact" target="_blank" rel="noopener">
+              <span class="notif-txt"><strong>Source sur mesure ou partenariat</strong>
+                <span class="notif-sub">Contactez Dahu-Concept.</span></span>
+              <span class="notif-chevron" aria-hidden="true">→</span>
+            </a>
           </div>
         </div>
       </div>

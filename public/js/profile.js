@@ -68,15 +68,29 @@
     return html;
   }
 
+  function chipHTML(slug) {
+    var on = state.interests.indexOf(slug) !== -1;
+    return '<button type="button" class="pref-chip' + (on ? ' on' : '') +
+      '" data-slug="' + esc(slug) + '" aria-pressed="' + (on ? 'true' : 'false') + '">' +
+      esc(catLabel(slug)) + '</button>';
+  }
+  // Point 5 : ~40 caractères cumulés de libellés visibles par défaut, le reste sous
+  // un bouton « + » (même pattern que la 2e ligne de catégories du kiosque).
   function renderChips() {
     var box = document.getElementById('pref-chips');
     if (!box) return;
-    box.innerHTML = kioskCats.map(function (slug) {
-      var on = state.interests.indexOf(slug) !== -1;
-      return '<button type="button" class="pref-chip' + (on ? ' on' : '') +
-        '" data-slug="' + esc(slug) + '" aria-pressed="' + (on ? 'true' : 'false') + '">' +
-        esc(catLabel(slug)) + '</button>';
-    }).join('');
+    var LIMIT = 40, acc = 0, primary = [], secondary = [];
+    kioskCats.forEach(function (slug) {
+      if (primary.length === 0 || acc <= LIMIT) { primary.push(slug); acc += catLabel(slug).length + 2; }
+      else secondary.push(slug);
+    });
+    var html = primary.map(chipHTML).join('');
+    if (secondary.length) {
+      html += '<button type="button" class="pref-chip pref-chip-more" id="pref-chips-more-toggle"' +
+        ' aria-label="Plus de centres d\'intérêt" aria-expanded="false">+</button>' +
+        '<div class="pref-chips-more chips-more" id="pref-chips-more">' + secondary.map(chipHTML).join('') + '</div>';
+    }
+    box.innerHTML = html;
   }
 
   function syncDeptVisibility() {
@@ -116,6 +130,17 @@
       save();
     });
     document.getElementById('pref-chips').addEventListener('click', function (e) {
+      // Point 5 : bascule d'ouverture/fermeture de la 2e ligne (transition fluide).
+      var tgl = e.target.closest('.pref-chip-more');
+      if (tgl) {
+        var more = document.getElementById('pref-chips-more');
+        var open = more.classList.toggle('open');
+        tgl.classList.toggle('on', open);
+        tgl.textContent = open ? '−' : '+';
+        tgl.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (more) more.style.maxHeight = open ? more.scrollHeight + 'px' : '0px';
+        return;
+      }
       var b = e.target.closest('.pref-chip');
       if (!b) return;
       var slug = b.getAttribute('data-slug');

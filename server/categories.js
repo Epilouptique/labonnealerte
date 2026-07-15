@@ -29,6 +29,7 @@ const GROUPS = {
   'animaux': ['animaux', 'adoption-animaux', 'animaux-perdus', 'veterinaire', 'aquariophilie', 'ornithologie'],
   'espace-science': ['espace', 'lancements-spatiaux', 'iss', 'science', 'decouvertes', 'conferences-science'],
   'solidarite': ['solidarite', 'dons', 'benevolat', 'associations', 'petitions', 'collectes'],
+  'francophonie-international': ['quebec', 'belgique', 'suisse', 'outre-mer', 'expatries'],
   'autre': ['autre', 'humour', 'insolite'],
 };
 
@@ -54,6 +55,9 @@ const SPECIAL = {
   'certificats-ssl': 'Certificats SSL',
   'changements-api': "Changements d'API",
   'qualite-air': "Qualité de l'air",
+  'quebec': 'Québec',
+  'expatries': 'Expatriés',
+  'outre-mer': 'Outre-mer',
 };
 
 // Restauration d'accents au niveau du mot.

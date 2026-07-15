@@ -30,6 +30,10 @@ body {
 }
 .mono { font-family: 'JetBrains Mono', monospace; }
 .wrap { max-width: 1060px; margin: 0 auto; padding: 0 24px; }
+/* Point 1) Autorise l'overlay du KPI à déborder à droite du header sans jamais
+   créer de scroll horizontal. `clip` préserve le position:sticky du header
+   (contrairement à `hidden`). */
+html { overflow-x: clip; }
 
 /* ---------- header ---------- */
 header {
@@ -78,14 +82,20 @@ html[data-theme="light"] header { background: #ffffff; } /* thème clair : blanc
   content: ""; position: absolute; top: -120px; left: 50%; transform: translate(-50%, 0) scale(1);
   width: 640px; height: 420px; pointer-events: none;
   background: radial-gradient(closest-side, color-mix(in srgb, var(--amber) 22%, transparent), transparent 70%);
-  animation: hero-halo 16s ease-in-out infinite alternate;
+  animation: hero-halo 22s ease-in-out infinite;
+  will-change: transform, opacity; /* animé sur le compositor : pas de jank */
 }
-/* J) Halo vivant mais sobre : déformation douce de la taille + variation SUBTILE
-   de teinte (hue-rotate lent). */
+/* Point 9) Mouvement nébuleux : la nappe grandit/rétrécit ET dérive lentement,
+   comme un nuage. Multi-étapes non linéaires (translate + scale + opacité), boucle
+   fermée (0% = 100%) pour un enchaînement continu. Reste discret, même teinte amber.
+   Uniquement transform/opacity (propriétés compositor) → aucun scintillement. */
 @keyframes hero-halo {
-  0%   { transform: translate(-50%, 0) scale(1);           opacity: .8;  filter: hue-rotate(-6deg); }
-  50%  { transform: translate(-48%, 12px) scale(1.05, 1.09); opacity: .92; filter: hue-rotate(4deg); }
-  100% { transform: translate(-46%, 22px) scale(1.09, 1.04); opacity: 1;   filter: hue-rotate(10deg); }
+  0%   { transform: translate(-50%, 0)     scale(1);           opacity: .85; }
+  20%  { transform: translate(-46%, 12px)  scale(1.08, 1.04);  opacity: .97; }
+  40%  { transform: translate(-53%, -6px)  scale(0.93, 1.03);  opacity: .90; }
+  60%  { transform: translate(-48%, 14px)  scale(1.10, 0.98);  opacity: 1;   }
+  80%  { transform: translate(-51%, 4px)   scale(0.97, 1.05);  opacity: .92; }
+  100% { transform: translate(-50%, 0)     scale(1);           opacity: .85; }
 }
 @media (prefers-reduced-motion: reduce) { .hero::before { animation: none; } }
 .hero > * { position: relative; }
@@ -833,6 +843,11 @@ body[data-mode="connected"] #stats { display: none; }
 }
 .pref-chip:hover { border-color: var(--amber); color: var(--ink); }
 .pref-chip.on { background: var(--amber); border-color: var(--amber); color: #fff; }
+/* Point 5) 2e ligne de centres d'intérêt repliable — réutilise .chips-more
+   (overflow/max-height/opacity + transition) ; ouverture animée depuis scrollHeight. */
+.pref-chips-more { display: flex; flex-wrap: wrap; gap: 8px; flex-basis: 100%; margin-top: 0; }
+.pref-chip-more { min-width: 40px; text-align: center; font-weight: 700; }
+.pref-chip-more.on { background: var(--amber); border-color: var(--amber); color: #fff; }
 .pref-feedback {
   font-size: 11px; font-weight: 700; letter-spacing: 0; text-transform: none;
   color: var(--green); opacity: 0; transition: opacity .2s; margin-left: 8px;
@@ -878,6 +893,19 @@ body[data-mode="connected"] #stats { display: none; }
 
 /* B1) Le × de fermeture est masqué au verso (comme le ⓘ des cartes). */
 .acct-card.flipped .acct-close { display: none; }
+
+/* Point 7) 3e face « Nous soutenir » : même mécanique 3D que la face « Partager »
+   des cartes de sources. Face absolue à rotateY(180deg), affichée via .acct-face-support
+   (la face historique est masquée pendant ce temps). */
+.acct-support-face {
+  position: absolute; inset: 0; transform: rotateY(180deg);
+  padding: 30px 32px; background: var(--surface);
+  display: flex; flex-direction: column; gap: 12px;
+}
+.acct-card.acct-face-support .card-back.acct-back { display: none; }
+.acct-card:not(.acct-face-support) .acct-support-face { display: none; }
+.acct-support-scroll { margin-top: 12px; flex: 1; min-height: 0; overflow-y: auto; }
+.acct-support-lead { color: var(--muted); font-size: 14px; line-height: 1.6; margin-bottom: 4px; }
 
 /* B2) Label fixe du panneau (hors du conteneur qui tourne) : style section-label,
    mais jamais renvoyé dans la marge gauche (pas la classe .section-label). */
@@ -936,7 +964,7 @@ body[data-mode="connected"] #stats { display: none; }
 .sup-btn .soon { font-size: 12px; color: var(--muted); font-weight: 600; margin-left: 4px; }
 
 @media (max-width: 620px) {
-  .card-front.acct-front, .card-back.acct-back { padding: 24px 20px; }
+  .card-front.acct-front, .card-back.acct-back, .acct-support-face { padding: 24px 20px; }
 }
 
 /* ---------- Abonnement paramétré (OpenAlert v2) ---------- */
@@ -1007,56 +1035,46 @@ body[data-mode="connected"] #stats { display: none; }
      de défilement (préserve le position:sticky du header, contrairement à hidden). */
   html, body { overflow-x: clip; }
 
-  /* En-tête empilé : titre (rangée 1) puis barre de recherche (rangée dédiée). */
+  /* En-tête mobile façon leboncoin, 3 rangées :
+       Rangée 1 : hamburger (gauche) + titre centré (spacer à droite pour l'équilibre).
+       Rangée 2 : barre de recherche pleine largeur.
+       Rangée 3 : rail horizontal de catégories (carrousel scrollable au doigt).
+     KPI, connexion/compte et « Déposer » migrent dans le menu plein écran (#m-menu). */
   body.m-kiosk header .nav {
-    position: relative;
-    height: auto;
-    flex-wrap: wrap;
-    row-gap: 12px;
-    padding-top: 12px;
-    padding-bottom: 14px;
+    position: relative; height: auto; flex-wrap: wrap;
+    row-gap: 12px; padding-top: 10px; padding-bottom: 12px;
   }
 
-  /* Titre centré, pleine largeur. */
-  body.m-kiosk .brand { flex: 1 1 100%; justify-content: center; }
-  /* « Déposer une alerte » masqué sur mobile (en-tête épuré ; reste accessible
-     via le footer et l'espace développeur). */
-  body.m-kiosk .btn-deposit { display: none; }
+  /* Rangée 1 : hamburger rétabli à gauche, titre centré, spacer symétrique à droite. */
+  body.m-kiosk .nav-toggle { display: inline-flex !important; order: 0; flex: 0 0 42px; margin: 0; }
+  body.m-kiosk .brand { order: 1; flex: 1 1 auto; justify-content: center; font-size: 1.7rem; }
+  body.m-kiosk .m-nav-spacer { display: block; order: 2; flex: 0 0 42px; }
 
-  /* Menu masqué : hamburger caché, boîte .nav-right dissoute (display:contents)
-     pour ne conserver que l'icône de compte, tous les autres liens masqués. */
-  body.m-kiosk .nav-toggle { display: none !important; }
-  body.m-kiosk .nav-right { display: contents; }
-  body.m-kiosk .nav-right > *:not(#auth-link) { display: none !important; }
+  /* Éléments migrés dans le menu plein écran : retirés du header mobile. */
+  body.m-kiosk .btn-deposit,
+  body.m-kiosk .nav-right { display: none !important; }
 
-  /* Icône de connexion (à droite du titre), qui devient icône de compte connecté.
-     D) fond UNI violet de la charte dans les deux états ; styles UA neutralisés
-     (appearance:none) pour empêcher le rendu « bleu » sur Android ; léger retrait
-     du bord droit. */
-  body.m-kiosk #auth-link.btn-login {
-    position: absolute; top: 8px; right: 6px;
-    margin: 0; padding: 0; width: 40px; height: 40px;
-    display: inline-flex; align-items: center; justify-content: center;
-    border-radius: 50%; background: var(--amber); color: #fff;
-    font-size: 0; /* masque le libellé « Se connecter » / « Mon compte » */
-    box-shadow: 0 1px 3px rgba(30, 20, 50, .18);
-    -webkit-appearance: none; appearance: none; border: none;
-    -webkit-tap-highlight-color: transparent;
+  /* Rangée 2 : recherche (loupe à gauche, pas de bouton — inchangé). */
+  body.m-kiosk header .nav > .search { order: 3; flex: 1 1 100%; min-width: 0; margin: 0; }
+
+  /* Rangée 3 : rail de catégories — un seul groupe scrollable horizontalement.
+     Toutes les puces (primaires + secondaires) sont fusionnées ici par renderChips
+     (mobile) ; le « + » et .chips-secondary-wrap ne servent plus que sur desktop. */
+  body.m-kiosk header .nav .toolbar { order: 4; flex: 1 1 100%; margin: 0; display: block; }
+  body.m-kiosk header .nav .toolbar .chips { width: 100%; }
+  body.m-kiosk header .nav .toolbar .chips .chips-row {
+    flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden;
+    -webkit-overflow-scrolling: touch; scroll-snap-type: x proximity;
+    scrollbar-width: none; padding-bottom: 2px;
+    /* fondu de bord droit : signale qu'il reste des catégories à swiper */
+    -webkit-mask-image: linear-gradient(to right, #000 88%, transparent 100%);
+    mask-image: linear-gradient(to right, #000 88%, transparent 100%);
   }
-  /* Glyphe « personne » monochrome (masque SVG teinté par currentColor = blanc),
-     lisible sur le fond violet — remplace l'emoji multicolore \1F464. */
-  body.m-kiosk #auth-link.btn-login::before {
-    content: ""; width: 20px; height: 20px; background: currentColor;
-    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23000' d='M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm0 2c-5 0-9 2.5-9 6v1h18v-1c0-3.5-4-6-9-6z'/%3E%3C/svg%3E") center / contain no-repeat;
-    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23000' d='M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm0 2c-5 0-9 2.5-9 6v1h18v-1c0-3.5-4-6-9-6z'/%3E%3C/svg%3E") center / contain no-repeat;
-  }
-  body.m-kiosk[data-mode="connected"] #auth-link.btn-login { background: var(--amber); color: #fff; }
+  body.m-kiosk header .nav .toolbar .chips .chips-row::-webkit-scrollbar { display: none; }
+  body.m-kiosk header .nav .toolbar .chip-f { flex: 0 0 auto; white-space: nowrap; scroll-snap-align: start; }
+  body.m-kiosk header .nav .chips-secondary-wrap { display: none; }
 
-  /* Barre de recherche : rangée dédiée pleine largeur sous le titre. */
-  body.m-kiosk header .nav > .search { flex: 1 1 100%; min-width: 0; margin: 0; }
-
-  /* « Le kiosque » masqué ; le KPI (dans .nav-right) l'est déjà via la règle
-     .nav-right > *:not(#auth-link). */
+  /* « Le kiosque » masqué. */
   body.m-kiosk main#alertes > .section-label { display: none; }
 
   /* C1) Cartes compactes par défaut : la description (.card p) et l'état (.state)
@@ -1076,21 +1094,26 @@ body[data-mode="connected"] #stats { display: none; }
     body.m-kiosk .grid .card .card-front > .state { transition: none; }
   }
 
-  /* E2) Header condensé au scroll : le titre s'efface, ne reste que la barre de
-     recherche (avec l'icône de connexion à sa droite). Transitions fluides. */
-  body.m-kiosk .brand {
+  /* E2) Header condensé au scroll : la rangée 1 (hamburger + titre) et la rangée 3
+     (catégories) se replient ; seule la rangée 2 (recherche) reste visible. */
+  body.m-kiosk .nav-toggle,
+  body.m-kiosk .brand,
+  body.m-kiosk .m-nav-spacer,
+  body.m-kiosk header .nav .toolbar {
     overflow: hidden;
     transition: max-height .3s ease, opacity .25s ease, margin .3s ease;
-    max-height: 300px; opacity: 1;
+    max-height: 60px; opacity: 1;
   }
-  body.m-kiosk.m-scrolled .brand { max-height: 0; opacity: 0; margin: 0; }
-  /* Place l'icône de connexion à droite de la recherche une fois condensé. */
-  body.m-kiosk.m-scrolled header .nav > .search { margin-right: 48px; }
+  body.m-kiosk.m-scrolled .nav-toggle,
+  body.m-kiosk.m-scrolled .brand,
+  body.m-kiosk.m-scrolled .m-nav-spacer,
+  body.m-kiosk.m-scrolled header .nav .toolbar { max-height: 0; opacity: 0; margin: 0; }
   @media (prefers-reduced-motion: reduce) {
-    body.m-kiosk .brand { transition: none; }
+    body.m-kiosk .nav-toggle, body.m-kiosk .brand,
+    body.m-kiosk .m-nav-spacer, body.m-kiosk header .nav .toolbar { transition: none; }
   }
 
-  /* E3) iPhone SE (~≤375px) : police des catégories réduite pour tenir sur 2 lignes. */
+  /* E3) iPhone SE (~≤375px) : police des catégories réduite. */
   @media (max-width: 375px) {
     body.m-kiosk .chip-f { font-size: 12px; padding: 7px 12px; }
   }
@@ -1115,6 +1138,15 @@ body[data-mode="connected"] #stats { display: none; }
     order: 5; flex: 1 1 100%; max-width: none; min-width: 0; margin: 2px 0 0;
     padding: 5px 5px 5px 18px; gap: 0;
   }
+  /* Point 2) Rangée 2 : puces de catégories, centrées, DANS le header. */
+  body.m-kiosk header .nav .toolbar {
+    order: 6; flex: 1 1 100%; margin: 4px 0 0;
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+  }
+  body.m-kiosk header .nav .toolbar .chips { width: 100%; }
+  body.m-kiosk header .nav .toolbar .chips .chips-row { justify-content: center; }
+  body.m-kiosk header .nav .chips-secondary-wrap { order: 7; flex: 1 1 100%; }
+  body.m-kiosk header .nav .chips-secondary-wrap .chips-row { justify-content: center; }
 
   /* Point 6) Desktop : plus de loupe à gauche, bouton de recherche accolé à droite
      (fond accent, loupe blanche, coins épousant la pilule). */
@@ -1137,34 +1169,46 @@ body[data-mode="connected"] #stats { display: none; }
    [logo] [Déposer] [recherche flex:1 max 420px] [nav-right (Mes alertes / Se
    connecter / thème / KPI)]. */
 @media (min-width: 1024px) {
-  body.m-kiosk header .nav { height: 64px; flex-wrap: nowrap; gap: 14px; }
+  /* Rangée 1 sur une seule ligne (recherche rejoint le logo/nav-right) ; les
+     catégories restent en rangée 2 (flex-basis 100% → passent à la ligne). */
+  body.m-kiosk header .nav { height: auto; flex-wrap: wrap; gap: 10px 14px; padding: 10px 0; }
   body.m-kiosk .brand { font-size: 26px; }
   body.m-kiosk header .nav > .search {
     order: 2; flex: 1 1 auto; max-width: 420px; min-width: 140px; margin: 0;
   }
   body.m-kiosk header .nav-right { order: 3; }
+  body.m-kiosk header .nav .toolbar { margin-top: 2px; }
 }
 
-/* Point 2) Survol : le compteur s'étire vers la gauche en OVERLAY pour révéler le
-   texte complet, SANS déplacer les voisins (position absolue, ancré à droite) et
-   sans jamais provoquer de scroll horizontal. Désactivé sur tactile et < 1024px. */
+/* Point 1) Survol : le compteur s'étire vers la DROITE en OVERLAY depuis l'icône
+   (point de départ fixe), révélant le texte complet SANS déplacer les voisins de
+   gauche. L'espace de débordement à droite est garanti par header/.nav overflow
+   visible + html/body overflow-x: clip (aucun scroll horizontal). Désactivé sur
+   tactile et < 1024px. */
 @media (hover: hover) and (min-width: 1024px) {
+  /* Espace de débordement réservé À DROITE : la réserve vaut le déficit entre la
+     largeur du texte étendu (~300px) et la place disponible jusqu'au bord droit
+     ((100vw-1060)/2 + demi-KPI). Nulle sur très grands écrans (KPI alors flush à
+     droite), plafonnée à 140px pour ne pas creuser un vide sur écran étroit. Le
+     point de départ (icône + chiffre) reste ainsi fixe et le texte n'est pas coupé. */
+  body.m-kiosk .nav-right .kpi {
+    margin-right: max(0px, min(140px, calc(256px - (100vw - 1060px) / 2)));
+  }
   body.m-kiosk .nav-right .kpi #kpi-text {
     display: flex; align-items: center; white-space: nowrap;
-    position: absolute; top: 0; right: 0; height: 100%;
+    position: absolute; top: 0; left: 0; height: 100%;
     max-width: 0; overflow: hidden; opacity: 0;
-    background: var(--surface); border-radius: 999px; padding: 0;
+    background: var(--surface); border-radius: 999px; padding: 0; font-size: 12.5px;
     box-shadow: 0 2px 12px rgba(30, 20, 50, .18);
     transition: max-width .35s ease, opacity .25s ease, padding .3s ease;
-    pointer-events: none; z-index: 3;
+    pointer-events: none; z-index: 1;
   }
-  body.m-kiosk .nav-right .kpi:hover #kpi-text { max-width: 340px; opacity: 1; padding: 0 16px; }
-  /* La pilule étendue porte sa propre pastille de tête (l'état vit sur data-active). */
-  body.m-kiosk .nav-right .kpi:hover #kpi-text::before {
-    content: ""; flex: none; width: 8px; height: 8px; border-radius: 50%;
-    background: var(--muted); opacity: .5; margin-right: 8px;
-  }
-  body.m-kiosk .nav-right .kpi[data-active="true"]:hover #kpi-text::before { background: var(--green); opacity: 1; }
+  /* Le déploiement part de l'icône fixe (padding-left réserve la place du « ● N »)
+     et pousse le texte vers la droite. */
+  body.m-kiosk .nav-right .kpi:hover #kpi-text { max-width: 300px; opacity: 1; padding: 0 16px 0 46px; }
+  /* Icône + chiffre restent visibles, au-dessus de l'overlay, ancrés à gauche. */
+  body.m-kiosk .nav-right .kpi #kpi-dot,
+  body.m-kiosk .nav-right .kpi #kpi-num { position: relative; z-index: 2; }
 }
 
 /* F3) titre en mobile (home). */
@@ -1172,8 +1216,62 @@ body[data-mode="connected"] #stats { display: none; }
   body.m-kiosk .brand { font-size: 1.7rem; }
 }
 
-/* E1) Règle globale (mobile + desktop) : quand le panneau « Mon compte » est ouvert,
-   la barre de recherche du header et le KPI sont masqués (les puces vivent dans
-   #alertes, masqué par le swap). La home est la seule page avec .account-open. */
-body.account-open header .nav > .search,
-body.account-open .nav-right .kpi { display: none; }
+/* Point 3) Header RIGOUREUSEMENT identique en tout contexte (home connecté, panneau
+   compte, home non connecté) : aucun masquage conditionnel de la recherche/des
+   catégories/du KPI quand le panneau « Mon compte » est ouvert. Les deux seules
+   différences autorisées sont gérées ailleurs :
+     · « Se connecter » ⇄ « Mon compte » (texte/lien du bouton, via session.js) ;
+     · le KPI n'apparaît QUE connecté (règle ci-dessous) — sinon retiré du flux,
+       les voisins se réajustent naturellement (flex/gap), aucun trou. */
+body:not([data-mode="connected"]) .nav-right .kpi { display: none; }
+
+/* ============ Menu mobile plein écran (home ≤720px, js/mobile-header.js) ============ */
+/* Spacer de la rangée 1 : n'existe que sur mobile (règle plus haut le rend block). */
+.m-nav-spacer { display: none; }
+
+.m-menu[hidden] { display: none; }
+.m-menu {
+  position: fixed; inset: 0; z-index: 200; background: var(--bg);
+  overflow-y: auto; -webkit-overflow-scrolling: touch;
+  opacity: 1; transition: opacity .2s ease;
+}
+.m-menu.m-anim { opacity: 0; }               /* état initial d'ouverture (fondu) */
+.m-menu.m-anim.open { opacity: 1; }
+.m-menu-inner {
+  min-height: 100%; display: flex; flex-direction: column;
+  padding: 12px 22px calc(24px + env(safe-area-inset-bottom, 0px));
+}
+.m-menu-head { display: flex; align-items: center; justify-content: space-between; height: 44px; }
+.m-menu-logo { font-size: 1.7rem; pointer-events: none; }
+.m-menu-close {
+  border: none; background: transparent; color: var(--ink); cursor: pointer;
+  font-size: 22px; line-height: 1; padding: 8px; border-radius: 8px; margin-right: -8px;
+}
+.m-menu-close:hover { color: var(--amber); }
+.m-menu-list { display: flex; flex-direction: column; margin-top: 8px; }
+.m-menu-list a, .m-menu-list .m-link {
+  display: block; width: 100%; text-align: left; text-decoration: none;
+  font: inherit; font-size: 17px; font-weight: 600; color: var(--ink);
+  background: none; border: none; cursor: pointer; padding: 14px 2px;
+  -webkit-tap-highlight-color: transparent;
+}
+.m-menu-list a:hover, .m-menu-list .m-link:hover { color: var(--amber); }
+.m-menu-list a.m-primary { color: var(--amber); }   /* Se connecter / Mon compte, en accent */
+/* Entrées « bientôt » : grisées, non cliquables, badge (réutilise le libellé .soon). */
+.m-menu-list .m-soon, .m-menu-list .m-soon:hover {
+  color: var(--muted); cursor: default; display: flex; align-items: center;
+}
+.m-menu-list .m-soon .soon {
+  font-size: 11px; font-weight: 700; color: var(--muted); background: var(--line);
+  border-radius: 999px; padding: 2px 8px; margin-left: 8px;
+  text-transform: none; letter-spacing: 0;
+}
+.m-menu-sep { border: none; border-top: 1px solid var(--line); margin: 8px 0; }
+.m-menu-foot { margin-top: auto; padding-top: 18px; display: flex; align-items: center; gap: 12px; }
+.m-menu-foot .theme-btn { transition: transform .4s ease; }
+.m-menu-foot .m-theme-label { font-size: 14px; color: var(--muted); font-weight: 600; }
+@media (prefers-reduced-motion: reduce) { .m-menu { transition: none; } }
+/* Jamais de menu plein écran sur desktop (le hamburger y est masqué de toute façon). */
+@media (min-width: 721px) { .m-menu { display: none !important; } }
+/* Body verrouillé pendant l'ouverture du menu (pas de scroll de l'arrière-plan). */
+body.m-menu-open { overflow: hidden; }

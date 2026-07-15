@@ -15,6 +15,10 @@
 //       le 1er tour) → { start: <date limite>, kind: 'inscription' }
 //     • 1er tour (avril 2027, à confirmer) → { start: <date>, kind: 'scrutin', tour: 1 }
 //     • 2nd tour (deux semaines après) → { start: <date>, kind: 'scrutin', tour: 2 }
+//     • Listes électorales CONSULAIRES (Français de l'étranger, cf. vague
+//       francophonie/expatriés) : date-butoir légale = 6e VENDREDI précédant le
+//       1er tour (art. L. 30). Non arrêtée tant que le décret ne fixe pas la date
+//       du scrutin → { start: <6e vendredi avant T1>, kind: 'inscription-consulaire' }.
 //   NE RIEN inscrire tant que le décret n'est pas publié (une date fausse est
 //   inacceptable ; une source qui dort est acceptable).
 
