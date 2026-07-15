@@ -110,6 +110,7 @@ const FUSED_REDIRECTS = {
   'vacances-zone-b': { to: 'vacances-scolaires', qs: 'zone=B' },
   'vacances-zone-c': { to: 'vacances-scolaires', qs: 'zone=C' },
   'carburant-seuils': { to: 'carburant', qs: '' },
+  'indice-uv-gap': { to: 'indice-uv', qs: 'departement=05' },
 };
 
 // Page de statut d'une source : SEO injecté côté serveur + 404 propre.

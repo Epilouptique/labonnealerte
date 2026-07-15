@@ -35,10 +35,13 @@ function isPrivateIP(ip) {
   return false;
 }
 
-// Récupère et parse un JSON distant avec toutes les protections. Peut throw pubErr.
-async function safeFetchJson(rawUrl, opts = {}) {
+// Récupère le TEXTE brut d'une URL distante avec toutes les protections anti-SSRF
+// (IP privées interdites, pas de suivi de redirection, taille plafonnée, timeout).
+// opts.accept surcharge l'en-tête Accept (défaut application/json). Peut throw pubErr.
+async function safeFetchText(rawUrl, opts = {}) {
   const timeoutMs = opts.timeoutMs || DEFAULT_TIMEOUT_MS;
   const maxBytes = opts.maxBytes || DEFAULT_MAX_BYTES;
+  const accept = opts.accept || 'application/json';
 
   let url;
   try { url = new URL(rawUrl); } catch { throw pubErr('URL invalide'); }
@@ -60,7 +63,7 @@ async function safeFetchJson(rawUrl, opts = {}) {
     res = await fetch(url.href, {
       signal: controller.signal,
       redirect: 'error', // pas de rebond SSRF
-      headers: { Accept: 'application/json' },
+      headers: { Accept: accept },
     });
   } catch (err) {
     if (err.name === 'AbortError') throw pubErr(`Délai dépassé (>${Math.round(timeoutMs / 1000)}s)`);
@@ -75,9 +78,14 @@ async function safeFetchJson(rawUrl, opts = {}) {
 
   const text = await res.text();
   if (Buffer.byteLength(text, 'utf8') > maxBytes) throw pubErr('Réponse trop volumineuse (> 100 Ko)');
+  return text;
+}
 
+// Récupère et parse un JSON distant (mêmes protections). Peut throw pubErr.
+async function safeFetchJson(rawUrl, opts = {}) {
+  const text = await safeFetchText(rawUrl, opts);
   try { return JSON.parse(text); }
   catch { throw pubErr('Le contenu récupéré n\'est pas du JSON valide'); }
 }
 
-module.exports = { safeFetchJson, isPrivateIP, pubErr };
+module.exports = { safeFetchJson, safeFetchText, isPrivateIP, pubErr };
