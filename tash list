@@ -1,0 +1,20 @@
+[33m942837c[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m feat: heures de veille + vague XXL 2 (fin-de-vie, tempo, causes, sport, smic, statuts)
+[33mc8710d3[m Robot 1 veilleur de maintenance : kit nocturne lecture seule (script SELECT-only, prompt agent, ps1 planifie, doc planificateur)
+[33mdc94312[m OpenAlert v2 etape dodo
+[33mf8caf7d[m feat: OpenAlert v2 etape 6 — DoomName source externe parametree
+[33m1b4e8e2[m feat: OpenAlert v2 etapes 4-5 — finitions abonne, validateur et polling externes parametres
+[33m7623f57[m OpenAlert v2 etape 3 — carte vigilance parametree en dual-run
+[33me15ca9a[m feat: OpenAlert v2 etape 2 — carte vigilance parametree en dual-run
+[33m2fe1489[m feat: v2 en cours
+[33m1e70e0e[m feat: evenements divers, blagues, css, ux
+[33m8de9d5f[m feat: vague 8 — Bison Fute (calendrier officiel 2026), eclipse 12 aout, Nuits des etoiles, Geminides
+[33mfeef92f[m feat: vague 7 — meteo journees evenements
+[33m085052a[m feat: vague 6 — journees evenements et UX
+[33m272b577[m feat: vague 5 — carburants (franchissement de seuils), vigilances 06/33/59, statuts npm/Vercel
+[33med28944[m feat: vague 4 — séismes EMSC, vacances scolaires 3 zones, SNCF perturbations (clé en attente)
+[33m24231dd[m feat: vague 3 — sources calculées (calendar-factory), soldes Steam, aurores boréales
+[33m683df8a[m feat: vague 1 sources — factory vigilance multi-depts (05/13/69/75, cache mutualisé), Ecogaz, VigiEau Gap
+[33m512cd88[m correction de mon compte, et de l'UX
+[33m2827b09[m feat: pwa
+[33m4ddcb88[m feat: source vigilance crues Durance (Vigicrues, API publique)
+[33mbd8a0cd[m feat: runner headless Playwright (Docker) + fix détection leboncoin (espaces insécables)

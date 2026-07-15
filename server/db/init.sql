@@ -1315,3 +1315,217 @@ SELECT 'statut-vimeo', 'Panne Vimeo', 'Statut officiel de Vimeo',
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'statut-vimeo');
 INSERT INTO source_states (source_id) SELECT 'statut-vimeo'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'statut-vimeo');
+
+-- ================================================================
+-- Vague 14 · Jours fériés paramétré + éducation/culture/conso/tech +
+-- statuts (fournée 3) + Météo-France avalanche/forêts (prêt-à-brancher).
+-- ÉCARTÉS (voir rapport) : épidémies régional (aucun seuil), EFS réserves
+-- sang & ANSM ruptures (pas de flux/seuil), cols 05 (pas d'API), Parcoursup
+-- 2027 / résultats examens 2027 / vaccination grippe / prix timbre 2027 /
+-- Prime Day / nuit des musées / printemps du cinéma / Avignon / Eurovision /
+-- fête des voisins (non annoncés) — TODO à l'annonce.
+-- ================================================================
+
+-- ---------------------------------------------------------------
+-- 1.1) JOURS FÉRIÉS paramétré par ZONE (upgrade EN PLACE, même id).
+--      Abonnés broadcast actuels → {zone:"metropole"} (identique).
+-- ---------------------------------------------------------------
+UPDATE sources SET
+    name = 'Fériés & ponts', subtitle = 'La zone de votre choix',
+    description = 'Une semaine avant chaque jour férié, un rappel — et le bon plan pont. Choisissez votre zone (métropole, Alsace-Moselle, Outre-mer…). Calendrier officiel de l''administration française.',
+    params_schema = '[{"key":"zone","label":"Zone","type":"enum","values":[{"value":"metropole","label":"Métropole"},{"value":"alsace-moselle","label":"Alsace-Moselle"},{"value":"guadeloupe","label":"Guadeloupe"},{"value":"martinique","label":"Martinique"},{"value":"guyane","label":"Guyane"},{"value":"la-reunion","label":"La Réunion"},{"value":"mayotte","label":"Mayotte"},{"value":"saint-barthelemy","label":"Saint-Barthélemy"},{"value":"saint-martin","label":"Saint-Martin"},{"value":"nouvelle-caledonie","label":"Nouvelle-Calédonie"},{"value":"polynesie-francaise","label":"Polynésie française"},{"value":"wallis-et-futuna","label":"Wallis-et-Futuna"},{"value":"saint-pierre-miquelon","label":"Saint-Pierre-et-Miquelon"}],"multiple":true,"required":true,"default":"metropole"}]'::jsonb
+ WHERE id = 'jours-feries';
+
+-- Report d'état broadcast → {zone:"metropole"} (préserve since) AVANT conversion.
+INSERT INTO source_param_states (source_id, params, state, since, until_date, message, url, checked_at)
+SELECT 'jours-feries', jsonb_build_object('zone', 'metropole'),
+       st.state, st.since, st.until_date, st.message, st.url, st.checked_at
+  FROM source_states st
+ WHERE st.source_id = 'jours-feries' AND st.state <> 'inactive'
+ON CONFLICT (source_id, params) DO NOTHING;
+UPDATE source_states SET state = 'inactive', since = NULL, until_date = NULL, message = NULL
+ WHERE source_id = 'jours-feries' AND state <> 'inactive';
+
+-- Conversion des abonnements broadcast → {zone:"metropole"}, puis purge des NULL.
+INSERT INTO subscriptions (subscriber_id, source_id, params)
+SELECT sub.subscriber_id, 'jours-feries', jsonb_build_object('zone', 'metropole')
+  FROM subscriptions sub
+ WHERE sub.source_id = 'jours-feries' AND sub.params IS NULL
+ON CONFLICT (subscriber_id, source_id, COALESCE(params, '{}'::jsonb)) DO NOTHING;
+DELETE FROM subscriptions old
+ WHERE old.source_id = 'jours-feries' AND old.params IS NULL
+   AND EXISTS (SELECT 1 FROM subscriptions n
+                WHERE n.subscriber_id = old.subscriber_id AND n.source_id = 'jours-feries'
+                  AND n.params = jsonb_build_object('zone', 'metropole'));
+
+-- ---------------------------------------------------------------
+-- Nouvelles sources BROADCAST (calendriers + navigateurs).
+-- ---------------------------------------------------------------
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'fetes-familiales', 'Fêtes familiales', 'Mères, pères, grands-mères',
+  'Un rappel quelques jours avant la fête des mères, des pères et des grands-mères — pensez au cadeau ou au coup de fil. Dates calculées selon les règles officielles (report si la fête des mères coïncide avec la Pentecôte).',
+  'internal', 'official', false, ARRAY['vie-locale', 'fetes'], 100
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'fetes-familiales');
+INSERT INTO source_states (source_id) SELECT 'fetes-familiales'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'fetes-familiales');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'maj-navigateurs', 'Nouveau navigateur', 'Versions majeures Firefox & Chrome',
+  'Prévenu à la sortie d''une nouvelle version majeure stable de Firefox ou Chrome. Données officielles Mozilla et Google, sans clé.',
+  'internal', 'official', false, ARRAY['tech', 'versions-logiciels'], 101
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'maj-navigateurs');
+INSERT INTO source_states (source_id) SELECT 'maj-navigateurs'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'maj-navigateurs');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'rentree-scolaire', 'Rentrée scolaire', 'Le compte à rebours de septembre',
+  'Un rappel une semaine avant la rentrée scolaire des élèves. Date officielle du calendrier scolaire (Éducation nationale).',
+  'internal', 'official', false, ARRAY['vie-locale', 'ecoles'], 102
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'rentree-scolaire');
+INSERT INTO source_states (source_id) SELECT 'rentree-scolaire'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'rentree-scolaire');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'nuits-de-la-lecture', 'Nuits de la lecture', 'Le grand rendez-vous du livre',
+  'Un rappel avant les Nuits de la lecture : lectures, animations et bibliothèques ouvertes partout en France. Dates officielles.',
+  'internal', 'official', false, ARRAY['culture', 'livres'], 103
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'nuits-de-la-lecture');
+INSERT INTO source_states (source_id) SELECT 'nuits-de-la-lecture'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'nuits-de-la-lecture');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'semaine-du-gout', 'Semaine du goût', 'Ateliers et dégustations',
+  'Un rappel avant la Semaine du goût : ateliers, dégustations et éveil au bien manger. Dates officielles.',
+  'internal', 'official', false, ARRAY['alimentation', 'vie-locale'], 104
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'semaine-du-gout');
+INSERT INTO source_states (source_id) SELECT 'semaine-du-gout'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'semaine-du-gout');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'grands-festivals', 'Grands festivals', 'Cannes et les grands rendez-vous',
+  'Un rappel à l''ouverture des grands festivals culturels français. Dates officielles.',
+  'internal', 'official', false, ARRAY['culture', 'festivals'], 105
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'grands-festivals');
+INSERT INTO source_states (source_id) SELECT 'grands-festivals'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'grands-festivals');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'ceremonies', 'Césars & Oscars', 'Les grandes cérémonies du cinéma',
+  'Un rappel la veille des grandes cérémonies du cinéma : Césars et Oscars. Dates officielles.',
+  'internal', 'official', false, ARRAY['culture', 'cinema'], 106
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'ceremonies');
+INSERT INTO source_states (source_id) SELECT 'ceremonies'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'ceremonies');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'rdv-gaming', 'Rendez-vous gaming', 'gamescom, PGW, Game Awards',
+  'Un rappel avant les grands rendez-vous du jeu vidéo : gamescom, Paris Games Week, The Game Awards. Dates officielles.',
+  'internal', 'official', false, ARRAY['jeux-video', 'culture'], 107
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'rdv-gaming');
+INSERT INTO source_states (source_id) SELECT 'rdv-gaming'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'rdv-gaming');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'braderie-lille', 'Braderie de Lille', 'La plus grande brocante d''Europe',
+  'Un rappel avant la Braderie de Lille, le premier week-end de septembre. Dates officielles (Ville de Lille).',
+  'internal', 'official', false, ARRAY['vie-locale', 'brocantes'], 108
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'braderie-lille');
+INSERT INTO source_states (source_id) SELECT 'braderie-lille'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'braderie-lille');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'hausses-tarifs', 'Hausses de tarifs', 'Les échéances annuelles',
+  'Un rappel des hausses de tarifs récurrentes : révision des péages autoroutiers au 1er février (et d''autres à venir). Messages factuels, sans montant inventé.',
+  'internal', 'official', false, ARRAY['vie-locale', 'reglementation'], 109
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'hausses-tarifs');
+INSERT INTO source_states (source_id) SELECT 'hausses-tarifs'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'hausses-tarifs');
+
+-- ---------------------------------------------------------------
+-- Statuts de services (fournée 3, standard Statuspage). requires_confirmation true.
+-- ---------------------------------------------------------------
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'statut-tailscale', 'Panne Tailscale', 'Statut officiel de Tailscale',
+  'Alerte quand Tailscale déclare une panne majeure sur sa page de statut officielle.',
+  'internal', 'official', true, ARRAY['pannes-services', 'status-cloud'], 110
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'statut-tailscale');
+INSERT INTO source_states (source_id) SELECT 'statut-tailscale'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'statut-tailscale');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'statut-render', 'Panne Render', 'Statut officiel de Render',
+  'Alerte quand Render déclare une panne majeure sur sa page de statut officielle.',
+  'internal', 'official', true, ARRAY['pannes-services', 'status-cloud'], 111
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'statut-render');
+INSERT INTO source_states (source_id) SELECT 'statut-render'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'statut-render');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'statut-flyio', 'Panne Fly.io', 'Statut officiel de Fly.io',
+  'Alerte quand Fly.io déclare une panne majeure sur sa page de statut officielle.',
+  'internal', 'official', true, ARRAY['pannes-services', 'status-cloud'], 112
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'statut-flyio');
+INSERT INTO source_states (source_id) SELECT 'statut-flyio'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'statut-flyio');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'statut-grafana', 'Panne Grafana Cloud', 'Statut officiel de Grafana Cloud',
+  'Alerte quand Grafana Cloud déclare une panne majeure sur sa page de statut officielle.',
+  'internal', 'official', true, ARRAY['pannes-services', 'status-cloud'], 113
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'statut-grafana');
+INSERT INTO source_states (source_id) SELECT 'statut-grafana'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'statut-grafana');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'statut-datadog', 'Panne Datadog', 'Statut officiel de Datadog',
+  'Alerte quand Datadog déclare une panne majeure sur sa page de statut officielle.',
+  'internal', 'official', true, ARRAY['pannes-services', 'status-cloud'], 114
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'statut-datadog');
+INSERT INTO source_states (source_id) SELECT 'statut-datadog'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'statut-datadog');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'statut-shopify', 'Panne Shopify', 'Statut officiel de Shopify',
+  'Alerte quand Shopify déclare une panne majeure sur sa page de statut officielle.',
+  'internal', 'official', true, ARRAY['pannes-services', 'status-cloud'], 115
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'statut-shopify');
+INSERT INTO source_states (source_id) SELECT 'statut-shopify'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'statut-shopify');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'statut-hubspot', 'Panne HubSpot', 'Statut officiel de HubSpot',
+  'Alerte quand HubSpot déclare une panne majeure sur sa page de statut officielle.',
+  'internal', 'official', true, ARRAY['pannes-services', 'status-cloud'], 116
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'statut-hubspot');
+INSERT INTO source_states (source_id) SELECT 'statut-hubspot'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'statut-hubspot');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'statut-elevenlabs', 'Panne ElevenLabs', 'Statut officiel d''ElevenLabs',
+  'Alerte quand ElevenLabs déclare une panne majeure sur sa page de statut officielle.',
+  'internal', 'official', true, ARRAY['pannes-services', 'status-cloud'], 117
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'statut-elevenlabs');
+INSERT INTO source_states (source_id) SELECT 'statut-elevenlabs'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'statut-elevenlabs');
+
+-- ---------------------------------------------------------------
+-- Météo-France PRÊTES-À-BRANCHER (enabled=false) : nécessitent une souscription
+-- portail MF distincte + clé env, puis passer enabled=true.
+--   avalanche : env METEOFRANCE_DPBRA_API_KEY (produit DPBRA, XML)
+--   forêts    : env METEOFRANCE_FORETS_API_KEY (produit DonneesPubliquesMeteoForets)
+-- ---------------------------------------------------------------
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema, enabled)
+SELECT 'risque-avalanche', 'Risque avalanche', 'Le massif de votre choix',
+  'Alerte quand le risque d''avalanche atteint le niveau fort ou très fort (4-5/5) sur le massif de votre choix. Bulletin officiel Météo-France (BRA). Saisonnier (hiver).',
+  'internal', 'official', false, ARRAY['avalanches', 'vigilance-meteo'], 118,
+  '[{"key":"massif","label":"Massif","type":"enum","values":[{"value":"13","label":"Thabor"},{"value":"16","label":"Pelvoux"},{"value":"17","label":"Queyras"},{"value":"18","label":"Dévoluy"},{"value":"19","label":"Champsaur"},{"value":"20","label":"Embrunais-Parpaillon"},{"value":"21","label":"Ubaye"},{"value":"23","label":"Mercantour"}],"multiple":true,"required":true,"default":null}]'::jsonb,
+  false
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'risque-avalanche');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema, enabled)
+SELECT 'meteo-forets', 'Météo des forêts', 'Le département de votre choix',
+  'Alerte quand le danger de feux de forêt atteint le niveau très élevé (rouge) dans le département de votre choix. Météo des forêts (Météo-France). Publiée l''été.',
+  'internal', 'official', false, ARRAY['feux-de-foret', 'vigilance-meteo'], 119,
+  '[{"key":"departement","label":"Département","type":"enum","values":[{"value":"04","label":"Alpes-de-Haute-Provence"},{"value":"05","label":"Hautes-Alpes"},{"value":"06","label":"Alpes-Maritimes"},{"value":"07","label":"Ardèche"},{"value":"11","label":"Aude"},{"value":"13","label":"Bouches-du-Rhône"},{"value":"26","label":"Drôme"},{"value":"2A","label":"Corse-du-Sud"},{"value":"2B","label":"Haute-Corse"},{"value":"30","label":"Gard"},{"value":"34","label":"Hérault"},{"value":"48","label":"Lozère"},{"value":"66","label":"Pyrénées-Orientales"},{"value":"83","label":"Var"},{"value":"84","label":"Vaucluse"}],"multiple":true,"required":true,"default":null}]'::jsonb,
+  false
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'meteo-forets');
