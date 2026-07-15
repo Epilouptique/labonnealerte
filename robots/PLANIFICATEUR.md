@@ -6,6 +6,9 @@ Ce document décrit **deux** tâches planifiées, toutes deux en lecture seule :
   `robots/robot1-veille.ps1` → rapports dans `rapports/veille/`.
 - **Robot 2 — Auditeur de sécurité** : **hebdomadaire** (dimanche 03h00 proposé),
   `robots/robot2-audit.ps1` → rapports dans `rapports/audit/`.
+- **Robot 4 — Veilleur de nouvelles sources** : **hebdomadaire** (mercredi 03h00
+  proposé), `robots/robot4-veille-sources.ps1` → rapports dans
+  `rapports/veille-sources/`. Seul robot à nécessiter un **accès web sortant**.
 
 La **première partie** ci-dessous détaille le Robot 1 ; la procédure est
 identique pour le Robot 2, aux quelques valeurs près récapitulées dans la
@@ -195,3 +198,52 @@ Register-ScheduledTask -TaskName 'LBA - Robot2 Audit securite hebdo' -Action $Ac
 **Tester** / **lire le résultat** / **dépanner** : identique au Robot 1, en
 remplaçant `veille` par `audit` dans les chemins et
 `LBA - Robot1 Veille nocturne` par `LBA - Robot2 Audit securite hebdo`.
+
+---
+
+## Robot 4 — Veilleur de nouvelles sources (hebdomadaire)
+
+Même principe que les précédents, en lecture seule sur le dépôt, mais **avec
+accès web sortant** : l'agent recherche des pistes de nouvelles sources
+(data.gouv.fr, API publiques, changelogs) et les documente **factuellement** —
+aucune recommandation. Rapport dans
+`rapports/veille-sources/rapport-sources-<date>.md`, journal dans
+`rapports/veille-sources/run-<date>.log`. Interdits détaillés :
+`robots/robot4-veille-sources.prompt.md`.
+
+> ⚠️ **Accès web requis.** Ce robot a besoin de `WebSearch`/`WebFetch` pendant la
+> session `claude -p`. Si la configuration Claude Code de la machine bloque le web
+> en mode headless, l'agent le **constatera** dans son rapport (pistes non
+> vérifiables) — il n'y a pas de contournement automatique.
+
+Chemins de référence :
+
+- Dépôt : `c:\Dev\Labonnealerte`
+- Script : `c:\Dev\Labonnealerte\robots\robot4-veille-sources.ps1`
+
+Reprends **exactement** la procédure du Robot 1, en changeant ces valeurs :
+
+| Champ | Valeur Robot 4 |
+|---|---|
+| **Nom de la tâche** | `LBA - Robot4 Veille sources hebdo` |
+| **Description** | `Veille de nouvelles sources labonnealerte (lecture seule + web) - rapport hebdomadaire.` |
+| **Déclencheur** | `Hebdomadaire`, tous les `1` semaines, jour **Mercredi** |
+| **Heure de début** | `03:00:00` (proposé — étalé : Robot 2 dimanche, Robot 4 mercredi) |
+| **Programme/script** | `powershell.exe` |
+| **Arguments** | `-ExecutionPolicy Bypass -File "c:\Dev\Labonnealerte\robots\robot4-veille-sources.ps1"` |
+| **Commencer dans** | `c:\Dev\Labonnealerte` |
+
+Onglets « Conditions » et « Paramètres » : réglages **identiques** au Robot 1.
+
+### Option B — PowerShell (en admin), équivalent Robot 4
+
+```powershell
+$Action    = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument '-ExecutionPolicy Bypass -File "c:\Dev\Labonnealerte\robots\robot4-veille-sources.ps1"' -WorkingDirectory 'c:\Dev\Labonnealerte'
+$Trigger   = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Wednesday -At 03:00
+$Settings  = New-ScheduledTaskSettingsSet -StartWhenAvailable -WakeToRun:$false -ExecutionTimeLimit (New-TimeSpan -Hours 1)
+Register-ScheduledTask -TaskName 'LBA - Robot4 Veille sources hebdo' -Action $Action -Trigger $Trigger -Settings $Settings -Description 'Veille de nouvelles sources labonnealerte (lecture seule + web).' -RunLevel Highest -User $env:USERNAME
+```
+
+**Tester** / **lire le résultat** / **dépanner** : identique au Robot 1, en
+remplaçant `veille` par `veille-sources` dans les chemins et le nom de tâche par
+`LBA - Robot4 Veille sources hebdo`.
