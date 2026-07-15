@@ -249,4 +249,76 @@ async function sendPromoAlert(recipients, info = {}) {
   return { sent, failed };
 }
 
-module.exports = { sendConfirmation, sendPromoAlert, sendMagicLink };
+/**
+ * Digest « heures de veille » : UN email récapitulant les alertes différées
+ * pendant la plage silencieuse de l'abonné, envoyé à sa sortie de veille.
+ * Les alertes redevenues inactives entre-temps sont présentées comme
+ * « terminée entre-temps » (honnêteté), pas comme actives.
+ * N'est JAMAIS lui-même différé.
+ * @param {{email, token}} recipient
+ * @param {Array<{name, message, url, statusUrl, obsolete}>} items
+ */
+async function sendDeferredDigest(recipient, items = []) {
+  const email = typeof recipient === 'string' ? recipient : recipient.email;
+  const token = typeof recipient === 'string' ? null : recipient.token;
+  if (!email || items.length === 0) return { sent: 0, failed: 0 };
+
+  const n = items.length;
+  const heading = `😴 Pendant votre veille : ${n} alerte${n > 1 ? 's' : ''}`;
+  const intro = `Voici ce qui s'est passé pendant vos heures de veille. Les alertes déjà terminées sont signalées.`;
+
+  const rowsHtml = items.map((it) => {
+    const name = esc(it.name || 'Votre alerte');
+    const link = esc(it.url || it.statusUrl || PUBLIC_SITE);
+    if (it.obsolete) {
+      return `<tr><td style="padding:10px 0;border-bottom:1px solid #eee;font-family:Arial,Helvetica,sans-serif;color:#8a8a92;font-size:14px">
+        <strong style="color:#6b6459">${name}</strong> — terminée entre-temps${it.message ? ' · ' + esc(it.message) : ''}</td></tr>`;
+    }
+    return `<tr><td style="padding:10px 0;border-bottom:1px solid #eee;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#0f1419">
+      <strong>${name}</strong>${it.message ? ' — ' + esc(it.message) : ''}<br>
+      <a href="${link}" style="color:#a567e3;font-size:13px">Voir →</a></td></tr>`;
+  }).join('');
+
+  const html = `<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f4edfb">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4edfb;padding:28px 14px"><tr><td align="center">
+    <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 18px rgba(30,20,50,.08)">
+      <tr><td style="background:${ACCENT};padding:16px 24px;font-family:Arial,Helvetica,sans-serif;font-size:17px;font-weight:800"><span style="color:#fff">labonnealerte.fr</span></td></tr>
+      <tr><td style="padding:26px 28px 8px;font-family:Arial,Helvetica,sans-serif;color:#0f1419">
+        <h1 style="margin:0 0 10px;font-size:20px;font-weight:800">${heading}</h1>
+        <p style="margin:0 0 8px;font-size:14px;color:#4a4a52;line-height:1.6">${intro}</p></td></tr>
+      <tr><td style="padding:6px 28px 20px"><table role="presentation" width="100%">${rowsHtml}</table></td></tr>
+      <tr><td style="padding:0 28px 24px">
+        <hr style="border:none;border-top:1px solid #eee;margin:0 0 12px">
+        <p style="margin:0;font-size:12px;color:#8a8a92;line-height:1.6">Vous recevez ce récapitulatif car vos heures de veille sont actives. Réglez-les dans « Mon compte ».<br>
+        Gérer mes alertes : <a href="${MYALERTS_URL}" style="color:#8a8a92">${MYALERTS_URL}</a></p></td></tr>
+    </table></td></tr></table>
+</body></html>`;
+
+  const textLines = items.map((it) => {
+    const base = it.name || 'Votre alerte';
+    if (it.obsolete) return `- ${base} — terminée entre-temps`;
+    return `- ${base}${it.message ? ' — ' + it.message : ''} : ${it.url || it.statusUrl || PUBLIC_SITE}`;
+  });
+  const text = `${heading}\n\n${intro}\n\n${textLines.join('\n')}\n\n—\nGérer mes alertes : ${MYALERTS_URL}`;
+
+  const payload = { from: FROM, to: email, subject: heading, text, html };
+  if (token) {
+    const unsubUrl = `${SITE_URL}/unsubscribe/${token}`;
+    payload.headers = {
+      'List-Unsubscribe': `<${unsubUrl}>`,
+      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+    };
+  }
+  try {
+    await resend.emails.send(payload);
+    await incEmailCounters();
+    return { sent: 1, failed: 0 };
+  } catch (err) {
+    console.error(`[mailer] Échec digest veille à ${email} :`, err.message);
+    return { sent: 0, failed: 1 };
+  }
+}
+
+module.exports = { sendConfirmation, sendPromoAlert, sendMagicLink, sendDeferredDigest };

@@ -154,6 +154,7 @@ apiRouter.get('/my-alerts', async (req, res) => {
     // Préférences : email activé, appareils push, et personnalisation d'affichage.
     const prefs = await pool.query(
       `SELECT s.email_enabled, s.country, s.departement, s.interests,
+              s.quiet_start, s.quiet_end, s.quiet_disabled,
               (SELECT COUNT(*)::int FROM push_subscriptions p WHERE p.subscriber_id = s.id) AS push_endpoints_count
          FROM subscribers s WHERE s.id = $1`,
       [auth.id]
@@ -173,6 +174,10 @@ apiRouter.get('/my-alerts', async (req, res) => {
       country: pr.country || null,
       departement: pr.departement || null,
       interests: pr.interests || [],
+      // Heures de veille (défaut 23/8 appliqué en code si NULL).
+      quiet_start: pr.quiet_start == null ? 23 : pr.quiet_start,
+      quiet_end: pr.quiet_end == null ? 8 : pr.quiet_end,
+      quiet_disabled: pr.quiet_disabled === true,
     });
   } catch (err) {
     console.error('[my-alerts] Erreur GET /my-alerts :', err.message);
@@ -268,6 +273,40 @@ apiRouter.post('/my-alerts/profile', async (req, res) => {
     return res.status(200).json({ country, departement, interests });
   } catch (err) {
     console.error('[my-alerts] Erreur POST /profile :', err.message);
+    return res.status(503).json({ error: 'Service indisponible' });
+  }
+});
+
+/* ------------------------------------------------------------------ */
+/* POST /api/my-alerts/quiet-hours — plage silencieuse des notifications.*/
+/* Corps : { token, disabled?, start?, end? } (heures 0-23).            */
+/* ------------------------------------------------------------------ */
+apiRouter.post('/my-alerts/quiet-hours', async (req, res) => {
+  const body = req.body || {};
+  const { token } = body;
+
+  const disabled = body.disabled === true;
+  function validHour(h) { return Number.isInteger(h) && h >= 0 && h <= 23; }
+  // start/end optionnels : par défaut 23/8. Rejet si fournis mais invalides.
+  let start = body.start == null ? 23 : body.start;
+  let end = body.end == null ? 8 : body.end;
+  if (!validHour(start) || !validHour(end)) {
+    return res.status(400).json({ error: 'Heures invalides (0-23)' });
+  }
+  if (start === end) {
+    return res.status(400).json({ error: 'Le début et la fin ne peuvent pas être identiques' });
+  }
+
+  try {
+    const auth = await authenticate(token);
+    if (!auth) return res.status(401).json({ error: 'Session invalide ou expirée' });
+    await pool.query(
+      'UPDATE subscribers SET quiet_start = $1, quiet_end = $2, quiet_disabled = $3 WHERE id = $4',
+      [start, end, disabled, auth.id]
+    );
+    return res.status(200).json({ quiet_start: start, quiet_end: end, quiet_disabled: disabled });
+  } catch (err) {
+    console.error('[my-alerts] Erreur POST /quiet-hours :', err.message);
     return res.status(503).json({ error: 'Service indisponible' });
   }
 });

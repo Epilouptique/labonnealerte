@@ -2,8 +2,9 @@ const fs = require('fs');
 const path = require('path');
 const cron = require('node-cron');
 const { pool } = require('./db');
-const { sendPromoAlert } = require('./mailer');
-const { sendToSource, sendToSourceParams } = require('./webpush');
+const { sendPromoAlert, sendDeferredDigest } = require('./mailer');
+const { sendToSource, sendToSourceParams, sendToSubscriber } = require('./webpush');
+const { isQuietNow } = require('./quiet-hours');
 const { cleanupExpired } = require('./sessions');
 const { resolveLabel } = require('./params');
 const { buildExternalSource } = require('./external');
@@ -47,6 +48,76 @@ async function confirmedEmailsForSource(sourceId) {
   return rows.map((r) => ({ email: r.email, token: r.token }));
 }
 
+// Abonnés (confirmés) d'une alerte, avec leurs préférences de veille et le nombre
+// d'appareils push. params=null → broadcast ; sinon combinaison paramétrée.
+async function loadSubscribersForAlert(sourceId, params) {
+  const paramsCond = params ? 'sub.params = $2::jsonb' : 'sub.params IS NULL';
+  const args = params ? [sourceId, JSON.stringify(params)] : [sourceId];
+  const { rows } = await pool.query(
+    `SELECT s.id, s.email, s.token, s.email_enabled,
+            s.quiet_start, s.quiet_end, s.quiet_disabled,
+            (SELECT COUNT(*)::int FROM push_subscriptions p WHERE p.subscriber_id = s.id) AS push_count
+       FROM subscribers s
+       JOIN subscriptions sub ON sub.subscriber_id = s.id
+      WHERE sub.source_id = $1 AND s.confirmed = true AND ${paramsCond}`,
+    args
+  );
+  return rows;
+}
+
+// Aiguillage par abonné : envoi immédiat OU mise en file de veille (deferred),
+// email et push traités séparément mais selon la MÊME plage de veille de l'abonné.
+async function dispatchAlert(sourceId, params, info) {
+  let subs;
+  try { subs = await loadSubscribersForAlert(sourceId, params); }
+  catch (err) { console.error(`[poller] ${sourceId} : lecture abonnés échouée :`, err.message); return; }
+
+  const payload = { name: info.name, message: info.message, url: info.url, statusUrl: info.statusUrl };
+  const paramsJson = params ? JSON.stringify(params) : null;
+  const immediateEmails = [];
+  const immediatePush = [];
+  const toDefer = [];
+
+  for (const s of subs) {
+    const wantsEmail = s.email_enabled !== false;
+    const wantsPush = (s.push_count || 0) > 0;
+    if (!wantsEmail && !wantsPush) continue;
+    if (isQuietNow(s)) {
+      if (wantsEmail) toDefer.push([s.id, sourceId, paramsJson, 'email', JSON.stringify(payload)]);
+      if (wantsPush) toDefer.push([s.id, sourceId, paramsJson, 'push', JSON.stringify(payload)]);
+    } else {
+      if (wantsEmail) immediateEmails.push({ email: s.email, token: s.token });
+      if (wantsPush) immediatePush.push(s.id);
+    }
+  }
+
+  let email = { sent: 0, failed: 0 };
+  if (immediateEmails.length) {
+    try { email = await sendPromoAlert(immediateEmails, info); }
+    catch (err) { console.error(`[poller] ${sourceId} email :`, err.message); }
+  }
+  let pushSent = 0;
+  for (const id of immediatePush) {
+    try { const r = await sendToSubscriber(id, info); pushSent += r.sent; }
+    catch (err) { console.error(`[poller] ${sourceId} push #${id} :`, err.message); }
+  }
+  let deferred = 0;
+  for (const v of toDefer) {
+    try {
+      await pool.query(
+        'INSERT INTO deferred_notifications (subscriber_id, source_id, params, kind, payload) VALUES ($1, $2, $3::jsonb, $4, $5::jsonb)',
+        v
+      );
+      deferred += 1;
+    } catch (err) { console.error('[poller] insert différé :', err.message); }
+  }
+
+  console.log(
+    `[poller] Alerte ${sourceId}${paramsJson ? ' ' + paramsJson : ''} : ` +
+    `email ${email.sent} · push ${pushSent} · différées ${deferred}`
+  );
+}
+
 async function notifySourceSubscribers(sourceId, result = {}) {
   let name = sourceId;
   try {
@@ -54,31 +125,13 @@ async function notifySourceSubscribers(sourceId, result = {}) {
     if (rows[0]) name = rows[0].name;
   } catch (err) { /* nom de repli = id */ }
 
-  const info = {
+  await dispatchAlert(sourceId, null, {
     id: sourceId,
     name,
     message: result.message || null,
     url: result.url || null,
     statusUrl: `https://www.labonnealerte.fr/source/${sourceId}/statut`,
-  };
-
-  const recipients = await confirmedEmailsForSource(sourceId);
-
-  // Email et push partent EN PARALLÈLE : l'échec de l'un n'empêche pas l'autre.
-  const [emailOut, pushOut] = await Promise.allSettled([
-    recipients.length ? sendPromoAlert(recipients, info) : Promise.resolve({ sent: 0, failed: 0 }),
-    sendToSource(sourceId, info),
-  ]);
-
-  const email = emailOut.status === 'fulfilled' ? emailOut.value : { sent: 0, failed: 'err' };
-  const push = pushOut.status === 'fulfilled' ? pushOut.value : { sent: 0, failed: 'err', removed: 0 };
-  if (emailOut.status === 'rejected') console.error(`[poller] ${sourceId} email :`, emailOut.reason && emailOut.reason.message);
-  if (pushOut.status === 'rejected') console.error(`[poller] ${sourceId} push :`, pushOut.reason && pushOut.reason.message);
-
-  console.log(
-    `[poller] Alerte ${sourceId} : email ${email.sent} OK/${email.failed} échec · ` +
-    `push ${push.sent} OK/${push.failed} échec/${push.removed} purgé(s).`
-  );
+  });
 }
 
 async function getState(sourceId) {
@@ -315,27 +368,14 @@ async function notifyParamSubscribers(sourceId, params, result = {}) {
 
   const qs = Object.keys(params || {})
     .map((k) => `${encodeURIComponent(k)}=${encodeURIComponent(params[k])}`).join('&');
-  const info = {
+
+  await dispatchAlert(sourceId, params, {
     id: sourceId,
     name: resolved,
     message: result.message || null,
     url: result.url || null,
     statusUrl: `https://www.labonnealerte.fr/source/${sourceId}/statut${qs ? '?' + qs : ''}`,
-  };
-
-  const recipients = await confirmedEmailsForSourceParams(sourceId, params);
-  const [emailOut, pushOut] = await Promise.allSettled([
-    recipients.length ? sendPromoAlert(recipients, info) : Promise.resolve({ sent: 0, failed: 0 }),
-    sendToSourceParams(sourceId, params, info),
-  ]);
-  const email = emailOut.status === 'fulfilled' ? emailOut.value : { sent: 0, failed: 'err' };
-  const push = pushOut.status === 'fulfilled' ? pushOut.value : { sent: 0, failed: 'err', removed: 0 };
-  if (emailOut.status === 'rejected') console.error(`[poller] ${sourceId} email :`, emailOut.reason && emailOut.reason.message);
-  if (pushOut.status === 'rejected') console.error(`[poller] ${sourceId} push :`, pushOut.reason && pushOut.reason.message);
-  console.log(
-    `[poller] Alerte ${sourceId} ${JSON.stringify(params)} : email ${email.sent} OK/${email.failed} · ` +
-    `push ${push.sent} OK/${push.failed}/${push.removed} purgé(s).`
-  );
+  });
 }
 
 // Collecte les combinaisons EFFECTIVEMENT souscrites, appelle checkWithParams
@@ -384,6 +424,92 @@ async function processParamSource(source, requiresConfirmation = true) {
     } catch (err) {
       console.error(`[poller] ${label} : erreur transition :`, err.message);
     }
+  }
+}
+
+// État courant d'une source/combinaison (pour l'obsolescence au flush). En cas
+// d'erreur DB, on considère l'alerte encore active (ne pas marquer obsolète à tort).
+async function currentStateOf(sourceId, params) {
+  try {
+    if (params) {
+      const { rows } = await pool.query(
+        'SELECT state FROM source_param_states WHERE source_id = $1 AND params = $2::jsonb',
+        [sourceId, JSON.stringify(params)]);
+      return rows[0] ? rows[0].state : 'inactive';
+    }
+    const { rows } = await pool.query('SELECT state FROM source_states WHERE source_id = $1', [sourceId]);
+    return rows[0] ? rows[0].state : 'inactive';
+  } catch (err) { return 'active'; }
+}
+
+// Flush d'un abonné sorti de sa plage de veille : UN digest email + push (récap si
+// > 2). Les alertes redevenues inactives sont marquées « terminée entre-temps ».
+async function flushSubscriber(subscriberId) {
+  const subRes = await pool.query(
+    'SELECT id, email, token, email_enabled, quiet_start, quiet_end, quiet_disabled FROM subscribers WHERE id = $1',
+    [subscriberId]);
+  const sub = subRes.rows[0];
+  if (!sub) { await pool.query('DELETE FROM deferred_notifications WHERE subscriber_id = $1', [subscriberId]); return; }
+  if (isQuietNow(sub)) return; // encore en veille : on attend la sortie de plage
+
+  const { rows } = await pool.query(
+    'SELECT id, source_id, params, kind, payload FROM deferred_notifications WHERE subscriber_id = $1 ORDER BY created_at ASC',
+    [subscriberId]);
+  if (rows.length === 0) return;
+
+  const stateCache = new Map();
+  async function isObsolete(r) {
+    const key = r.source_id + '|' + JSON.stringify(r.params || null);
+    if (!stateCache.has(key)) stateCache.set(key, await currentStateOf(r.source_id, r.params || null));
+    return stateCache.get(key) !== 'active';
+  }
+
+  const emailItems = [];
+  const pushItems = [];
+  for (const r of rows) {
+    const p = r.payload || {};
+    const item = { name: p.name, message: p.message, url: p.url, statusUrl: p.statusUrl, obsolete: await isObsolete(r) };
+    if (r.kind === 'email') emailItems.push(item);
+    else if (r.kind === 'push') pushItems.push(item);
+  }
+
+  if (emailItems.length && sub.email_enabled !== false) {
+    try { await sendDeferredDigest({ email: sub.email, token: sub.token }, emailItems); }
+    catch (err) { console.error(`[poller] flush digest email #${subscriberId} :`, err.message); }
+  }
+
+  if (pushItems.length) {
+    try {
+      if (pushItems.length <= 2) {
+        const live = pushItems.filter((it) => !it.obsolete);
+        for (const it of live) await sendToSubscriber(subscriberId, it);
+        if (live.length === 0) {
+          await sendToSubscriber(subscriberId, { name: 'La Bonne Alerte', message: `${pushItems.length} alerte(s) terminée(s) pendant votre veille` });
+        }
+      } else {
+        await sendToSubscriber(subscriberId, {
+          name: 'La Bonne Alerte',
+          message: `${pushItems.length} alertes pendant votre veille`,
+          url: 'https://www.labonnealerte.fr/connexion',
+        });
+      }
+    } catch (err) { console.error(`[poller] flush push #${subscriberId} :`, err.message); }
+  }
+
+  await pool.query('DELETE FROM deferred_notifications WHERE subscriber_id = $1', [subscriberId]);
+  console.log(`[poller] Veille : flush abonné #${subscriberId} (${emailItems.length} email, ${pushItems.length} push).`);
+}
+
+// Parcourt les abonnés ayant des différés en attente et flush ceux sortis de veille.
+async function flushDeferredNotifications() {
+  let ids;
+  try {
+    const { rows } = await pool.query('SELECT DISTINCT subscriber_id FROM deferred_notifications');
+    ids = rows.map((r) => r.subscriber_id);
+  } catch (err) { console.error('[poller] flush : lecture des différés échouée :', err.message); return; }
+  for (const sid of ids) {
+    try { await flushSubscriber(sid); }
+    catch (err) { console.error(`[poller] flush abonné #${sid} :`, err.message); }
   }
 }
 
@@ -480,6 +606,11 @@ async function runCycle() {
       console.error(`[poller] ${row.id} (externe) : erreur inattendue :`, err.message);
     }
   }
+
+  // Heures de veille : envoie les notifications différées aux abonnés sortis de
+  // leur plage silencieuse (après le traitement des sources → états à jour pour
+  // le calcul d'obsolescence du digest).
+  await flushDeferredNotifications();
 }
 
 function startPoller() {
@@ -493,4 +624,7 @@ function startPoller() {
 }
 
 // processSource/processParamSource/decideTransition exposés pour le banc d'essai.
-module.exports = { startPoller, runCycle, processSource, processParamSource, decideTransition };
+module.exports = {
+  startPoller, runCycle, processSource, processParamSource, decideTransition,
+  dispatchAlert, flushDeferredNotifications, flushSubscriber,
+};

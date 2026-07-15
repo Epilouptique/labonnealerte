@@ -13,7 +13,7 @@ const GROUPS = {
   'transports': ['transports', 'trains', 'greves', 'trafic-routier', 'bouchons', 'autoroutes', 'fermetures-routes', 'cols-montagne', 'viabilite-hivernale', 'transports-en-commun', 'metro', 'aerien', 'retards-vols', 'covoiturage', 'bornes-recharge'],
   'tech-dev': ['tech', 'domaines', 'noms-de-domaine', 'certificats-ssl', 'uptime', 'pannes-services', 'status-cloud', 'github', 'releases', 'versions-logiciels', 'mises-a-jour', 'npm-packages', 'changements-api', 'fin-de-support', 'hackathons', 'frameworks', 'mises-a-jour-os', 'hardware'],
   'securite-cyber': ['securite', 'cybersecurite', 'cve', 'vulnerabilites', 'failles', 'fuites-de-donnees', 'phishing', 'arnaques', 'rappels-securite', 'alertes-fraude'],
-  'administration': ['administration', 'impots', 'echeances-fiscales', 'declarations', 'aides', 'subventions', 'allocations', 'caf', 'retraite', 'permis-de-conduire', 'carte-grise', 'elections', 'journal-officiel', 'reglementation'],
+  'administration': ['administration', 'impots', 'echeances-fiscales', 'declarations', 'aides', 'subventions', 'allocations', 'caf', 'retraite', 'social', 'permis-de-conduire', 'carte-grise', 'elections', 'journal-officiel', 'reglementation'],
   'pro-marches': ['marches-publics', 'appels-offres', 'appels-a-projets', 'financements', 'creation-entreprise', 'franchises', 'salons-pro', 'networking'],
   'emploi-formation': ['emploi', 'offres-emploi', 'concours', 'fonction-publique', 'stages', 'alternance', 'formations', 'certifications', 'examens', 'resultats-examens', 'parcoursup', 'bourses'],
   'finance': ['finance', 'epargne', 'bourse', 'actions', 'crypto', 'bitcoin', 'taux-interet', 'taux-immobilier', 'livret-a', 'inflation', 'devises', 'or-metaux', 'dividendes'],

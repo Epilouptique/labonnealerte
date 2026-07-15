@@ -815,6 +815,12 @@ body[data-mode="connected"] #stats { display: none; }
 .pref-feedback.show { opacity: 1; }
 .pref-feedback.err { color: var(--amber); }
 
+/* Heures de veille : les deux selects d'heures alignés. */
+.quiet-range { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.quiet-range label { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); font-weight: 600; }
+.quiet-range .pref-select { max-width: none; }
+#quiet-hours-row[hidden] { display: none; }
+
 /* ---------- panneau « Mon compte » (mode connecté) ---------- */
 .account-panel { margin: 6px auto 0; }
 .acct-card.card.flip { width: 100%; }

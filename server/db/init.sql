@@ -1209,3 +1209,109 @@ SELECT 'statut-linear', 'Panne Linear', 'Statut officiel de Linear',
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'statut-linear');
 INSERT INTO source_states (source_id) SELECT 'statut-linear'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'statut-linear');
+
+-- ================================================================
+-- Heures de veille (plage silencieuse des notifications).
+-- Par défaut : aucune notif (email + push) entre 23h et 8h (Europe/Paris) ;
+-- les alertes de la nuit sont DIFFÉRÉES (jamais supprimées) puis envoyées
+-- groupées à la sortie de plage. Réglable par utilisateur.
+-- ================================================================
+-- quiet_start / quiet_end : heures 0-23 (Europe/Paris). NULL = défaut 23/8
+-- appliqué en code. quiet_disabled = true → aucune veille (envoi immédiat 24/24).
+ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS quiet_start SMALLINT;
+ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS quiet_end SMALLINT;
+ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS quiet_disabled BOOLEAN DEFAULT false;
+
+-- File des notifications différées pendant la veille. Une ligne par
+-- (destinataire, alerte, canal). payload = tout le nécessaire au rendu du
+-- digest (libellé résolu, message, url, statusUrl). source_id + params
+-- permettent de re-vérifier l'obsolescence au moment du flush.
+CREATE TABLE IF NOT EXISTS deferred_notifications (
+  id SERIAL PRIMARY KEY,
+  subscriber_id INTEGER NOT NULL REFERENCES subscribers(id) ON DELETE CASCADE,
+  source_id TEXT,
+  params JSONB,
+  kind TEXT NOT NULL,          -- 'email' | 'push'
+  payload JSONB NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_deferred_subscriber ON deferred_notifications (subscriber_id);
+
+-- ================================================================
+-- Vague 13 · Sources — endoflife (paramétrée), Tempo, causes, sport,
+-- SMIC, statuts. Vigicrues param ÉCARTÉ (maille non départementale) ;
+-- Jackpot FDJ ÉCARTÉ (aucun flux public sans clé) — voir rapport.
+-- ================================================================
+
+-- Fin de vie logicielle (endoflife.date) — source dev PARAMÉTRÉE (produit).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
+SELECT 'fin-de-vie-logicielle', 'Fin de vie logicielle', 'Le produit de votre choix',
+  'Prévenu quand une version encore supportée de vos produits (OS, langages, bases, frameworks) arrive en fin de vie (EOL) sous 30 jours, ou vient de l''atteindre. Données endoflife.date. Choisissez vos produits.',
+  'internal', 'official', false, ARRAY['tech', 'securite'], 90,
+  '[{"key":"produit","label":"Produit","type":"enum","values":[{"value":"windows","label":"Windows"},{"value":"ubuntu","label":"Ubuntu"},{"value":"debian","label":"Debian"},{"value":"nodejs","label":"Node.js"},{"value":"php","label":"PHP"},{"value":"python","label":"Python"},{"value":"postgresql","label":"PostgreSQL"},{"value":"mysql","label":"MySQL"},{"value":"docker-engine","label":"Docker Engine"},{"value":"django","label":"Django"},{"value":"laravel","label":"Laravel"},{"value":"kubernetes","label":"Kubernetes"},{"value":"angular","label":"Angular"},{"value":"dotnet","label":".NET"},{"value":"eclipse-temurin","label":"Java (Eclipse Temurin)"}],"multiple":true,"required":true,"default":"nodejs"}]'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'fin-de-vie-logicielle');
+UPDATE sources SET params_schema = '[{"key":"produit","label":"Produit","type":"enum","values":[{"value":"windows","label":"Windows"},{"value":"ubuntu","label":"Ubuntu"},{"value":"debian","label":"Debian"},{"value":"nodejs","label":"Node.js"},{"value":"php","label":"PHP"},{"value":"python","label":"Python"},{"value":"postgresql","label":"PostgreSQL"},{"value":"mysql","label":"MySQL"},{"value":"docker-engine","label":"Docker Engine"},{"value":"django","label":"Django"},{"value":"laravel","label":"Laravel"},{"value":"kubernetes","label":"Kubernetes"},{"value":"angular","label":"Angular"},{"value":"dotnet","label":".NET"},{"value":"eclipse-temurin","label":"Java (Eclipse Temurin)"}],"multiple":true,"required":true,"default":"nodejs"}]'::jsonb
+ WHERE id = 'fin-de-vie-logicielle';
+
+-- Jours Tempo EDF (rouge). BROADCAST. Repli communautaire api-couleur-tempo.fr
+-- (badge verified) tant que la souscription RTE portail n'est pas faite ; RTE
+-- officielle (rte-auth.js) branchable ensuite. En sommeil l'été (rouges nov→mars).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'tempo', 'Jour Tempo rouge', 'EDF Tempo — jour rouge demain',
+  'Alerte la veille d''un jour Tempo ROUGE (électricité au tarif fort de 6h à 22h) pour les abonnés à l''option Tempo d''EDF. Les jours bleus et blancs sont ignorés. Données api-couleur-tempo.fr (relais RTE).',
+  'internal', 'verified', false, ARRAY['energie', 'bons-plans'], 91
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'tempo');
+INSERT INTO source_states (source_id) SELECT 'tempo'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'tempo');
+
+-- Grandes causes (mois/journées de sensibilisation), source calculée.
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'grandes-causes', 'Grandes causes', 'Mois et journées de sensibilisation',
+  'Un rappel sobre à l''ouverture des grandes causes de santé et de solidarité : Octobre Rose, Movember, Téléthon. Dates officielles de chaque cause.',
+  'internal', 'official', false, ARRAY['sante', 'vie-locale', 'culture'], 92
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'grandes-causes');
+INSERT INTO source_states (source_id) SELECT 'grandes-causes'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'grandes-causes');
+
+-- Grands rendez-vous sportifs (calendrier), ton neutre.
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'grands-rendez-vous-sportifs', 'Rendez-vous sportifs', 'Les grands événements à ne pas manquer',
+  'Un rappel la veille et le jour des grands rendez-vous sportifs : finales de Coupe du monde, arrivée du Tour de France. Messages factuels, sans parti pris.',
+  'internal', 'official', false, ARRAY['sport', 'vie-locale'], 93
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'grands-rendez-vous-sportifs');
+INSERT INTO source_states (source_id) SELECT 'grands-rendez-vous-sportifs'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'grands-rendez-vous-sportifs');
+
+-- SMIC & revalorisations (calendrier), sans montant inventé.
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'smic-revalorisation', 'SMIC & revalorisations', 'Les rendez-vous du 1er janvier',
+  'Un rappel autour des revalorisations annuelles : le SMIC au 1er janvier, plusieurs prestations sociales et retraites au 1er janvier et au 1er avril. Sans montant (fixé par décret).',
+  'internal', 'official', false, ARRAY['social', 'vie-locale'], 94
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'smic-revalorisation');
+INSERT INTO source_states (source_id) SELECT 'smic-revalorisation'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'smic-revalorisation');
+
+-- Statuts de services (standard Statuspage). Anti-flapping : requires_confirmation = true.
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'statut-scaleway', 'Panne Scaleway', 'Statut officiel de Scaleway',
+  'Alerte quand Scaleway déclare une panne majeure sur sa page de statut officielle.',
+  'internal', 'official', true, ARRAY['pannes-services', 'status-cloud'], 95
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'statut-scaleway');
+INSERT INTO source_states (source_id) SELECT 'statut-scaleway'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'statut-scaleway');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'statut-twilio', 'Panne Twilio', 'Statut officiel de Twilio',
+  'Alerte quand Twilio (SMS, voix, API de communication) déclare une panne majeure sur sa page de statut officielle.',
+  'internal', 'official', true, ARRAY['pannes-services', 'status-cloud'], 96
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'statut-twilio');
+INSERT INTO source_states (source_id) SELECT 'statut-twilio'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'statut-twilio');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'statut-vimeo', 'Panne Vimeo', 'Statut officiel de Vimeo',
+  'Alerte quand Vimeo déclare une panne majeure sur sa page de statut officielle.',
+  'internal', 'official', true, ARRAY['pannes-services', 'streaming'], 97
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'statut-vimeo');
+INSERT INTO source_states (source_id) SELECT 'statut-vimeo'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'statut-vimeo');

@@ -140,4 +140,46 @@ async function sendToSourceParams(sourceId, params, info = {}) {
   return { sent, failed, removed: dead.length };
 }
 
-module.exports = { isEnabled, publicKey, sendToSource, sendToSourceParams };
+/**
+ * Envoie une notification push aux appareils d'UN abonné donné (heures de veille :
+ * envoi immédiat ciblé, ou push individuel au moment du flush). Même logique de
+ * purge des endpoints morts.
+ * @param {number} subscriberId
+ * @param {{name, message, url, statusUrl}} info
+ */
+async function sendToSubscriber(subscriberId, info = {}) {
+  if (!enabled) return { sent: 0, failed: 0, removed: 0 };
+
+  const { rows } = await pool.query(
+    'SELECT id, endpoint, p256dh, auth FROM push_subscriptions WHERE subscriber_id = $1',
+    [subscriberId]
+  );
+  if (rows.length === 0) return { sent: 0, failed: 0, removed: 0 };
+
+  const payload = JSON.stringify({
+    title: info.name || 'La Bonne Alerte',
+    body: info.message || 'Une alerte que vous suivez vient de se déclencher.',
+    url: info.url || info.statusUrl || 'https://www.labonnealerte.fr',
+  });
+
+  let sent = 0;
+  let failed = 0;
+  const dead = [];
+  await Promise.all(rows.map(async (r) => {
+    const subscription = { endpoint: r.endpoint, keys: { p256dh: r.p256dh, auth: r.auth } };
+    try {
+      await webpush.sendNotification(subscription, payload);
+      sent += 1;
+    } catch (err) {
+      if (err.statusCode === 404 || err.statusCode === 410) dead.push(r.id);
+      else { failed += 1; console.error(`[webpush] échec envoi (endpoint #${r.id}) :`, err.statusCode || err.message); }
+    }
+  }));
+  if (dead.length) {
+    try { await pool.query('DELETE FROM push_subscriptions WHERE id = ANY($1)', [dead]); }
+    catch (err) { console.error('[webpush] purge subscriptions mortes :', err.message); }
+  }
+  return { sent, failed, removed: dead.length };
+}
+
+module.exports = { isEnabled, publicKey, sendToSource, sendToSourceParams, sendToSubscriber };
