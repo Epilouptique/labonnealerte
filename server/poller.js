@@ -7,6 +7,7 @@ const { sendToSource, sendToSourceParams } = require('./webpush');
 const { cleanupExpired } = require('./sessions');
 const { resolveLabel } = require('./params');
 const { buildExternalSource } = require('./external');
+const { trackDomain } = require('./doomname');
 
 // Purge des sessions expirées : au plus une fois par jour.
 let lastSessionCleanup = 0;
@@ -452,6 +453,19 @@ async function runCycle() {
     if (!src) continue;
     const requires = row.requires_confirmation === false ? false : true;
     try {
+      // DoomName : garantir que chaque domaine suivi est bien tracké côté DoomName
+      // (idempotent, best-effort) — rattrape les échecs du moment de l'abonnement.
+      if (row.id === 'doomname' && row.params_schema != null) {
+        try {
+          const { rows: cs } = await pool.query(
+            "SELECT DISTINCT params FROM subscriptions WHERE source_id = 'doomname' AND params IS NOT NULL"
+          );
+          for (const c of cs) {
+            const dom = c.params && c.params.domaine;
+            if (dom) await trackDomain(dom);
+          }
+        } catch (e) { console.error('[poller] doomname track :', e.message); }
+      }
       if (row.params_schema != null) {
         await processParamSource(src, requires);
       } else {

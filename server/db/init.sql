@@ -935,3 +935,17 @@ ON CONFLICT (source_id, params) DO NOTHING;
 --    plus aucune carte ni notification sur les anciennes.
 UPDATE sources SET enabled = false
  WHERE id LIKE 'vigilance-meteo-%' AND enabled = true;
+
+-- ================================================================
+-- OpenAlert v2 · étape 6 — DoomName : linked → source EXTERNE PARAMÉTRÉE.
+-- Première source externe paramétrée réelle (démo publique du standard).
+-- Les abonnés broadcast actuels (params NULL) sont CONSERVÉS : l'endpoint sans
+-- paramètre reste valide ; la carte propose désormais un champ « domaine ».
+-- Idempotent (rejouable). Le badge n'est PAS modifié ici (décision à valider).
+-- ================================================================
+UPDATE sources SET
+    type = 'external',
+    badge = 'verified',
+    endpoint_url = 'https://doomname.com/alert.json',
+    params_schema = '[{"key":"domaine","label":"Nom de domaine","type":"string","multiple":true,"required":true,"placeholder":"mondomaine.fr","lowercase":true,"pattern":"^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z]{2,})+$"}]'::jsonb
+ WHERE id = 'doomname';

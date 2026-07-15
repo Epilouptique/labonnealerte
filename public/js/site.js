@@ -450,10 +450,28 @@
     var f = card.querySelector('.param-form'); if (f) f.hidden = !show;
   }
 
+  // Lit le contrôle de saisie (select enum OU input string/number) et valide
+  // le format côté client (attribut pattern). Retourne { params, label } ou null.
+  function readParam(card) {
+    var ctrl = card.querySelector('.param-select, .param-input');
+    if (!ctrl) return null;
+    var val = ctrl.value;
+    if (ctrl.tagName === 'INPUT') {
+      val = String(val || '').trim();
+      var ok = !!val;
+      var pat = ctrl.getAttribute('pattern');
+      if (ok && pat) { try { ok = new RegExp(pat, 'i').test(val); } catch (e) { ok = true; } }
+      if (!ok) { ctrl.focus(); ctrl.style.borderColor = 'var(--amber)'; return null; }
+      ctrl.style.borderColor = '';
+    }
+    var label = (ctrl.tagName === 'SELECT' && ctrl.options[ctrl.selectedIndex]) ? ctrl.options[ctrl.selectedIndex].text : val;
+    var params = {}; params[ctrl.getAttribute('data-key')] = val;
+    return { params: params, label: label };
+  }
+
   async function followParamConnected(card) {
-    var sel = card.querySelector('.param-select'); if (!sel) return;
-    var params = {}; params[sel.getAttribute('data-key')] = sel.value;
-    var label = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : sel.value;
+    var r = readParam(card); if (!r) return;
+    var params = r.params, label = r.label;
     var btn = card.querySelector('.param-follow'); if (btn) btn.disabled = true;
     try {
       var res = await fetch('/api/my-alerts/toggle-param', {
@@ -494,8 +512,8 @@
   }
 
   function followParamAnon(card) {
-    var sel = card.querySelector('.param-select'); if (!sel) return;
-    card._pendingParams = {}; card._pendingParams[sel.getAttribute('data-key')] = sel.value;
+    var r = readParam(card); if (!r) return;
+    card._pendingParams = r.params;
     var sf = card.querySelector('.param-subform');
     if (sf) { sf.style.display = 'flex'; var i = sf.querySelector('input'); if (i) i.focus(); }
   }

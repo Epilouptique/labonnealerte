@@ -72,14 +72,28 @@
 
   // Bloc d'abonnement paramétré : instances suivies (mode connecté) + sélecteur
   // générique construit depuis le schéma enum. Aucun code spécifique vigilance.
+  // Contrôle de saisie générique selon le type du paramètre : enum → select,
+  // string/number → input (avec placeholder/pattern éventuels).
+  function paramControl(schema, def) {
+    if (schema.type === 'enum') {
+      var opts = (schema.values || []).map(function (v) {
+        var sel = (def != null && String(v.value) === String(def)) ? ' selected' : '';
+        return '<option value="' + esc(v.value) + '"' + sel + '>' + esc(v.label) + '</option>';
+      }).join('');
+      return '<select class="param-select" data-key="' + esc(schema.key) + '" aria-label="' + esc(schema.label) + '">' + opts + '</select>';
+    }
+    var type = schema.type === 'number' ? 'number' : 'text';
+    var ph = schema.placeholder ? ' placeholder="' + esc(schema.placeholder) + '"' : '';
+    var pat = schema.pattern ? ' pattern="' + esc(schema.pattern) + '"' : '';
+    var val = def != null ? ' value="' + esc(def) + '"' : '';
+    return '<input class="param-input" type="' + type + '" data-key="' + esc(schema.key) + '"' +
+      ph + pat + val + ' aria-label="' + esc(schema.label) + '">';
+  }
+
   function paramFace(s, mode) {
     var schema = s.params_schema[0];
     var instances = Array.isArray(s.instances) ? s.instances : [];
     var def = (window.LBADefaults && window.LBADefaults[schema.key]) || schema.default || null;
-    var opts = (schema.values || []).map(function (v) {
-      var sel = (def != null && String(v.value) === String(def)) ? ' selected' : '';
-      return '<option value="' + esc(v.value) + '"' + sel + '>' + esc(v.label) + '</option>';
-    }).join('');
 
     var chips = instances.length
       ? '<div class="param-chips">' + instances.map(function (inst) {
@@ -94,7 +108,7 @@
       ? '<button type="button" class="param-add">+ ajouter</button>' : '';
     var picker =
       '<div class="param-form"' + (instances.length ? ' hidden' : '') + '>' +
-        '<select class="param-select" data-key="' + esc(schema.key) + '" aria-label="' + esc(schema.label) + '">' + opts + '</select>' +
+        paramControl(schema, def) +
         '<button type="button" class="sub-btn param-follow">Suivre</button>' +
       '</div>';
     // Parcours anonyme : email (réutilise .sub-form), les params sont joints au submit.

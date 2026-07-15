@@ -884,11 +884,13 @@ body[data-mode="connected"] #stats { display: none; }
 /* ---------- Abonnement paramétré (OpenAlert v2) ---------- */
 .param-form { display: flex; gap: 8px; align-items: center; margin-top: auto; }
 .param-form[hidden] { display: none; }
-.param-select {
+.param-select, .param-input {
   flex: 1; min-width: 0; font: inherit; font-size: 13.5px; color: var(--ink);
   background: var(--surface); border: 1px solid var(--line);
-  border-radius: 10px; padding: 10px 12px; cursor: pointer;
+  border-radius: 10px; padding: 10px 12px;
 }
+.param-select { cursor: pointer; }
+.param-input:focus { outline: none; border-color: var(--amber); }
 .param-follow { flex: none; padding: 11px 16px; }
 .param-subform { display: none; } /* révélé en JS (parcours anonyme) */
 .param-chips { display: flex; flex-wrap: wrap; gap: 6px; }

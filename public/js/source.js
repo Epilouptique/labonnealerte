@@ -36,12 +36,13 @@
   var ID = m ? decodeURIComponent(m[1]) : null;
   var SHARE_URL = 'https://www.labonnealerte.fr/source/' + (ID || '') + '/statut';
 
-  // Sources paramétrées : département courant (query string prioritaire).
+  // Sources paramétrées : valeur courante de la combinaison (query string prioritaire).
   var paramSchema = null, currentDept = null;
-  function queryDept() {
-    var mm = window.location.search.match(/[?&]departement=([^&]+)/);
+  function queryParam(key) {
+    var mm = window.location.search.match(new RegExp('[?&]' + key + '=([^&]+)'));
     return mm ? decodeURIComponent(mm[1]) : null;
   }
+  function paramKey() { return (paramSchema && paramSchema.key) || 'departement'; }
 
   var loading = document.getElementById('src-loading');
   var view = document.getElementById('src-view');
@@ -86,14 +87,14 @@
   // Sélectionne une combinaison : met à jour l'URL (SEO/partage), recharge l'historique.
   function selectDept(dep) {
     currentDept = String(dep);
-    try { history.replaceState(null, '', '?departement=' + encodeURIComponent(currentDept)); } catch (e) {}
+    try { history.replaceState(null, '', '?' + paramKey() + '=' + encodeURIComponent(currentDept)); } catch (e) {}
     setActiveTab(currentDept);
     loadHistory();
   }
 
   // Historique (broadcast, ou par combinaison si source paramétrée).
   async function loadHistory() {
-    var qs = (paramSchema && currentDept) ? ('?departement=' + encodeURIComponent(currentDept)) : '';
+    var qs = (paramSchema && currentDept) ? ('?' + paramKey() + '=' + encodeURIComponent(currentDept)) : '';
     try {
       var hres = await fetch('/api/sources/' + encodeURIComponent(ID) + '/history' + qs, { headers: { Accept: 'application/json' } });
       if (hres.ok) {
@@ -114,30 +115,37 @@
       return;
     }
     if (paramSchema) {
-      var opts = (paramSchema.values || []).map(function (v) {
-        return '<option value="' + esc(v.value) + '"' + (String(v.value) === String(currentDept) ? ' selected' : '') + '>' + esc(v.label) + '</option>';
-      }).join('');
-      var fullSelect = '<div class="dept-other-form"' + (myInstances.length ? ' hidden' : '') + '>' +
+      var k = paramSchema.key;
+      var isEnum = paramSchema.type === 'enum';
+      // Sélecteur complet : uniquement pour un enum (on ne peut pas énumérer un string).
+      var fullSelect = '';
+      if (isEnum) {
+        var opts = (paramSchema.values || []).map(function (v) {
+          return '<option value="' + esc(v.value) + '"' + (String(v.value) === String(currentDept) ? ' selected' : '') + '>' + esc(v.label) + '</option>';
+        }).join('');
+        fullSelect = '<div class="dept-other-form"' + (myInstances.length ? ' hidden' : '') + '>' +
           '<label class="param-statut-label">' + esc(paramSchema.label) + ' : ' +
             '<select id="dept-select" class="param-select">' + opts + '</select></label></div>';
+      }
 
       if (myInstances.length) {
-        // Connecté & abonné : onglets rapides de SES instances + « autre département… ».
-        var labelByDept = {};
-        (paramSchema.values || []).forEach(function (v) { labelByDept[String(v.value)] = v.label; });
+        // Connecté & abonné : onglets rapides de SES instances (générique, tout type).
+        var labelByVal = {};
+        (paramSchema.values || []).forEach(function (v) { labelByVal[String(v.value)] = v.label; });
         var tabs = myInstances.map(function (inst) {
-          var dep = String(inst.params.departement);
-          return '<button type="button" class="dept-tab' + (dep === String(currentDept) ? ' on' : '') + '" data-dept="' + esc(dep) + '">' +
-            esc(inst.label || labelByDept[dep] || dep) + '</button>';
+          var val = String(inst.params[k]);
+          return '<button type="button" class="dept-tab' + (val === String(currentDept) ? ' on' : '') + '" data-dept="' + esc(val) + '">' +
+            esc(inst.label || labelByVal[val] || val) + '</button>';
         }).join('');
-        el.innerHTML =
-          '<div class="dept-tabs">' + tabs +
-            '<button type="button" class="dept-tab dept-other">autre département…</button>' +
-          '</div>' + fullSelect;
-      } else {
-        // Anonyme ou non abonné : sélecteur complet + renvoi vers le kiosque.
+        // « autre… » seulement pour un enum (sélection dans une liste fermée).
+        var otherChip = isEnum ? '<button type="button" class="dept-tab dept-other">autre ' + esc(paramSchema.label.toLowerCase()) + '…</button>' : '';
+        el.innerHTML = '<div class="dept-tabs">' + tabs + otherChip + '</div>' + fullSelect;
+      } else if (isEnum) {
         el.innerHTML = fullSelect +
-          '<p class="param-statut-hint">Pour être alerté, choisissez votre département sur la <a href="/#alertes">page d\'accueil</a>.</p>';
+          '<p class="param-statut-hint">Pour être alerté, choisissez votre ' + esc(paramSchema.label.toLowerCase()) + ' sur la <a href="/#alertes">page d\'accueil</a>.</p>';
+      } else {
+        // String, visiteur non abonné : vue broadcast + renvoi kiosque.
+        el.innerHTML = '<p class="param-statut-hint">Suivez votre propre ' + esc(paramSchema.label.toLowerCase()) + ' depuis le <a href="/#alertes">kiosque</a>.</p>';
       }
       return;
     }
@@ -250,13 +258,19 @@
         } else if (mr.status === 401) { LBASession.clear(); }
       }
 
-      // Département courant : query string > 1re instance de l'utilisateur >
-      // département de personnalisation > 05 (défaut).
+      // Valeur courante : query string > 1re instance de l'utilisateur > (enum :
+      // personnalisation > 05). Pour un type non-enum (string), pas de défaut deviné.
       if (paramSchema) {
-        var allowed = (paramSchema.values || []).map(function (v) { return String(v.value); });
-        var firstInstance = myInstances[0] && myInstances[0].params ? myInstances[0].params.departement : null;
-        var wanted = queryDept() || firstInstance || visitorDept || '05';
-        currentDept = allowed.indexOf(String(wanted)) >= 0 ? String(wanted) : (allowed[0] || null);
+        var k = paramSchema.key;
+        var firstInstance = myInstances[0] && myInstances[0].params ? myInstances[0].params[k] : null;
+        if (paramSchema.type === 'enum') {
+          var allowed = (paramSchema.values || []).map(function (v) { return String(v.value); });
+          var wanted = queryParam(k) || firstInstance || visitorDept || '05';
+          currentDept = allowed.indexOf(String(wanted)) >= 0 ? String(wanted) : (allowed[0] || null);
+        } else {
+          var w = queryParam(k) || firstInstance || null;
+          currentDept = w != null ? String(w) : null;
+        }
       }
 
       document.getElementById('src-name').textContent = source.name;

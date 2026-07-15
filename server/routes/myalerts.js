@@ -12,6 +12,7 @@ const { authenticate, deleteSession } = require('../sessions');
 const { isValidCountry, isValidDepartement } = require('../geo');
 const { VALID_SLUGS } = require('../categories');
 const { validateParams, resolveLabel } = require('../params');
+const { trackDomain } = require('../doomname');
 
 // État « le pire » d'un ensemble d'instances (pour l'affichage de la carte).
 const STATE_RANK = { active: 3, pending: 2, inactive: 1 };
@@ -375,6 +376,9 @@ apiRouter.post('/my-alerts/toggle-param', async (req, res) => {
          ON CONFLICT (subscriber_id, source_id, COALESCE(params, '{}'::jsonb)) DO NOTHING`,
         [auth.id, source_id, JSON.stringify(canonical)]
       );
+      // DoomName : enregistre le domaine pour surveillance (best-effort, non bloquant ;
+      // le poller réessaie à chaque cycle si l'appel échoue).
+      if (source_id === 'doomname' && canonical.domaine) trackDomain(canonical.domaine);
     } else {
       await pool.query(
         'DELETE FROM subscriptions WHERE subscriber_id = $1 AND source_id = $2 AND params = $3::jsonb',

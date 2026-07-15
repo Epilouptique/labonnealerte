@@ -26,7 +26,17 @@ function validateParams(schema, raw) {
       if (typeof desc.max === 'number' && n > desc.max) return { ok: false, error: `${desc.key} > max` };
       out[desc.key] = n;
     } else { // string
-      out[desc.key] = String(v).slice(0, 120);
+      let s = String(v).trim().slice(0, 120);
+      if (desc.lowercase) s = s.toLowerCase();
+      // `pattern` n'est honoré que pour les schémas internes de confiance (init.sql) :
+      // validateParamsSchema le retire des schémas soumis (anti-ReDoS).
+      if (desc.pattern) {
+        let re = null;
+        try { re = new RegExp(desc.pattern, 'i'); } catch (e) { re = null; }
+        if (re && !re.test(s)) return { ok: false, error: `format invalide pour ${desc.key}` };
+      }
+      if (!s) return { ok: false, error: `valeur vide pour ${desc.key}` };
+      out[desc.key] = s;
     }
   }
   if (Object.keys(out).length === 0) return { ok: false, error: 'aucun paramètre fourni' };

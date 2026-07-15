@@ -4,6 +4,7 @@ const rateLimit = require('express-rate-limit');
 const { pool } = require('../db');
 const { sendConfirmation } = require('../mailer');
 const { validateParams } = require('../params');
+const { trackDomain } = require('../doomname');
 
 // apiRouter : endpoints JSON destinés aux machines (monté sous /api).
 // pagesRouter : pages HTML destinées aux humains, liens cliqués depuis un email
@@ -133,6 +134,11 @@ apiRouter.post('/subscribe', subscribeLimiter, async (req, res) => {
 
     if (link.rows.length === 0) {
       return res.status(409).json({ error: 'Déjà inscrit à cette source' });
+    }
+
+    // DoomName : enregistre le domaine pour surveillance (best-effort, non bloquant).
+    if (sourceId === 'doomname' && canonicalParams && canonicalParams.domaine) {
+      trackDomain(canonicalParams.domaine);
     }
 
     // Mail de confirmation seulement si l'adresse n'est pas encore confirmée.
