@@ -1,4 +1,19 @@
-# Planificateur de tâches Windows — Robot 1 « Veilleur de maintenance »
+# Planificateur de tâches Windows — Robots nocturnes labonnealerte
+
+Ce document décrit **deux** tâches planifiées, toutes deux en lecture seule :
+
+- **Robot 1 — Veilleur de maintenance** : **quotidien** (04h00 proposé),
+  `robots/robot1-veille.ps1` → rapports dans `rapports/veille/`.
+- **Robot 2 — Auditeur de sécurité** : **hebdomadaire** (dimanche 03h00 proposé),
+  `robots/robot2-audit.ps1` → rapports dans `rapports/audit/`.
+
+La **première partie** ci-dessous détaille le Robot 1 ; la procédure est
+identique pour le Robot 2, aux quelques valeurs près récapitulées dans la
+**section « Robot 2 »** en fin de document.
+
+---
+
+## Robot 1 — Veilleur de maintenance (quotidien)
 
 Cette procédure crée une tâche planifiée qui lance **chaque nuit** le veilleur de
 maintenance en lecture seule (`robots/robot1-veille.ps1`). L'agent écrit son
@@ -132,3 +147,51 @@ Le **code retour** de `claude` est propagé par le script ; l'onglet
 - **La tâche ne part jamais à 04:00** : la machine était en veille/éteinte et
   « réveil » est (volontairement) désactivé → l'exécution manquée est rattrapée
   au prochain démarrage grâce à `StartWhenAvailable`.
+
+---
+
+## Robot 2 — Auditeur de sécurité (hebdomadaire)
+
+Même principe que le Robot 1, en lecture seule (revue de sécurité du dépôt
+local : dépendances, routes, patterns SSRF/injection, secrets). L'agent écrit
+son rapport dans `rapports/audit/rapport-audit-<date>.md` et un journal dans
+`rapports/audit/run-<date>.log`. Interdits détaillés :
+`robots/robot2-audit.prompt.md`.
+
+> Ce robot ne fait **aucune requête vers labonnealerte.fr** ni aucun scan
+> réseau. Seul accès externe : le registre npm, pour `npm audit`.
+
+Chemins de référence :
+
+- Dépôt : `c:\Dev\Labonnealerte`
+- Script : `c:\Dev\Labonnealerte\robots\robot2-audit.ps1`
+
+Reprends **exactement** la procédure du Robot 1 (Option A ou B ci-dessus), en
+changeant seulement ces valeurs :
+
+| Champ | Valeur Robot 2 |
+|---|---|
+| **Nom de la tâche** | `LBA - Robot2 Audit securite hebdo` |
+| **Description** | `Audit securite labonnealerte (lecture seule, depot local) - rapport hebdomadaire.` |
+| **Déclencheur** | `Hebdomadaire`, tous les `1` semaines, jour **Dimanche** |
+| **Heure de début** | `03:00:00` (proposé — creux, distinct du Robot 1 à 04h00) |
+| **Programme/script** | `powershell.exe` |
+| **Arguments** | `-ExecutionPolicy Bypass -File "c:\Dev\Labonnealerte\robots\robot2-audit.ps1"` |
+| **Commencer dans** | `c:\Dev\Labonnealerte` |
+
+Onglets « Conditions » et « Paramètres » : réglages **identiques** au Robot 1
+(ne pas réveiller la machine `WakeToRun:$false`, rattraper une exécution manquée
+`StartWhenAvailable`, garde-fou 1 heure).
+
+### Option B — PowerShell (en admin), équivalent Robot 2
+
+```powershell
+$Action    = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument '-ExecutionPolicy Bypass -File "c:\Dev\Labonnealerte\robots\robot2-audit.ps1"' -WorkingDirectory 'c:\Dev\Labonnealerte'
+$Trigger   = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Sunday -At 03:00
+$Settings  = New-ScheduledTaskSettingsSet -StartWhenAvailable -WakeToRun:$false -ExecutionTimeLimit (New-TimeSpan -Hours 1)
+Register-ScheduledTask -TaskName 'LBA - Robot2 Audit securite hebdo' -Action $Action -Trigger $Trigger -Settings $Settings -Description 'Audit securite labonnealerte (lecture seule, depot local).' -RunLevel Highest -User $env:USERNAME
+```
+
+**Tester** / **lire le résultat** / **dépanner** : identique au Robot 1, en
+remplaçant `veille` par `audit` dans les chemins et
+`LBA - Robot1 Veille nocturne` par `LBA - Robot2 Audit securite hebdo`.
