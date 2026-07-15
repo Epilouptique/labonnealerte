@@ -9,6 +9,10 @@ Ce document décrit **deux** tâches planifiées, toutes deux en lecture seule :
 - **Robot 4 — Veilleur de nouvelles sources** : **hebdomadaire** (mercredi 03h00
   proposé), `robots/robot4-veille-sources.ps1` → rapports dans
   `rapports/veille-sources/`. Seul robot à nécessiter un **accès web sortant**.
+- **Robot 3 — Trieur de soumissions dev** : **DORMANT** (aucune tâche planifiée
+  pour l'instant), `robots/robot3-soumissions.ps1` → rapports dans
+  `rapports/soumissions/`. Lancement **manuel à la demande** jusqu'à ce que
+  `/proposer` ait du trafic réel. Voir la section dédiée en fin de document.
 
 La **première partie** ci-dessous détaille le Robot 1 ; la procédure est
 identique pour le Robot 2, aux quelques valeurs près récapitulées dans la
@@ -247,3 +251,65 @@ Register-ScheduledTask -TaskName 'LBA - Robot4 Veille sources hebdo' -Action $Ac
 **Tester** / **lire le résultat** / **dépanner** : identique au Robot 1, en
 remplaçant `veille` par `veille-sources` dans les chemins et le nom de tâche par
 `LBA - Robot4 Veille sources hebdo`.
+
+---
+
+## Robot 3 — Trieur de soumissions dev (⏸️ DORMANT — pas de tâche planifiée)
+
+> 🔴 **Ligne rouge.** Ce robot **RAPPORTE, il ne DÉCIDE JAMAIS.** Il ne touche à
+> **aucune** colonne de `sources`, **jamais** à `enabled`, et n'exécute aucun
+> `UPDATE`/`INSERT`/`DELETE`. Sa seule sortie est un rapport à fiches ; **c'est
+> Hugo qui passe `enabled=true` à la main** après lecture. Aucune automatisation
+> de cette bascule, même future.
+
+**État : DORMANT.** Le kit est **construit et testable dès aujourd'hui**, mais
+**aucune tâche planifiée n'est créée** tant que `/proposer` n'a pas de trafic
+réel (aujourd'hui : zéro soumission en attente, donc rien à trier). On ne
+programme pas un robot qui n'aurait rien à faire chaque nuit.
+
+Rapport dans `rapports/soumissions/rapport-soumissions-<date>.md`, journal dans
+`rapports/soumissions/run-<date>.log`. Interdits détaillés :
+`robots/robot3-soumissions.prompt.md`.
+
+Chemins de référence :
+
+- Dépôt : `c:\Dev\Labonnealerte`
+- Script : `c:\Dev\Labonnealerte\robots\robot3-soumissions.ps1`
+
+### Lancement manuel à la demande (aucune tâche à créer)
+
+Quand tu veux trier les soumissions en attente (après un afflux sur `/proposer`),
+lance-le **à la main**, l'une de ces trois façons :
+
+- **Double-clic** sur `robots\robot3-soumissions.ps1` dans l'Explorateur (si la
+  politique d'exécution le permet), **ou**
+- en PowerShell :
+  ```powershell
+  powershell.exe -ExecutionPolicy Bypass -File "c:\Dev\Labonnealerte\robots\robot3-soumissions.ps1"
+  ```
+- Test rapide du **seul script de lecture** (sans lancer l'agent), pour voir s'il
+  y a des soumissions :
+  ```powershell
+  node scripts/soumissions-readonly.js
+  ```
+
+Puis lire `rapports/soumissions/rapport-soumissions-<date>.md`.
+
+### 🔜 Au lancement public — activer la planification
+
+Quand le site devient public et que `/proposer` reçoit du trafic, créer une tâche
+planifiée pour le Robot 3 **en suivant exactement le même modèle que les Robots
+1/2/4** (Option A GUI ou Option B PowerShell), avec :
+
+| Champ | Valeur Robot 3 (à créer alors) |
+|---|---|
+| **Nom de la tâche** | `LBA - Robot3 Tri soumissions` |
+| **Description** | `Tri des soumissions dev labonnealerte (lecture seule, rapporte sans decider).` |
+| **Déclencheur** | **Fréquence à redécider à ce moment-là** — *quotidien probable* une fois `/proposer` actif (ex. 05h00, décalé des autres robots). |
+| **Programme/script** | `powershell.exe` |
+| **Arguments** | `-ExecutionPolicy Bypass -File "c:\Dev\Labonnealerte\robots\robot3-soumissions.ps1"` |
+| **Commencer dans** | `c:\Dev\Labonnealerte` |
+
+Onglets « Conditions » et « Paramètres » : réglages **identiques** aux autres
+robots. La ligne rouge reste vraie même une fois planifié : le robot ne fait
+toujours que **rapporter**.

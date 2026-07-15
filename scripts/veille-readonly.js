@@ -11,7 +11,10 @@
 // Sortie : un seul objet JSON (rien d'autre sur stdout).
 // ─────────────────────────────────────────────────────────────────────────────
 
-require('dotenv').config();
+// quiet:true — dotenv v17+ imprime sinon un bandeau de démarrage sur stdout,
+// ce qui casserait le contrat « un seul objet JSON sur stdout » (un consommateur
+// qui fait JSON.parse échouerait sur cette ligne).
+require('dotenv').config({ quiet: true });
 const { Pool } = require('pg');
 
 // Même configuration de connexion que server/db.js (Railway impose le SSL,
