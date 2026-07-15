@@ -60,6 +60,18 @@ html[data-theme="light"] header { background: #ffffff; } /* thème clair : blanc
   border-radius: 8px; width: 34px; height: 34px; cursor: pointer; font-size: 15px;
 }
 
+/* Point 1) « Déposer une alerte » : pilule accent (équivalent « Déposer une annonce »
+   de leboncoin). Placée juste après le logo dans le header. */
+.btn-deposit {
+  flex: none; display: inline-flex; align-items: center; gap: 6px;
+  background: var(--amber); color: #fff; text-decoration: none;
+  font-weight: 700; font-size: 13.5px; border-radius: 999px;
+  padding: 9px 16px; white-space: nowrap; font-family: inherit;
+  transition: background .15s;
+}
+.btn-deposit:hover { background: color-mix(in srgb, var(--amber) 88%, #000); color: #fff; }
+.btn-deposit .plus { font-size: 18px; line-height: 1; font-weight: 400; }
+
 /* ---------- hero ---------- */
 .hero { padding: 88px 0 48px; text-align: center; position: relative; }
 .hero::before {
@@ -86,6 +98,7 @@ html[data-theme="light"] header { background: #ffffff; } /* thème clair : blanc
   border: none; background: var(--surface);
   border-radius: 999px; padding: 7px 16px;
 }
+.kpi #kpi-num { font-weight: 700; color: var(--ink); }
 .dot-live { position: relative; width: 8px; height: 8px; border-radius: 50%; background: var(--green); display: inline-block; }
 .dot-live::after { content: ""; position: absolute; inset: -1px; border-radius: 50%; border: 1.5px solid var(--green); animation: ping 2s ease-out infinite; }
 
@@ -96,8 +109,10 @@ html[data-theme="light"] header { background: #ffffff; } /* thème clair : blanc
   background: var(--surface); border-radius: 999px; padding: 11px 18px;
   box-shadow: 0 1px 3px rgba(30, 20, 50, .08);
 }
-.search input { border: none; background: transparent; font: inherit; font-size: 14.5px; color: var(--ink); width: 100%; outline: none; }
-.search svg { flex: none; opacity: .5; }
+.search input { flex: 1 1 auto; border: none; background: transparent; font: inherit; font-size: 14.5px; color: var(--ink); width: 100%; min-width: 0; outline: none; }
+/* Loupe à gauche (défaut / mobile) ; bouton de recherche à droite masqué (desktop). */
+.search-ic { flex: none; opacity: .5; }
+.search-go { display: none; }
 .chips { display: flex; flex-direction: column; gap: 8px; }
 .chips-row { display: flex; gap: 8px; flex-wrap: wrap; }
 .chip-f {
@@ -117,14 +132,22 @@ html[data-theme="light"] header { background: #ffffff; } /* thème clair : blanc
 .section-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .14em; color: var(--amber); margin-bottom: 14px; }
 /* G) padding-top ; rangées à hauteur auto alignées en haut (évite l'étirement
    d'une rangée unique en mode connecté). */
-.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; padding-top: 2rem; padding-bottom: 26px; grid-auto-rows: auto; align-content: start; }
-@media (max-width: 900px) { .grid { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 620px) { .grid { grid-template-columns: 1fr; } }
+/* Bug « vie locale » : les colonnes DOIVENT rester strictement égales quel que
+   soit le contenu. En `1fr` (= minmax(auto,1fr)), le minimum `auto` d'une carte au
+   large min-content (ex. la source paramétrée « Vacances scolaires » dont le <select>
+   liste des libellés très longs « Zone A (Besançon, Bordeaux…) ») gonflait sa colonne
+   à ~644px et écrasait les autres — visible seulement au filtre car cette carte est
+   paginée en vue « Toutes ». `minmax(0,1fr)` force des colonnes égales, le contenu
+   pouvant rétrécir/déborder proprement (voir aussi `.card { min-width:0 }`). */
+.grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; padding-top: 2rem; padding-bottom: 26px; grid-auto-rows: auto; align-content: start; }
+@media (max-width: 900px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 620px) { .grid { grid-template-columns: minmax(0, 1fr); } }
 .card {
   background: var(--surface); border: none; border-radius: 24px;
   padding: 22px; box-shadow: none;
   display: flex; flex-direction: column; gap: 12px;
   transition: box-shadow .2s, transform .15s;
+  min-width: 0; /* Bug « vie locale » : autorise la carte à rétrécir dans sa colonne. */
 }
 .card:hover { box-shadow: var(--shadow); transform: none; }
 /* Cartes masquées : pagination (hidden-more) et filtrage (filtered). */
@@ -155,6 +178,7 @@ html[data-theme="light"] header { background: #ffffff; } /* thème clair : blanc
   -webkit-backface-visibility: hidden; backface-visibility: hidden;
   transition: box-shadow .35s ease, border-color .35s ease;
   border: 2px solid transparent;
+  min-width: 0; /* Bug « vie locale » : le contenu (select à libellés longs) peut rétrécir. */
 }
 .card-front { position: relative; min-height: 285px;}              /* en flux : définit la hauteur */
 /* Verso : fond légèrement teinté (subtil), position absolue par-dessus le recto. */
@@ -177,9 +201,10 @@ html[data-theme="light"] header { background: #ffffff; } /* thème clair : blanc
   font-size: 16px; line-height: 1; cursor: pointer; padding: 4px; border-radius: 8px;
 }
 .flip-btn:hover, .flip-back:hover { color: var(--amber); }
-/* C) Flèche retour en SVG inline (rendu identique tous OS) : taille contrôlée. */
-.flip-back { display: inline-flex; align-items: center; justify-content: center; }
-.flip-back svg { width: 18px; height: 18px; display: block; }
+/* C) Flèche retour ET bouton info en SVG inline (rendu identique tous OS) : même
+   dimensionnement/alignement. Le « ⓘ » caractère a été remplacé par INFO_SVG. */
+.flip-back, .flip-btn { display: inline-flex; align-items: center; justify-content: center; }
+.flip-back svg, .flip-btn svg { width: 18px; height: 18px; display: block; }
 
 /* Verso : contenu dev. */
 .back-tags { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -971,7 +996,8 @@ body[data-mode="connected"] #stats { display: none; }
 
 /* =====================================================================
    Vue mobile « kiosque » (≤ 720px). js/mobile-header.js pose body.m-kiosk
-   et relocalise la recherche + les catégories dans le header, sous le titre.
+   et relocalise UNIQUEMENT la barre de recherche dans le header (rangée dédiée
+   sous le titre). Les puces de catégories RESTENT au-dessus de la grille.
    ===================================================================== */
 @media (max-width: 720px) {
 
@@ -981,7 +1007,7 @@ body[data-mode="connected"] #stats { display: none; }
      de défilement (préserve le position:sticky du header, contrairement à hidden). */
   html, body { overflow-x: clip; }
 
-  /* En-tête empilé : titre / recherche / catégories. */
+  /* En-tête empilé : titre (rangée 1) puis barre de recherche (rangée dédiée). */
   body.m-kiosk header .nav {
     position: relative;
     height: auto;
@@ -993,6 +1019,9 @@ body[data-mode="connected"] #stats { display: none; }
 
   /* Titre centré, pleine largeur. */
   body.m-kiosk .brand { flex: 1 1 100%; justify-content: center; }
+  /* « Déposer une alerte » masqué sur mobile (en-tête épuré ; reste accessible
+     via le footer et l'espace développeur). */
+  body.m-kiosk .btn-deposit { display: none; }
 
   /* Menu masqué : hamburger caché, boîte .nav-right dissoute (display:contents)
      pour ne conserver que l'icône de compte, tous les autres liens masqués. */
@@ -1023,16 +1052,12 @@ body[data-mode="connected"] #stats { display: none; }
   }
   body.m-kiosk[data-mode="connected"] #auth-link.btn-login { background: var(--amber); color: #fff; }
 
-  /* Recherche puis catégories, relocalisées dans le header sous le titre. */
-  body.m-kiosk header .nav .toolbar {
-    flex: 1 1 100%; flex-direction: column; align-items: stretch; gap: 10px; margin: 0;
-  }
-  body.m-kiosk header .nav .toolbar .search { min-width: 0; }
-  body.m-kiosk header .nav .chips-secondary-wrap { flex: 1 1 100%; }
+  /* Barre de recherche : rangée dédiée pleine largeur sous le titre. */
+  body.m-kiosk header .nav > .search { flex: 1 1 100%; min-width: 0; margin: 0; }
 
-  /* « Le kiosque » et le compteur d'alertes actives masqués (pour l'instant). */
+  /* « Le kiosque » masqué ; le KPI (dans .nav-right) l'est déjà via la règle
+     .nav-right > *:not(#auth-link). */
   body.m-kiosk main#alertes > .section-label { display: none; }
-  body.m-kiosk .hero .kpi { display: none; }
 
   /* C1) Cartes compactes par défaut : la description (.card p) et l'état (.state)
      sont repliés (max-height:0) et se déploient FLUIDEMENT au tap (.revealed) —
@@ -1051,76 +1076,104 @@ body[data-mode="connected"] #stats { display: none; }
     body.m-kiosk .grid .card .card-front > .state { transition: none; }
   }
 
-  /* E1) Panneau « Mon compte » ouvert : la refonte d'en-tête (recherche + tags)
-     est masquée — voir aussi la règle globale body.account-open plus bas. */
-  body.m-kiosk.account-open header .nav .toolbar,
-  body.m-kiosk.account-open header .nav .chips-secondary-wrap { display: none; }
-
-  /* E2) Header condensé au scroll : le titre s'efface, ne restent que la barre de
+  /* E2) Header condensé au scroll : le titre s'efface, ne reste que la barre de
      recherche (avec l'icône de connexion à sa droite). Transitions fluides. */
-  body.m-kiosk .brand,
-  body.m-kiosk header .nav .toolbar .chips,
-  body.m-kiosk header .nav .chips-secondary-wrap {
+  body.m-kiosk .brand {
     overflow: hidden;
     transition: max-height .3s ease, opacity .25s ease, margin .3s ease;
     max-height: 300px; opacity: 1;
   }
   body.m-kiosk.m-scrolled .brand { max-height: 0; opacity: 0; margin: 0; }
-  body.m-kiosk.m-scrolled header .nav .toolbar .chips,
-  body.m-kiosk.m-scrolled header .nav .chips-secondary-wrap { max-height: 0; opacity: 0; margin: 0; }
   /* Place l'icône de connexion à droite de la recherche une fois condensé. */
-  body.m-kiosk.m-scrolled header .nav .toolbar { margin-right: 48px; }
+  body.m-kiosk.m-scrolled header .nav > .search { margin-right: 48px; }
   @media (prefers-reduced-motion: reduce) {
-    body.m-kiosk .brand,
-    body.m-kiosk header .nav .toolbar .chips,
-    body.m-kiosk header .nav .chips-secondary-wrap { transition: none; }
+    body.m-kiosk .brand { transition: none; }
   }
 
   /* E3) iPhone SE (~≤375px) : police des catégories réduite pour tenir sur 2 lignes. */
   @media (max-width: 375px) {
-    body.m-kiosk header .chip-f { font-size: 12px; padding: 7px 12px; }
+    body.m-kiosk .chip-f { font-size: 12px; padding: 7px 12px; }
   }
 }
 
-/* F) ==================== En-tête enrichi — DESKTOP, home uniquement ====================
-   Sur la home (body.m-kiosk), au-dessus de 720px, la recherche est relocalisée
-   dans le header (centrée), les catégories sur la ligne du dessous, et le KPI est
-   à droite du bouton thème. Les autres pages n'ont pas body.m-kiosk → intactes. */
+/* F) ============ En-tête façon leboncoin — DESKTOP (home uniquement) ============
+   Sur la home (body.m-kiosk), au-dessus de 720px, l'en-tête est sur UNE seule
+   rangée : [logo] [Déposer] [recherche flexible] [Mes alertes] [Se connecter]
+   [thème] [KPI]. Les puces de catégories RESTENT au-dessus de la grille (.toolbar).
+   Les autres pages n'ont pas body.m-kiosk → intactes. */
 @media (min-width: 721px) {
+  /* 721–1023px (tablette) : le header s'enroule, la recherche occupe sa propre
+     rangée pleine largeur sous le logo/menu (évite tout débordement). */
   body.m-kiosk header .nav {
-    flex-wrap: wrap; height: auto; align-items: center;
-    row-gap: 8px; padding: 12px 0;
+    height: auto; flex-wrap: wrap; align-items: center; gap: 12px;
+    padding: 12px 0; row-gap: 10px;
   }
-  body.m-kiosk .brand { font-size: 33px; }          /* F3) titre 33px en desktop */
-  body.m-kiosk header .nav-right { order: 2; }
-  /* Recherche centrée sur sa propre ligne pleine largeur. */
-  body.m-kiosk header .nav .toolbar {
-    order: 5; flex: 1 1 100%; margin: 4px 0 0;
-    display: flex; flex-direction: column; align-items: center; gap: 10px;
+  body.m-kiosk .brand { font-size: 30px; flex: none; }
+  body.m-kiosk .btn-deposit { order: 1; flex: none; }
+  body.m-kiosk header .nav-right { order: 2; flex: none; }
+  body.m-kiosk header .nav > .search {
+    order: 5; flex: 1 1 100%; max-width: none; min-width: 0; margin: 2px 0 0;
+    padding: 5px 5px 5px 18px; gap: 0;
   }
-  body.m-kiosk header .nav .toolbar .search { width: 100%; max-width: 480px; flex: none; }
-  body.m-kiosk header .nav .toolbar .chips { width: 100%; }
-  body.m-kiosk header .nav .toolbar .chips .chips-row { justify-content: center; }
-  /* Catégories secondaires : ligne centrée sous la recherche. */
-  body.m-kiosk header .nav .chips-secondary-wrap { order: 6; flex: 1 1 100%; }
-  body.m-kiosk header .nav .chips-secondary-wrap .chips-row { justify-content: center; }
-  /* F2) KPI dans le header (à droite du bouton thème). */
-  body.m-kiosk .nav-right .kpi { margin-top: 0; }
-}
-/* F2) PC étroit : le KPI se réduit à l'icône clignotante + le nombre (data-n). */
-@media (min-width: 721px) and (max-width: 980px) {
+
+  /* Point 6) Desktop : plus de loupe à gauche, bouton de recherche accolé à droite
+     (fond accent, loupe blanche, coins épousant la pilule). */
+  body.m-kiosk header .nav > .search .search-ic { display: none; }
+  body.m-kiosk header .nav > .search .search-go {
+    display: inline-flex; align-items: center; justify-content: center; flex: none;
+    width: 34px; height: 34px; margin-left: 8px; border: none; cursor: pointer;
+    background: var(--amber); color: #fff; border-radius: 999px;
+    transition: background .15s;
+  }
+  body.m-kiosk header .nav > .search .search-go:hover { background: color-mix(in srgb, var(--amber) 88%, #000); }
+  body.m-kiosk header .nav > .search .search-go svg { display: block; }
+
+  /* Point 2) KPI compact dans le header : pastille + nombre uniquement. */
+  body.m-kiosk .nav-right .kpi { margin-top: 0; position: relative; gap: 6px; padding: 6px 12px; }
   body.m-kiosk .nav-right .kpi #kpi-text { display: none; }
-  body.m-kiosk .nav-right .kpi::after {
-    content: attr(data-n); font-weight: 700; color: var(--ink);
-  }
 }
-/* F3) titre 1.7rem en mobile (home). */
+
+/* Point 1) ≥1024px : en-tête sur UNE seule rangée façon leboncoin.
+   [logo] [Déposer] [recherche flex:1 max 420px] [nav-right (Mes alertes / Se
+   connecter / thème / KPI)]. */
+@media (min-width: 1024px) {
+  body.m-kiosk header .nav { height: 64px; flex-wrap: nowrap; gap: 14px; }
+  body.m-kiosk .brand { font-size: 26px; }
+  body.m-kiosk header .nav > .search {
+    order: 2; flex: 1 1 auto; max-width: 420px; min-width: 140px; margin: 0;
+  }
+  body.m-kiosk header .nav-right { order: 3; }
+}
+
+/* Point 2) Survol : le compteur s'étire vers la gauche en OVERLAY pour révéler le
+   texte complet, SANS déplacer les voisins (position absolue, ancré à droite) et
+   sans jamais provoquer de scroll horizontal. Désactivé sur tactile et < 1024px. */
+@media (hover: hover) and (min-width: 1024px) {
+  body.m-kiosk .nav-right .kpi #kpi-text {
+    display: flex; align-items: center; white-space: nowrap;
+    position: absolute; top: 0; right: 0; height: 100%;
+    max-width: 0; overflow: hidden; opacity: 0;
+    background: var(--surface); border-radius: 999px; padding: 0;
+    box-shadow: 0 2px 12px rgba(30, 20, 50, .18);
+    transition: max-width .35s ease, opacity .25s ease, padding .3s ease;
+    pointer-events: none; z-index: 3;
+  }
+  body.m-kiosk .nav-right .kpi:hover #kpi-text { max-width: 340px; opacity: 1; padding: 0 16px; }
+  /* La pilule étendue porte sa propre pastille de tête (l'état vit sur data-active). */
+  body.m-kiosk .nav-right .kpi:hover #kpi-text::before {
+    content: ""; flex: none; width: 8px; height: 8px; border-radius: 50%;
+    background: var(--muted); opacity: .5; margin-right: 8px;
+  }
+  body.m-kiosk .nav-right .kpi[data-active="true"]:hover #kpi-text::before { background: var(--green); opacity: 1; }
+}
+
+/* F3) titre en mobile (home). */
 @media (max-width: 720px) {
   body.m-kiosk .brand { font-size: 1.7rem; }
 }
 
 /* E1) Règle globale (mobile + desktop) : quand le panneau « Mon compte » est ouvert,
-   la refonte d'en-tête est masquée (la home est la seule page avec .account-open). */
-body.account-open header .nav .toolbar,
-body.account-open header .nav .chips-secondary-wrap,
+   la barre de recherche du header et le KPI sont masqués (les puces vivent dans
+   #alertes, masqué par le swap). La home est la seule page avec .account-open. */
+body.account-open header .nav > .search,
 body.account-open .nav-right .kpi { display: none; }

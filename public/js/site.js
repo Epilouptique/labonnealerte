@@ -456,6 +456,9 @@
   }
   function togglePicker(card, show) {
     var f = card.querySelector('.param-form'); if (f) f.hidden = !show;
+    // Point 7 : « + ajouter » masqué tant que le picker est ouvert (sinon une ligne
+    // en trop reste affichée), réaffiché à la fermeture (validation ou annulation).
+    var add = card.querySelector('.param-add'); if (add) add.hidden = show;
   }
   // H) Maintient l'indicateur « Abonné / Non abonné » d'une carte paramétrée.
   function setParamStatus(card, on) {
@@ -546,7 +549,10 @@
       removeParam(card, e.target.closest('.param-chip'));
     } else if (e.target.closest('.param-add')) {
       e.preventDefault();
+      // Ouvre le picker (et masque « + ajouter » — point 7).
       togglePicker(card, true);
+      var ctrl = card.querySelector('.param-select, .param-input');
+      if (ctrl) ctrl.focus();
     }
   });
   document.addEventListener('keydown', function (e) {
@@ -573,18 +579,27 @@
   });
 
   /* ---------------- KPI hero ---------------- */
+  // Met à jour le nombre compact (toujours visible) du compteur d'alertes.
+  function setKpiNum(n) {
+    var num = document.getElementById('kpi-num');
+    if (num) num.textContent = n;
+  }
   function updateKPI(sources) {
     var dot = document.getElementById('kpi-dot');
     var txt = document.getElementById('kpi-text');
     if (!dot || !txt) return;
-    if (!sources) { dot.className = 'dot-idle'; txt.textContent = ''; return; }
+    if (!sources) { dot.className = 'dot-idle'; txt.textContent = ''; setKpiNum(''); return; }
     var n = sources.filter(function (s) { return s.state === 'active'; }).length;
     dot.className = n > 0 ? 'dot-live' : 'dot-idle';
     // F2) Nombre exposé sur le conteneur → forme compacte (icône + X) sur PC étroit.
-    if (dot.parentElement) dot.parentElement.dataset.n = n;
+    if (dot.parentElement) { dot.parentElement.dataset.n = n; dot.parentElement.dataset.active = n > 0; }
+    setKpiNum(n);
     txt.textContent = n === 0
       ? 'Aucune alerte active — tout est calme'
       : (n === 1 ? '1 alerte active en ce moment' : n + ' alertes actives en ce moment');
+    // A11y : le texte complet reste lisible par lecteur d'écran même quand la forme
+    // compacte (nombre seul) est affichée (le libellé étendu n'apparaît qu'au survol).
+    if (dot.parentElement) dot.parentElement.setAttribute('aria-label', txt.textContent);
   }
 
   // KPI personnalisé (connecté) : alertes actives PARMI les abonnements.
@@ -593,10 +608,12 @@
     var txt = document.getElementById('kpi-text');
     if (!dot || !txt) return;
     dot.className = n > 0 ? 'dot-live' : 'dot-idle';
-    if (dot.parentElement) dot.parentElement.dataset.n = n;
+    if (dot.parentElement) { dot.parentElement.dataset.n = n; dot.parentElement.dataset.active = n > 0; }
+    setKpiNum(n);
     txt.textContent = n === 0
       ? "Aucune de vos alertes n'est active — tout est calme"
       : (n === 1 ? '1 de vos alertes est active en ce moment' : n + ' de vos alertes sont actives en ce moment');
+    if (dot.parentElement) dot.parentElement.setAttribute('aria-label', txt.textContent);
   }
 
   // Une carte est-elle « active » (source déclenchée) ? (état rendu dans .state)
@@ -687,7 +704,10 @@
     var slugs = Object.keys(counts).sort(function (a, b) {
       return counts[b] - counts[a] || LBACat.label(a).localeCompare(LBACat.label(b));
     });
-    var primaryN = mode === 'connected' ? 3 : 4;
+    // 7 puces visibles par défaut sur desktop (≥1024px) avant le « + », 5 sur
+    // mobile (comportement inchangé). Total visible = Toutes [+ Mes alertes] + primary.
+    var wide = !!(window.matchMedia && window.matchMedia('(min-width: 1024px)').matches);
+    var primaryN = mode === 'connected' ? (wide ? 5 : 3) : (wide ? 6 : 4);
     var primary = slugs.slice(0, primaryN);
     var secondary = slugs.slice(primaryN, primaryN + 8);
     var mineCount = cards.filter(function (c) { return c.dataset.subscribed === '1'; }).length;
@@ -916,6 +936,14 @@
     qInput.addEventListener('input', function () {
       clearTimeout(searchTimer);
       searchTimer = setTimeout(function () { apply(true); }, 120);
+    });
+    // Point 6 : bouton de recherche (déclencheur explicite, la recherche reste
+    // instantanée à la frappe). Applique immédiatement le filtre courant.
+    var searchGo = document.querySelector('.search .search-go');
+    if (searchGo) searchGo.addEventListener('click', function () {
+      clearTimeout(searchTimer);
+      apply(true);
+      qInput.focus();
     });
 
     function onChipClick(e) {

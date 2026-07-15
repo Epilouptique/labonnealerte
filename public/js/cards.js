@@ -72,6 +72,11 @@
   // l'écrasait). Taille pilotée par le CSS (.flip-back svg / .src-back svg).
   var BACK_SVG = '<svg class="ic-back" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 5 5v3"/></svg>';
 
+  // Icône « i dans un cercle » (recto, bouton « En savoir plus ») : même style que
+  // SHARE_SVG/BACK_SVG (trait 2px, linecap round, 18×18, currentColor). Remplace le
+  // caractère « ⓘ » au rendu incohérent selon les OS. Taille pilotée par .flip-btn svg.
+  var INFO_SVG = '<svg class="ic-info" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 7.6v.01"/></svg>';
+
   // Source paramétrée (OpenAlert v2) : schéma plat à au moins un paramètre.
   function isParam(s) { return Array.isArray(s.params_schema) && s.params_schema.length > 0; }
 
@@ -150,7 +155,7 @@
     return '' +
       '<div class="card-face card-front">' +
         '<button class="share-btn card-share" type="button" aria-label="Partager" title="Partager">' + SHARE_SVG + '</button>' +
-        '<button class="flip-btn" type="button" aria-label="En savoir plus" title="En savoir plus">ⓘ</button>' +
+        '<button class="flip-btn" type="button" aria-label="En savoir plus" title="En savoir plus">' + INFO_SVG + '</button>' +
         topRow(s) +
         (s.subtitle ? '<div class="card-subtitle">' + esc(s.subtitle) + '</div>' : '') +
         '<p>' + esc(s.description || '') + '</p>' +

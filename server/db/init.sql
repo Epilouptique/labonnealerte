@@ -1529,3 +1529,156 @@ SELECT 'meteo-forets', 'Météo des forêts', 'Le département de votre choix',
   '[{"key":"departement","label":"Département","type":"enum","values":[{"value":"04","label":"Alpes-de-Haute-Provence"},{"value":"05","label":"Hautes-Alpes"},{"value":"06","label":"Alpes-Maritimes"},{"value":"07","label":"Ardèche"},{"value":"11","label":"Aude"},{"value":"13","label":"Bouches-du-Rhône"},{"value":"26","label":"Drôme"},{"value":"2A","label":"Corse-du-Sud"},{"value":"2B","label":"Haute-Corse"},{"value":"30","label":"Gard"},{"value":"34","label":"Hérault"},{"value":"48","label":"Lozère"},{"value":"66","label":"Pyrénées-Orientales"},{"value":"83","label":"Var"},{"value":"84","label":"Vaucluse"}],"multiple":true,"required":true,"default":null}]'::jsonb,
   false
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'meteo-forets');
+
+-- ================================================================
+-- Vague 15 · GitHub releases (paramétrée) + finance + logement/nature/
+-- gourmandises/geek/salons/sorties + statuts (fournée 4).
+-- ⚠️ display_order 130-145 (plage HAUTE : 3 vagues en attente de merge —
+-- arbitrer les collisions éventuelles au merge). ÉCARTÉS (voir rapport) :
+-- ouverture-chasse (préfectoral), nuit-blanche 2027 & marché de Noël
+-- Strasbourg 2026 (non annoncés), déclaration-revenus (à intégrer aux
+-- échéances fiscales à l'annonce printemps 2027), bourse (pas d'API gratuite).
+-- ================================================================
+
+-- 1.1) GitHub releases — source dev PARAMÉTRÉE (dépôt owner/repo).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
+SELECT 'github-release', 'Release GitHub', 'Le dépôt de votre choix',
+  'Prévenu à la sortie d''une nouvelle version stable d''un dépôt GitHub que vous suivez (owner/repo). Idéal pour vos outils et dépendances favoris. API publique GitHub.',
+  'internal', 'official', false, ARRAY['tech', 'dev'], 130,
+  '[{"key":"depot","label":"Dépôt GitHub","type":"string","placeholder":"vercel/next.js","pattern":"^[A-Za-z0-9_.-]{1,39}/[A-Za-z0-9_.-]{1,100}$","lowercase":false,"multiple":true,"required":true,"default":null}]'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'github-release');
+UPDATE sources SET params_schema = '[{"key":"depot","label":"Dépôt GitHub","type":"string","placeholder":"vercel/next.js","pattern":"^[A-Za-z0-9_.-]{1,39}/[A-Za-z0-9_.-]{1,100}$","lowercase":false,"multiple":true,"required":true,"default":null}]'::jsonb
+ WHERE id = 'github-release';
+
+-- 2.1) Mouvement fort du Bitcoin (broadcast). Aucun conseil d'investissement.
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'bitcoin-mouvement', 'Bitcoin — gros mouvement', 'Variation forte sur 24h',
+  'Alerte quand le cours du Bitcoin varie de 10 % ou plus en 24h (à la hausse ou à la baisse). Signal d''information uniquement — ceci n''est pas un conseil d''investissement. Données CoinGecko.',
+  'internal', 'official', false, ARRAY['crypto', 'tech'], 131
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'bitcoin-mouvement');
+INSERT INTO source_states (source_id) SELECT 'bitcoin-mouvement'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'bitcoin-mouvement');
+
+-- 3.1) Trêve hivernale (calendrier).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'treve-hivernale', 'Trêve hivernale', 'Début et fin de la trêve',
+  'Un rappel au début (1er novembre) et à la fin (31 mars) de la trêve hivernale : protection contre les expulsions locatives et les coupures d''énergie. Source service-public.',
+  'internal', 'official', false, ARRAY['vie-locale', 'logement'], 132
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'treve-hivernale');
+INSERT INTO source_states (source_id) SELECT 'treve-hivernale'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'treve-hivernale');
+
+-- 3.2) Chèque énergie (calendrier).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'cheque-energie', 'Chèque énergie', 'Les échéances à ne pas manquer',
+  'Un rappel des échéances du chèque énergie (aide au paiement des factures d''énergie) : date limite de demande en ligne. Source chequeenergie.gouv.fr.',
+  'internal', 'official', false, ARRAY['vie-locale', 'logement'], 133
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'cheque-energie');
+INSERT INTO source_states (source_id) SELECT 'cheque-energie'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'cheque-energie');
+
+-- 4.1) Saints de glace (calendrier, jardinage).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'saints-de-glace', 'Saints de glace', 'La sagesse du jardinier',
+  'Un rappel autour des Saints de glace (11-13 mai) : la tradition populaire conseille d''attendre avant de planter les végétaux fragiles, le risque de gelées tardives passant après. Tradition assumée comme telle.',
+  'internal', 'official', false, ARRAY['jardinage', 'vie-locale'], 134
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'saints-de-glace');
+INSERT INTO source_states (source_id) SELECT 'saints-de-glace'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'saints-de-glace');
+
+-- 4.2) Ouverture de la pêche 1re catégorie (calendrier).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'ouverture-peche', 'Ouverture de la pêche', '1re catégorie, 2e samedi de mars',
+  'Un rappel avant l''ouverture de la pêche en 1re catégorie (2e samedi de mars). Cadre national : les dates exactes sont fixées par arrêté préfectoral (adaptations locales possibles).',
+  'internal', 'official', false, ARRAY['peche', 'vie-locale'], 135
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'ouverture-peche');
+INSERT INTO source_states (source_id) SELECT 'ouverture-peche'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'ouverture-peche');
+
+-- 4.3) Jour du dépassement (calendrier).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'jour-depassement', 'Jour du dépassement', 'Earth Overshoot Day',
+  'Le jour où l''humanité a consommé l''ensemble des ressources que la planète peut régénérer en un an. Date publiée chaque année par le Global Footprint Network. Message sobre et informatif.',
+  'internal', 'official', false, ARRAY['environnement', 'vie-locale'], 136
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'jour-depassement');
+INSERT INTO source_states (source_id) SELECT 'jour-depassement'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'jour-depassement');
+
+-- 4.4) Rendez-vous planète (calendrier multi-entrées).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'rdv-planete', 'Rendez-vous planète', 'Les grands gestes pour la Terre',
+  'Un rappel avant les grands rendez-vous écologiques : Heure de la Terre, World Cleanup Day, Semaine de la réduction des déchets. Dates officielles.',
+  'internal', 'official', false, ARRAY['environnement', 'vie-locale'], 137
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'rdv-planete');
+INSERT INTO source_states (source_id) SELECT 'rdv-planete'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'rdv-planete');
+
+-- 5.1) Fêtes gourmandes (calendrier).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'fetes-gourmandes', 'Fêtes gourmandes', 'Chandeleur, Mardi Gras, Saint-Patrick',
+  'Un rappel la veille des petites fêtes gourmandes : Chandeleur (crêpes), Mardi Gras (beignets), Saint-Patrick. Ton léger.',
+  'internal', 'official', false, ARRAY['fetes', 'vie-locale'], 138
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'fetes-gourmandes');
+INSERT INTO source_states (source_id) SELECT 'fetes-gourmandes'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'fetes-gourmandes');
+
+-- 6.1) Journées geek & insolites (calendrier).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'journees-geek', 'Journées geek', 'Pi Day, Star Wars Day, sauvegarde…',
+  'Un clin d''œil aux journées geek et insolites : Pi Day, Star Wars Day, Towel Day, Journée du programmeur — et le rappel le plus utile de tous : la Journée mondiale de la sauvegarde (31 mars).',
+  'internal', 'official', false, ARRAY['humour', 'tech'], 139
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'journees-geek');
+INSERT INTO source_states (source_id) SELECT 'journees-geek'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'journees-geek');
+
+-- 7.1) Grands salons (calendrier).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'grands-salons', 'Grands salons', 'Agriculture, Auto, VivaTech',
+  'Un rappel à l''ouverture des grands salons parisiens : Salon de l''Agriculture, Mondial de l''Auto, VivaTech. Dates officielles.',
+  'internal', 'official', false, ARRAY['vie-locale', 'evenements-locaux'], 140
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'grands-salons');
+INSERT INTO source_states (source_id) SELECT 'grands-salons'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'grands-salons');
+
+-- 8.1) Sorties jeux majeures (calendrier).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'sorties-jeux-majeures', 'Grosses sorties jeux', 'Les blockbusters du jeu vidéo',
+  'Un rappel à la sortie des jeux vidéo majeurs, uniquement quand la date est officiellement confirmée par l''éditeur.',
+  'internal', 'official', false, ARRAY['jeux-video', 'sorties-jeux'], 141
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'sorties-jeux-majeures');
+INSERT INTO source_states (source_id) SELECT 'sorties-jeux-majeures'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'sorties-jeux-majeures');
+
+-- 8.2) Sorties cinéma majeures (calendrier).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'sorties-cinema-majeures', 'Grosses sorties ciné', 'Les blockbusters au cinéma',
+  'Un rappel à la sortie française des grands films, uniquement quand la date est officiellement confirmée par le distributeur.',
+  'internal', 'official', false, ARRAY['cinema', 'films'], 142
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'sorties-cinema-majeures');
+INSERT INTO source_states (source_id) SELECT 'sorties-cinema-majeures'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'sorties-cinema-majeures');
+
+-- 9) Statuts de services (fournée 4, standard Statuspage). requires_confirmation true.
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'statut-proton', 'Panne Proton', 'Statut officiel de Proton',
+  'Alerte quand Proton (Mail, VPN, Drive) déclare une panne majeure sur sa page de statut officielle.',
+  'internal', 'official', true, ARRAY['pannes-services', 'status-cloud'], 143
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'statut-proton');
+INSERT INTO source_states (source_id) SELECT 'statut-proton'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'statut-proton');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'statut-gandi', 'Panne Gandi', 'Statut officiel de Gandi',
+  'Alerte quand Gandi (domaines, hébergement) déclare une panne majeure sur sa page de statut officielle.',
+  'internal', 'official', true, ARRAY['pannes-services', 'status-cloud'], 144
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'statut-gandi');
+INSERT INTO source_states (source_id) SELECT 'statut-gandi'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'statut-gandi');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'statut-brevo', 'Panne Brevo', 'Statut officiel de Brevo',
+  'Alerte quand Brevo (emailing, ex-Sendinblue) déclare une panne majeure sur sa page de statut officielle.',
+  'internal', 'official', true, ARRAY['pannes-services', 'status-cloud'], 145
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'statut-brevo');
+INSERT INTO source_states (source_id) SELECT 'statut-brevo'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'statut-brevo');

@@ -17,7 +17,7 @@
   var toolbar = document.querySelector('main .toolbar');
   if (!nav || !toolbar) return; // pas la page kiosque : rien à faire.
 
-  var secondary = document.getElementById('chips-secondary-wrap');
+  var search = toolbar.querySelector('.search');
   var navRight = nav.querySelector('.nav-right');
   var kpi = document.querySelector('.hero .kpi');
   var grid = document.getElementById('grid');
@@ -25,11 +25,12 @@
 
   document.body.classList.add('m-kiosk');
 
-  // Relocalisation dans le header (valable pour mobile ET desktop : le CSS gère les
-  // deux mises en page). La refonte reste circonscrite à la home (garde ci-dessus).
-  nav.appendChild(toolbar);
-  if (secondary) nav.appendChild(secondary);
-  // KPI : dernière position de .nav-right → à droite du bouton thème.
+  // Refonte façon leboncoin : SEULE la barre de recherche migre dans le header
+  // (espace flexible central, avant .nav-right). Les puces de catégories, elles,
+  // RESTENT dans .toolbar au-dessus de la grille. Relocalisation DOM : les écouteurs
+  // déjà attachés (filtrage instantané) suivent le nœud.
+  if (search && navRight) nav.insertBefore(search, navRight);
+  // KPI : dernière position de .nav-right → tout à droite du header.
   if (kpi && navRight) navRight.appendChild(kpi);
 
   /* -------- Condensation du header au scroll (hystérésis) -------- */
