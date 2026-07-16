@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="/css/tokens.css">
 <link rel="stylesheet" href="/css/site.css">
 <style>
-.page { max-width: 720px; padding: 48px 0 80px; }
+.page { max-width: 720px; padding: 48px 24px 80px; }
 .page h1 { font-size: clamp(28px, 5vw, 40px); font-weight: 800; letter-spacing: -0.02em; }
 .page .lead { color: var(--muted); font-size: 18px; margin-top: 12px; }
 .page section { margin-top: 36px; }
@@ -31,7 +31,7 @@
 
 <header>
   <div class="wrap nav">
-    <a class="brand brandmark" href="/"><span class="lig"><span class="l">l</span>a</span>bonne<span class="a">alerte</span><span class="bang"><span class="bar"></span><span class="dot"></span></span><span class="fr">fr</span></a>
+    <a class="brand brandmark" href="/"><span class="lig"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path d="M 0 20 C -6 93, 66 52, 60 10"/></svg><span class="l">l</span>a</span>bonne<span class="a">alerte</span><span class="bang"><span class="bar"></span><span class="dot"></span></span><span class="fr">fr</span></a>
     <nav class="nav-right">
       <a href="/">← Retour au kiosque</a>
       <button class="theme-btn" type="button" aria-label="Changer de thème">◐</button>
@@ -95,7 +95,7 @@
 
   <section>
     <h2>Vos droits</h2>
-    <p>Vous disposez d'un droit d'accès, de rectification, d'effacement, d'opposition et de portabilité de vos données. Vous pouvez les exercer par email à <a class="inline" href="mailto:contact@labonnealerte.fr">contact@labonnealerte.fr</a>, ou directement via le bouton « Supprimer mon compte » dans « Mes alertes ».</p>
+    <p>Vous disposez d'un droit d'accès, de rectification, d'effacement, d'opposition et de portabilité de vos données. Vous pouvez les exercer par email à <a class="inline" href="mailto:contact@labonnealerte.fr">contact@labonnealerte.fr</a>, ou directement via le bouton « Supprimer mon compte » dans « Ma collection ».</p>
     <p class="muted">Vous pouvez également introduire une réclamation auprès de la CNIL&nbsp;: <a class="inline" href="https://www.cnil.fr" target="_blank" rel="noopener">cnil.fr</a>.</p>
   </section>
 </main>
@@ -106,6 +106,8 @@
 </footer>
 
 <script src="/js/theme.js"></script>
+<script src="/js/session.js"></script>
+<script src="/js/header.js"></script>
 <script src="/js/pwa.js"></script>
 </body>
 </html>

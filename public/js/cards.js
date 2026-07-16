@@ -77,6 +77,26 @@
   // caractère « ⓘ » au rendu incohérent selon les OS. Taille pilotée par .flip-btn svg.
   var INFO_SVG = '<svg class="ic-info" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 7.6v.01"/></svg>';
 
+  // A1) Cœur « j'aime » : contour (non aimé) ; le CSS le remplit quand .liked.
+  var LIKE_SVG = '<svg class="ic-like" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20.3l-1.45-1.32C5.4 14.36 2.5 11.7 2.5 8.5 2.5 6.08 4.42 4.2 6.8 4.2c1.36 0 2.66.63 3.5 1.64l.7.85.7-.85C12.54 4.83 13.84 4.2 15.2 4.2c2.38 0 4.3 1.88 4.3 4.3 0 3.2-2.9 5.86-8.05 10.48z"/></svg>';
+
+  // Format compact du compteur de likes : 1240 → « 1,2 k », 12000 → « 12 k ».
+  function formatCount(n) {
+    n = Number(n) || 0;
+    if (n < 1000) return String(n);
+    var v = n / 1000;
+    var s = (v >= 10 ? Math.round(v).toString() : v.toFixed(1).replace(/\.0$/, ''));
+    return s.replace('.', ',') + ' k';
+  }
+
+  // Bouton like (recto). Non aimé au rendu ; site.js marque .liked depuis localStorage.
+  function likeBtn(s) {
+    var n = Number(s.likes_count) || 0;
+    return '<button class="like-btn card-like" type="button" aria-pressed="false"' +
+      ' aria-label="J\'aime cette alerte" data-likes="' + n + '">' +
+      LIKE_SVG + '<span class="like-n">' + formatCount(n) + '</span></button>';
+  }
+
   // Source paramétrée (OpenAlert v2) : schéma plat à au moins un paramètre.
   function isParam(s) { return Array.isArray(s.params_schema) && s.params_schema.length > 0; }
 
@@ -156,6 +176,7 @@
       '<div class="card-face card-front">' +
         '<button class="share-btn card-share" type="button" aria-label="Partager" title="Partager">' + SHARE_SVG + '</button>' +
         '<button class="flip-btn" type="button" aria-label="En savoir plus" title="En savoir plus">' + INFO_SVG + '</button>' +
+        likeBtn(s) +
         topRow(s) +
         (s.subtitle ? '<div class="card-subtitle">' + esc(s.subtitle) + '</div>' : '') +
         '<p>' + esc(s.description || '') + '</p>' +
@@ -234,6 +255,6 @@
 
   window.LBACards = {
     esc: esc, badgeFor: badgeFor, stateFor: stateFor, domainOf: domainOf, cardHTML: cardHTML, catLabel: catLabel,
-    BACK_SVG: BACK_SVG
+    BACK_SVG: BACK_SVG, formatCount: formatCount
   };
 })();

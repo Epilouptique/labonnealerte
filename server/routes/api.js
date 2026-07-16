@@ -1,10 +1,24 @@
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const { pool } = require('../db');
 const { CATEGORIES } = require('../categories');
 const { COUNTRIES, DEPARTEMENTS } = require('../geo');
 const { paramsFromQuery } = require('../params');
 
 const router = express.Router();
+
+// A1) Limiteur dédié aux votes « j'aime » : 20 actions/minute/IP (POST + DELETE
+// partagent le compteur). Suffisant pour aimer plusieurs cartes d'affilée, bloque
+// le spam scripté. S'ajoute au limiteur global /api (120/min/IP). Anti-abus v1 =
+// ce rate-limit + marquage localStorage côté client (pas de dédup serveur par
+// utilisateur, cf. rapport : un IP peut au pire ajouter ≤20 likes/min).
+const likeLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Trop de votes, réessayez dans une minute' },
+});
 
 // Fusion v2 : ancien id départemental → source paramétrée (301 avec ?departement).
 const OLD_VIG = /^vigilance-meteo-(.+)$/;
@@ -49,6 +63,7 @@ router.get('/sources', async (req, res) => {
     const { rows } = await pool.query(
       `SELECT s.id, s.name, s.subtitle, s.description, s.badge, s.type, s.link_url,
               s.categories, s.submitted_by_github, s.params_schema,
+              s.likes_count, s.created_at,
               CASE WHEN s.type = 'linked' THEN NULL
                    ELSE COALESCE(st.state, 'inactive') END AS state,
               (SELECT COUNT(*) FROM subscriptions sub
@@ -64,6 +79,71 @@ router.get('/sources', async (req, res) => {
     res.json(rows);
   } catch (err) {
     console.error('[api] Erreur GET /sources :', err.message);
+    res.status(503).json({ error: 'DB unavailable' });
+  }
+});
+
+// A1) POST /api/sources/:id/like — incrémente le compteur de « j'aime ».
+// Le toggle (ne pas ré-aimer) est géré côté client (localStorage lba-likes) ;
+// il n'y a pas de dédup serveur par utilisateur (pas de compte obligatoire) →
+// l'anti-abus repose sur likeLimiter (20/min/IP) + le marquage client. Réversible
+// via DELETE. N'agit que sur une source active (enabled) et connue (sinon 404).
+router.post('/sources/:id/like', likeLimiter, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'UPDATE sources SET likes_count = likes_count + 1 WHERE id = $1 AND enabled = true RETURNING id, likes_count',
+      [req.params.id]
+    );
+    if (rows.length === 0) return res.status(404).json({ error: 'Source inconnue' });
+    res.json({ id: rows[0].id, likes_count: rows[0].likes_count });
+  } catch (err) {
+    console.error('[api] Erreur POST /sources/:id/like :', err.message);
+    res.status(503).json({ error: 'DB unavailable' });
+  }
+});
+
+// A1) DELETE /api/sources/:id/like — retire un « j'aime » (plancher à 0 pour ne
+// jamais passer négatif). Même limiteur que le POST.
+router.delete('/sources/:id/like', likeLimiter, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'UPDATE sources SET likes_count = GREATEST(likes_count - 1, 0) WHERE id = $1 AND enabled = true RETURNING id, likes_count',
+      [req.params.id]
+    );
+    if (rows.length === 0) return res.status(404).json({ error: 'Source inconnue' });
+    res.json({ id: rows[0].id, likes_count: rows[0].likes_count });
+  } catch (err) {
+    console.error('[api] Erreur DELETE /sources/:id/like :', err.message);
+    res.status(503).json({ error: 'DB unavailable' });
+  }
+});
+
+// B2) GET /api/sources/:id/links — liens de visibilité pro du déposant, pour la
+// page publique de la source UNIQUEMENT (jamais dans la liste /api/sources). Les
+// liens sont re-validés/assainis à l'affichage (défense en profondeur, même si le
+// dépôt valide déjà) : on ne renvoie que des URL http(s) bien formées, label borné,
+// 3 max. Aucune donnée sensible (pas d'email).
+function isSafeHttpUrl(u) {
+  if (typeof u !== 'string' || u.length === 0 || u.length > 300) return false;
+  try { const p = new URL(u); return p.protocol === 'http:' || p.protocol === 'https:'; }
+  catch (e) { return false; }
+}
+function sanitizeLinks(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((l) => l && typeof l.label === 'string' && l.label.trim().length > 0 && l.label.length <= 60 && isSafeHttpUrl(l.url))
+    .slice(0, 3)
+    .map((l) => ({ label: l.label.trim().slice(0, 60), url: l.url }));
+}
+router.get('/sources/:id/links', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'SELECT submitted_links FROM sources WHERE id = $1 AND enabled = true', [req.params.id]);
+    if (rows.length === 0) return res.status(404).json({ error: 'Source inconnue' });
+    res.set('Cache-Control', 'public, max-age=300');
+    res.json({ submitted_links: sanitizeLinks(rows[0].submitted_links) });
+  } catch (err) {
+    console.error('[api] Erreur GET /sources/:id/links :', err.message);
     res.status(503).json({ error: 'DB unavailable' });
   }
 });

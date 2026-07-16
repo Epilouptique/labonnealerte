@@ -18,14 +18,13 @@
 
 <header>
   <div class="wrap nav">
-    <a class="brand brandmark" href="/"><span class="lig"><span class="l">l</span>a</span>bonne<span class="a">alerte</span><span class="bang"><span class="bar"></span><span class="dot"></span></span><span class="fr">fr</span></a>
+    <a class="brand brandmark" href="/"><span class="lig"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path d="M 0 20 C -6 93, 66 52, 60 10"/></svg><span class="l">l</span>a</span>bonne<span class="a">alerte</span><span class="bang"><span class="bar"></span><span class="dot"></span></span><span class="fr">fr</span></a>
     <a class="btn-deposit" href="/proposer"><span class="plus" aria-hidden="true">+</span> Déposer une alerte</a>
     <button class="nav-toggle" type="button" aria-label="Ouvrir le menu" aria-expanded="false" aria-controls="nav-menu">
       <span></span><span></span><span></span>
     </button>
     <nav class="nav-right" id="nav-menu">
-      <a class="mine-link" href="/connexion">Mes alertes</a>
-      <a id="nav-openalert" href="#openalert">OpenAlert</a>
+      <a class="mine-link" href="/connexion">Ma collection</a>
       <span class="auth-email" id="auth-email" hidden></span>
       <a class="btn-login" id="auth-link" href="/connexion">Se connecter</a>
       <button class="theme-btn" type="button" aria-label="Changer de thème">◐</button>
@@ -40,12 +39,23 @@
 </section>
 
 <main class="wrap" id="alertes">
+  <!-- Collections : packs de cartes éditorialisés, en tête du kiosque. Rempli par
+       site.js (GET /api/collections) ; masqué tant qu'aucune collection n'est chargée.
+       Ne remplace pas « La sélection » (chip) : c'est une étagère de découverte en plus. -->
+  <section class="collections-shelf" id="collections-shelf" hidden>
+    <div class="section-label">Collections <span class="section-hint">— des packs prêts à adopter en un clic</span></div>
+    <div class="shelf-row" id="shelf-row" role="list"></div>
+  </section>
+
   <div class="section-label">Le kiosque</div>
 
   <div class="toolbar">
     <label class="search">
       <svg class="search-ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
       <input id="q" type="search" placeholder="Rechercher une alerte" aria-label="Rechercher une alerte">
+      <button class="search-clear" type="button" aria-label="Effacer la recherche" hidden>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
       <button class="search-go" type="button" aria-label="Rechercher">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
       </button>
@@ -100,6 +110,7 @@
         <div class="acct-head">
           <h2 class="acct-name" id="acct-name">Mon compte</h2>
           <div class="acct-email" id="acct-email"></div>
+          <div class="acct-collection-count" id="acct-collection-count" hidden></div>
         </div>
 
         <div class="acct-section">
@@ -168,7 +179,7 @@
         </div>
 
         <!-- C) Retour aux alertes : vrai bouton, pleine largeur, dernière action. -->
-        <button type="button" class="acct-return-btn acct-back-grid" id="acct-back-grid">← Revenir à mes alertes</button>
+        <button type="button" class="acct-return-btn acct-back-grid" id="acct-back-grid">← Revenir à ma collection</button>
 
         <!-- E) Suppression de compte : lien discret, tout en bas du recto. -->
         <button type="button" class="acct-delete-link" id="acct-delete-link">Supprimer mon compte</button>
@@ -245,7 +256,7 @@
         <h2>La vigilance en continu.<br>Et vous, tranquille.</h2>
         <p>Nos détecteurs surveillent chaque source sans relâche, jour et nuit. Vous ne recevez un email que lorsque ça compte vraiment — jamais pour meubler.</p>
         <p>Gratuit, ouvert, sans pub et sans revente de données. Choisissez vos alertes, on s'occupe du reste.</p>
-        <a class="stats-cta" href="#alertes">Choisir mes alertes →</a>
+        <a class="stats-cta" href="#alertes">Composer ma collection →</a>
       </div>
     </div>
   </div>
@@ -284,6 +295,7 @@
 <script src="/js/share.js"></script>
 <script src="/js/site.js"></script>
 <script src="/js/nav.js"></script>
+<script src="/js/header.js"></script>
 <script src="/js/mobile-header.js"></script>
 <script src="/js/copy.js"></script>
 <script src="/js/push.js"></script>

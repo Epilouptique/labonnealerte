@@ -22,7 +22,7 @@
 
 <header>
   <div class="wrap nav">
-    <a class="brand brandmark" href="/"><span class="lig"><span class="l">l</span>a</span>bonne<span class="a">alerte</span><span class="bang"><span class="bar"></span><span class="dot"></span></span><span class="fr">fr</span></a>
+    <a class="brand brandmark" href="/"><span class="lig"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path d="M 0 20 C -6 93, 66 52, 60 10"/></svg><span class="l">l</span>a</span>bonne<span class="a">alerte</span><span class="bang"><span class="bar"></span><span class="dot"></span></span><span class="fr">fr</span></a>
     <nav class="nav-right">
       <a href="/">← Retour au kiosque</a>
       <button class="theme-btn" type="button" aria-label="Changer de thème">◐</button>
@@ -38,7 +38,7 @@
     <div class="src-head">
       <!-- I) Retour « mes alertes » : même flèche que les cartes, en plus grand,
            alignée à droite à hauteur du titre. -->
-      <a class="src-back" href="/#alertes" aria-label="Revenir à mes alertes" title="Mes alertes">
+      <a class="src-back" href="/#alertes" aria-label="Revenir à ma collection" title="Ma collection">
         <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 5 5v3"/></svg>
       </a>
       <div class="src-head-top">
@@ -47,6 +47,7 @@
       </div>
       <p id="src-subtitle" class="src-subtitle"></p>
       <p id="src-author" class="src-author" hidden></p>
+      <div id="src-prolinks" class="src-prolinks" hidden></div>
       <p id="src-desc" class="src-desc"></p>
       <div id="src-state" class="state"></div>
       <div id="src-count" class="src-count" hidden></div>
@@ -95,6 +96,8 @@
 <script src="/js/share.js"></script>
 <script src="/js/copy.js"></script>
 <script src="/js/source.js"></script>
+<script src="/js/theme.js"></script>
+<script src="/js/header.js"></script>
 <script src="/js/pwa.js"></script>
 </body>
 </html>

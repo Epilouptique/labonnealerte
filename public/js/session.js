@@ -148,9 +148,23 @@
     deleteAccount: deleteAccount
   };
 
+  // Adoption de collection différée après connexion : si un utilisateur anonyme a
+  // cliqué « Adopter » puis s'est connecté, il atterrit sur l'accueil. On le renvoie
+  // alors vers la page de la collection, qui finalise l'adoption (et purge l'intention).
+  // Anti-boucle : la page collection consomme l'intention au chargement.
+  function resumeAdoptIntent() {
+    var slug;
+    try { slug = localStorage.getItem('lba-adopt'); } catch (e) { slug = null; }
+    if (!slug || !get()) return;
+    if (!/^[a-z0-9-]{1,64}$/.test(slug)) { try { localStorage.removeItem('lba-adopt'); } catch (e) {} return; }
+    var target = '/collection/' + slug;
+    if (window.location.pathname !== target) window.location.replace(target);
+  }
+
   // État initial du header dès le chargement (email complété plus tard par la home).
   document.addEventListener('DOMContentLoaded', function () {
     renderHeader(null);
     showFarewellIfNeeded();
+    resumeAdoptIntent();
   });
 })();

@@ -285,6 +285,30 @@
           esc(source.submitted_by_github) + '" target="_blank" rel="noopener">@' + esc(source.submitted_by_github) + '</a>';
         au.hidden = false;
       }
+
+      // B2) Liens de visibilité pro du déposant (LinkedIn, GitLab, Mastodon,
+      // portfolio…). Endpoint dédié (jamais dans /api/sources). Rendu en
+      // rel="nofollow noopener". Les liens sont déjà assainis côté serveur ; on
+      // re-valide le protocole http(s) à l'affichage par prudence.
+      (async function loadProLinks() {
+        try {
+          var lr = await fetch('/api/sources/' + encodeURIComponent(ID) + '/links', { headers: { Accept: 'application/json' } });
+          if (!lr.ok) return;
+          var ld = await lr.json();
+          var links = (ld && Array.isArray(ld.submitted_links)) ? ld.submitted_links : [];
+          links = links.filter(function (l) {
+            return l && l.label && /^https?:\/\//i.test(String(l.url || ''));
+          });
+          if (!links.length) return;
+          var box = document.getElementById('src-prolinks');
+          if (!box) return;
+          box.innerHTML = links.map(function (l) {
+            return '<a class="src-prolink" href="' + esc(l.url) + '" target="_blank" rel="nofollow noopener">' + esc(l.label) + '</a>';
+          }).join('');
+          box.hidden = false;
+        } catch (e) { /* silencieux : bonus non bloquant */ }
+      })();
+
       document.getElementById('src-desc').textContent = source.description || '';
 
       var stEl = document.getElementById('src-state');

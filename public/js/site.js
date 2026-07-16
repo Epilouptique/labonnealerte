@@ -82,6 +82,61 @@
     card.classList.add('flipped', 'face-share');
   });
 
+  /* ---------------- A1) « J'aime » (likes) ---------------- */
+  // État persistant côté client (pas de compte obligatoire) : ids aimés en localStorage.
+  function likesSet() {
+    try { var a = JSON.parse(localStorage.getItem('lba-likes') || '[]'); return Array.isArray(a) ? a : []; }
+    catch (e) { return []; }
+  }
+  function likesSave(a) { try { localStorage.setItem('lba-likes', JSON.stringify(a)); } catch (e) {} }
+  function likeAdd(id) { var s = likesSet(); if (s.indexOf(id) === -1) { s.push(id); likesSave(s); } }
+  function likeRemove(id) { var s = likesSet(); var i = s.indexOf(id); if (i !== -1) { s.splice(i, 1); likesSave(s); } }
+  function isLiked(id) { return likesSet().indexOf(id) !== -1; }
+
+  function setLikeUI(btn, liked, count) {
+    btn.classList.toggle('liked', !!liked);
+    btn.setAttribute('aria-pressed', liked ? 'true' : 'false');
+    if (typeof count === 'number') {
+      btn.dataset.likes = count;
+      var n = btn.querySelector('.like-n');
+      if (n && window.LBACards) n.textContent = LBACards.formatCount(count);
+    }
+  }
+  // Marque les cœurs déjà aimés (au chargement / après (ré)insertion de cartes).
+  // Le compteur serveur inclut déjà le like de l'utilisateur → on ne touche pas au nombre.
+  function markLikes() {
+    document.querySelectorAll('.card .like-btn').forEach(function (btn) {
+      var card = btn.closest('.card'); if (!card) return;
+      var id = card.getAttribute('data-source-id');
+      if (id && isLiked(id)) setLikeUI(btn, true);
+    });
+  }
+
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest('.like-btn');
+    if (!btn) return;
+    e.preventDefault(); e.stopPropagation();
+    var card = btn.closest('.card'); if (!card) return;
+    var id = card.getAttribute('data-source-id'); if (!id) return;
+    if (btn.disabled) return;
+    var liked = btn.classList.contains('liked');
+    var cur = parseInt(btn.dataset.likes, 10) || 0;
+    var next = liked ? Math.max(cur - 1, 0) : cur + 1;
+    // Optimiste : bascule l'UI immédiatement.
+    setLikeUI(btn, !liked, next);
+    if (liked) likeRemove(id); else likeAdd(id);
+    btn.disabled = true;
+    fetch('/api/sources/' + encodeURIComponent(id) + '/like', { method: liked ? 'DELETE' : 'POST' })
+      .then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.json(); })
+      .then(function (d) { if (d && typeof d.likes_count === 'number') setLikeUI(btn, !liked, d.likes_count); })
+      .catch(function () {
+        // Rollback complet (UI + localStorage) en cas d'échec.
+        setLikeUI(btn, liked, cur);
+        if (liked) likeAdd(id); else likeRemove(id);
+      })
+      .then(function () { btn.disabled = false; });
+  });
+
   // A) Ensemble des recommandations REFUSÉES (par id), persisté le temps de la
   // session (survit à un rechargement dans l'onglet).
   function dismissedSet() {
@@ -632,6 +687,15 @@
     var mineChipN = document.querySelector('.chip-f[data-cat="mine"] .n');
     if (mineChipN) mineChipN.textContent = mineCount;
 
+    // Panneau « Mon compte » : nombre de cartes dans la collection de l'utilisateur.
+    var collCountEl = document.getElementById('acct-collection-count');
+    if (collCountEl) {
+      collCountEl.textContent = mineCount > 0
+        ? (mineCount + (mineCount > 1 ? ' cartes dans ma collection' : ' carte dans ma collection'))
+        : 'Aucune carte dans ma collection pour l\'instant';
+      collCountEl.hidden = false;
+    }
+
     var mineActive = cards.filter(function (c) {
       return c.dataset.subscribed === '1' && cardIsActive(c);
     }).length;
@@ -645,7 +709,7 @@
   var esc = LBACards.esc;
   // Seuil de pagination par défaut : anonyme 6 (+ carte Proposer), connecté 8
   // cartes normales (+ la carte recommandée épinglée en 9e = 9 visibles).
-  var INITIAL_ANON = 6, INITIAL_CONNECTED = 8, STEP = 9;
+  var INITIAL_ANON = 5, INITIAL_CONNECTED = 8, STEP = 9;
   var cat = 'all', visibleLimit = INITIAL_ANON, secondaryOpen = false, currentMode = 'anon';
   var accountEmail = null; // email de la session connectée (pour le panneau compte)
   function initialLimit() { return currentMode === 'connected' ? INITIAL_CONNECTED : INITIAL_ANON; }
@@ -689,10 +753,41 @@
   function catsOf(c) { return (c.dataset.cats || '').split(' ').filter(Boolean); }
   function isShown(c) { return !c.classList.contains('filtered') && !c.classList.contains('hidden-more'); }
 
+  // A4/A5) Modes spéciaux : ensembles d'ids calculés (6 sources), pas un filtre par
+  // catégorie. `specialIds` = map { id: true } courant, ou null hors mode spécial.
+  var specialIds = null;
+  function isSpecial(slug) { return slug === 'nouveautes' || slug === 'selection'; }
+
+  // A4) « Nouveautés » : 6 sources les plus récentes (created_at desc).
+  // A5) « La sélection » : 6 sources selon le profil (intérêt +2, département +1,
+  //     likes en départage) ; repli sans profil = 6 sources les plus likées.
+  function computeSpecialIds(mode) {
+    var list = (sourcesData || []).filter(function (s) { return s.type !== 'linked'; });
+    if (mode === 'nouveautes') {
+      list = list.slice().sort(function (a, b) {
+        return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+      });
+    } else { // selection
+      var perso = hasPersonalization();
+      list = list.slice().sort(function (a, b) {
+        if (perso) {
+          var sa = (sourceMatchesInterest(a) ? 2 : 0) + (sourceMatchesDept(a) ? 1 : 0);
+          var sb = (sourceMatchesInterest(b) ? 2 : 0) + (sourceMatchesDept(b) ? 1 : 0);
+          if (sb !== sa) return sb - sa;
+        }
+        return (b.likes_count || 0) - (a.likes_count || 0);
+      });
+    }
+    var ids = {};
+    list.slice(0, 6).forEach(function (s) { ids[s.id] = true; });
+    return ids;
+  }
+
   function matches(c, q) {
     var okCat;
     if (cat === 'all') okCat = true;
     else if (cat === 'mine') okCat = c.dataset.subscribed === '1';
+    else if (isSpecial(cat)) okCat = !!(specialIds && specialIds[c.getAttribute('data-source-id')]);
     else okCat = catsOf(c).indexOf(cat) !== -1;
     var okQ = !q || (c.dataset.search || '').indexOf(q) !== -1;
     return okCat && okQ;
@@ -722,7 +817,10 @@
         esc(label) + ' <span class="n">' + count + '</span></button>';
     }
     var prim = '<button class="chip-f on" type="button" data-cat="all">Toutes <span class="n">' + cards.length + '</span></button>';
-    if (mode === 'connected') prim += chip('mine', 'Mes alertes', mineCount);
+    if (mode === 'connected') prim += chip('mine', 'Ma collection', mineCount);
+    // A6) Puces spéciales « Nouveautés » / « La sélection » en tête (après Toutes/Mes alertes).
+    prim += '<button class="chip-f chip-special" type="button" data-cat="nouveautes">🆕 Nouveautés</button>';
+    prim += '<button class="chip-f chip-special" type="button" data-cat="selection">✨ La sélection</button>';
     primary.forEach(function (s) { prim += chip(s, LBACat.label(s), counts[s]); });
     if (secondary.length) prim += '<button class="chip-f chip-more-toggle" type="button" aria-label="Plus de catégories">+</button>';
 
@@ -885,6 +983,8 @@
 
   function selectChip(slug) {
     cat = slug;
+    // A4/A5) Recalcule l'ensemble des 6 ids en entrant dans un mode spécial.
+    specialIds = isSpecial(slug) ? computeSpecialIds(slug) : null;
     visibleLimit = initialLimit();
     document.querySelectorAll('.chip-f').forEach(function (x) {
       if (!x.classList.contains('chip-more-toggle')) x.classList.remove('on');
@@ -924,6 +1024,27 @@
     if (top < 0 || top > window.innerHeight * 0.4) main.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
+  // Lot 5) Applique les paramètres d'URL au chargement de la home : la recherche des
+  // autres pages redirige vers /?q=<terme>, et le menu vers /?mode=<mode>.
+  function applyUrlParams() {
+    var params;
+    try { params = new URLSearchParams(window.location.search); } catch (e) { return; }
+    var q = params.get('q');
+    var mode = params.get('mode');
+    var did = false;
+    if (q && qInput) {
+      qInput.value = q;
+      var clr = document.querySelector('.search .search-clear');
+      if (clr) clr.hidden = !q.length;
+      did = true;
+    }
+    if (mode === 'nouveautes' || mode === 'selection' || mode === 'mine') {
+      selectChip(mode); // applique déjà le filtre (avec la recherche courante)
+    } else if (did) {
+      apply(true);
+    }
+  }
+
   function setupKiosk(mode) {
     grid = document.getElementById('grid');
     moreBtn = document.getElementById('moreBtn');
@@ -944,9 +1065,21 @@
       if (panel && !panel.hidden && window.LBAAccount && LBAAccount.close) LBAAccount.close();
     }
 
+    // B5) Croix d'effacement : visible seulement quand le champ n'est pas vide.
+    var clearBtn = document.querySelector('.search .search-clear');
+    function syncClear() { if (clearBtn) clearBtn.hidden = !(qInput.value && qInput.value.length); }
+    syncClear();
+    if (clearBtn) clearBtn.addEventListener('click', function () {
+      qInput.value = '';
+      syncClear();
+      apply(true);      // affiche tout
+      qInput.focus();   // garde le focus dans le champ
+    });
+
     var searchTimer = null;
     qInput.addEventListener('input', function () {
       backToGridIfAccount();
+      syncClear();
       clearTimeout(searchTimer);
       searchTimer = setTimeout(function () { apply(true); }, 120);
     });
@@ -978,6 +1111,7 @@
     moreBtn.addEventListener('click', function () { visibleLimit += STEP; apply(true); });
 
     apply(false); // initial : pagination sans animation
+    markLikes();  // A1) marque les cœurs déjà aimés (localStorage)
   }
 
   // Tags du verso cliquables → re-flip recto + filtre la catégorie.
@@ -1194,12 +1328,45 @@
     accountEmail = (mode === 'connected') ? email : null;
     LBASession.renderHeader(email);
     setupKiosk(mode);
+    if (mode === 'connected') refreshMineDependent(); // initialise le compteur « Ma collection » (chip + panneau)
+    applyUrlParams(); // Lot 5) ?q=<terme> et ?mode=nouveautes|selection|mine depuis les autres pages
     bindMineLinks();
     bindBrandTop();
     if (mode === 'connected') bindAccount();
 
     loadStats();
+    loadCollections();
     if (mode === 'connected') loadHistory(token);
+  }
+
+  /* ---------------- Étagère « Collections » (packs officiels) ---------------- */
+  // En tête du kiosque : une rangée de « paquets de cartes » cliquables. Non
+  // bloquant, masqué si l'API ne renvoie rien. Réutilise likes_count (total ❤).
+  async function loadCollections() {
+    var shelf = document.getElementById('collections-shelf');
+    var row = document.getElementById('shelf-row');
+    if (!shelf || !row) return;
+    var data;
+    try {
+      var r = await fetch('/api/collections', { headers: { Accept: 'application/json' } });
+      if (!r.ok) return;
+      data = await r.json();
+    } catch (e) { return; }
+    var list = (data && data.collections) || [];
+    if (!list.length) return;
+    row.innerHTML = list.map(function (c) {
+      var likes = (c.total_likes > 0)
+        ? '<span class="pack-likes">❤ ' + esc(LBACards.formatCount(c.total_likes)) + '</span>' : '';
+      var n = c.card_count || 0;
+      return '<a class="pack" role="listitem" href="/collection/' + encodeURIComponent(c.id) + '">' +
+        '<span class="pack-stack" aria-hidden="true"></span>' +
+        '<span class="pack-body">' +
+        '<span class="pack-emoji" aria-hidden="true">' + esc(c.emoji || '📦') + '</span>' +
+        '<span class="pack-name">' + esc(c.name) + '</span>' +
+        '<span class="pack-meta">' + n + (n > 1 ? ' cartes' : ' carte') + likes + '</span>' +
+        '</span></a>';
+    }).join('');
+    shelf.hidden = false;
   }
 
   /* ---------------- Panneau « Mon compte » ---------------- */

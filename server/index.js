@@ -12,6 +12,7 @@ const { apiRouter: subscribeApiRouter, pagesRouter } = require('./routes/subscri
 const { apiRouter: myAlertsApiRouter, pagesRouter: myAlertsPagesRouter } = require('./routes/myalerts');
 const authRouter = require('./routes/auth');
 const pushRouter = require('./routes/push');
+const collectionsRouter = require('./routes/collections');
 const { cleanupExpired } = require('./sessions');
 const { startPoller } = require('./poller');
 
@@ -81,6 +82,7 @@ app.use('/api', apiRouter);
 app.use('/api', subscribeApiRouter);
 app.use('/api', myAlertsApiRouter);
 app.use('/api', pushRouter);
+app.use('/api', collectionsRouter);
 app.use('/api/dev', devRouter);
 // Connexion OAuth (Google / GitHub) — redirections serveur.
 app.use('/auth', authRouter);
@@ -117,6 +119,44 @@ const FUSED_REDIRECTS = {
 function escHtml(s) {
   return String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 }
+
+// Page publique d'une collection : /collection/:slug — SEO injecté côté serveur
+// (og:title/description propres, partageable) + 404 propre. Le contenu (cartes,
+// bouton « Adopter ») est chargé côté client via GET /api/collections/:slug.
+app.get('/collection/:slug', async (req, res) => {
+  const slug = req.params.slug;
+  try {
+    const { rows } = await pool.query(
+      "SELECT name, description, emoji FROM collections WHERE id = $1 AND visibility = 'official' AND owner_subscriber_id IS NULL",
+      [slug]
+    );
+    if (rows.length === 0) {
+      return res.status(404).type('html').send(
+        '<!doctype html><meta charset="utf-8"><title>Collection introuvable</title>' +
+        '<body style="font-family:system-ui,sans-serif;max-width:520px;margin:80px auto;text-align:center;color:#0f1419">' +
+        '<h1>Collection introuvable</h1><p>Cette collection n\'existe pas ou n\'est plus disponible.</p>' +
+        '<p><a href="/" style="color:#a567e3;font-weight:600">← Retour au kiosque</a></p></body>'
+      );
+    }
+    const c = rows[0];
+    const emoji = c.emoji ? c.emoji + ' ' : '';
+    const title = `${emoji}${c.name} — une collection · La Bonne Alerte`;
+    const desc = (c.description || `La collection « ${c.name} » : un pack d'alertes prêt à adopter en un clic.`).slice(0, 180);
+    const url = `https://www.labonnealerte.fr/collection/${encodeURIComponent(slug)}`;
+
+    let html = fs.readFileSync(path.join(__dirname, '..', 'public', 'collection.html'), 'utf8');
+    html = html
+      .replace(/\{\{TITLE\}\}/g, escHtml(title))
+      .replace(/\{\{DESC\}\}/g, escHtml(desc))
+      .replace(/\{\{OG_TITLE\}\}/g, escHtml(`${emoji}${c.name} — La Bonne Alerte`))
+      .replace(/\{\{OG_DESC\}\}/g, escHtml(desc))
+      .replace(/\{\{OG_URL\}\}/g, escHtml(url));
+    res.type('html').send(html);
+  } catch (err) {
+    console.error('[server] Erreur /collection/:slug :', err.message);
+    res.status(503).type('html').send('Service momentanément indisponible.');
+  }
+});
 app.get('/source/:id/statut', async (req, res) => {
   const id = req.params.id;
   // Fusion v2 : anciennes vigilances départementales → page paramétrée (SEO 301).

@@ -34,10 +34,10 @@ async function incEmailCounters() {
 }
 
 // Pied de mail commun : lien discret vers la gestion des alertes (sans token).
-const MANAGE_TEXT = `\n\n—\nGérer mes alertes : ${MYALERTS_URL}`;
+const MANAGE_TEXT = `\n\n—\nGérer ma collection : ${MYALERTS_URL}`;
 const MANAGE_HTML =
   `<hr><p style="font-size:12px;color:#888">` +
-  `Gérer mes alertes : <a href="${MYALERTS_URL}">${MYALERTS_URL}</a></p>`;
+  `Gérer ma collection : <a href="${MYALERTS_URL}">${MYALERTS_URL}</a></p>`;
 
 /**
  * Envoie le mail de confirmation d'inscription (double opt-in).
@@ -112,7 +112,7 @@ function emailShell({ heading, intro, button, fallbackUrl, note }) {
           <hr style="border:none;border-top:1px solid #eaddf8;margin:0 0 14px">
           <p style="margin:0;font-size:12px;color:#8a8a92">
             La Bonne Alerte — gratuit, open source, sans spam.<br>
-            Gérer mes alertes&nbsp;: <a href="${MYALERTS_URL}" style="color:#a567e3">${MYALERTS_URL}</a>
+            Gérer ma collection&nbsp;: <a href="${MYALERTS_URL}" style="color:#a567e3">${MYALERTS_URL}</a>
           </p>
         </td></tr>
       </table>
@@ -138,11 +138,11 @@ async function sendMagicLink(email, token) {
       `Voici ton lien de connexion pour gérer tes alertes :\n${magicUrl}\n\n` +
       `Ce lien est valable 30 minutes et ne peut être utilisé qu'une fois.\n` +
       `Si tu n'es pas à l'origine de cette demande, ignore cet email.` +
-      `\n\n—\nGérer mes alertes : ${MYALERTS_URL}`,
+      `\n\n—\nGérer ma collection : ${MYALERTS_URL}`,
     html: emailShell({
       heading: 'Ton lien de connexion',
       intro: 'Clique sur le bouton ci-dessous pour accéder à tes alertes et gérer tes abonnements. Aucun mot de passe requis.',
-      button: { url: magicUrl, label: 'Me connecter à mes alertes →' },
+      button: { url: magicUrl, label: 'Me connecter à ma collection →' },
       fallbackUrl: magicUrl,
       note: 'Ce lien est valable <strong>30 minutes</strong> et ne peut être utilisé qu\'une fois. Si tu n\'es pas à l\'origine de cette demande, ignore simplement cet email.',
     }),
@@ -189,7 +189,7 @@ function alertEmailHtml(info, target, statusUrl, hhmm) {
           <hr style="border:none;border-top:1px solid #eee;margin:0 0 12px">
           <p style="margin:0;font-size:12px;color:#8a8a92;line-height:1.6">
             Vous recevez cet email car vous suivez cette alerte · <a href="${esc(statusUrl)}" style="color:#8a8a92">voir le statut</a><br>
-            se désinscrire en 1 clic depuis <a href="${MYALERTS_URL}" style="color:#8a8a92">gérer mes alertes</a>
+            se désinscrire en 1 clic depuis <a href="${MYALERTS_URL}" style="color:#8a8a92">gérer ma collection</a>
           </p>
         </td></tr>
       </table>
@@ -292,7 +292,7 @@ async function sendDeferredDigest(recipient, items = []) {
       <tr><td style="padding:0 28px 24px">
         <hr style="border:none;border-top:1px solid #eee;margin:0 0 12px">
         <p style="margin:0;font-size:12px;color:#8a8a92;line-height:1.6">Vous recevez ce récapitulatif car vos heures de veille sont actives. Réglez-les dans « Mon compte ».<br>
-        Gérer mes alertes : <a href="${MYALERTS_URL}" style="color:#8a8a92">${MYALERTS_URL}</a></p></td></tr>
+        Gérer ma collection : <a href="${MYALERTS_URL}" style="color:#8a8a92">${MYALERTS_URL}</a></p></td></tr>
     </table></td></tr></table>
 </body></html>`;
 
@@ -301,7 +301,7 @@ async function sendDeferredDigest(recipient, items = []) {
     if (it.obsolete) return `- ${base} — terminée entre-temps`;
     return `- ${base}${it.message ? ' — ' + it.message : ''} : ${it.url || it.statusUrl || PUBLIC_SITE}`;
   });
-  const text = `${heading}\n\n${intro}\n\n${textLines.join('\n')}\n\n—\nGérer mes alertes : ${MYALERTS_URL}`;
+  const text = `${heading}\n\n${intro}\n\n${textLines.join('\n')}\n\n—\nGérer ma collection : ${MYALERTS_URL}`;
 
   const payload = { from: FROM, to: email, subject: heading, text, html };
   if (token) {

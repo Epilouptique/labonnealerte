@@ -43,7 +43,7 @@ body.dev header { background: var(--surface); backdrop-filter: none; }
 /* ---------- page /proposer ---------- */
 body.dev .dev-section { padding: 40px 0; border-top: 1px solid var(--line); }
 body.dev .dev-section:first-of-type { border-top: none; }
-body.dev .dev-intro { padding: 56px 0 24px; }
+body.dev .dev-intro { padding: 56px 24px 24px; }
 body.dev .dev-intro h1 { font-size: clamp(28px, 4.5vw, 40px); font-weight: 800; letter-spacing: -0.02em; }
 body.dev .dev-intro p { color: var(--muted); font-size: 17px; margin-top: 14px; max-width: 620px; }
 body.dev .dev-section h2 { font-size: 22px; font-weight: 800; margin-bottom: 8px; }

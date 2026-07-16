@@ -55,7 +55,7 @@ html[data-theme="light"] header { background: #ffffff; } /* thème clair : blanc
 .brand .bang .bar { position: absolute; top: 2px; left: 1px; width: 5px; height: 13px; border-radius: 3px; background: var(--amber); }
 .brand .bang .dot { position: absolute; top: 19px; left: 1px; width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
 .brand .bang .dot::after { content: ""; position: absolute; inset: -1px; border-radius: 50%; border: 1.5px solid var(--green); animation: ping 2s ease-out infinite; }
-.nav-right { display: flex; gap: 20px; align-items: center; font-size: 14px; }
+.nav-right { display: flex; gap: 20px; align-items: center; font-size: 14px; padding-left: 15px; }
 .nav-right a { color: var(--muted); text-decoration: none; font-weight: 500; }
 .nav-right a:hover { color: var(--ink); }
 /* .theme-btn : meme theme en background dans les deux thèmes. */
@@ -71,18 +71,19 @@ html[data-theme="light"] header { background: #ffffff; } /* thème clair : blanc
   background: var(--amber); color: #fff; text-decoration: none;
   font-weight: 700; font-size: 13.5px; border-radius: 999px;
   padding: 9px 16px; white-space: nowrap; font-family: inherit;
-  transition: background .15s;
+  transition: background .15s; margin-right: 10px;
 }
 .btn-deposit:hover { background: color-mix(in srgb, var(--amber) 88%, #000); color: #fff; }
-.btn-deposit .plus { font-size: 18px; line-height: 1; font-weight: 400; }
+.btn-deposit .plus { font-size: 18px; line-height: 1; font-weight: 400; position: relative; top: -1px; }
 
 /* ---------- hero ---------- */
 .hero { padding: 88px 0 48px; text-align: center; position: relative; }
 .hero::before {
   content: ""; position: absolute; top: -120px; left: 50%; transform: translate(-50%, 0) scale(1);
   width: 640px; height: 420px; pointer-events: none;
-  background: radial-gradient(closest-side, color-mix(in srgb, var(--amber) 22%, transparent), transparent 70%);
-  animation: hero-halo 22s ease-in-out infinite;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--amber) 24%, transparent), transparent 70%);
+  filter: blur(10px); /* halo flou/nébuleux, doux */
+  animation: hero-halo 15s ease-in-out infinite;
   will-change: transform, opacity; /* animé sur le compositor : pas de jank */
 }
 /* Point 9) Mouvement nébuleux : la nappe grandit/rétrécit ET dérive lentement,
@@ -90,12 +91,11 @@ html[data-theme="light"] header { background: #ffffff; } /* thème clair : blanc
    fermée (0% = 100%) pour un enchaînement continu. Reste discret, même teinte amber.
    Uniquement transform/opacity (propriétés compositor) → aucun scintillement. */
 @keyframes hero-halo {
-  0%   { transform: translate(-50%, 0)     scale(1);           opacity: .85; }
-  20%  { transform: translate(-46%, 12px)  scale(1.08, 1.04);  opacity: .97; }
-  40%  { transform: translate(-53%, -6px)  scale(0.93, 1.03);  opacity: .90; }
-  60%  { transform: translate(-48%, 14px)  scale(1.10, 0.98);  opacity: 1;   }
-  80%  { transform: translate(-51%, 4px)   scale(0.97, 1.05);  opacity: .92; }
-  100% { transform: translate(-50%, 0)     scale(1);           opacity: .85; }
+  0%   { transform: translate(-50%, 0px)    scale(.85);        opacity: .6; }
+  25%  { transform: translate(-44%, 24px)   scale(1.06, 1.02); opacity: .9; }
+  50%  { transform: translate(-56%, -18px)  scale(1.2,  1.12); opacity: 1;  }
+  75%  { transform: translate(-47%, 20px)   scale(1.0,  1.08); opacity: .82; }
+  100% { transform: translate(-50%, 0px)    scale(.85);        opacity: .6; }
 }
 @media (prefers-reduced-motion: reduce) { .hero::before { animation: none; } }
 .hero > * { position: relative; }
@@ -119,10 +119,22 @@ html[data-theme="light"] header { background: #ffffff; } /* thème clair : blanc
   background: var(--surface); border-radius: 999px; padding: 11px 18px;
   box-shadow: 0 1px 3px rgba(30, 20, 50, .08);
 }
+/* En mode nuit, l'ombre du champ est invisible : on rend sa bordure permanente
+   (pas seulement au focus) pour qu'il reste bien délimité. */
+html[data-theme="dark"] .search { border: 1px solid color-mix(in srgb, var(--muted) 40%, transparent); }
 .search input { flex: 1 1 auto; border: none; background: transparent; font: inherit; font-size: 14.5px; color: var(--ink); width: 100%; min-width: 0; outline: none; }
 /* Loupe à gauche (défaut / mobile) ; bouton de recherche à droite masqué (desktop). */
 .search-ic { flex: none; opacity: .5; }
 .search-go { display: none; }
+/* B5) Croix d'effacement : visible seulement quand le champ n'est pas vide (JS). */
+.search-clear {
+  flex: none; display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; margin-left: 4px; padding: 0; cursor: pointer;
+  border: none; background: transparent; color: var(--muted); border-radius: 50%;
+  -webkit-tap-highlight-color: transparent;
+}
+.search-clear[hidden] { display: none; }
+.search-clear:hover { color: var(--ink); }
 .chips { display: flex; flex-direction: column; gap: 8px; }
 .chips-row { display: flex; gap: 8px; flex-wrap: wrap; }
 .chip-f {
@@ -134,6 +146,10 @@ html[data-theme="light"] header { background: #ffffff; } /* thème clair : blanc
 .chip-f.on { background: var(--amber); color: #fff; }
 .chip-f .n { opacity: .6; font-size: 11.5px; margin-left: 4px; }
 .chip-more-toggle { min-width: 38px; text-align: center; font-weight: 700; }
+/* A6) Puces spéciales « Nouveautés » / « La sélection » : accent discret. */
+.chip-f.chip-special { color: var(--amber); }
+.chip-f.chip-special:hover { color: var(--amber); }
+.chip-f.chip-special.on { background: var(--amber); color: #fff; }
 
 /* Focus : uniquement sur le conteneur de recherche, jamais sur l'input. */
 .search input:focus, .search input:focus-visible { outline: none; }
@@ -175,7 +191,11 @@ html[data-theme="light"] header { background: #ffffff; } /* thème clair : blanc
 /* La carte-conteneur devient transparente : l'apparence est portée par les faces.
    Verso en position absolue par-dessus le recto → le recto (donc le « ⓘ ») est
    masqué par backface-visibility quand la carte est retournée. */
-.card.flip { padding: 0; background: transparent; box-shadow: none; perspective: 1400px; }
+/* align-self:start → la carte ne s'étire PAS à la hauteur de la plus grande de sa
+   rangée ; elle garde la hauteur de son contenu (recto). Sinon le verso, en
+   position:absolute inset:0, remplissait toute la cellule étirée et paraissait
+   plus grand que le recto au retournement. */
+.card.flip { padding: 0; background: transparent; box-shadow: none; perspective: 1400px; align-self: start; }
 .card.flip:hover { box-shadow: none; }
 .card-inner {
   position: relative; min-height: 100%;
@@ -230,7 +250,7 @@ html[data-theme="light"] header { background: #ffffff; } /* thème clair : blanc
 
 /* En-tête : titre + badge-icône dans le flux (le badge suit le titre), coin réservé au ⓘ/↩. */
 .card-top { display: flex; justify-content: flex-start; align-items: flex-start; gap: 7px; }
-.card-front .card-top { padding-right: 58px; } /* réserve pour partager + ⓘ */
+.card-front .card-top { padding-right: 136px; } /* réserve pour like + partager + ⓘ */
 .card-back .card-top { padding-right: 30px; }  /* réserve pour ↩ */
 .card h3 { font-size: 16.5px; font-weight: 700; letter-spacing: -0.01em; }
 .card p { font-size: 13.5px; color: var(--muted); flex: 1; }
@@ -335,7 +355,7 @@ a.endpoint:hover { color: var(--amber); text-decoration: underline; }
 .copy-btn svg { width: 15px; height: 15px; }
 footer {
   margin-top: auto; /* D) pousse le footer en bas quand le contenu est court */
-  padding: 36px 0; text-align: center; font-size: 13px; color: var(--muted);
+  padding: 36px 24px; text-align: center; font-size: 13px; color: var(--muted);
   /* D) Effet verre : fond semi-transparent + flou du fond constellations derrière.
      Le fond fixe du body reste visible sous le footer → le blur s'applique bien. */
   background: color-mix(in srgb, var(--surface) 70%, transparent);
@@ -477,28 +497,40 @@ input:focus-visible,
   outline: 2px solid var(--amber);
   outline-offset: 2px;
 }
-/*---------------Ajoute une barre au l du titre---------------*/
+/*---------------Ligature « la » du titre : courbe SVG (Bézier) + coupe du bas du « l »---------------*/
 :root{
-  --lig-left: 0.06em;
+  --lig-left: 0.14em;
+  --lig-y: 0.215em;
   --lig-width: 0.5em;
-  --lig-y: 0.43em;
-  --lig-height: 0.3em;
-  --lig-stroke: 0.135em;
-  --lig-round: 0.1em;
+  --lig-height: 0.36em;
+  --lig-rotate: 0deg;
+  --l-cut-bottom: 0.52em;
+  --lig-stroke: 34;
+  --l-gap: 0.04em;
   --track: -0.05em;
-  --l-gap: 0.055em;
 }
 
 .brandmark{font-family:'Baloo 2',sans-serif;font-weight:800;letter-spacing:var(--track)}
+
 .brandmark .lig{position:relative;display:inline-block}
-.brandmark .lig .l{letter-spacing:var(--l-gap)}
-.brandmark .lig::after{
-  content:"";position:absolute;pointer-events:none;
-  left:var(--lig-left);bottom:var(--lig-y);
-  width:var(--lig-width);height:var(--lig-height);
-  border-bottom:var(--lig-stroke) solid currentColor;
-  border-bottom-left-radius:var(--lig-round);
-  border-bottom-right-radius:var(--lig-round);
+
+.brandmark .lig svg{
+  position:absolute;pointer-events:none;overflow:visible;
+  left:var(--lig-left); bottom:var(--lig-y);
+  width:var(--lig-width); height:var(--lig-height);
+  transform:rotate(var(--lig-rotate));
+  transform-origin:center;
+}
+.brandmark .lig path{
+  fill:none;
+  stroke:currentColor;
+  stroke-width:var(--lig-stroke);
+  stroke-linecap:round;
+}
+.brandmark .l{
+  letter-spacing:var(--l-gap);
+  display:inline-block;
+  clip-path:inset(0 0 var(--l-cut-bottom) 0);
 }
 
 /* ---------- Volet H : labels de section dans la marge gauche (grand écran) ---------- */
@@ -552,6 +584,22 @@ body {
 .card-share { position: absolute; top: 14px; right: 44px; z-index: 2; }
 .card.flipped .card-share { display: none; }
 .card-share.copied { color: var(--green); }
+
+/* A1) Bouton « j'aime » (recto) : aligné avec partage/info en haut à droite, à leur
+   gauche. Cœur contour → plein + accent quand .liked. Masqué au verso comme les autres. */
+.card-like {
+  position: absolute; top: 13px; right: 80px; z-index: 2;
+  display: inline-flex; align-items: center; gap: 3px;
+  border: none; background: transparent; cursor: pointer; padding: 4px;
+  color: var(--muted); border-radius: 8px; line-height: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.card-like:hover { color: var(--amber); }
+.card-like.liked { color: var(--amber); }
+.card-like.liked .ic-like { fill: currentColor; }
+.card-like .ic-like { display: block; }
+.card-like .like-n { font-size: 12px; font-weight: 600; line-height: 1; }
+.card.flipped .card-like { display: none; }
 .card-share.copied::after {
   content: 'Lien copié ✓'; position: absolute; top: 120%; right: 0; white-space: nowrap;
   font-size: 11px; font-weight: 600; color: var(--green); background: var(--surface);
@@ -591,6 +639,14 @@ body {
 .src-head h1 { font-size: clamp(22px, 4vw, 28px); font-weight: 800; letter-spacing: -0.02em; }
 .src-subtitle { color: var(--muted); font-weight: 600; margin-top: 4px; }
 .src-desc { color: var(--muted); margin-top: 10px; font-size: 14.5px; line-height: 1.5; }
+/* B2) Liens de visibilité pro du déposant (page source). */
+.src-prolinks { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.src-prolink {
+  display: inline-flex; align-items: center; font-size: 13px; font-weight: 600;
+  color: var(--amber); text-decoration: none; background: var(--amber-soft);
+  border-radius: 999px; padding: 6px 14px;
+}
+.src-prolink:hover { text-decoration: underline; }
 .src-head .state { margin-top: 16px; }
 .src-count { color: var(--muted); font-size: 13px; font-weight: 600; margin-top: 8px; }
 .src-action { margin-top: 16px; max-width: 320px; }
@@ -735,7 +791,8 @@ html[data-theme="dark"] .stats-section { background: color-mix(in srgb, var(--su
 /* On dissocie le halo (::before) du contenu : le conteneur .hero reste présent
    avec son halo violet animé ; seuls h1 et la tagline sont masqués. Le KPI
    personnalisé reste visible et centré. */
-body[data-mode="connected"] .hero h1,
+/* Connecté : le h1 reste affiché (« Bonjour <prénom> », prénom en accent via
+   .hl-name) ; seule la tagline est masquée. */
 body[data-mode="connected"] .hero p { display: none; }
 body[data-mode="connected"] .hero { padding: 40px 0 22px; }
 body[data-mode="connected"] #stats { display: none; }
@@ -862,7 +919,7 @@ body[data-mode="connected"] #stats { display: none; }
 #quiet-hours-row[hidden] { display: none; }
 
 /* ---------- panneau « Mon compte » (mode connecté) ---------- */
-.account-panel { margin: 6px auto 0; }
+.account-panel { margin: 6px auto 4rem; }
 .acct-card.card.flip { width: 100%; }
 .card-front.acct-front { min-height: 460px; padding: 30px 32px; }
 /* A) Verso « Mon historique » en colonne : la zone de scroll prend toute la
@@ -965,6 +1022,15 @@ body[data-mode="connected"] #stats { display: none; }
 
 @media (max-width: 620px) {
   .card-front.acct-front, .card-back.acct-back, .acct-support-face { padding: 24px 20px; }
+  /* Anti-débordement du panneau compte sur mobile : aucun élément ne doit pousser
+     la carte au-delà de l'écran. On laisse le texte rétrécir (min-width:0 → il passe
+     à la ligne au lieu d'imposer sa largeur) et on empêche les selects d'imposer une
+     largeur ; les contrôles restent à droite (pas de repli forcé). */
+  .account-panel .notif-card { padding: 6px 16px; }
+  .account-panel .notif-txt { min-width: 0; }
+  .account-panel .notif-sub { max-width: 100%; }
+  .account-panel .quiet-range { min-width: 0; }
+  .account-panel .pref-select { max-width: 100%; }
 }
 
 /* ---------- Abonnement paramétré (OpenAlert v2) ---------- */
@@ -1094,23 +1160,37 @@ body[data-mode="connected"] #stats { display: none; }
     body.m-kiosk .grid .card .card-front > .state { transition: none; }
   }
 
-  /* E2) Header condensé au scroll : la rangée 1 (hamburger + titre) et la rangée 3
-     (catégories) se replient ; seule la rangée 2 (recherche) reste visible. */
-  body.m-kiosk .nav-toggle,
+  /* E2) Header condensé au scroll : le titre et les catégories disparaissent, mais
+     le HAMBURGER reste et la recherche (réduite) le rejoint sur UNE seule rangée
+     compacte → header plus petit. Transition de taille fluide sur la recherche. */
   body.m-kiosk .brand,
   body.m-kiosk .m-nav-spacer,
   body.m-kiosk header .nav .toolbar {
     overflow: hidden;
-    transition: max-height .3s ease, opacity .25s ease, margin .3s ease;
+    transition: max-height .3s ease, max-width .3s ease, opacity .25s ease, margin .3s ease, padding .3s ease;
     max-height: 60px; opacity: 1;
   }
-  body.m-kiosk.m-scrolled .nav-toggle,
+  body.m-kiosk header .nav,
+  body.m-kiosk header .nav > .search {
+    transition: padding .25s ease, box-shadow .2s;
+  }
+  /* Titre + catégories : repliés à taille nulle (largeur ET hauteur) pour libérer la
+     rangée ; le hamburger n'est PAS masqué. */
   body.m-kiosk.m-scrolled .brand,
   body.m-kiosk.m-scrolled .m-nav-spacer,
-  body.m-kiosk.m-scrolled header .nav .toolbar { max-height: 0; opacity: 0; margin: 0; }
+  body.m-kiosk.m-scrolled header .nav .toolbar {
+    max-height: 0; max-width: 0; opacity: 0; margin: 0; padding: 0;
+    flex-basis: 0; flex-grow: 0;
+  }
+  /* Rangée compacte : hamburger + recherche. B6) la recherche garde EXACTEMENT sa
+     hauteur de repos (aucune réduction de padding vertical) ; seules les rangées 1
+     et 3 se replient. */
+  body.m-kiosk.m-scrolled header .nav { padding-top: 6px; padding-bottom: 6px; row-gap: 0; }
+  body.m-kiosk.m-scrolled header .nav > .search { flex: 1 1 auto; }
   @media (prefers-reduced-motion: reduce) {
-    body.m-kiosk .nav-toggle, body.m-kiosk .brand,
-    body.m-kiosk .m-nav-spacer, body.m-kiosk header .nav .toolbar { transition: none; }
+    body.m-kiosk .brand, body.m-kiosk .m-nav-spacer,
+    body.m-kiosk header .nav .toolbar,
+    body.m-kiosk header .nav, body.m-kiosk header .nav > .search { transition: none; }
   }
 
   /* E3) iPhone SE (~≤375px) : police des catégories réduite. */
@@ -1177,7 +1257,7 @@ body[data-mode="connected"] #stats { display: none; }
     order: 2; flex: 1 1 auto; max-width: 420px; min-width: 140px; margin: 0;
   }
   body.m-kiosk header .nav-right { order: 3; }
-  body.m-kiosk header .nav .toolbar { margin-top: 2px; }
+  body.m-kiosk header .nav .toolbar { margin-top: 10px; }
 }
 
 /* Point 1) Survol : le compteur s'étire vers la DROITE en OVERLAY depuis l'icône
@@ -1225,6 +1305,11 @@ body[data-mode="connected"] #stats { display: none; }
        les voisins se réajustent naturellement (flex/gap), aucun trou. */
 body:not([data-mode="connected"]) .nav-right .kpi { display: none; }
 
+/* « Bonjour <prénom> » (hero) ne s'affiche que sur la page principale : masqué dès
+   que le panneau « Mon compte » (et ses faces historique/soutenir) est ouvert — ce
+   panneau porte déjà sa propre salutation. */
+body.account-open .hero { display: none; }
+
 /* ============ Menu mobile plein écran (home ≤720px, js/mobile-header.js) ============ */
 /* Spacer de la rangée 1 : n'existe que sur mobile (règle plus haut le rend block). */
 .m-nav-spacer { display: none; }
@@ -1233,19 +1318,25 @@ body:not([data-mode="connected"]) .nav-right .kpi { display: none; }
 .m-menu {
   position: fixed; inset: 0; z-index: 200; background: var(--bg);
   overflow-y: auto; -webkit-overflow-scrolling: touch;
-  opacity: 1; transition: opacity .2s ease;
+  opacity: 1; transform-origin: left center;
+  transition: opacity .35s ease, transform .5s cubic-bezier(.2, .7, .2, 1);
 }
-.m-menu.m-anim { opacity: 0; }               /* état initial d'ouverture (fondu) */
-.m-menu.m-anim.open { opacity: 1; }
+/* Ouverture/fermeture : net retournement de carte (rotateY avec perspective, même
+   vocabulaire que le flip des cartes du kiosque) + fondu, ~500ms. */
+.m-menu.m-anim { opacity: 0; transform: perspective(1200px) rotateY(-82deg); }
+.m-menu.m-anim.open { opacity: 1; transform: perspective(1200px) rotateY(0deg); }
 .m-menu-inner {
   min-height: 100%; display: flex; flex-direction: column;
-  padding: 12px 22px calc(24px + env(safe-area-inset-bottom, 0px));
+  padding: 10px 22px calc(24px + env(safe-area-inset-bottom, 0px));
 }
-.m-menu-head { display: flex; align-items: center; justify-content: space-between; height: 44px; }
+/* Titre centré et à la même hauteur que dans le header (pas de « saut » de titre) ;
+   le ✕ est ancré à gauche, là où était le hamburger. */
+.m-menu-head { position: relative; display: flex; align-items: center; justify-content: center; height: 42px; }
 .m-menu-logo { font-size: 1.7rem; pointer-events: none; }
 .m-menu-close {
+  position: absolute; left: -6px; top: 50%; transform: translateY(-50%);
   border: none; background: transparent; color: var(--ink); cursor: pointer;
-  font-size: 22px; line-height: 1; padding: 8px; border-radius: 8px; margin-right: -8px;
+  font-size: 22px; line-height: 1; padding: 8px; border-radius: 8px;
 }
 .m-menu-close:hover { color: var(--amber); }
 .m-menu-list { display: flex; flex-direction: column; margin-top: 8px; }
@@ -1256,7 +1347,10 @@ body:not([data-mode="connected"]) .nav-right .kpi { display: none; }
   -webkit-tap-highlight-color: transparent;
 }
 .m-menu-list a:hover, .m-menu-list .m-link:hover { color: var(--amber); }
-.m-menu-list a.m-primary { color: var(--amber); }   /* Se connecter / Mon compte, en accent */
+.m-menu-list a.m-primary, .m-menu-list button.m-primary { color: var(--amber); }   /* entrée principale en accent */
+/* B3) « Se déconnecter » : discret (muted), séparé du reste par un filet. */
+.m-menu-list .m-logout { color: var(--muted); margin-top: 6px; border-top: 1px solid color-mix(in srgb, var(--muted) 28%, transparent); padding-top: 16px; }
+.m-menu-list .m-logout:hover { color: var(--amber); }
 /* Entrées « bientôt » : grisées, non cliquables, badge (réutilise le libellé .soon). */
 .m-menu-list .m-soon, .m-menu-list .m-soon:hover {
   color: var(--muted); cursor: default; display: flex; align-items: center;
@@ -1266,7 +1360,8 @@ body:not([data-mode="connected"]) .nav-right .kpi { display: none; }
   border-radius: 999px; padding: 2px 8px; margin-left: 8px;
   text-transform: none; letter-spacing: 0;
 }
-.m-menu-sep { border: none; border-top: 1px solid var(--line); margin: 8px 0; }
+/* Séparateurs visibles (—line est transparent) : trait fin adapté au thème. */
+.m-menu-sep { border: none; border-top: 1px solid color-mix(in srgb, var(--muted) 28%, transparent); margin: 8px 0; }
 .m-menu-foot { margin-top: auto; padding-top: 18px; display: flex; align-items: center; gap: 12px; }
 .m-menu-foot .theme-btn { transition: transform .4s ease; }
 .m-menu-foot .m-theme-label { font-size: 14px; color: var(--muted); font-weight: 600; }
@@ -1275,3 +1370,69 @@ body:not([data-mode="connected"]) .nav-right .kpi { display: none; }
 @media (min-width: 721px) { .m-menu { display: none !important; } }
 /* Body verrouillé pendant l'ouverture du menu (pas de scroll de l'arrière-plan). */
 body.m-menu-open { overflow: hidden; }
+
+/* ================================================================
+   COLLECTIONS — étagère du kiosque + page /collection/:slug
+   ================================================================ */
+.section-hint { color: var(--muted); font-weight: 400; font-size: .82em; }
+
+/* Étagère horizontale de packs, en tête du kiosque. */
+.collections-shelf { margin: 4px 0 22px; }
+.shelf-row {
+  display: flex; gap: 16px; overflow-x: auto; padding: 6px 2px 12px;
+  scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch;
+}
+.shelf-row::-webkit-scrollbar { height: 6px; }
+.shelf-row::-webkit-scrollbar-thumb { background: var(--amber-soft); border-radius: 6px; }
+
+/* Un pack = « paquet de cartes » : tuile avec une petite pile derrière (éventail). */
+.pack {
+  position: relative; flex: 0 0 auto; width: 190px; min-height: 118px;
+  display: block; text-decoration: none; scroll-snap-align: start;
+  background: var(--surface); color: var(--ink);
+  border-radius: 16px; padding: 16px 16px 14px;
+  box-shadow: var(--shadow);
+  transition: transform .16s ease, box-shadow .16s ease;
+}
+/* La pile derrière la tuile (deux feuilles décalées) = effet paquet. */
+.pack-stack { position: absolute; inset: 0; z-index: -1; border-radius: 16px; }
+.pack-stack::before, .pack-stack::after {
+  content: ""; position: absolute; inset: 0; border-radius: 16px;
+  background: var(--surface); box-shadow: var(--shadow);
+}
+.pack-stack::before { transform: translate(6px, 6px) rotate(2.2deg); opacity: .55; }
+.pack-stack::after  { transform: translate(11px, 10px) rotate(4.2deg); opacity: .3; }
+.pack:hover { transform: translateY(-3px); box-shadow: 0 6px 22px rgba(90, 60, 150, .22); }
+.pack:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; }
+.pack-body { display: flex; flex-direction: column; gap: 4px; }
+.pack-emoji { font-size: 1.7rem; line-height: 1; }
+.pack-name { font-weight: 700; font-size: 1.02rem; letter-spacing: -.01em; }
+.pack-meta { color: var(--muted); font-size: .82rem; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.pack-likes { color: var(--amber); font-weight: 600; }
+
+/* Page collection. */
+.coll-main { padding-top: 26px; }
+.coll-head { position: relative; margin-bottom: 22px; }
+.coll-head-top { display: flex; align-items: center; gap: 12px; }
+.coll-emoji { font-size: 2.2rem; line-height: 1; }
+.coll-head h1 { margin: 0; font-size: 1.7rem; letter-spacing: -.02em; }
+.coll-meta { display: flex; gap: 14px; align-items: center; color: var(--muted); font-size: .9rem; margin: 6px 0 16px; }
+.coll-likes { color: var(--amber); font-weight: 600; }
+.coll-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.coll-adopt {
+  background: var(--amber); color: #fff; border: none; cursor: pointer;
+  font-weight: 700; font-size: 1rem; padding: 12px 22px; border-radius: 11px;
+  box-shadow: var(--shadow); transition: transform .14s ease, filter .14s ease;
+}
+.coll-adopt:hover { filter: brightness(1.05); transform: translateY(-1px); }
+.coll-adopt:disabled { opacity: .6; cursor: default; transform: none; }
+.coll-adopt-msg { margin-top: 14px; font-weight: 600; font-size: .92rem; }
+.coll-adopt-msg.ok { color: var(--green); }
+.coll-adopt-msg.info { color: var(--muted); }
+.coll-adopt-msg.err { color: #dc2626; }
+.coll-share-grid { margin-top: 14px; }
+
+@media (max-width: 520px) {
+  .pack { width: 168px; }
+  .coll-head h1 { font-size: 1.4rem; }
+}

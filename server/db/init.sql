@@ -1851,3 +1851,269 @@ SELECT 'guide-michelin', 'Guide Michelin', 'La cérémonie du palmarès',
   'Prévenu à l''approche de la cérémonie de révélation du palmarès du Guide Michelin France. Date ajoutée dès l''annonce officielle.',
   'internal', 'official', false, ARRAY['culture', 'restaurants'], 172
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'guide-michelin');
+
+
+-- ================================================================
+-- LOT 1 — migrations additives (idempotentes, réversibles).
+-- Rejouées par `node server/db/migrate.js` (manuel ; rien ne tourne au deploy).
+-- Aucune migration d'abonnés ici (voir server/db/migrations/ pour A2).
+-- ================================================================
+
+-- A1) Compteur de « j'aime » par source (départage aussi la « Sélection » A5).
+--     Décision : colonne dédiée plutôt que la table counters → lecture/tri directs
+--     dans /api/sources. Existantes : 0 par défaut.
+ALTER TABLE sources ADD COLUMN IF NOT EXISTS likes_count INTEGER NOT NULL DEFAULT 0;
+
+-- A4) created_at : présent dans le CREATE TABLE mais SANS ALTER → les bases
+--     provisionnées avant son ajout ne l'ont pas. Backfill = NOW() à l'ajout
+--     (date de création réelle inconnue pour l'existant → « sinon now() », validé).
+ALTER TABLE sources ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
+
+-- B2) Liens de visibilité pro du déposant (LinkedIn, GitLab, Mastodon, portfolio…).
+--     Format : JSONB = tableau [{ "label": "...", "url": "https://..." }] (0 à 3 entrées).
+--     Validés côté serveur au dépôt (format URL http(s), longueur bornée) — voir Lot 3/4.
+ALTER TABLE sources ADD COLUMN IF NOT EXISTS submitted_links JSONB;
+
+-- A7) Suppression de la catégorie « github » : réaffectation → « tech ».
+--     Diagnostic prod (lecture seule) : 2 sources concernées (statut-github,
+--     statut-bitbucket), toutes deux [pannes-services, github], AUCUNE n'ayant
+--     déjà « tech » → array_replace suffit, pas de doublon. Idempotent (après coup,
+--     plus aucune source ne porte « github » → WHERE ne matche plus).
+UPDATE sources
+   SET categories = array_replace(categories, 'github', 'tech')
+ WHERE 'github' = ANY(categories);
+
+
+-- ================================================================
+-- A2 — Séismes & crues : broadcast → paramétré par département.
+-- Calque le pattern éprouvé indice-uv-gap → indice-uv (migration {05},
+-- désactivation ; on NE supprime PAS les anciens abonnements : la source
+-- désactivée devient inerte). Idempotent, rejouable.
+-- Diagnostic prod (lecture seule) : séismes 0 abonné, crues 2 abonnés.
+-- ================================================================
+
+-- --- CRUES : création de la source paramétrée (COUVERTURE PARTIELLE, cf. code) ---
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
+SELECT 'vigicrues-departement', 'Crues par département', 'Le département de votre choix (couverture partielle)',
+  'Vigilance crues (orange et rouge) de Vigicrues/SCHAPI pour le département de votre choix. ⚠️ Couverture partielle, en cours d''extension : Hautes-Alpes, Bouches-du-Rhône, Paris, Loiret, Indre-et-Loire, Haute-Garonne et Gironde pour l''instant — d''autres départements seront ajoutés progressivement.',
+  'internal', 'official', false, ARRAY['crues', 'vigilance-meteo'], 158,
+  '[{"key":"departement","label":"Département","type":"enum","values":[{"value":"05","label":"Hautes-Alpes"},{"value":"13","label":"Bouches-du-Rhône"},{"value":"31","label":"Haute-Garonne"},{"value":"33","label":"Gironde"},{"value":"37","label":"Indre-et-Loire"},{"value":"45","label":"Loiret"},{"value":"75","label":"Paris"}],"multiple":true,"required":true,"default":null}]'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'vigicrues-departement');
+UPDATE sources SET params_schema = '[{"key":"departement","label":"Département","type":"enum","values":[{"value":"05","label":"Hautes-Alpes"},{"value":"13","label":"Bouches-du-Rhône"},{"value":"31","label":"Haute-Garonne"},{"value":"33","label":"Gironde"},{"value":"37","label":"Indre-et-Loire"},{"value":"45","label":"Loiret"},{"value":"75","label":"Paris"}],"multiple":true,"required":true,"default":null}]'::jsonb
+  WHERE id = 'vigicrues-departement';
+
+-- --- CRUES : migration des abonnés broadcast vigicrues-05 → instance 05 ---
+INSERT INTO subscriptions (subscriber_id, source_id, params)
+SELECT sub.subscriber_id, 'vigicrues-departement', jsonb_build_object('departement', '05')
+  FROM subscriptions sub WHERE sub.source_id = 'vigicrues-05' AND sub.params IS NULL
+ON CONFLICT (subscriber_id, source_id, COALESCE(params, '{}'::jsonb)) DO NOTHING;
+INSERT INTO source_param_states (source_id, params, state, since, until_date, message, url, checked_at)
+SELECT 'vigicrues-departement', jsonb_build_object('departement', '05'), st.state, st.since, st.until_date, st.message, st.url, st.checked_at
+  FROM source_states st WHERE st.source_id = 'vigicrues-05' AND st.state <> 'inactive'
+ON CONFLICT (source_id, params) DO NOTHING;
+UPDATE sources SET enabled = false WHERE id = 'vigicrues-05' AND enabled = true;
+
+-- --- SEISMES : le paramétré seismes-departement existe déjà ; on désactive le
+--     broadcast seismes-france (0 abonné au diagnostic ; migration idempotente au
+--     cas où un abonné apparaîtrait entre-temps). ---
+INSERT INTO subscriptions (subscriber_id, source_id, params)
+SELECT sub.subscriber_id, 'seismes-departement', jsonb_build_object('departement', '05')
+  FROM subscriptions sub WHERE sub.source_id = 'seismes-france' AND sub.params IS NULL
+ON CONFLICT (subscriber_id, source_id, COALESCE(params, '{}'::jsonb)) DO NOTHING;
+INSERT INTO source_param_states (source_id, params, state, since, until_date, message, url, checked_at)
+SELECT 'seismes-departement', jsonb_build_object('departement', '05'), st.state, st.since, st.until_date, st.message, st.url, st.checked_at
+  FROM source_states st WHERE st.source_id = 'seismes-france' AND st.state <> 'inactive'
+ON CONFLICT (source_id, params) DO NOTHING;
+UPDATE sources SET enabled = false WHERE id = 'seismes-france' AND enabled = true;
+
+
+-- ================================================================
+-- COLLECTIONS (phase 1) : packs de cartes editorialises, abonnables en un
+-- clic. Phase 1 = officielles seulement (owner_subscriber_id NULL, visibility
+-- 'official'). Les colonnes owner_subscriber_id + visibility sont en place
+-- pour la PHASE 2 (decks utilisateurs), non utilisees en phase 1.
+-- Idempotent : upsert des collections et de leurs items (rejouable par migrate.js).
+-- ================================================================
+CREATE TABLE IF NOT EXISTS collections (
+  id VARCHAR(64) PRIMARY KEY,
+  name VARCHAR(120) NOT NULL,
+  description TEXT,
+  emoji VARCHAR(16),
+  owner_subscriber_id INTEGER REFERENCES subscribers(id) ON DELETE CASCADE, -- NULL = officielle (phase 1)
+  visibility VARCHAR(16) NOT NULL DEFAULT 'official', -- 'official' | 'private' | 'unlisted' (phase 2)
+  display_order INTEGER DEFAULT 100,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_collections_owner ON collections (owner_subscriber_id);
+
+CREATE TABLE IF NOT EXISTS collection_items (
+  collection_id VARCHAR(64) REFERENCES collections(id) ON DELETE CASCADE,
+  source_id VARCHAR(64) REFERENCES sources(id) ON DELETE CASCADE,
+  default_params JSONB, -- NULL = broadcast OU a resoudre par le profil ; objet = instance ; tableau = plusieurs instances
+  position INTEGER DEFAULT 0,
+  PRIMARY KEY (collection_id, source_id)
+);
+CREATE INDEX IF NOT EXISTS idx_collection_items_coll ON collection_items (collection_id);
+
+INSERT INTO collections (id, name, description, emoji, owner_subscriber_id, visibility, display_order)
+VALUES ('pack-essentiel', 'L''essentiel', 'Le kit de départ : la météo près de chez vous, les rappels de produits, les fériés et les échéances à ne pas rater.', '🎒', NULL, 'official', 10)
+ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, description = EXCLUDED.description, emoji = EXCLUDED.emoji, display_order = EXCLUDED.display_order;
+INSERT INTO collection_items (collection_id, source_id, default_params, position)
+VALUES ('pack-essentiel', 'vigilance-meteo', NULL, 0)
+ON CONFLICT (collection_id, source_id) DO UPDATE SET default_params = EXCLUDED.default_params, position = EXCLUDED.position;
+INSERT INTO collection_items (collection_id, source_id, default_params, position)
+VALUES ('pack-essentiel', 'rappel-conso', '{"categorie":"alimentation"}'::jsonb, 1)
+ON CONFLICT (collection_id, source_id) DO UPDATE SET default_params = EXCLUDED.default_params, position = EXCLUDED.position;
+INSERT INTO collection_items (collection_id, source_id, default_params, position)
+VALUES ('pack-essentiel', 'jours-feries', '{"zone":"metropole"}'::jsonb, 2)
+ON CONFLICT (collection_id, source_id) DO UPDATE SET default_params = EXCLUDED.default_params, position = EXCLUDED.position;
+INSERT INTO collection_items (collection_id, source_id, default_params, position)
+VALUES ('pack-essentiel', 'changement-heure', NULL, 3)
+ON CONFLICT (collection_id, source_id) DO UPDATE SET default_params = EXCLUDED.default_params, position = EXCLUDED.position;
+INSERT INTO collection_items (collection_id, source_id, default_params, position)
+VALUES ('pack-essentiel', 'echeances-fiscales', NULL, 4)
+ON CONFLICT (collection_id, source_id) DO UPDATE SET default_params = EXCLUDED.default_params, position = EXCLUDED.position;
+INSERT INTO collection_items (collection_id, source_id, default_params, position)
+VALUES ('pack-essentiel', 'ouverture-ventes-sncf', NULL, 5)
+ON CONFLICT (collection_id, source_id) DO UPDATE SET default_params = EXCLUDED.default_params, position = EXCLUDED.position;
+
+INSERT INTO collections (id, name, description, emoji, owner_subscriber_id, visibility, display_order)
+VALUES ('pack-bonnes-affaires', 'Bonnes affaires', 'Jeux offerts, soldes, carburant au meilleur prix, jours Tempo rouges et Black Friday : de quoi ménager votre budget.', '💸', NULL, 'official', 20)
+ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, description = EXCLUDED.description, emoji = EXCLUDED.emoji, display_order = EXCLUDED.display_order;
+INSERT INTO collection_items (collection_id, source_id, default_params, position)
+VALUES ('pack-bonnes-affaires', 'epic-jeu-gratuit', NULL, 0)
+ON CONFLICT (collection_id, source_id) DO UPDATE SET default_params = EXCLUDED.default_params, position = EXCLUDED.position;
+INSERT INTO collection_items (collection_id, source_id, default_params, position)
+VALUES ('pack-bonnes-affaires', 'gog-jeu-offert', NULL, 1)
+ON CONFLICT (collection_id, source_id) DO UPDATE SET default_params = EXCLUDED.default_params, position = EXCLUDED.position;
+INSERT INTO collection_items (collection_id, source_id, default_params, position)
+VALUES ('pack-bonnes-affaires', 'soldes-steam', NULL, 2)
+ON CONFLICT (collection_id, source_id) DO UPDATE SET default_params = EXCLUDED.default_params, position = EXCLUDED.position;
+INSERT INTO collection_items (collection_id, source_id, default_params, position)
+VALUES ('pack-bonnes-affaires', 'soldes', NULL, 3)
+ON CONFLICT (collection_id, source_id) DO UPDATE SET default_params = EXCLUDED.default_params, position = EXCLUDED.position;
+INSERT INTO collection_items (collection_id, source_id, default_params, position)
+VALUES ('pack-bonnes-affaires', 'carburant', '{"carburant":"gazole"}'::jsonb, 4)
+ON CONFLICT (collection_id, source_id) DO UPDATE SET default_params = EXCLUDED.default_params, position = EXCLUDED.position;
+INSERT INTO collection_items (collection_id, source_id, default_params, position)
+VALUES ('pack-bonnes-affaires', 'tempo', NULL, 5)
+ON CONFLICT (collection_id, source_id) DO UPDATE SET default_params = EXCLUDED.default_params, position = EXCLUDED.position;
+INSERT INTO collection_items (collection_id, source_id, default_params, position)
+VALUES ('pack-bonnes-affaires', 'black-friday', NULL, 6)
+ON CONFLICT (collection_id, source_id) DO UPDATE SET default_params = EXCLUDED.default_params, position = EXCLUDED.position;
+INSERT INTO collection_items (collection_id, source_id, default_params, position)
+VALUES ('pack-bonnes-affaires', 'taux-livret-a', NULL, 7)
+ON CONFLICT (collection_id, source_id) DO UPDATE SET default_params = EXCLUDED.default_params, position = EXCLUDED.position;
+
+INSERT INTO collections (id, name, description, emoji, owner_subscriber_id, visibility, display_order)
+VALUES ('pack-parents', 'Parents', 'Le rythme scolaire, les rappels de produits bébés et alimentaires, les fériés et le chèque énergie.', '👶', NULL, 'official', 30)
+ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, description = EXCLUDED.description, emoji = EXCLUDED.emoji, display_order = EXCLUDED.display_order;
+INSERT INTO collection_items (collection_id, source_id, default_params, position)
+VALUES ('pack-parents', 'vacances-scolaires', '{"zone":"A"}'::jsonb, 0)
+ON CONFLICT (collection_id, source_id) DO UPDATE SET default_params = EXCLUDED.default_params, position = EXCLUDED.position;
+INSERT INTO collection_items (collection_id, source_id, default_params, position)
+VALUES ('pack-parents', 'rentree-scolaire', NULL, 1)
+ON CONFLICT (collection_id, source_id) DO UPDATE SET default_params = EXCLUDED.default_params, position = EXCLUDED.position;
+INSERT INTO collection_items (collection_id, source_id, default_params, position)
+VALUES ('pack-parents', 'rappel-conso', '[{"categorie":"bébés-enfants (hors alimentaire)"},{"categorie":"alimentation"}]'::jsonb, 2)
+ON CONFLICT (collection_id, source_id) DO UPDATE SET default_params = EXCLUDED.default_params, position = EXCLUDED.position;
+INSERT INTO collection_items (collection_id, source_id, default_params, position)
+VALUES ('pack-parents', 'jours-feries', '{"zone":"metropole"}'::jsonb, 3)
+ON CONFLICT (collection_id, source_id) DO UPDATE SET default_params = EXCLUDED.default_params, position = EXCLUDED.position;
+INSERT INTO collection_items (collection_id, source_id, default_params, position)
+VALUES ('pack-parents', 'fetes-familiales', NULL, 4)
+ON CONFLICT (collection_id, source_id) DO UPDATE SET default_params = EXCLUDED.default_params, position = EXCLUDED.position;
+INSERT INTO collection_items (collection_id, source_id, default_params, position)
+VALUES ('pack-parents', 'cheque-energie', NULL, 5)
+ON CONFLICT (collection_id, source_id) DO UPDATE SET default_params = EXCLUDED.default_params, position = EXCLUDED.position;
+
+INSERT INTO collections (id, name, description, emoji, owner_subscriber_id, visibility, display_order)
+VALUES ('pack-montagne', 'Montagne', 'Vigilance, avalanche, loi montagne, crues et météo des forêts autour des Hautes-Alpes. Identité Gap assumée.', '🏔️', NULL, 'official', 40)
+ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, description = EXCLUDED.description, emoji = EXCLUDED.emoji, display_order = EXCLUDED.display_order;
+INSERT INTO collection_items (collection_id, source_id, default_params, position)
+VALUES ('pack-montagne', 'vigilance-meteo', '{"departement":"05"}'::jsonb, 0)
+ON CONFLICT (collection_id, source_id) DO UPDATE SET default_params = EXCLUDED.default_params, position = EXCLUDED.position;
+INSERT INTO collection_items (collection_id, source_id, default_params, position)
+VALUES ('pack-montagne', 'risque-avalanche', '{"massif":"19"}'::jsonb, 1)
+ON CONFLICT (collection_id, source_id) DO UPDATE SET default_params = EXCLUDED.default_params, position = EXCLUDED.position;
+INSERT INTO collection_items (collection_id, source_id, default_params, position)
+VALUES ('pack-montagne', 'loi-montagne', NULL, 2)
+ON CONFLICT (collection_id, source_id) DO UPDATE SET default_params = EXCLUDED.default_params, position = EXCLUDED.position;
+INSERT INTO collection_items (collection_id, source_id, default_params, position)
+VALUES ('pack-montagne', 'vigicrues-05', NULL, 3)
+ON CONFLICT (collection_id, source_id) DO UPDATE SET default_params = EXCLUDED.default_params, position = EXCLUDED.position;
+INSERT INTO collection_items (collection_id, source_id, default_params, position)
+VALUES ('pack-montagne', 'meteo-forets', '{"departement":"05"}'::jsonb, 4)
+ON CONFLICT (collection_id, source_id) DO UPDATE SET default_params = EXCLUDED.default_params, position = EXCLUDED.position;
+INSERT INTO collection_items (collection_id, source_id, default_params, position)
+VALUES ('pack-montagne', 'indice-uv', '{"departement":"05"}'::jsonb, 5)
+ON CONFLICT (collection_id, source_id) DO UPDATE SET default_params = EXCLUDED.default_params, position = EXCLUDED.position;
+
+INSERT INTO collections (id, name, description, emoji, owner_subscriber_id, visibility, display_order)
+VALUES ('pack-ciel', 'Ciel & étoiles', 'Éclipses, pluies d''étoiles filantes, Nuits des étoiles, rendez-vous astronomiques et aurores boréales.', '🌌', NULL, 'official', 50)
+ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, description = EXCLUDED.description, emoji = EXCLUDED.emoji, display_order = EXCLUDED.display_order;
+INSERT INTO collection_items (collection_id, source_id, default_params, position)
+VALUES ('pack-ciel', 'eclipse-solaire', NULL, 0)
+ON CONFLICT (collection_id, source_id) DO UPDATE SET default_params = EXCLUDED.default_params, position = EXCLUDED.position;
+INSERT INTO collection_items (collection_id, source_id, default_params, position)
+VALUES ('pack-ciel', 'perseides', NULL, 1)
+ON CONFLICT (collection_id, source_id) DO UPDATE SET default_params = EXCLUDED.default_params, position = EXCLUDED.position;
+INSERT INTO collection_items (collection_id, source_id, default_params, position)
+VALUES ('pack-ciel', 'geminides', NULL, 2)
+ON CONFLICT (collection_id, source_id) DO UPDATE SET default_params = EXCLUDED.default_params, position = EXCLUDED.position;
+INSERT INTO collection_items (collection_id, source_id, default_params, position)
+VALUES ('pack-ciel', 'nuits-des-etoiles', NULL, 3)
+ON CONFLICT (collection_id, source_id) DO UPDATE SET default_params = EXCLUDED.default_params, position = EXCLUDED.position;
+INSERT INTO collection_items (collection_id, source_id, default_params, position)
+VALUES ('pack-ciel', 'evenements-astro', NULL, 4)
+ON CONFLICT (collection_id, source_id) DO UPDATE SET default_params = EXCLUDED.default_params, position = EXCLUDED.position;
+INSERT INTO collection_items (collection_id, source_id, default_params, position)
+VALUES ('pack-ciel', 'aurores-france', NULL, 5)
+ON CONFLICT (collection_id, source_id) DO UPDATE SET default_params = EXCLUDED.default_params, position = EXCLUDED.position;
+INSERT INTO collection_items (collection_id, source_id, default_params, position)
+VALUES ('pack-ciel', 'indice-uv', NULL, 6)
+ON CONFLICT (collection_id, source_id) DO UPDATE SET default_params = EXCLUDED.default_params, position = EXCLUDED.position;
+
+INSERT INTO collections (id, name, description, emoji, owner_subscriber_id, visibility, display_order)
+VALUES ('pack-dev', 'Développeur', 'Failles CERT-FR, fins de support logiciel, statuts des services majeurs, Node LTS et mises à jour navigateurs. Ajoutez vos dépôts GitHub.', '💻', NULL, 'official', 60)
+ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, description = EXCLUDED.description, emoji = EXCLUDED.emoji, display_order = EXCLUDED.display_order;
+INSERT INTO collection_items (collection_id, source_id, default_params, position)
+VALUES ('pack-dev', 'cert-fr-alertes', NULL, 0)
+ON CONFLICT (collection_id, source_id) DO UPDATE SET default_params = EXCLUDED.default_params, position = EXCLUDED.position;
+INSERT INTO collection_items (collection_id, source_id, default_params, position)
+VALUES ('pack-dev', 'fin-de-vie-logicielle', '[{"produit":"nodejs"},{"produit":"python"}]'::jsonb, 1)
+ON CONFLICT (collection_id, source_id) DO UPDATE SET default_params = EXCLUDED.default_params, position = EXCLUDED.position;
+INSERT INTO collection_items (collection_id, source_id, default_params, position)
+VALUES ('pack-dev', 'github-release', NULL, 2)
+ON CONFLICT (collection_id, source_id) DO UPDATE SET default_params = EXCLUDED.default_params, position = EXCLUDED.position;
+INSERT INTO collection_items (collection_id, source_id, default_params, position)
+VALUES ('pack-dev', 'statut-github', NULL, 3)
+ON CONFLICT (collection_id, source_id) DO UPDATE SET default_params = EXCLUDED.default_params, position = EXCLUDED.position;
+INSERT INTO collection_items (collection_id, source_id, default_params, position)
+VALUES ('pack-dev', 'statut-cloudflare', NULL, 4)
+ON CONFLICT (collection_id, source_id) DO UPDATE SET default_params = EXCLUDED.default_params, position = EXCLUDED.position;
+INSERT INTO collection_items (collection_id, source_id, default_params, position)
+VALUES ('pack-dev', 'statut-openai', NULL, 5)
+ON CONFLICT (collection_id, source_id) DO UPDATE SET default_params = EXCLUDED.default_params, position = EXCLUDED.position;
+INSERT INTO collection_items (collection_id, source_id, default_params, position)
+VALUES ('pack-dev', 'node-lts', NULL, 6)
+ON CONFLICT (collection_id, source_id) DO UPDATE SET default_params = EXCLUDED.default_params, position = EXCLUDED.position;
+INSERT INTO collection_items (collection_id, source_id, default_params, position)
+VALUES ('pack-dev', 'maj-navigateurs', NULL, 7)
+ON CONFLICT (collection_id, source_id) DO UPDATE SET default_params = EXCLUDED.default_params, position = EXCLUDED.position;
+
+INSERT INTO collections (id, name, description, emoji, owner_subscriber_id, visibility, display_order)
+VALUES ('pack-quebec', 'Québec', 'Avertissements météo, pannes Hydro-Québec, jours fériés québécois et taux de change euro/dollar canadien.', '🍁', NULL, 'official', 70)
+ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, description = EXCLUDED.description, emoji = EXCLUDED.emoji, display_order = EXCLUDED.display_order;
+INSERT INTO collection_items (collection_id, source_id, default_params, position)
+VALUES ('pack-quebec', 'meteo-quebec', '{"region":"montreal"}'::jsonb, 0)
+ON CONFLICT (collection_id, source_id) DO UPDATE SET default_params = EXCLUDED.default_params, position = EXCLUDED.position;
+INSERT INTO collection_items (collection_id, source_id, default_params, position)
+VALUES ('pack-quebec', 'pannes-hydro-quebec', NULL, 1)
+ON CONFLICT (collection_id, source_id) DO UPDATE SET default_params = EXCLUDED.default_params, position = EXCLUDED.position;
+INSERT INTO collection_items (collection_id, source_id, default_params, position)
+VALUES ('pack-quebec', 'feries-quebec', NULL, 2)
+ON CONFLICT (collection_id, source_id) DO UPDATE SET default_params = EXCLUDED.default_params, position = EXCLUDED.position;
+INSERT INTO collection_items (collection_id, source_id, default_params, position)
+VALUES ('pack-quebec', 'taux-de-change', '{"devise":"CAD"}'::jsonb, 3)
+ON CONFLICT (collection_id, source_id) DO UPDATE SET default_params = EXCLUDED.default_params, position = EXCLUDED.position;
