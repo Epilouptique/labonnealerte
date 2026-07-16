@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{TITLE}}</title>
+<meta name="description" content="{{DESC}}">
+<meta property="og:title" content="{{OG_TITLE}}">
+<meta property="og:description" content="{{OG_DESC}}">
+<meta property="og:url" content="{{OG_URL}}">
+<meta property="og:type" content="website">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="/css/fonts.css">
+<link rel="stylesheet" href="/css/tokens.css">
+<link rel="stylesheet" href="/css/site.css">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#fdfaff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1419" media="(prefers-color-scheme: dark)">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <a class="brand brandmark" href="/"><span class="lig"><span class="l">l</span>a</span>bonne<span class="a">alerte</span><span class="bang"><span class="bar"></span><span class="dot"></span></span><span class="fr">fr</span></a>
+    <nav class="nav-right">
+      <a href="/">← Retour au kiosque</a>
+      <button class="theme-btn" type="button" aria-label="Changer de thème">◐</button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap coll-main">
+  <div id="deck-loading" class="src-loading">Chargement…</div>
+
+  <section id="deck-view" hidden>
+    <div class="coll-head">
+      <a class="src-back" href="/" aria-label="Revenir au kiosque" title="Kiosque">
+        <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 5 5v3"/></svg>
+      </a>
+      <div class="coll-head-top">
+        <span id="deck-emoji" class="coll-emoji" aria-hidden="true"></span>
+        <h1 id="deck-name"></h1>
+      </div>
+      <p id="deck-desc" class="src-desc"></p>
+      <div class="deck-byline">
+        <span id="deck-author" class="deck-author"></span>
+        <span id="deck-forked" class="deck-forked" hidden></span>
+      </div>
+      <div class="coll-meta">
+        <span id="deck-count"></span>
+      </div>
+      <div class="coll-actions">
+        <button id="deck-adopt" class="coll-adopt" type="button">Adopter ce deck</button>
+        <button id="deck-share" class="share-btn share-btn-lg" type="button">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>
+          <span class="share-label">Partager</span>
+        </button>
+      </div>
+      <div id="deck-adopt-msg" class="coll-adopt-msg" hidden></div>
+      <div id="deck-share-grid" class="share-face-grid coll-share-grid" hidden></div>
+      <div class="deck-report">
+        <button id="deck-report-btn" class="deck-report-link" type="button">Signaler ce deck</button>
+        <button id="deck-report-name" class="deck-report-link deck-report-sm" type="button">Signaler le nom</button>
+      </div>
+    </div>
+
+    <div class="grid" id="deck-grid"></div>
+  </section>
+
+  <div id="deck-error" class="src-error" hidden>Deck introuvable ou partage arrêté</div>
+</main>
+
+<footer>
+  La Bonne Alerte — gratuit, open-source (MIT), sans spam, rien de caché.<br>
+  <a href="/">Kiosque</a> · <a href="/a-propos">À propos</a> · <a href="/soutenir">Nous soutenir</a> · <a href="/mentions-legales">Mentions légales</a> · <a href="/confidentialite">Confidentialité</a> · <a href="/proposer">Espace développeur</a>
+</footer>
+
+<script src="/js/session.js"></script>
+<script src="/js/categories.js"></script>
+<script src="/js/cards.js"></script>
+<script src="/js/share.js"></script>
+<script src="/js/site.js"></script>
+<script src="/js/deck-shared.js"></script>
+<script src="/js/theme.js"></script>
+<script src="/js/header.js"></script>
+<script src="/js/pwa.js"></script>
+</body>
+</html>

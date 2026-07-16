@@ -13,7 +13,7 @@
   var token = S.get();
   if (!token) return; // anonyme : pas de personnalisation
 
-  var state = { country: 'FR', departement: null, interests: [] };
+  var state = { country: 'FR', departement: null, interests: [], displayName: null };
   var geo = { countries: [], departements: [] };
   var kioskCats = []; // slugs de catégories réellement utilisées par le kiosque
 
@@ -33,6 +33,33 @@
     el.classList.add('show');
     clearTimeout(flashTimer);
     flashTimer = setTimeout(function () { el.classList.remove('show'); }, 1600);
+  }
+
+  // Enregistre le nom public (pseudo). Validation serveur : longueur, caractères,
+  // pas d'URL/@, jetons interdits, unicité, rate-limit 3/mois.
+  async function saveDisplayName() {
+    var input = document.getElementById('pref-dn');
+    var msg = document.getElementById('pref-dn-msg');
+    if (!input) return;
+    var val = (input.value || '').trim();
+    if (msg) { msg.classList.remove('err'); msg.classList.add('show'); msg.textContent = '…'; }
+    try {
+      var res = await fetch('/api/my-alerts/display-name', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: token, display_name: val }),
+      });
+      var d = await res.json().catch(function () { return {}; });
+      if (!res.ok) {
+        if (msg) { msg.textContent = d.error || 'Échec'; msg.classList.add('err'); }
+        return;
+      }
+      state.displayName = d.display_name || null;
+      if (msg) { msg.classList.remove('err'); msg.textContent = 'Enregistré ✓'; }
+      clearTimeout(flashTimer);
+      flashTimer = setTimeout(function () { if (msg) msg.classList.remove('show'); }, 1600);
+    } catch (e) {
+      if (msg) { msg.textContent = 'Échec réseau'; msg.classList.add('err'); }
+    }
   }
 
   async function save() {
@@ -114,6 +141,17 @@
       '    <div class="notif-txt"><strong>Centres d\'intérêt</strong><span class="notif-sub">Vos thèmes remontent en tête du kiosque</span></div>' +
       '    <div class="pref-chips" id="pref-chips"></div>' +
       '  </div>' +
+      '</div>' +
+      // Phase 2 : nom public (pseudo) — signe les decks partagés, jamais l'email.
+      '<div class="acct-subhead">Nom public <span id="pref-dn-msg" class="pref-feedback" role="status"></span></div>' +
+      '<div class="notif-card">' +
+      '  <div class="notif-row pref-dn-row">' +
+      '    <div class="notif-txt"><strong>Votre nom public</strong><span class="notif-sub">Signe les decks que vous partagez. Jamais votre email.</span></div>' +
+      '  </div>' +
+      '  <div class="notif-row pref-dn-input-row">' +
+      '    <input id="pref-dn" class="pref-dn-input" type="text" maxlength="25" placeholder="ex. Hugo des Alpes" value="' + esc(state.displayName || '') + '">' +
+      '    <button type="button" id="pref-dn-save" class="pref-dn-save">Enregistrer</button>' +
+      '  </div>' +
       '</div>';
 
     renderChips();
@@ -129,6 +167,11 @@
       state.departement = e.target.value || null;
       save();
     });
+    var dnSave = document.getElementById('pref-dn-save');
+    if (dnSave) dnSave.addEventListener('click', saveDisplayName);
+    var dnInput = document.getElementById('pref-dn');
+    if (dnInput) dnInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); saveDisplayName(); } });
+
     document.getElementById('pref-chips').addEventListener('click', function (e) {
       // Point 5 : bascule d'ouverture/fermeture de la 2e ligne (transition fluide).
       var tgl = e.target.closest('.pref-chip-more');
@@ -169,6 +212,7 @@
       state.country = (me && me.country) || 'FR';
       state.departement = (me && me.departement) || null;
       state.interests = (me && me.interests) || [];
+      state.displayName = (me && me.display_name) || null;
 
       // Centres d'intérêt proposés = catégories réellement présentes dans le kiosque,
       // restreintes à la taxonomie connue (libellés fiables, acceptées côté serveur).

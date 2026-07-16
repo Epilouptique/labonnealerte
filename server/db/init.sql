@@ -2117,3 +2117,45 @@ ON CONFLICT (collection_id, source_id) DO UPDATE SET default_params = EXCLUDED.d
 INSERT INTO collection_items (collection_id, source_id, default_params, position)
 VALUES ('pack-quebec', 'taux-de-change', '{"devise":"CAD"}'::jsonb, 3)
 ON CONFLICT (collection_id, source_id) DO UPDATE SET default_params = EXCLUDED.default_params, position = EXCLUDED.position;
+
+
+-- ================================================================
+-- COLLECTIONS PHASE 2 : decks utilisateurs (UGC), partageables par lien (fork).
+-- Idempotent. owner_subscriber_id + visibility (deja en place phase 1) portent le
+-- deck ; ici on ajoute le token de partage non-liste, le pseudo public, les
+-- compteurs anti-abus et la table de signalements. RGPD : tout part en CASCADE
+-- avec le compte (owner_subscriber_id ON DELETE CASCADE, deja defini).
+-- ================================================================
+
+-- Token de partage non devinable (16+ octets). NULL tant que non partage ; unique.
+ALTER TABLE collections ADD COLUMN IF NOT EXISTS share_token TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_collections_share_token
+  ON collections (share_token) WHERE share_token IS NOT NULL;
+ALTER TABLE collections ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+-- Copie independante : nom du createur d'origine (valorisation, ligne « inspire de »).
+ALTER TABLE collections ADD COLUMN IF NOT EXISTS forked_from_name TEXT;
+
+-- Pseudo public : signe les decks partages. NULL = pas encore choisi. Unicite
+-- insensible a la casse (empeche les sosies). Jamais l'email en public.
+ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS display_name TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_subscribers_display_name_lower
+  ON subscribers (lower(display_name)) WHERE display_name IS NOT NULL;
+
+-- Journal des changements de pseudo (rate-limit 3 / 30 jours).
+CREATE TABLE IF NOT EXISTS display_name_changes (
+  subscriber_id INTEGER REFERENCES subscribers(id) ON DELETE CASCADE,
+  changed_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_dnc_sub ON display_name_changes (subscriber_id, changed_at);
+
+-- Signalements UGC (deck ou pseudo). IP HASHEE (RGPD), jamais en clair. Un
+-- signalement distinct = une ip_hash distincte ; a 3 distincts -> partage suspendu
+-- (deck repasse 'private') et, pour target 'name', display_name remis a NULL.
+CREATE TABLE IF NOT EXISTS deck_reports (
+  id SERIAL PRIMARY KEY,
+  deck_id VARCHAR(64) REFERENCES collections(id) ON DELETE CASCADE,
+  target VARCHAR(8) NOT NULL DEFAULT 'deck',   -- 'deck' | 'name'
+  ip_hash TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_deck_reports_deck ON deck_reports (deck_id, target);

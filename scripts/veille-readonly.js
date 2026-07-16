@@ -106,6 +106,24 @@ const Q_SLUGS = `
    WHERE enabled = true
    ORDER BY slug ASC`;
 
+// 6bis. suspended_decks (phase 2 UGC) — decks utilisateurs ayant atteint le seuil
+//    de signalements (≥ 3 ip distinctes) pour une cible ('deck' ou 'name'). Le
+//    partage a alors été suspendu automatiquement (visibility 'private', token
+//    invalidé). Signal de modération pour l'humain — aucune action du robot.
+//    Aucune donnée personnelle (ip hashée, jamais l'email ; pas le contenu ici).
+const Q_SUSPENDED_DECKS = `
+  SELECT dr.deck_id,
+         dr.target,
+         COUNT(DISTINCT dr.ip_hash)   AS distinct_reports,
+         MAX(dr.created_at)           AS last_report_at,
+         c.visibility,
+         (c.share_token IS NULL)      AS sharing_suspended
+    FROM deck_reports dr
+    JOIN collections c ON c.id = dr.deck_id
+   GROUP BY dr.deck_id, dr.target, c.visibility, c.share_token
+  HAVING COUNT(DISTINCT dr.ip_hash) >= 3
+   ORDER BY last_report_at DESC`;
+
 // 6. meta — nombre de sources enabled, nombre de combinaisons paramétrées.
 const Q_META = `
   SELECT
@@ -132,6 +150,7 @@ async function main() {
     never_active_90d: [],
     display_order_collisions: [],
     category_slugs: [],
+    suspended_decks: [],
   };
 
   const [failing, stale, never, collisions, slugs, meta] = await Promise.all([
@@ -150,6 +169,15 @@ async function main() {
   out.category_slugs = slugs.rows.map((r) => r.slug);
   out.meta.enabled_sources = Number(meta.rows[0].enabled_sources);
   out.meta.param_combos = Number(meta.rows[0].param_combos);
+
+  // Phase 2 (UGC) : decks suspendus par signalements. Requête isolée (try/catch)
+  // pour rester compatible avec une base pas encore migrée (tables absentes).
+  try {
+    const suspended = await pool.query(Q_SUSPENDED_DECKS);
+    out.suspended_decks = suspended.rows;
+  } catch (e) {
+    out.suspended_decks = [];
+  }
 
   process.stdout.write(JSON.stringify(out, null, 2) + '\n');
 }

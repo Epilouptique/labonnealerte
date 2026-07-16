@@ -153,7 +153,7 @@ apiRouter.get('/my-alerts', async (req, res) => {
 
     // Préférences : email activé, appareils push, et personnalisation d'affichage.
     const prefs = await pool.query(
-      `SELECT s.email_enabled, s.country, s.departement, s.interests,
+      `SELECT s.email_enabled, s.country, s.departement, s.interests, s.display_name,
               s.quiet_start, s.quiet_end, s.quiet_disabled,
               (SELECT COUNT(*)::int FROM push_subscriptions p WHERE p.subscriber_id = s.id) AS push_endpoints_count
          FROM subscribers s WHERE s.id = $1`,
@@ -174,6 +174,7 @@ apiRouter.get('/my-alerts', async (req, res) => {
       country: pr.country || null,
       departement: pr.departement || null,
       interests: pr.interests || [],
+      display_name: pr.display_name || null,
       // Heures de veille (défaut 23/8 appliqué en code si NULL).
       quiet_start: pr.quiet_start == null ? 23 : pr.quiet_start,
       quiet_end: pr.quiet_end == null ? 8 : pr.quiet_end,

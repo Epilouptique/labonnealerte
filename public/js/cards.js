@@ -186,7 +186,7 @@
       '</div>';
   }
 
-  function backFace(s, cats, isLinked) {
+  function backFace(s, cats, isLinked, mode) {
     var endpoint = isLinked
       ? '<div class="endpoint mono">Service partenaire — API sur ' + esc(domainOf(s.link_url)) + '</div>'
       : '<a class="endpoint mono" href="/api/sources/' + esc(s.id) + '/alert.json" target="_blank" rel="noopener">' +
@@ -208,11 +208,18 @@
     var statut = isLinked ? ''
       : '<a class="back-statut" href="/source/' + esc(s.id) + '/statut">Statut &amp; historique →</a>';
 
+    // Phase 2 : « Ajouter à un deck » — action discrète sur le verso, en mode
+    // connecté uniquement (composer un deck = fonctionnalité de compte). Le picker
+    // est géré par js/deck-add.js (chargé sur la home).
+    var addDeck = (mode === 'connected' && !isLinked)
+      ? '<button type="button" class="back-add-deck" data-source-id="' + esc(s.id) + '">＋ Ajouter à un deck</button>'
+      : '';
+
     return '' +
       '<div class="card-face card-back">' +
         '<button class="flip-back" type="button" aria-label="Retour" title="Retour">' + BACK_SVG + '</button>' +
         topRow(s) +
-        endpoint + tags + author + statut +
+        endpoint + tags + author + statut + addDeck +
         '<a class="back-propose" href="/proposer">Proposez la vôtre →</a>' +
       '</div>';
   }
@@ -247,7 +254,7 @@
         ' data-subscribed="' + sub + '" data-search="' + esc(searchText(s, cats)) + '">' +
         '<div class="card-inner">' +
           frontFace(s, mode, isLinked) +
-          backFace(s, cats, isLinked) +
+          backFace(s, cats, isLinked, mode) +
           shareFace() +
         '</div>' +
       '</div>';

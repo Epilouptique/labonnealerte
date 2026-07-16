@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mes decks — La Bonne Alerte</title>
+<meta name="description" content="Composez vos propres decks d'alertes et partagez-les.">
+<meta property="og:title" content="Mes decks — La Bonne Alerte">
+<meta property="og:description" content="Composez vos propres decks d'alertes et partagez-les.">
+<meta property="og:url" content="https://www.labonnealerte.fr/mes-decks">
+<meta property="og:type" content="website">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="/css/fonts.css">
+<link rel="stylesheet" href="/css/tokens.css">
+<link rel="stylesheet" href="/css/site.css">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#fdfaff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1419" media="(prefers-color-scheme: dark)">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <a class="brand brandmark" href="/"><span class="lig"><span class="l">l</span>a</span>bonne<span class="a">alerte</span><span class="bang"><span class="bar"></span><span class="dot"></span></span><span class="fr">fr</span></a>
+    <nav class="nav-right">
+      <a href="/">← Retour au kiosque</a>
+      <button class="theme-btn" type="button" aria-label="Changer de thème">◐</button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap decks-main">
+  <div id="decks-loading" class="src-loading">Chargement…</div>
+
+  <div id="decks-anon" class="decks-anon" hidden>
+    <h1>Mes decks</h1>
+    <p class="src-desc">Connectez-vous pour composer vos propres decks d'alertes et les partager.</p>
+    <a class="coll-adopt" href="/connexion">Se connecter</a>
+  </div>
+
+  <section id="decks-view" hidden></section>
+</main>
+
+<footer>
+  La Bonne Alerte — gratuit, open-source (MIT), sans spam, rien de caché.<br>
+  <a href="/">Kiosque</a> · <a href="/a-propos">À propos</a> · <a href="/soutenir">Nous soutenir</a> · <a href="/mentions-legales">Mentions légales</a> · <a href="/confidentialite">Confidentialité</a> · <a href="/proposer">Espace développeur</a>
+</footer>
+
+<script src="/js/session.js"></script>
+<script src="/js/categories.js"></script>
+<script src="/js/cards.js"></script>
+<script src="/js/share.js"></script>
+<script src="/js/decks.js"></script>
+<script src="/js/theme.js"></script>
+<script src="/js/header.js"></script>
+<script src="/js/pwa.js"></script>
+</body>
+</html>

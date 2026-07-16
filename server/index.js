@@ -13,6 +13,7 @@ const { apiRouter: myAlertsApiRouter, pagesRouter: myAlertsPagesRouter } = requi
 const authRouter = require('./routes/auth');
 const pushRouter = require('./routes/push');
 const collectionsRouter = require('./routes/collections');
+const decksRouter = require('./routes/decks');
 const { cleanupExpired } = require('./sessions');
 const { startPoller } = require('./poller');
 
@@ -83,6 +84,7 @@ app.use('/api', subscribeApiRouter);
 app.use('/api', myAlertsApiRouter);
 app.use('/api', pushRouter);
 app.use('/api', collectionsRouter);
+app.use('/api', decksRouter);
 app.use('/api/dev', devRouter);
 // Connexion OAuth (Google / GitHub) — redirections serveur.
 app.use('/auth', authRouter);
@@ -114,6 +116,49 @@ const FUSED_REDIRECTS = {
   'carburant-seuils': { to: 'carburant', qs: '' },
   'indice-uv-gap': { to: 'indice-uv', qs: 'departement=05' },
 };
+
+// Page « Mes decks » (gestion des decks utilisateur) — contenu chargé côté client.
+app.get('/mes-decks', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'mes-decks.html'));
+});
+
+// Page publique d'un deck partagé : /deck/:token. SEO PRUDENT (anti-spam d'aperçu) :
+// og:title = nom du deck (déjà validé à la saisie) ; og:description = description
+// GÉNÉRIQUE du site (JAMAIS la description libre de l'utilisateur). 404 propre.
+app.get('/deck/:token', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      "SELECT name, emoji FROM collections WHERE share_token = $1 AND visibility = 'unlisted'",
+      [req.params.token]
+    );
+    if (rows.length === 0) {
+      return res.status(404).type('html').send(
+        '<!doctype html><meta charset="utf-8"><title>Deck introuvable</title>' +
+        '<body style="font-family:system-ui,sans-serif;max-width:520px;margin:80px auto;text-align:center;color:#0f1419">' +
+        '<h1>Deck introuvable</h1><p>Ce lien de partage n\'est plus valable.</p>' +
+        '<p><a href="/" style="color:#a567e3;font-weight:600">← Retour au kiosque</a></p></body>'
+      );
+    }
+    const d = rows[0];
+    const emoji = d.emoji ? d.emoji + ' ' : '';
+    const title = `${emoji}${d.name} — un deck · La Bonne Alerte`;
+    // Description GÉNÉRIQUE (pas la description libre de l'utilisateur).
+    const desc = 'Un deck d\'alertes partagé sur La Bonne Alerte — adoptez-le en un clic (copie privée).';
+    const url = `https://www.labonnealerte.fr/deck/${encodeURIComponent(req.params.token)}`;
+
+    let html = fs.readFileSync(path.join(__dirname, '..', 'public', 'deck.html'), 'utf8');
+    html = html
+      .replace(/\{\{TITLE\}\}/g, escHtml(title))
+      .replace(/\{\{DESC\}\}/g, escHtml(desc))
+      .replace(/\{\{OG_TITLE\}\}/g, escHtml(`${emoji}${d.name} — La Bonne Alerte`))
+      .replace(/\{\{OG_DESC\}\}/g, escHtml(desc))
+      .replace(/\{\{OG_URL\}\}/g, escHtml(url));
+    res.type('html').send(html);
+  } catch (err) {
+    console.error('[server] Erreur /deck/:token :', err.message);
+    res.status(503).type('html').send('Service momentanément indisponible.');
+  }
+});
 
 // Page de statut d'une source : SEO injecté côté serveur + 404 propre.
 function escHtml(s) {
