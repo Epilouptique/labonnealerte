@@ -154,14 +154,30 @@
       ? '<div class="sub-form param-subform"><input type="email" placeholder="votre@email.fr" aria-label="Adresse email"><button type="button">OK</button></div>'
       : '';
     // C4) Indicateur d'abonnement EN BAS de la carte (même place que le toggle des
-    // cartes simples). « Abonné » si ≥1 instance suivie, sinon « Non abonné ».
+    // cartes simples). F2) En mode connecté abonné (≥1 instance), on affiche un
+    // vrai interrupteur pause/reprise (met en sourdine SANS retirer les paramètres) ;
+    // sinon un simple libellé « Non abonné ».
     var on = instances.length > 0;
-    var status = (mode === 'connected')
-      ? '<div class="param-status"><span class="switch-label' + (on ? ' on' : '') + '">' +
-        (on ? 'Abonné' : 'Non abonné') + '</span></div>'
-      : '';
-    // Ordre : instances suivies, ajout, sélecteur, (email anonyme), puis STATUT en bas.
-    return chips + addBtn + picker + anon + status;
+    var muted = !!s.muted; // toutes les instances en sourdine
+    var status;
+    if (mode !== 'connected') {
+      status = '';
+    } else if (on) {
+      // Interrupteur : coché = alerte active ; décoché = en pause (muted).
+      status = '<label class="switch-row param-mute-row">' +
+          '<span class="switch"><input type="checkbox" class="param-mute"' + (muted ? '' : ' checked') +
+            ' aria-label="Activer ou mettre en pause cette alerte">' +
+            '<span class="track"></span><span class="thumb"></span></span>' +
+          '<span class="switch-label' + (muted ? '' : ' on') + '">' + (muted ? 'En pause' : 'Abonné') + '</span>' +
+        '</label>';
+    } else {
+      status = '<div class="param-status"><span class="switch-label">Non abonné</span></div>';
+    }
+    // F1) instances + « + ajouter » + sélecteur groupés dans une rangée inline (flux
+    // des chips, retour à la ligne naturel) : « + ajouter » a la largeur de son contenu
+    // et, au clic, l'input apparaît À SA PLACE (site.js masque le bouton, montre le form).
+    var row = '<div class="param-row">' + chips + addBtn + picker + '</div>';
+    return row + anon + status;
   }
 
   function frontFace(s, mode, isLinked) {
@@ -235,6 +251,17 @@
       '</div>';
   }
 
+  // F3) 4e face : « Ajouter à un deck ». Vide au rendu ; deck-add.js la remplit (liste
+  // des decks / création du premier deck inline) puis retourne la carte au clic sur « + ».
+  function deckFace() {
+    return '' +
+      '<div class="card-face card-deck-face">' +
+        '<button class="flip-back" type="button" aria-label="Retour" title="Retour">' + BACK_SVG + '</button>' +
+        '<div class="cdf-title">Ajouter à un deck</div>' +
+        '<div class="cdf-body"></div>' +
+      '</div>';
+  }
+
   // 3e face : partage (grille remplie à la volée par site.js via LBAShare.optionsHTML).
   function shareFace() {
     return '' +
@@ -260,6 +287,8 @@
     // Abonné = broadcast souscrit OU au moins une instance paramétrée.
     var hasInstances = Array.isArray(s.instances) && s.instances.length > 0;
     var sub = mode === 'connected' && (!!s.subscribed || hasInstances) ? '1' : '0';
+    // F3) La 4e face « deck » n'existe que là où le « + » existe (connecté, non lié).
+    var showAdd = mode === 'connected' && !isLinked;
     return '' +
       '<div class="card flip" data-cats="' + dataCats + '" data-source-id="' + esc(s.id) + '"' +
         ' data-subscribed="' + sub + '" data-search="' + esc(searchText(s, cats)) + '">' +
@@ -267,6 +296,7 @@
           frontFace(s, mode, isLinked) +
           backFace(s, cats, isLinked, mode) +
           shareFace() +
+          (showAdd ? deckFace() : '') +
         '</div>' +
       '</div>';
   }

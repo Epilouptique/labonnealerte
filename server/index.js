@@ -122,6 +122,11 @@ app.get('/mes-decks', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'mes-decks.html'));
 });
 
+// D) Page « Mes favoris » — cartes aimées (serveur si connecté, localStorage sinon).
+app.get('/favoris', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'favoris.html'));
+});
+
 // Page publique d'un deck partagé : /deck/:token. SEO PRUDENT (anti-spam d'aperçu) :
 // og:title = nom du deck (déjà validé à la saisie) ; og:description = description
 // GÉNÉRIQUE du site (JAMAIS la description libre de l'utilisateur). 404 propre.

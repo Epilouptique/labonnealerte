@@ -4,6 +4,7 @@ const { pool } = require('../db');
 const { CATEGORIES } = require('../categories');
 const { COUNTRIES, DEPARTEMENTS } = require('../geo');
 const { paramsFromQuery } = require('../params');
+const { authenticate } = require('../sessions');
 
 const router = express.Router();
 
@@ -95,6 +96,17 @@ router.post('/sources/:id/like', likeLimiter, async (req, res) => {
       [req.params.id]
     );
     if (rows.length === 0) return res.status(404).json({ error: 'Source inconnue' });
+    // D) Connecté : le like devient aussi un favori personnel (idempotent).
+    const token = (req.body && req.body.token) || req.query.token;
+    if (token) {
+      const auth = await authenticate(token);
+      if (auth) {
+        await pool.query(
+          'INSERT INTO favorites (subscriber_id, source_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+          [auth.id, req.params.id]
+        );
+      }
+    }
     res.json({ id: rows[0].id, likes_count: rows[0].likes_count });
   } catch (err) {
     console.error('[api] Erreur POST /sources/:id/like :', err.message);
@@ -111,9 +123,49 @@ router.delete('/sources/:id/like', likeLimiter, async (req, res) => {
       [req.params.id]
     );
     if (rows.length === 0) return res.status(404).json({ error: 'Source inconnue' });
+    // D) Connecté : retirer le like retire aussi le favori personnel.
+    const token = (req.body && req.body.token) || req.query.token;
+    if (token) {
+      const auth = await authenticate(token);
+      if (auth) {
+        await pool.query('DELETE FROM favorites WHERE subscriber_id = $1 AND source_id = $2', [auth.id, req.params.id]);
+      }
+    }
     res.json({ id: rows[0].id, likes_count: rows[0].likes_count });
   } catch (err) {
     console.error('[api] Erreur DELETE /sources/:id/like :', err.message);
+    res.status(503).json({ error: 'DB unavailable' });
+  }
+});
+
+// D) GET /api/favorites — cartes aimées de l'utilisateur connecté (enrichies, même
+// forme que /api/sources → rendu client identique). Anonyme/token invalide → 401
+// (la page /favoris bascule alors sur le localStorage lba-likes).
+router.get('/favorites', async (req, res) => {
+  const auth = await authenticate(req.query.token);
+  if (!auth) return res.status(401).json({ error: 'Session invalide ou expirée' });
+  try {
+    const { rows } = await pool.query(
+      `SELECT s.id, s.name, s.subtitle, s.description, s.badge, s.type, s.link_url,
+              s.categories, s.submitted_by_github, s.params_schema,
+              s.likes_count, s.created_at,
+              CASE WHEN s.type = 'linked' THEN NULL
+                   ELSE COALESCE(st.state, 'inactive') END AS state,
+              (SELECT COUNT(*) FROM subscriptions sub
+                 JOIN subscribers subr ON subr.id = sub.subscriber_id
+                WHERE sub.source_id = s.id AND subr.confirmed = true)::int AS subscriber_count,
+              (SELECT MAX(created_at) FROM source_events e
+                WHERE e.source_id = s.id AND e.event = 'activated') AS last_activated_at
+         FROM favorites f
+         JOIN sources s ON s.id = f.source_id AND s.enabled = true
+         LEFT JOIN source_states st ON st.source_id = s.id
+        WHERE f.subscriber_id = $1
+        ORDER BY f.created_at DESC`,
+      [auth.id]
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('[api] Erreur GET /favorites :', err.message);
     res.status(503).json({ error: 'DB unavailable' });
   }
 });

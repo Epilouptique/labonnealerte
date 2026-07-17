@@ -58,16 +58,19 @@
         '<nav class="m-menu-list" aria-label="Navigation principale">' +
           (logged
             ? '<button type="button" class="m-link m-primary" data-act="mine">Ma collection</button>' +
-              '<a href="/mes-decks" class="m-link">Mes decks</a>'
-            : '<a href="/connexion" class="m-primary" data-act="auth">Se connecter</a>') +
+              '<a href="/mes-decks" class="m-link">Mes decks</a>' +
+              '<a href="/favoris" class="m-link">Mes favoris</a>'
+            : '<a href="/connexion" class="m-primary" data-act="auth">Se connecter</a>' +
+              '<a href="/favoris" class="m-link">Mes favoris</a>') +
           '<a href="/proposer">Déposer une alerte</a>' +
           '<button type="button" class="m-link" data-act="search">Rechercher</button>' +
           '<hr class="m-menu-sep">' +
-          (logged ? '<button type="button" class="m-link" data-act="account">Mon compte</button>' : '') +
           '<button type="button" class="m-link m-has-ic" data-act="categories">' + IC_CAT + ' Catégories</button>' +
           '<button type="button" class="m-link m-has-ic" data-act="nouveautes">' + IC_NOUV + ' Les nouvelles</button>' +
           '<button type="button" class="m-link m-has-ic" data-act="selection">' + IC_SEL + ' La sélection</button>' +
           '<hr class="m-menu-sep">' +
+          // E) « Mon compte » regroupé juste au-dessus de « Nous soutenir ».
+          (logged ? '<button type="button" class="m-link" data-act="account">Mon compte</button>' : '') +
           '<a href="/soutenir">Nous soutenir</a>' +
           '<hr class="m-menu-sep">' +
           '<a href="/proposer">Espace développeurs</a>' +
@@ -113,8 +116,10 @@
       document.body.classList.add('m-menu-open');
       if (toggle) toggle.setAttribute('aria-expanded', 'true');
       if (!REDUCE) { menu.classList.add('m-anim'); void menu.offsetWidth; menu.classList.add('open'); }
-      var first = menu.querySelector('.m-menu-list a, .m-menu-list button');
-      if (first) first.focus();
+      // E) Focus sur le dialogue lui-même (tabindex -1) : Échap/piégeage OK, mais AUCUN
+      // anneau focus-visible parasite sur « Ma collection » à l'ouverture.
+      menu.setAttribute('tabindex', '-1');
+      menu.focus();
     }
     function closeMenu() {
       if (menu.hidden) return;
@@ -131,9 +136,14 @@
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !menu.hidden) { e.preventDefault(); closeMenu(); } });
 
     // Applique un mode/filtre de grille : sur la home via la puce, ailleurs via /?mode=.
+    function scrollTopSmooth() {
+      try { window.scrollTo({ top: 0, behavior: REDUCE ? 'auto' : 'smooth' }); }
+      catch (e) { window.scrollTo(0, 0); }
+    }
     function gridAction(mode) {
       var c = isHome ? document.querySelector('.chip-f[data-cat="' + mode + '"]') : null;
-      if (c) c.click();
+      // E) Après application d'un filtre sur la home : remonter en haut de page.
+      if (c) { c.click(); scrollTopSmooth(); }
       else window.location.href = '/?mode=' + encodeURIComponent(mode);
     }
 
@@ -147,6 +157,13 @@
       var cats = window.LBAKioskCats;
       if ((!cats || !cats.length) && window.LBACat && window.LBACat.all) {
         cats = window.LBACat.all().map(function (c) { return { slug: c.slug, label: c.label, count: null }; });
+        // E) BUG « aucune catégorie » hors home : la taxonomie n'était jamais chargée
+        // ailleurs que sur le kiosque. On la charge à la demande puis on re-remplit.
+        if ((!cats || !cats.length) && window.LBACat.load) {
+          host.innerHTML = '<div class="m-cat-empty">Chargement…</div>';
+          window.LBACat.load().then(function () { fillCats(); });
+          return;
+        }
       }
       cats = cats || [];
       host.innerHTML = cats.map(function (c) {
@@ -170,7 +187,7 @@
         var slug = catItem.getAttribute('data-cat');
         closeMenu(); flipTo(false);
         var chip = isHome ? document.querySelector('.chip-f[data-cat="' + slug + '"]') : null;
-        if (chip) chip.click();
+        if (chip) { chip.click(); scrollTopSmooth(); }
         else window.location.href = '/?cat=' + encodeURIComponent(slug);
         return;
       }
@@ -292,6 +309,7 @@
     navRight.innerHTML =
       '<a class="mine-link" href="/connexion">Ma collection</a>' +
       '<a id="nav-openalert" href="/#openalert">OpenAlert</a>' +
+      '<a class="fav-link" href="/favoris" aria-label="Mes favoris" title="Mes favoris"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-6.7-4.35-9.1-8.05C1.2 10.3 2.3 6.5 5.7 6.5c1.9 0 3.1 1.1 3.8 2.1.7-1 1.9-2.1 3.8-2.1 3.4 0 4.5 3.8 2.8 6.45C18.7 16.65 12 21 12 21z"/></svg></a>' +
       '<span class="auth-email" id="auth-email" hidden></span>' +
       '<a class="btn-login" id="auth-link" href="/connexion">Se connecter</a>' +
       '<button class="theme-btn" type="button" aria-label="Changer de thème">◐</button>';

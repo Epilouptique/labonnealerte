@@ -44,7 +44,7 @@
         var mine = mineMap[sc.id];
         if (mine && Array.isArray(sc.params_schema) && sc.params_schema.length) {
           sc.instances = mine.instances || [];
-          if (sc.instances.length) sc.state = mine.state;
+          if (sc.instances.length) { sc.state = mine.state; sc.muted = mine.muted; }
         }
       }
       return LBACards.cardHTML(sc, MODE);
@@ -59,7 +59,7 @@
     var em = document.getElementById('deck-emoji');
     if (em) {
       var motif = (window.LBADeckMotifs && (LBADeckMotifs[d.emoji] || LBADeckMotifs['📦'])) || '';
-      em.innerHTML = '<span class="deck-thumb deck-thumb-lg tint-' + ((d.tint >= 1 && d.tint <= 8) ? d.tint : 1) +
+      em.innerHTML = '<span class="deck-thumb deck-thumb-lg tint-' + ((d.tint >= 1 && d.tint <= 11) ? d.tint : 1) +
         '"><span class="deck-motif-bg" aria-hidden="true">' + motif + '</span></span>';
     }
     document.getElementById('deck-name').textContent = d.name || '';

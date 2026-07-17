@@ -13,8 +13,8 @@ const ugc = require('../ugc');
 
 const router = express.Router();
 const MAX_DECKS = 10;
-// Teinte dominante 1-8 (défaut 1 = violet). Toute valeur hors plage → 1.
-function parseTint(v) { const n = parseInt(v, 10); return (Number.isInteger(n) && n >= 1 && n <= 8) ? n : 1; }
+// Teinte dominante 1-11 (défaut 1 = violet). Toute valeur hors plage → 1.
+function parseTint(v) { const n = parseInt(v, 10); return (Number.isInteger(n) && n >= 1 && n <= 11) ? n : 1; }
 
 /* ---------------- Rate-limit mémoire : création/édition de deck ---------------- */
 // 10 créations+éditions / heure / compte (réutilise l'esprit du likeLimiter).

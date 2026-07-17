@@ -42,7 +42,7 @@ async function confirmedEmailsForSource(sourceId) {
     `SELECT s.email, s.token
        FROM subscribers s
        JOIN subscriptions sub ON sub.subscriber_id = s.id
-      WHERE sub.source_id = $1 AND s.confirmed = true AND s.email_enabled = true`,
+      WHERE sub.source_id = $1 AND s.confirmed = true AND s.email_enabled = true AND sub.muted = false`,
     [sourceId]
   );
   return rows.map((r) => ({ email: r.email, token: r.token }));
@@ -59,7 +59,7 @@ async function loadSubscribersForAlert(sourceId, params) {
             (SELECT COUNT(*)::int FROM push_subscriptions p WHERE p.subscriber_id = s.id) AS push_count
        FROM subscribers s
        JOIN subscriptions sub ON sub.subscriber_id = s.id
-      WHERE sub.source_id = $1 AND s.confirmed = true AND ${paramsCond}`,
+      WHERE sub.source_id = $1 AND s.confirmed = true AND sub.muted = false AND ${paramsCond}`,
     args
   );
   return rows;
@@ -348,7 +348,7 @@ async function confirmedEmailsForSourceParams(sourceId, params) {
        FROM subscribers s
        JOIN subscriptions sub ON sub.subscriber_id = s.id
       WHERE sub.source_id = $1 AND sub.params = $2::jsonb
-        AND s.confirmed = true AND s.email_enabled = true`,
+        AND s.confirmed = true AND s.email_enabled = true AND sub.muted = false`,
     [sourceId, JSON.stringify(params)]
   );
   return rows.map((r) => ({ email: r.email, token: r.token }));

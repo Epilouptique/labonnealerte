@@ -121,7 +121,7 @@ apiRouter.get('/my-alerts', async (req, res) => {
     // avec libellé résolu et état de source_param_states. On enrichit la carte
     // correspondante (subscribed = a des instances ; state = le pire des instances).
     const paramSubs = await pool.query(
-      `SELECT sub.source_id, sub.params, s.params_schema,
+      `SELECT sub.source_id, sub.params, sub.muted, s.params_schema,
               COALESCE(sps.state, 'inactive') AS state
          FROM subscriptions sub
          JOIN sources s ON s.id = sub.source_id
@@ -141,13 +141,15 @@ apiRouter.get('/my-alerts', async (req, res) => {
     paramSubs.rows.forEach((ps) => {
       const row = byId[ps.source_id];
       if (!row) return;
-      row.instances.push({ params: ps.params, label: resolveLabel(ps.params_schema, ps.params), state: ps.state });
+      row.instances.push({ params: ps.params, label: resolveLabel(ps.params_schema, ps.params), state: ps.state, muted: ps.muted === true });
     });
     // Pour chaque source paramétrée abonnée : subscribed=true, state = pire instance.
+    // F2) muted au niveau source = TOUTES les instances en pause (interrupteur global).
     Object.values(byId).forEach((r) => {
       if (r.instances.length) {
         r.subscribed = true;
         r.state = worstState(r.instances.map((i) => i.state));
+        r.muted = r.instances.every((i) => i.muted);
       }
     });
 
@@ -431,6 +433,32 @@ apiRouter.post('/my-alerts/toggle-param', async (req, res) => {
     });
   } catch (err) {
     console.error('[my-alerts] Erreur POST /toggle-param :', err.message);
+    return res.status(503).json({ error: 'Service indisponible' });
+  }
+});
+
+/* ------------------------------------------------------------------ */
+/* POST /api/my-alerts/toggle-mute — met en pause / réactive TOUTES les  */
+/* instances d'une source pour ce compte, SANS les supprimer (F2).       */
+/* Corps : { token, source_id, muted }. muted=true → le poller ne notifie */
+/* plus ; les paramètres et l'abonnement sont conservés.                 */
+/* ------------------------------------------------------------------ */
+apiRouter.post('/my-alerts/toggle-mute', async (req, res) => {
+  const { token, source_id, muted } = req.body || {};
+  if (!source_id || typeof muted !== 'boolean') {
+    return res.status(400).json({ error: 'Paramètres invalides' });
+  }
+  try {
+    const auth = await authenticate(token);
+    if (!auth) return res.status(401).json({ error: 'Session invalide ou expirée' });
+    const r = await pool.query(
+      'UPDATE subscriptions SET muted = $1 WHERE subscriber_id = $2 AND source_id = $3',
+      [muted, auth.id, source_id]
+    );
+    if (r.rowCount === 0) return res.status(404).json({ error: 'Aucun abonnement à cette source' });
+    return res.status(200).json({ source_id, muted });
+  } catch (err) {
+    console.error('[my-alerts] Erreur POST /toggle-mute :', err.message);
     return res.status(503).json({ error: 'Service indisponible' });
   }
 });

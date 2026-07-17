@@ -117,14 +117,14 @@
       "<circle cx='96' cy='90' r='2' fill='currentColor' stroke='none'/>" +
       C,
 
-    // ☀️ sun outline + rounded rays
+    // ☀️ sun disc + evenly spread rays (revised, cleaner)
     "☀️":
       SVG_OPEN +
-      "<circle cx='68' cy='54' r='22'/>" +
-      "<path d='M68 20 L68 28 M68 80 L68 88 M34 54 L42 54 M94 54 L102 54'/>" +
-      "<path d='M44 30 L49 35 M87 59 L92 64 M44 78 L49 73 M87 49 L92 44'/>" +
-      "<circle cx='22' cy='96' r='2.5' fill='currentColor' stroke='none'/>" +
-      "<circle cx='104' cy='98' r='2.5' fill='currentColor' stroke='none'/>" +
+      "<circle cx='66' cy='56' r='20'/>" +
+      "<path d='M66 20 L66 30 M66 82 L66 92 M30 56 L40 56 M92 56 L102 56'/>" +
+      "<path d='M41 31 L48 38 M84 62 L91 69 M41 81 L48 74 M84 50 L91 43'/>" +
+      "<circle cx='22' cy='94' r='2.5' fill='currentColor' stroke='none'/>" +
+      "<circle cx='104' cy='96' r='2.5' fill='currentColor' stroke='none'/>" +
       C,
 
     // ❄️ simple geometric snowflakes
@@ -176,16 +176,13 @@
       "<path d='M94 44 L100 44 L100 50'/>" +
       C,
 
-    // 💰 stacked round coins
+    // 💰 large euro € symbol
     "💰":
       SVG_OPEN +
-      "<ellipse cx='70' cy='84' rx='26' ry='10'/>" +
-      "<path d='M44 84 L44 68 M96 84 L96 68'/>" +
-      "<ellipse cx='70' cy='68' rx='26' ry='10'/>" +
-      "<path d='M44 68 L44 52 M96 68 L96 52'/>" +
-      "<ellipse cx='70' cy='52' rx='26' ry='10'/>" +
-      "<path d='M70 46 L70 58 M66 50 L74 50'/>" +
-      "<circle cx='24' cy='36' r='2.5' fill='currentColor' stroke='none'/>" +
+      "<path d='M86 34 C74 24 54 24 44 38 C34 52 34 74 44 88 C54 102 74 102 86 92'/>" +
+      "<path d='M28 56 L76 56 M26 72 L74 72'/>" +
+      "<circle cx='104' cy='34' r='2.5' fill='currentColor' stroke='none'/>" +
+      "<circle cx='100' cy='98' r='2.5' fill='currentColor' stroke='none'/>" +
       C,
 
     // 🎬 clapperboard/film strip silhouette
@@ -206,23 +203,20 @@
       "<path d='M18 44 C28 38 38 50 48 44'/>" +
       C,
 
-    // 📚 stacked books silhouette
+    // 📚 open book (revised)
     "📚":
       SVG_OPEN +
-      "<path d='M36 92 L96 92 L96 100 L36 100 Z'/>" +
-      "<path d='M32 76 L92 76 L92 92 L32 92 Z'/>" +
-      "<path d='M38 60 L98 60 L98 76 L38 76 Z'/>" +
-      "<path d='M44 60 L44 76 M62 76 L62 92 M74 92 L74 100'/>" +
+      "<path d='M64 40 C54 34 40 32 26 36 L26 88 C40 84 54 86 64 92 C74 86 88 84 102 88 L102 36 C88 32 74 34 64 40 Z'/>" +
+      "<path d='M64 40 L64 92'/>" +
+      "<path d='M34 50 C42 48 50 49 56 52 M34 62 C42 60 50 61 56 64 M72 52 C78 49 86 48 94 50 M72 64 C78 61 86 60 94 62'/>" +
       C,
 
-    // 🏃 running figure silhouette + speed lines
-    "🏃":
+    // ⚽ football (soccer ball) — replaces the runner motif (🏃→⚽)
+    "⚽":
       SVG_OPEN +
-      "<circle cx='78' cy='36' r='8'/>" +
-      "<path d='M78 44 L70 62 L84 70 L80 88'/>" +
-      "<path d='M70 62 L54 58 M84 70 L96 66'/>" +
-      "<path d='M70 62 L60 84'/>" +
-      "<path d='M20 50 L42 50 M14 66 L38 66 M22 82 L40 82'/>" +
+      "<circle cx='64' cy='58' r='34'/>" +
+      "<path d='M64 40 L50 50 L56 68 L72 68 L78 50 Z'/>" +
+      "<path d='M64 40 L64 26 M50 50 L36 44 M56 68 L46 82 M72 68 L82 82 M78 50 L92 44'/>" +
       C,
 
     // 🍽️ plate + cutlery outline
@@ -234,17 +228,16 @@
       "<path d='M110 34 C102 38 102 54 110 58 L110 88 M110 58 L110 34'/>" +
       C,
 
-    // 🐾 scattered paw prints
-    "🐾":
+    // 🐱 cat head — replaces the paw-prints motif (🐾→🐱)
+    "🐱":
       SVG_OPEN +
-      "<ellipse cx='40' cy='58' rx='9' ry='11'/>" +
-      "<circle cx='28' cy='42' r='4'/>" +
-      "<circle cx='40' cy='38' r='4'/>" +
-      "<circle cx='52' cy='42' r='4'/>" +
-      "<ellipse cx='84' cy='90' rx='9' ry='11'/>" +
-      "<circle cx='72' cy='74' r='4'/>" +
-      "<circle cx='84' cy='70' r='4'/>" +
-      "<circle cx='96' cy='74' r='4'/>" +
+      "<path d='M36 46 L30 26 L50 40'/>" +
+      "<path d='M92 46 L98 26 L78 40'/>" +
+      "<path d='M34 44 C28 56 28 74 40 84 C52 92 76 92 88 84 C100 74 100 56 94 44'/>" +
+      "<circle cx='52' cy='60' r='2.6' fill='currentColor' stroke='none'/>" +
+      "<circle cx='76' cy='60' r='2.6' fill='currentColor' stroke='none'/>" +
+      "<path d='M64 66 L64 73 M64 73 C60 78 55 76 55 71 M64 73 C68 78 73 76 73 71'/>" +
+      "<path d='M40 65 L22 61 M40 71 L22 74 M88 65 L106 61 M88 71 L106 74'/>" +
       C,
 
     // 🚨 exclamation "!" + concentric alert waves

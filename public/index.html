@@ -25,6 +25,7 @@
     </button>
     <nav class="nav-right" id="nav-menu">
       <a class="mine-link" href="/connexion">Ma collection</a>
+      <a class="fav-link" href="/favoris" aria-label="Mes favoris" title="Mes favoris"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-6.7-4.35-9.1-8.05C1.2 10.3 2.3 6.5 5.7 6.5c1.9 0 3.1 1.1 3.8 2.1.7-1 1.9-2.1 3.8-2.1 3.4 0 4.5 3.8 2.8 6.45C18.7 16.65 12 21 12 21z"/></svg></a>
       <span class="auth-email" id="auth-email" hidden></span>
       <a class="btn-login" id="auth-link" href="/connexion">Se connecter</a>
       <button class="theme-btn" type="button" aria-label="Changer de thème">◐</button>
@@ -47,6 +48,10 @@
     <div class="shelf-row" id="shelf-row" role="list"></div>
   </section>
 
+  <!-- B) « Le kiosque » + la barre d'outils groupés : le label de section se pin
+       dans la marge à la hauteur de CE bloc (et non du haut du main), pour ne plus
+       chevaucher « Les decks » quelle que soit la hauteur de l'étagère. -->
+  <div class="kiosk-head">
   <div class="section-label">Le kiosque</div>
 
   <div class="toolbar">
@@ -64,6 +69,7 @@
       <button class="chip-f on" type="button" data-cat="all">Toutes <span class="n"></span></button>
     </div>
   </div>
+  </div><!-- /.kiosk-head -->
 
   <!-- I) 2e ligne de catégories : hors de .toolbar → la barre de recherche ne bouge plus -->
   <div class="chips-secondary-wrap" id="chips-secondary-wrap"></div>

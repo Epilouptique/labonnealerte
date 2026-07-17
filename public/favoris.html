@@ -3,12 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mes decks — La Bonne Alerte</title>
-<meta name="description" content="Composez vos propres decks d'alertes et partagez-les.">
-<meta property="og:title" content="Mes decks — La Bonne Alerte">
-<meta property="og:description" content="Composez vos propres decks d'alertes et partagez-les.">
-<meta property="og:url" content="https://www.labonnealerte.fr/mes-decks">
-<meta property="og:type" content="website">
+<title>Mes favoris — La Bonne Alerte</title>
+<meta name="description" content="Retrouvez toutes les alertes que vous avez aimées.">
+<meta name="robots" content="noindex">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="stylesheet" href="/css/fonts.css">
 <link rel="stylesheet" href="/css/tokens.css">
@@ -30,16 +27,26 @@
   </div>
 </header>
 
-<main class="wrap decks-main">
-  <div id="decks-loading" class="src-loading">Chargement…</div>
+<main class="wrap coll-main favoris-main">
+  <div id="fav-loading" class="src-loading">Chargement…</div>
 
-  <div id="decks-anon" class="decks-anon" hidden>
-    <h1>Mes <span class="hl">decks</span></h1>
-    <p class="src-desc">Connectez-vous pour composer vos propres decks d'alertes et les partager.</p>
-    <a class="coll-adopt" href="/connexion">Se connecter</a>
-  </div>
+  <section id="fav-view" hidden>
+    <div class="coll-head">
+      <div class="coll-head-top">
+        <h1>Mes <span class="hl">favoris</span></h1>
+      </div>
+      <p id="fav-desc" class="src-desc">Les alertes que vous avez aimées.</p>
+    </div>
 
-  <section id="decks-view" hidden></section>
+    <div class="grid" id="fav-grid"></div>
+
+    <div id="fav-empty" class="grid-empty" hidden>
+      <p>Vous n'avez pas encore de favori. Aimez une carte (le cœur ❤) pour la retrouver ici.</p>
+      <a class="empty-btn" href="/">Découvrir le kiosque</a>
+    </div>
+  </section>
+
+  <div id="fav-error" class="src-error" hidden>Impossible de charger vos favoris.</div>
 </main>
 
 <footer>
@@ -51,8 +58,9 @@
 <script src="/js/categories.js"></script>
 <script src="/js/cards.js"></script>
 <script src="/js/share.js"></script>
+<script src="/js/site.js"></script>
 <script src="/js/deck-motifs.js"></script>
-<script src="/js/decks.js"></script>
+<script src="/js/favoris.js"></script>
 <script src="/js/theme.js"></script>
 <script src="/js/header.js"></script>
 <script src="/js/pwa.js"></script>

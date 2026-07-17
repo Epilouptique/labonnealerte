@@ -144,13 +144,15 @@
       '</div>' +
       // Phase 2 : nom public (pseudo) — signe les decks partagés, jamais l'email.
       '<div class="acct-subhead">Nom public <span id="pref-dn-msg" class="pref-feedback" role="status"></span></div>' +
+      // J) Une SEULE notif-row : libellé à gauche, saisie + « Enregistrer » à droite,
+      // au style du site (notif-sub explicatif supprimé).
       '<div class="notif-card">' +
       '  <div class="notif-row pref-dn-row">' +
-      '    <div class="notif-txt"><strong>Votre nom public</strong><span class="notif-sub">Signe les decks que vous partagez. Jamais votre email.</span></div>' +
-      '  </div>' +
-      '  <div class="notif-row pref-dn-input-row">' +
-      '    <input id="pref-dn" class="pref-dn-input" type="text" maxlength="25" placeholder="ex. Hugo des Alpes" value="' + esc(state.displayName || '') + '">' +
-      '    <button type="button" id="pref-dn-save" class="pref-dn-save">Enregistrer</button>' +
+      '    <div class="notif-txt"><strong>Votre nom public</strong></div>' +
+      '    <div class="pref-dn-input-row">' +
+      '      <input id="pref-dn" class="pref-dn-input" type="text" maxlength="25" placeholder="ex. Hugo des Alpes" value="' + esc(state.displayName || '') + '">' +
+      '      <button type="button" id="pref-dn-save" class="pref-dn-save notif-btn">Enregistrer</button>' +
+      '    </div>' +
       '  </div>' +
       '</div>';
 

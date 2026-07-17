@@ -8,7 +8,7 @@ const crypto = require('crypto');
 // détourné en vecteur de contenu). Le client propose exactement cette liste.
 const DECK_EMOJIS = [
   '📦', '🎒', '⭐', '🔥', '💡', '🎯', '🌍', '🏔️', '🌊', '🌌', '☀️', '❄️',
-  '🍁', '🎮', '💻', '📈', '💰', '🎬', '🎵', '📚', '🏃', '🍽️', '🐾', '🚨',
+  '🍁', '🎮', '💻', '📈', '💰', '🎬', '🎵', '📚', '⚽', '🍽️', '🐱', '🚨',
 ];
 const EMOJI_SET = new Set(DECK_EMOJIS);
 

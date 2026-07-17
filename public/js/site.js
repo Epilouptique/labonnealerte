@@ -126,7 +126,16 @@
     setLikeUI(btn, !liked, next);
     if (liked) likeRemove(id); else likeAdd(id);
     btn.disabled = true;
-    fetch('/api/sources/' + encodeURIComponent(id) + '/like', { method: liked ? 'DELETE' : 'POST' })
+    // D) Connecté : on transmet le token → le like/unlike met aussi à jour les favoris
+    // serveur. Anonyme : pas de token, les favoris restent dans lba-likes (localStorage).
+    var tok = (window.LBASession && LBASession.get && LBASession.get()) || null;
+    var opts = liked ? { method: 'DELETE' } : { method: 'POST' };
+    var url = '/api/sources/' + encodeURIComponent(id) + '/like';
+    if (tok) {
+      if (liked) { url += '?token=' + encodeURIComponent(tok); }
+      else { opts.headers = { 'Content-Type': 'application/json' }; opts.body = JSON.stringify({ token: tok }); }
+    }
+    fetch(url, opts)
       .then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.json(); })
       .then(function (d) { if (d && typeof d.likes_count === 'number') setLikeUI(btn, !liked, d.likes_count); })
       .catch(function () {
@@ -353,9 +362,10 @@
       var c2 = back.closest('.card');
       if (c2) {
         var wasShare = c2.classList.contains('face-share');
+        var wasDeck = c2.classList.contains('face-deck'); // F3
         c2.classList.remove('flipped');
-        // Garde la face partage cachant l'info pendant la rotation de retour (anti-flicker).
-        if (wasShare) setTimeout(function () { c2.classList.remove('face-share'); }, REDUCE ? 0 : 520);
+        // Garde la face active cachant l'info pendant la rotation de retour (anti-flicker).
+        if (wasShare || wasDeck) setTimeout(function () { c2.classList.remove('face-share', 'face-deck'); }, REDUCE ? 0 : 520);
       }
       return;
     }
@@ -461,6 +471,7 @@
   document.addEventListener('change', function (e) {
     var input = e.target.closest('.switch input');
     if (!input) return;
+    if (input.classList.contains('param-mute')) return; // F2 : géré séparément (pause)
     var card = input.closest('.card');
     if (!card) return;
     if (document.body.getAttribute('data-mode') === 'connected') {
@@ -470,6 +481,32 @@
     } else {
       cancelPending(card);
     }
+  });
+
+  // F2) Interrupteur pause/reprise des cartes paramétrées abonnées : décoché = en
+  // pause (muted, sans perdre les paramètres) ; coché = alerte active. Optimiste + rollback.
+  async function toggleMute(card, input) {
+    var muted = !input.checked; // décoché = en pause
+    var sourceId = card.getAttribute('data-source-id');
+    var lbl = card.querySelector('.param-mute-row .switch-label');
+    function paint(m) { if (lbl) { lbl.textContent = m ? 'En pause' : 'Abonné'; lbl.classList.toggle('on', !m); } }
+    paint(muted);
+    input.disabled = true;
+    try {
+      var res = await fetch('/api/my-alerts/toggle-mute', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: LBASession.get(), source_id: sourceId, muted: muted })
+      });
+      if (!res.ok) throw new Error('http ' + res.status);
+    } catch (e) {
+      input.checked = !input.checked; paint(!input.checked); // rollback
+    } finally { input.disabled = false; }
+  }
+  document.addEventListener('change', function (e) {
+    var m = e.target.closest('.param-mute');
+    if (!m) return;
+    var card = m.closest('.card'); if (!card) return;
+    if (document.body.getAttribute('data-mode') === 'connected') toggleMute(card, m);
   });
 
   // Soumission du formulaire email (mode anonyme).
@@ -1275,16 +1312,24 @@
     var g = document.getElementById('grid');
     if (!g) return;
     var extras = document.getElementById('static-extras');
+    g.classList.add('grid-loading'); // I) halo de chargement (retiré au rendu)
 
-    await LBACat.load(); // labels + recherche par catégorie
+    // I) Perf : les 3 requêtes initiales (catégories, sources, /my-alerts) ne dépendent
+    // pas les unes des autres → on les lance EN PARALLÈLE au lieu de les enchaîner.
+    var token = LBASession.get();
+    var catP = LBACat.load();
+    var srcP = fetch('/api/sources', { headers: { Accept: 'application/json' } })
+      .then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.json(); });
+    var alertP = token ? LBASession.fetchAlerts(token).catch(function () { return null; }) : Promise.resolve(null);
+
+    await catP; // labels + recherche par catégorie (requis avant le rendu)
 
     var sources;
     try {
-      var r = await fetch('/api/sources', { headers: { Accept: 'application/json' } });
-      if (!r.ok) throw new Error('http ' + r.status);
-      sources = await r.json();
+      sources = await srcP;
       if (!Array.isArray(sources)) throw new Error('format');
     } catch (e) {
+      g.classList.remove('grid-loading');
       showGridError(g, extras);
       updateKPI(null);
       return;
@@ -1292,12 +1337,11 @@
 
     // Session : mode connecté si token valide.
     var mode = 'anon', subMap = {}, mineMap = {}, email = null;
-    var token = LBASession.get();
     if (token) {
       try {
-        var s = await LBASession.fetchAlerts(token);
-        if (s.status === 401) LBASession.clear();
-        else if (s.ok && s.data) {
+        var s = await alertP;
+        if (s && s.status === 401) LBASession.clear();
+        else if (s && s.ok && s.data) {
           mode = 'connected';
           email = s.data.email;
           (s.data.sources || []).forEach(function (x) { subMap[x.id] = x.subscribed; mineMap[x.id] = x; });
@@ -1332,13 +1376,14 @@
         var mine = mineMap[sc.id];
         if (mine && Array.isArray(sc.params_schema) && sc.params_schema.length) {
           sc.instances = mine.instances || [];
-          if (sc.instances.length) sc.state = mine.state;
+          if (sc.instances.length) { sc.state = mine.state; sc.muted = mine.muted; }
         }
       }
       return LBACards.cardHTML(sc, mode);
     }).join('');
 
     removeSkeletons(g);
+    g.classList.remove('grid-loading'); // I) fin du chargement
     if (extras) extras.insertAdjacentHTML('beforebegin', html);
     // Mémorise l'ordre source de chaque carte (pour restaurer sa position après reco).
     g.querySelectorAll('.card[data-cats]').forEach(function (c, i) { c.dataset.order = i; });
@@ -1397,7 +1442,7 @@
         ? '<span class="pack-likes">❤ ' + esc(LBACards.formatCount(c.total_likes)) + '</span>' : '';
       var n = c.card_count || 0;
       // E5) fond teinté + motif (SVG de la bibliothèque, plus d'emoji affiché).
-      var tintCls = 'tint-' + ((c.tint >= 1 && c.tint <= 8) ? c.tint : 1);
+      var tintCls = 'tint-' + ((c.tint >= 1 && c.tint <= 11) ? c.tint : 1);
       var motif = (window.LBADeckMotifs && (LBADeckMotifs[c.emoji] || LBADeckMotifs['📦'])) || '';
       return '<a class="pack ' + tintCls + '" role="listitem" href="/collection/' + encodeURIComponent(c.id) + '">' +
         '<span class="pack-stack" aria-hidden="true"></span>' +
@@ -1419,14 +1464,16 @@
     shelf.classList.toggle('shelf-hidden', cat !== 'all');
   }
 
-  // E2) Desktop : défilement automatique lent et continu (marquee doux), en boucle
-  // sans couture (packs dupliqués), en pause au survol/focus. Mobile : rien (glisse
-  // tactile). reduced-motion : rien (statique).
+  // B) Carrousel INFINI, PC ET mobile : défilement continu et lent, en boucle sans
+  // couture. Le contenu est dupliqué une fois et scrollLeft est rebouclé modulo la
+  // demi-largeur → aussi bien pour l'auto-défilement que pour la glisse tactile (drag
+  // natif, plus de blocage en bout de liste, boucle dans les deux sens). Au survol PC,
+  // on RALENTIT (au lieu de figer) pour garder l'effet carrousel tout en laissant le
+  // deck survolé confortablement cliquable. reduced-motion : statique (glisse seule).
   function setupShelfAutoScroll(row) {
-    var wide = !!(window.matchMedia && window.matchMedia('(min-width: 721px)').matches);
-    if (!wide || REDUCE) return;
-    if (row.scrollWidth <= row.clientWidth + 4) return; // pas de débordement → inutile
+    if (REDUCE) return;
     if (row.dataset.autoscroll === '1') return;          // déjà armé
+    if (row.scrollWidth <= row.clientWidth + 4) return;  // pas de débordement → inutile
     row.dataset.autoscroll = '1';
     Array.prototype.slice.call(row.children).forEach(function (el) {
       var clone = el.cloneNode(true);
@@ -1435,13 +1482,22 @@
     });
     row.style.scrollSnapType = 'none';
     var half = row.scrollWidth / 2;
-    var paused = false;
+    var factor = 1; // 1 = vitesse normale ; ralenti au survol
+    // Reboucle scrollLeft dans [0, half) : contenu dupliqué → saut invisible.
+    function wrap() {
+      if (row.scrollLeft >= half) row.scrollLeft -= half;
+      else if (row.scrollLeft <= 0) row.scrollLeft += half;
+    }
     function step() {
-      if (!paused) { row.scrollLeft += 0.4; if (row.scrollLeft >= half) row.scrollLeft -= half; }
+      row.scrollLeft += 0.4 * factor;
+      wrap();
       requestAnimationFrame(step);
     }
-    ['mouseenter', 'touchstart', 'focusin'].forEach(function (ev) { row.addEventListener(ev, function () { paused = true; }, { passive: true }); });
-    ['mouseleave', 'focusout'].forEach(function (ev) { row.addEventListener(ev, function () { paused = false; }); });
+    row.addEventListener('mouseenter', function () { factor = 0.12; });
+    row.addEventListener('mouseleave', function () { factor = 1; });
+    // Glisse tactile / molette : scroll natif + rebouclage continu (infini deux sens).
+    row.addEventListener('scroll', wrap, { passive: true });
+    window.addEventListener('resize', function () { half = row.scrollWidth / 2; });
     requestAnimationFrame(step);
   }
 
@@ -1457,12 +1513,21 @@
     if (slug === 'all' || !slug) return heroName ? ('Bonjour ' + heroName) : 'Bonjour';
     return (window.LBACat && LBACat.label) ? LBACat.label(slug) : slug; // catégorie normale
   }
+  // C) Bicoloration : 1er mot en --ink, le reste en violet (.hl). Partagée par le rendu
+  // animé (par lettre) et le rendu instantané (reduced-motion / non animé).
+  function bicolorHTML(text) {
+    var i = String(text).indexOf(' ');
+    if (i === -1) return esc(text);
+    return esc(text.slice(0, i)) + ' <span class="hl">' + esc(text.slice(i + 1)) + '</span>';
+  }
   function renderHeroLetters(el, text) {
     el.textContent = '';
     var frag = document.createDocumentFragment();
-    Array.from(text).forEach(function (ch, i) {
+    var arr = Array.from(text);
+    var firstSpace = arr.indexOf(' ');
+    arr.forEach(function (ch, i) {
       var sp = document.createElement('span');
-      sp.className = 'hero-letter';
+      sp.className = 'hero-letter' + (firstSpace !== -1 && i > firstSpace ? ' hl' : '');
       sp.textContent = ch === ' ' ? ' ' : ch;
       sp.style.animationDelay = (i * 28) + 'ms';
       frag.appendChild(sp);
@@ -1474,8 +1539,8 @@
     var h1 = document.querySelector('.hero h1');
     if (!h1 || h1.dataset.current === text) return;
     h1.dataset.current = text;
-    if (!animate || REDUCE) { h1.textContent = text; return; }
-    renderHeroLetters(h1, text); // la vague de flip rejoue à chaque rendu
+    if (!animate || REDUCE) { h1.innerHTML = bicolorHTML(text); return; }
+    renderHeroLetters(h1, text); // la vague de flip rejoue à chaque rendu, bicolore
   }
 
   /* ---------------- Panneau « Mon compte » ---------------- */

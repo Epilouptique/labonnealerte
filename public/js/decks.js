@@ -31,7 +31,7 @@
   // E5) Motif (SVG de la bibliothèque) + teinte. L'emoji ne s'affiche jamais sur le
   // deck : il identifie le motif. Vignette = mini-carte teintée avec le motif en fond.
   function motifSvg(emoji) { return (window.LBADeckMotifs && (LBADeckMotifs[emoji] || LBADeckMotifs['📦'])) || ''; }
-  function tintCls(t) { return 'tint-' + ((t >= 1 && t <= 8) ? t : 1); }
+  function tintCls(t) { return 'tint-' + ((t >= 1 && t <= 11) ? t : 1); }
   function deckThumb(emoji, tint, lg) {
     return '<span class="deck-thumb' + (lg ? ' deck-thumb-lg' : '') + ' ' + tintCls(tint) + '">' +
       '<span class="deck-motif-bg" aria-hidden="true">' + motifSvg(emoji) + '</span></span>';
@@ -82,33 +82,37 @@
       '</form>';
   }
 
-  function deckRowHTML(d) {
+  // G) Tuile de deck façon étagère de la home (motif + teinte + « paquet »), plus de
+  // ligne austère. Reprend le gabarit .pack du kiosque.
+  function deckTileHTML(d) {
     var badge = d.visibility && d.visibility !== 'private'
       ? '<span class="deck-badge deck-badge-shared">Partagé</span>'
       : '<span class="deck-badge">Privé</span>';
     var n = d.card_count || 0;
     return '' +
-      '<button type="button" class="notif-row deck-row" data-deck="' + esc(d.id) + '">' +
-        deckThumb(d.emoji || DEFAULT_EMOJI, d.tint, false) +
-        '<span class="notif-txt"><strong>' + esc(d.name) + '</strong>' +
-          '<span class="notif-sub">' + n + (n > 1 ? ' cartes' : ' carte') + '</span></span>' +
-        badge +
+      '<button type="button" class="pack deck-tile ' + tintCls(d.tint) + '" data-deck="' + esc(d.id) + '">' +
+        '<span class="pack-stack" aria-hidden="true"></span>' +
+        '<span class="deck-motif-bg" aria-hidden="true">' + motifSvg(d.emoji || DEFAULT_EMOJI) + '</span>' +
+        '<span class="pack-body">' +
+          '<span class="pack-name">' + esc(d.name) + '</span>' +
+          '<span class="pack-meta">' + n + (n > 1 ? ' cartes' : ' carte') + badge + '</span>' +
+        '</span>' +
       '</button>';
   }
 
   function renderList() {
     var canCreate = STATE.decks.length < STATE.max_decks;
     var rows = STATE.decks.length
-      ? '<div class="notif-card deck-list">' + STATE.decks.map(deckRowHTML).join('') + '</div>'
+      ? '<div class="deck-tiles">' + STATE.decks.map(deckTileHTML).join('') + '</div>'
       : '<p class="src-desc">Vous n\'avez pas encore de deck. Créez-en un pour commencer.</p>';
     var createBtn = canCreate
       ? '<button type="button" id="deck-create-open" class="coll-adopt deck-create-btn">＋ Créer un deck</button>'
       : '<p class="deck-form-msg">Vous avez atteint le maximum de ' + STATE.max_decks + ' decks.</p>';
 
     viewEl.innerHTML = '' +
-      '<h1>Mes decks</h1>' +
+      '<h1>Mes <span class="hl">decks</span></h1>' +
       '<div class="deck-pseudo">' + pseudoBlockHTML() + '</div>' +
-      '<div class="acct-subhead">Vos decks</div>' +
+      '<div class="section-label">Vos decks</div>' +
       rows +
       '<div class="deck-list-actions">' + createBtn + '</div>';
 
@@ -119,7 +123,7 @@
     var pf = document.getElementById('deck-pseudo-form');
     if (pf) pf.addEventListener('submit', onPseudoSubmit);
 
-    viewEl.querySelectorAll('.deck-row').forEach(function (btn) {
+    viewEl.querySelectorAll('.deck-tile').forEach(function (btn) {
       btn.addEventListener('click', function () { openDeck(btn.getAttribute('data-deck')); });
     });
     var open = document.getElementById('deck-create-open');
@@ -186,10 +190,10 @@
     '</div>';
   }
 
-  // Sélecteur de teinte (8 pastilles, radiogroup).
+  // Sélecteur de teinte (11 pastilles, radiogroup).
   function tintPickerHTML(sel) {
     var html = '<div class="deck-tint-picker" role="radiogroup" aria-label="Teinte du deck">';
-    for (var t = 1; t <= 8; t++) {
+    for (var t = 1; t <= 11; t++) {
       var on = t === sel;
       html += '<button type="button" class="deck-tint-opt tint-' + t + (on ? ' on' : '') +
         '" data-tint="' + t + '" role="radio" aria-checked="' + (on ? 'true' : 'false') +
@@ -210,20 +214,23 @@
       '<button type="button" class="deck-back" id="deck-form-back">← Retour</button>' +
       '<h1>' + (editing ? 'Modifier le deck' : 'Nouveau deck') + '</h1>' +
       '<form id="deck-form" class="deck-form" novalidate>' +
-        // Aperçu live du deck (motif + teinte + nom).
-        '<div class="deck-preview-wrap"><div class="deck-preview ' + tintCls(tint) + '" id="deck-preview">' +
-          '<span class="deck-motif-bg" aria-hidden="true" id="deck-preview-motif">' + motifSvg(emoji) + '</span>' +
-          '<span class="deck-preview-body">' +
-            '<span class="deck-preview-name" id="deck-preview-name">' + (esc(name) || 'Votre deck') + '</span>' +
-            '<span class="deck-preview-sub">Aperçu</span>' +
-          '</span>' +
-        '</div></div>' +
-        '<label for="deck-name">Nom du deck</label>' +
-        '<input id="deck-name" type="text" maxlength="40" autocomplete="off" value="' + esc(name) + '">' +
-        '<div class="deck-hint" id="deck-name-hint"></div>' +
-        '<label for="deck-desc">Description</label>' +
-        '<textarea id="deck-desc" maxlength="200" rows="3">' + esc(desc) + '</textarea>' +
-        '<div class="deck-hint" id="deck-desc-hint"></div>' +
+        // Champs (nom + description) à GAUCHE, aperçu live à DROITE ; empilé en mobile.
+        '<div class="deck-form-top">' +
+          '<div class="deck-form-fields">' +
+            '<label for="deck-name">Nom du deck</label>' +
+            '<input id="deck-name" type="text" maxlength="40" autocomplete="off" value="' + esc(name) + '">' +
+            '<div class="deck-hint" id="deck-name-hint"></div>' +
+            '<label for="deck-desc">Description</label>' +
+            '<textarea id="deck-desc" maxlength="200" rows="3">' + esc(desc) + '</textarea>' +
+            '<div class="deck-hint" id="deck-desc-hint"></div>' +
+          '</div>' +
+          '<div class="deck-preview-wrap"><div class="deck-preview ' + tintCls(tint) + '" id="deck-preview">' +
+            '<span class="deck-motif-bg" aria-hidden="true" id="deck-preview-motif">' + motifSvg(emoji) + '</span>' +
+            '<span class="deck-preview-body">' +
+              '<span class="deck-preview-name" id="deck-preview-name">' + (esc(name) || 'Votre deck') + '</span>' +
+            '</span>' +
+          '</div></div>' +
+        '</div>' +
         '<label>Motif (icône)</label>' +
         emojiPickerHTML(emoji) +
         '<label>Teinte</label>' +
