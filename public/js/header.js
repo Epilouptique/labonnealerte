@@ -39,7 +39,17 @@
     menu.setAttribute('role', 'dialog');
     menu.setAttribute('aria-modal', 'true');
     menu.setAttribute('aria-label', 'Menu');
-    menu.innerHTML =
+    // A3) Icônes SVG (même famille que SHARE_SVG/INFO_SVG : trait 2px, linecap round,
+    // currentColor) pour « Les nouvelles » (éclat/étoile filante) et « La sélection »
+    // (marque-page). Flèche retour = même vocabulaire que BACK_SVG des cartes.
+    var IC_NOUV = '<svg class="m-ic" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.2l1.7 4L18 8.9l-4.3 1.7L12 14.9l-1.7-4.3L6 8.9l4.3-1.7z"/><path d="M18.5 14.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z"/></svg>';
+    var IC_SEL = '<svg class="m-ic" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 3.5h11a1 1 0 0 1 1 1V20l-6.5-4.2L5.5 20V4.5a1 1 0 0 1 1-1z"/></svg>';
+    var IC_CAT = '<svg class="m-ic" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>';
+    var IC_BACK = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 5 5v3"/></svg>';
+
+    // Face AVANT du menu (A2 : ordre revu — Catégories/Nouvelles/Sélection montent à
+    // la place de Espace dev/OpenAlert, qui descendent juste avant Mentions légales).
+    var frontHTML =
       '<div class="m-menu-inner">' +
         '<div class="m-menu-head">' +
           '<span class="brand brandmark m-menu-logo" aria-hidden="true">' + logoHTML + '</span>' +
@@ -47,19 +57,21 @@
         '</div>' +
         '<nav class="m-menu-list" aria-label="Navigation principale">' +
           (logged
-            ? '<button type="button" class="m-link m-primary" data-act="mine">Ma collection</button>'
+            ? '<button type="button" class="m-link m-primary" data-act="mine">Ma collection</button>' +
+              '<a href="/mes-decks" class="m-link">Mes decks</a>'
             : '<a href="/connexion" class="m-primary" data-act="auth">Se connecter</a>') +
           '<a href="/proposer">Déposer une alerte</a>' +
           '<button type="button" class="m-link" data-act="search">Rechercher</button>' +
           '<hr class="m-menu-sep">' +
-          '<a href="/proposer">Espace développeurs</a>' +
-          '<a href="' + (isHome ? '#openalert' : '/#openalert') + '" data-act="anchor">OpenAlert</a>' +
-          '<hr class="m-menu-sep">' +
           (logged ? '<button type="button" class="m-link" data-act="account">Mon compte</button>' : '') +
-          '<button type="button" class="m-link" data-act="nouveautes">Les nouvelles</button>' +
-          '<button type="button" class="m-link" data-act="selection">La sélection</button>' +
+          '<button type="button" class="m-link m-has-ic" data-act="categories">' + IC_CAT + ' Catégories</button>' +
+          '<button type="button" class="m-link m-has-ic" data-act="nouveautes">' + IC_NOUV + ' Les nouvelles</button>' +
+          '<button type="button" class="m-link m-has-ic" data-act="selection">' + IC_SEL + ' La sélection</button>' +
           '<hr class="m-menu-sep">' +
           '<a href="/soutenir">Nous soutenir</a>' +
+          '<hr class="m-menu-sep">' +
+          '<a href="/proposer">Espace développeurs</a>' +
+          '<a href="' + (isHome ? '#openalert' : '/#openalert') + '" data-act="anchor">OpenAlert</a>' +
           '<a href="/mentions-legales">Mentions légales</a>' +
           (logged ? '<button type="button" class="m-link m-logout" data-act="logout">Se déconnecter</button>' : '') +
         '</nav>' +
@@ -67,6 +79,24 @@
           '<button type="button" class="theme-btn m-theme" aria-label="Changer de thème">◐</button>' +
           '<span class="m-theme-label">Thème clair / sombre</span>' +
         '</div>' +
+      '</div>';
+
+    // A1) Face ARRIÈRE : liste des catégories (révélée par retournement du menu).
+    // Le logo reste ; le ✕ est remplacé par une flèche retour (← reflip, ne ferme pas).
+    var backHTML =
+      '<div class="m-menu-inner">' +
+        '<div class="m-menu-head">' +
+          '<span class="brand brandmark m-menu-logo" aria-hidden="true">' + logoHTML + '</span>' +
+          '<button type="button" class="m-menu-close m-cat-back" aria-label="Retour au menu">' + IC_BACK + '</button>' +
+        '</div>' +
+        '<div class="m-menu-cat-title">Catégories</div>' +
+        '<nav class="m-menu-list m-menu-cats" id="m-menu-cats" aria-label="Catégories"></nav>' +
+      '</div>';
+
+    menu.innerHTML =
+      '<div class="m-menu-flip" id="m-menu-flip">' +
+        '<div class="m-menu-face m-face-front">' + frontHTML + '</div>' +
+        '<div class="m-menu-face m-face-back">' + backHTML + '</div>' +
       '</div>';
     document.body.appendChild(menu);
 
@@ -77,6 +107,8 @@
     var lastFocus = null;
     function openMenu() {
       lastFocus = document.activeElement;
+      var flipEl = menu.querySelector('.m-menu-flip');
+      if (flipEl) flipEl.classList.remove('flipped'); // toujours ouvrir sur la face avant
       menu.hidden = false;
       document.body.classList.add('m-menu-open');
       if (toggle) toggle.setAttribute('aria-expanded', 'true');
@@ -105,11 +137,48 @@
       else window.location.href = '/?mode=' + encodeURIComponent(mode);
     }
 
+    var escH = function (s) { return window.LBACards ? window.LBACards.esc(s) : String(s == null ? '' : s); };
+    // A1) Remplit la face arrière avec la liste des catégories du kiosque. Source :
+    // window.LBAKioskCats (posé par site.js/renderChips, mêmes catégories que le rail
+    // de la home), sinon repli sur la taxonomie LBACat.
+    function fillCats() {
+      var host = document.getElementById('m-menu-cats');
+      if (!host) return;
+      var cats = window.LBAKioskCats;
+      if ((!cats || !cats.length) && window.LBACat && window.LBACat.all) {
+        cats = window.LBACat.all().map(function (c) { return { slug: c.slug, label: c.label, count: null }; });
+      }
+      cats = cats || [];
+      host.innerHTML = cats.map(function (c) {
+        return '<button type="button" class="m-link m-cat-item" data-cat="' + escH(c.slug) + '">' +
+          escH(c.label) + (c.count != null ? ' <span class="m-cat-n">' + c.count + '</span>' : '') + '</button>';
+      }).join('') || '<div class="m-cat-empty">Aucune catégorie.</div>';
+    }
+    function flipTo(back) {
+      var flip = document.getElementById('m-menu-flip');
+      if (flip) flip.classList.toggle('flipped', !!back);
+    }
+
     menu.addEventListener('click', function (e) {
       if (e.target.closest('.m-theme')) { if (window.toggleTheme) window.toggleTheme(); return; }
+      // A1) Flèche retour de la face catégories → reflip vers l'avant (ne ferme pas).
+      if (e.target.closest('.m-cat-back')) { e.preventDefault(); flipTo(false); return; }
+      // A1) Clic sur une catégorie → applique le filtre puis ferme tout.
+      var catItem = e.target.closest('.m-cat-item');
+      if (catItem) {
+        e.preventDefault();
+        var slug = catItem.getAttribute('data-cat');
+        closeMenu(); flipTo(false);
+        var chip = isHome ? document.querySelector('.chip-f[data-cat="' + slug + '"]') : null;
+        if (chip) chip.click();
+        else window.location.href = '/?cat=' + encodeURIComponent(slug);
+        return;
+      }
       var el = e.target.closest('[data-act], a');
       if (!el) return;
       var act = el.getAttribute('data-act');
+      // A1) « Catégories » → retourne le menu (au lieu de fermer).
+      if (act === 'categories') { e.preventDefault(); fillCats(); flipTo(true); return; }
       if (act === 'auth') {
         e.preventDefault(); closeMenu();
         if (logged && isHome && window.LBAAccount && window.LBAAccount.toggle) window.LBAAccount.toggle();
@@ -141,6 +210,48 @@
   }
 
   window.LBAHeader = { buildMenu: buildMenu };
+
+  /* ===================== Bouton « Déposer une alerte » : rotation de libellé ===================== */
+  // Le libellé alterne « Déposer une alerte » (→ /proposer) et « Ajouter un deck »
+  // (→ /mes-decks). Réservé aux connectés (les decks sont une fonctionnalité de
+  // compte ; l'anonyme garde le libellé statique). Présent sur toutes les pages.
+  // TODO(ergonomie-decks) : réglage plus fin prévu plus tard (cadence, transition,
+  // davantage de libellés) — on ne touche pas ici au reste de la mécanique du bouton.
+  function setupDepositRotation() {
+    var btn = document.querySelector('.btn-deposit');
+    if (!btn) return;
+    var logged = !!(window.LBASession && window.LBASession.get && window.LBASession.get());
+    if (!logged) return;
+    // Isole le libellé dans un span (on conserve l'icône « + »).
+    var label = btn.querySelector('.bd-label');
+    if (!label) {
+      var plus = btn.querySelector('.plus');
+      var txt = (btn.textContent || '').trim() || 'Déposer une alerte';
+      btn.innerHTML = (plus ? plus.outerHTML : '<span class="plus" aria-hidden="true">+</span>') +
+        ' <span class="bd-label">' + txt + '</span>';
+      label = btn.querySelector('.bd-label');
+    }
+    var WORDS = [
+      { t: 'Déposer une alerte', href: '/proposer' },
+      { t: 'Ajouter un deck', href: '/mes-decks' }
+    ];
+    var i = 0;
+    setInterval(function () {
+      i = (i + 1) % WORDS.length;
+      var w = WORDS[i];
+      if (REDUCE) { label.textContent = w.t; btn.setAttribute('href', w.href); return; }
+      label.classList.add('bd-slide-out');
+      setTimeout(function () {
+        label.textContent = w.t;
+        btn.setAttribute('href', w.href);
+        label.classList.remove('bd-slide-out');
+        label.classList.add('bd-slide-in');
+        setTimeout(function () { label.classList.remove('bd-slide-in'); }, 280);
+      }, 220);
+    }, 4200);
+  }
+  if (document.readyState !== 'loading') setupDepositRotation();
+  else document.addEventListener('DOMContentLoaded', setupDepositRotation);
 
   /* ===================== Injection du header sur les pages HORS home ===================== */
   // La home a déjà son header (index.html + mobile-header.js) → on ne touche à rien.

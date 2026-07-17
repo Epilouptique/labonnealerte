@@ -557,6 +557,9 @@
       card.dataset.subscribed = '1';
       setParamStatus(card, true);
       togglePicker(card, false);
+      // C5) Réinitialise le contrôle pour un éventuel ajout suivant (placeholder).
+      var ctrl0 = card.querySelector('.param-select, .param-input');
+      if (ctrl0) ctrl0.value = '';
       celebrate(card);
       refreshMineDependent();
       // Carte recommandée adoptée : l'étiquette part, une nouvelle reco est calculée.
@@ -610,6 +613,30 @@
       if (ctrl) ctrl.focus();
     }
   });
+
+  // C5) Activation IMMÉDIATE des cartes paramétrées : plus de bouton « Suivre ».
+  // Sélecteur enum → au « change » ; champ libre → à la saisie (debounce). Le
+  // parcours anonyme révèle le formulaire email au lieu d'abonner directement.
+  document.addEventListener('change', function (e) {
+    var sel = e.target.closest('.param-select');
+    if (!sel || !sel.value) return; // ignore le placeholder « Choisir… »
+    var card = sel.closest('.card'); if (!card) return;
+    if (document.body.getAttribute('data-mode') === 'connected') followParamConnected(card);
+    else followParamAnon(card);
+  });
+  var paramInputTimers = new WeakMap();
+  document.addEventListener('input', function (e) {
+    var inp = e.target.closest('.param-input');
+    if (!inp) return;
+    var card = inp.closest('.card'); if (!card) return;
+    var prev = paramInputTimers.get(inp); if (prev) clearTimeout(prev);
+    paramInputTimers.set(inp, setTimeout(function () {
+      if (!(inp.value || '').trim()) return;
+      // readParam (dans follow*) valide le pattern : une saisie invalide est ignorée.
+      if (document.body.getAttribute('data-mode') === 'connected') followParamConnected(card);
+      else followParamAnon(card);
+    }, 700));
+  });
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Enter' && e.target.matches('.sub-form input')) {
       e.preventDefault();
@@ -650,8 +677,8 @@
     if (dot.parentElement) { dot.parentElement.dataset.n = n; dot.parentElement.dataset.active = n > 0; }
     setKpiNum(n);
     var full = n === 0
-      ? 'Aucune alerte active — tout est calme'
-      : (n === 1 ? '1 alerte active en ce moment' : n + ' alertes actives en ce moment');
+      ? 'Tout est calme'
+      : (n === 1 ? '1 alerte active' : n + ' alertes actives');
     // A11y : le libellé complet (avec le nombre) reste lisible par lecteur d'écran.
     if (dot.parentElement) dot.parentElement.setAttribute('aria-label', full);
     // L'overlay de survol suit le « ● N » compact déjà visible → on retire le nombre
@@ -668,8 +695,8 @@
     if (dot.parentElement) { dot.parentElement.dataset.n = n; dot.parentElement.dataset.active = n > 0; }
     setKpiNum(n);
     var full = n === 0
-      ? "Aucune de vos alertes n'est active — tout est calme"
-      : (n === 1 ? '1 de vos alertes est active en ce moment' : n + ' de vos alertes sont actives en ce moment');
+      ? 'Tout est calme'
+      : (n === 1 ? '1 de vos alertes est active' : n + ' de vos alertes sont actives');
     if (dot.parentElement) dot.parentElement.setAttribute('aria-label', full);
     txt.textContent = full.replace(/^\d+\s*/, '');
   }
@@ -707,6 +734,10 @@
 
   /* ---------------- Kiosque : recherche + catégories + pagination ---------------- */
   var esc = LBACards.esc;
+  // A3) Icônes SVG (même famille que SHARE_SVG/INFO_SVG : trait 2px, linecap round,
+  // 16px, currentColor) pour remplacer les emoji 🆕/✨ des puces spéciales.
+  var ICON_NOUVEAUTES = '<svg class="chip-ic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.2l1.7 4L18 8.9l-4.3 1.7L12 14.9l-1.7-4.3L6 8.9l4.3-1.7z"/><path d="M18.5 14.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z"/></svg>';
+  var ICON_SELECTION = '<svg class="chip-ic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 3.5h11a1 1 0 0 1 1 1V20l-6.5-4.2L5.5 20V4.5a1 1 0 0 1 1-1z"/></svg>';
   // Seuil de pagination par défaut : anonyme 6 (+ carte Proposer), connecté 8
   // cartes normales (+ la carte recommandée épinglée en 9e = 9 visibles).
   var INITIAL_ANON = 5, INITIAL_CONNECTED = 8, STEP = 9;
@@ -802,6 +833,9 @@
     var slugs = Object.keys(counts).sort(function (a, b) {
       return counts[b] - counts[a] || LBACat.label(a).localeCompare(LBACat.label(b));
     });
+    // A1) Expose la liste des catégories du kiosque pour la face « Catégories » du
+    // menu mobile (header.js la lit à l'ouverture ; mêmes catégories que ce rail).
+    window.LBAKioskCats = slugs.map(function (s) { return { slug: s, label: LBACat.label(s), count: counts[s] }; });
     // Mobile (≤720px) : rail horizontal unique — TOUTES les catégories dans la 1re
     // ligne (pas de « + » ni de 2e ligne). Desktop : 7 puces visibles ≥1024px (sinon 5)
     // avant le « + ». Total visible = Toutes [+ Mes alertes] + primary.
@@ -819,8 +853,8 @@
     var prim = '<button class="chip-f on" type="button" data-cat="all">Toutes <span class="n">' + cards.length + '</span></button>';
     if (mode === 'connected') prim += chip('mine', 'Ma collection', mineCount);
     // A6) Puces spéciales « Nouveautés » / « La sélection » en tête (après Toutes/Mes alertes).
-    prim += '<button class="chip-f chip-special" type="button" data-cat="nouveautes">🆕 Nouveautés</button>';
-    prim += '<button class="chip-f chip-special" type="button" data-cat="selection">✨ La sélection</button>';
+    prim += '<button class="chip-f chip-special" type="button" data-cat="nouveautes">' + ICON_NOUVEAUTES + ' Nouveautés</button>';
+    prim += '<button class="chip-f chip-special" type="button" data-cat="selection">' + ICON_SELECTION + ' La sélection</button>';
     primary.forEach(function (s) { prim += chip(s, LBACat.label(s), counts[s]); });
     if (secondary.length) prim += '<button class="chip-f chip-more-toggle" type="button" aria-label="Plus de catégories">+</button>';
 
@@ -983,6 +1017,8 @@
 
   function selectChip(slug) {
     cat = slug;
+    updateShelfVisibility(); // E4) étagère decks visible uniquement sur « Toutes »
+    setHeroTitle(titleForMode(slug), true); // D) titre animé selon le mode (connecté)
     // A4/A5) Recalcule l'ensemble des 6 ids en entrant dans un mode spécial.
     specialIds = isSpecial(slug) ? computeSpecialIds(slug) : null;
     visibleLimit = initialLimit();
@@ -1038,8 +1074,11 @@
       if (clr) clr.hidden = !q.length;
       did = true;
     }
+    var catParam = params.get('cat'); // A1) filtre catégorie depuis le menu d'une autre page
     if (mode === 'nouveautes' || mode === 'selection' || mode === 'mine') {
       selectChip(mode); // applique déjà le filtre (avec la recherche courante)
+    } else if (catParam) {
+      selectChip(catParam);
     } else if (did) {
       apply(true);
     }
@@ -1317,11 +1356,10 @@
       var mineActive = sources.filter(function (s) { return subMap[s.id] && s.state === 'active'; }).length;
       updateKPIMine(mineActive);
       // Salutation à la place du h1 : « Bonjour <prénom en accent> ».
-      var h1 = document.querySelector('.hero h1');
-      if (h1) {
-        var nm = LBASession.firstName ? LBASession.firstName(email) : null;
-        h1.innerHTML = 'Bonjour' + (nm ? ' <span class="hl-name">' + esc(nm) + '</span>' : '');
-      }
+      // D) Titre dynamique animé : initialise « Bonjour <prénom> » (sans animation
+      // au chargement) ; les changements de filtre l'animent ensuite (selectChip).
+      heroName = LBASession.firstName ? LBASession.firstName(email) : null;
+      setHeroTitle(titleForMode('all'), false);
     } else {
       updateKPI(sources);
     }
@@ -1358,15 +1396,86 @@
       var likes = (c.total_likes > 0)
         ? '<span class="pack-likes">❤ ' + esc(LBACards.formatCount(c.total_likes)) + '</span>' : '';
       var n = c.card_count || 0;
-      return '<a class="pack" role="listitem" href="/collection/' + encodeURIComponent(c.id) + '">' +
+      // E5) fond teinté + motif (SVG de la bibliothèque, plus d'emoji affiché).
+      var tintCls = 'tint-' + ((c.tint >= 1 && c.tint <= 8) ? c.tint : 1);
+      var motif = (window.LBADeckMotifs && (LBADeckMotifs[c.emoji] || LBADeckMotifs['📦'])) || '';
+      return '<a class="pack ' + tintCls + '" role="listitem" href="/collection/' + encodeURIComponent(c.id) + '">' +
         '<span class="pack-stack" aria-hidden="true"></span>' +
+        '<span class="deck-motif-bg" aria-hidden="true">' + motif + '</span>' +
         '<span class="pack-body">' +
-        '<span class="pack-emoji" aria-hidden="true">' + esc(c.emoji || '📦') + '</span>' +
         '<span class="pack-name">' + esc(c.name) + '</span>' +
         '<span class="pack-meta">' + n + (n > 1 ? ' cartes' : ' carte') + likes + '</span>' +
         '</span></a>';
     }).join('');
     shelf.hidden = false;
+    updateShelfVisibility();   // E4 : respecte le filtre courant (cat)
+    setupShelfAutoScroll(row); // E2 : défilement doux desktop
+  }
+
+  // E4) L'étagère n'apparaît que sur « Toutes » (transition fluide via .shelf-hidden).
+  function updateShelfVisibility() {
+    var shelf = document.getElementById('collections-shelf');
+    if (!shelf) return;
+    shelf.classList.toggle('shelf-hidden', cat !== 'all');
+  }
+
+  // E2) Desktop : défilement automatique lent et continu (marquee doux), en boucle
+  // sans couture (packs dupliqués), en pause au survol/focus. Mobile : rien (glisse
+  // tactile). reduced-motion : rien (statique).
+  function setupShelfAutoScroll(row) {
+    var wide = !!(window.matchMedia && window.matchMedia('(min-width: 721px)').matches);
+    if (!wide || REDUCE) return;
+    if (row.scrollWidth <= row.clientWidth + 4) return; // pas de débordement → inutile
+    if (row.dataset.autoscroll === '1') return;          // déjà armé
+    row.dataset.autoscroll = '1';
+    Array.prototype.slice.call(row.children).forEach(function (el) {
+      var clone = el.cloneNode(true);
+      clone.setAttribute('aria-hidden', 'true'); clone.tabIndex = -1;
+      row.appendChild(clone);
+    });
+    row.style.scrollSnapType = 'none';
+    var half = row.scrollWidth / 2;
+    var paused = false;
+    function step() {
+      if (!paused) { row.scrollLeft += 0.4; if (row.scrollLeft >= half) row.scrollLeft -= half; }
+      requestAnimationFrame(step);
+    }
+    ['mouseenter', 'touchstart', 'focusin'].forEach(function (ev) { row.addEventListener(ev, function () { paused = true; }, { passive: true }); });
+    ['mouseleave', 'focusout'].forEach(function (ev) { row.addEventListener(ev, function () { paused = false; }); });
+    requestAnimationFrame(step);
+  }
+
+  /* ---------------- D) Titre du dashboard animé (connecté uniquement) ---------------- */
+  // Le H1 change selon le mode/filtre actif, avec un effet « lettres qui se
+  // retournent comme des cartes » (flip 3D par caractère, décalage en vague).
+  // Anonyme : le H1 de la home n'est jamais touché. reduced-motion : texte instantané.
+  var heroName = null;
+  function titleForMode(slug) {
+    if (slug === 'nouveautes') return 'Les nouvelles';
+    if (slug === 'selection') return 'Ma sélection';
+    if (slug === 'mine') return 'Ma collection';
+    if (slug === 'all' || !slug) return heroName ? ('Bonjour ' + heroName) : 'Bonjour';
+    return (window.LBACat && LBACat.label) ? LBACat.label(slug) : slug; // catégorie normale
+  }
+  function renderHeroLetters(el, text) {
+    el.textContent = '';
+    var frag = document.createDocumentFragment();
+    Array.from(text).forEach(function (ch, i) {
+      var sp = document.createElement('span');
+      sp.className = 'hero-letter';
+      sp.textContent = ch === ' ' ? ' ' : ch;
+      sp.style.animationDelay = (i * 28) + 'ms';
+      frag.appendChild(sp);
+    });
+    el.appendChild(frag);
+  }
+  function setHeroTitle(text, animate) {
+    if (currentMode !== 'connected') return; // dashboard connecté uniquement
+    var h1 = document.querySelector('.hero h1');
+    if (!h1 || h1.dataset.current === text) return;
+    h1.dataset.current = text;
+    if (!animate || REDUCE) { h1.textContent = text; return; }
+    renderHeroLetters(h1, text); // la vague de flip rejoue à chaque rendu
   }
 
   /* ---------------- Panneau « Mon compte » ---------------- */

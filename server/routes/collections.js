@@ -22,7 +22,7 @@ const router = express.Router();
 router.get('/collections', async (req, res) => {
   try {
     const { rows } = await pool.query(
-      `SELECT c.id, c.name, c.description, c.emoji, c.display_order,
+      `SELECT c.id, c.name, c.description, c.emoji, c.tint, c.display_order,
               COUNT(s.id)::int AS card_count,
               COALESCE(SUM(s.likes_count), 0)::int AS total_likes
          FROM collections c
@@ -43,7 +43,7 @@ router.get('/collections', async (req, res) => {
 router.get('/collections/:slug', async (req, res) => {
   try {
     const meta = await pool.query(
-      `SELECT id, name, description, emoji FROM collections
+      `SELECT id, name, description, emoji, tint FROM collections
         WHERE id = $1 AND visibility = 'official' AND owner_subscriber_id IS NULL`,
       [req.params.slug]
     );

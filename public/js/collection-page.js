@@ -52,7 +52,13 @@
 
   function fillHeader() {
     var c = COLL.collection, sources = COLL.sources || [];
-    document.getElementById('coll-emoji').textContent = c.emoji || '📦';
+    // E5) motif+teinte à la place de l'emoji.
+    var em = document.getElementById('coll-emoji');
+    if (em) {
+      var motif = (window.LBADeckMotifs && (LBADeckMotifs[c.emoji] || LBADeckMotifs['📦'])) || '';
+      em.innerHTML = '<span class="deck-thumb deck-thumb-lg tint-' + ((c.tint >= 1 && c.tint <= 8) ? c.tint : 1) +
+        '"><span class="deck-motif-bg" aria-hidden="true">' + motif + '</span></span>';
+    }
     document.getElementById('coll-name').textContent = c.name;
     document.getElementById('coll-desc').textContent = c.description || '';
     var n = sources.length;
@@ -133,6 +139,10 @@
           d.needs_params.map(function (x) { return esc(x.name); }).join(', ') + ')';
       }
       setAdoptMsg(msg, 'ok');
+      // E6) Collection entièrement adoptée (rien à compléter) → célébration.
+      if (d.added > 0 && (!d.needs_params || !d.needs_params.length) && window.LBACards) {
+        LBACards.celebrateBurst(btn);
+      }
       await load(); // rafraîchit l'état des cartes (suivies) et le compteur
     } catch (e) {
       setAdoptMsg('Réessayez dans un instant.', 'err');

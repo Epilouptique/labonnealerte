@@ -29,7 +29,7 @@ body {
 
 }
 .mono { font-family: 'JetBrains Mono', monospace; }
-.wrap { max-width: 1060px; margin: 0 auto; padding: 0 24px; }
+.wrap { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
 /* Point 1) Autorise l'overlay du KPI à déborder à droite du header sans jamais
    créer de scroll horizontal. `clip` préserve le position:sticky du header
    (contrairement à `hidden`). */
@@ -499,15 +499,15 @@ input:focus-visible,
 }
 /*---------------Ligature « la » du titre : courbe SVG (Bézier) + coupe du bas du « l »---------------*/
 :root{
-  --lig-left: 0.14em;
-  --lig-y: 0.215em;
-  --lig-width: 0.5em;
-  --lig-height: 0.36em;
-  --lig-rotate: 0deg;
-  --l-cut-bottom: 0.52em;
-  --lig-stroke: 34;
-  --l-gap: 0.04em;
-  --track: -0.05em;
+    --lig-left: 0.145em;
+    --lig-y: 0.35em;
+    --lig-width: 0.5em;
+    --lig-height: 0.36em;
+    --lig-rotate: 0deg;
+    --l-cut-bottom: 0.52em;
+    --lig-stroke: 34;
+    --l-gap: 0.04em;
+    --track: -0.05em;
 }
 
 .brandmark{font-family:'Baloo 2',sans-serif;font-weight:800;letter-spacing:var(--track)}
@@ -1061,11 +1061,14 @@ body[data-mode="connected"] #stats { display: none; }
   font-size: 13px; line-height: 1; padding: 2px 4px; border-radius: 6px;
 }
 .param-remove:hover { color: var(--amber); }
+/* C3) Même gabarit qu'une .param-chip (rayon, padding, typo) mais FOND VIOLET pour
+   la distinguer comme action d'ajout (et non comme une instance existante). */
 .param-add {
-  border: none; background: transparent; color: var(--amber); cursor: pointer;
-  font: inherit; font-size: 13px; font-weight: 600; padding: 4px 0; text-align: left;
+  display: inline-flex; align-items: center; gap: 7px;
+  background: var(--amber); color: #fff; border: none; cursor: pointer;
+  border-radius: 999px; padding: 6px 11px; font: inherit; font-size: 12.5px; font-weight: 600;
 }
-.param-add:hover { text-decoration: underline; }
+.param-add:hover { filter: brightness(1.06); }
 .param-statut-label { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: var(--ink); }
 .param-statut-label .param-select { flex: none; min-width: 180px; }
 .param-statut-hint { font-size: 13px; color: var(--muted); margin-top: 10px; }
@@ -1252,7 +1255,7 @@ body[data-mode="connected"] #stats { display: none; }
   /* Rangée 1 sur une seule ligne (recherche rejoint le logo/nav-right) ; les
      catégories restent en rangée 2 (flex-basis 100% → passent à la ligne). */
   body.m-kiosk header .nav { height: auto; flex-wrap: wrap; gap: 10px 14px; padding: 10px 0; }
-  body.m-kiosk .brand { font-size: 26px; }
+  body.m-kiosk .brand { font-size: 35px; }
   body.m-kiosk header .nav > .search {
     order: 2; flex: 1 1 auto; max-width: 420px; min-width: 140px; margin: 0;
   }
@@ -1377,13 +1380,24 @@ body.m-menu-open { overflow: hidden; }
 .section-hint { color: var(--muted); font-weight: 400; font-size: .82em; }
 
 /* Étagère horizontale de packs, en tête du kiosque. */
-.collections-shelf { margin: 4px 0 22px; }
-.shelf-row {
-  display: flex; gap: 16px; overflow-x: auto; padding: 6px 2px 12px;
-  scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch;
+/* E3) Clairance verticale : les feuilles inclinées de .pack-stack débordent d'~10px
+   sous la tuile → padding-bas suffisant dans le rail (qui clippe en Y à cause de
+   overflow-x) + marge-bas franche pour ne plus chevaucher le label du kiosque.
+   E4) max-height + opacity animés → apparition/disparition fluides selon le filtre. */
+.collections-shelf {
+  margin: 6px 0 30px; overflow: hidden;
+  max-height: 360px; opacity: 1;
+  transition: opacity .3s ease, max-height .38s ease, margin .38s ease;
 }
-.shelf-row::-webkit-scrollbar { height: 6px; }
-.shelf-row::-webkit-scrollbar-thumb { background: var(--amber-soft); border-radius: 6px; }
+.collections-shelf.shelf-hidden {
+  max-height: 0; opacity: 0; margin-top: 0; margin-bottom: 0; pointer-events: none;
+}
+.shelf-row {
+  display: flex; gap: 16px; overflow-x: auto; padding: 12px 2px 26px;
+  scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; /* E2 : aucune scrollbar visible (comme le rail catégories) */
+}
+.shelf-row::-webkit-scrollbar { display: none; }
 
 /* Un pack = « paquet de cartes » : tuile avec une petite pile derrière (éventail). */
 .pack {
@@ -1537,21 +1551,57 @@ body.m-menu-open { overflow: hidden; }
 }
 .deck-share-url:focus { outline: none; border-color: var(--amber); }
 
-/* ===================== AJOUTER À UN DECK (phase 2 UGC) ===================== */
-/* Bouton discret sur le verso de la carte. */
-.back-add-deck {
-  display: inline-block; margin-top: 8px; padding: 6px 12px;
-  background: var(--amber-soft); color: var(--amber); border: none; cursor: pointer;
-  font-weight: 600; font-size: .82rem; border-radius: 8px; align-self: flex-start;
+/* ===================== AJOUTER À UN DECK (recto, UGC) ===================== */
+/* Icône « + » du recto, même famille que .flip-btn/.share-btn, à gauche du « i ».
+   En mode connecté seulement (classe has-add). Décale partage/❤ pour faire place. */
+.card-add-deck {
+  position: absolute; top: 14px; right: 44px; z-index: 2;
+  border: none; background: transparent; color: var(--muted); cursor: pointer;
+  padding: 4px; border-radius: 8px; line-height: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  -webkit-tap-highlight-color: transparent;
 }
-.back-add-deck:hover { filter: brightness(1.04); }
+.card-add-deck:hover { color: var(--amber); }
+.card-add-deck svg { width: 18px; height: 18px; display: block; }
+.card.flipped .card-add-deck { display: none; }
+/* Quand le « + » est présent, partage et ❤ glissent d'un cran vers la gauche. */
+.card-front.has-add .card-share { right: 74px; }
+.card-front.has-add .card-like { right: 110px; }
 
-/* Petit menu flottant listant les decks. */
+/* iPhone SE & co : resserrer la rangée pour rester lisible avec le « + » en plus. */
+@media (max-width: 400px) {
+  .card-front.has-add .flip-btn { right: 10px; }
+  .card-front.has-add .card-add-deck { right: 38px; }
+  .card-front.has-add .card-share { right: 66px; }
+  .card-front.has-add .card-like { right: 96px; }
+  .card-front.has-add .flip-btn svg,
+  .card-front.has-add .card-add-deck svg,
+  .card-front.has-add .card-share svg { width: 16px; height: 16px; }
+  .card-front.has-add .flip-btn,
+  .card-front.has-add .card-add-deck,
+  .card-front.has-add .card-share { padding: 3px; }
+}
+
+/* Petit menu flottant listant les decks (ancré sous la rangée d'icônes du recto). */
 .deck-add-menu {
-  position: absolute; z-index: 40; margin-top: 4px; min-width: 200px; max-width: 260px;
+  position: absolute; z-index: 40; top: 46px; right: 12px; min-width: 210px; max-width: 260px;
   background: var(--bg); border: 1px solid var(--amber-soft); border-radius: 12px;
   box-shadow: 0 8px 26px rgba(60, 40, 110, .22); padding: 6px; overflow: hidden;
+  text-align: left;
 }
+/* Création rapide du premier deck (inline, sans quitter le kiosque). */
+.dam-first { padding: 8px; display: flex; flex-direction: column; gap: 8px; }
+.dam-first-label { font-weight: 700; font-size: .9rem; color: var(--ink); }
+.dam-first-input {
+  width: 100%; box-sizing: border-box; padding: 8px 10px; border-radius: 8px;
+  border: 1px solid var(--amber-soft); background: var(--surface); color: var(--ink); font-size: .9rem;
+}
+.dam-first-btn {
+  padding: 8px 10px; border: none; border-radius: 8px; cursor: pointer;
+  background: var(--amber); color: #fff; font-weight: 600; font-size: .88rem;
+}
+.dam-first-btn:disabled { opacity: .6; cursor: default; }
+.dam-first-msg { color: #dc2626; font-size: .78rem; min-height: 1em; }
 .dam-item {
   display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
   background: none; border: none; cursor: pointer; padding: 8px 10px; border-radius: 8px;
@@ -1573,3 +1623,193 @@ body.m-menu-open { overflow: hidden; }
 }
 .deck-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 .deck-toast.err { background: #dc2626; color: #fff; }
+
+/* ===================== PROPOSITIONS DE CARTES (deck) ===================== */
+.deck-suggest-block { margin-top: 28px; }
+.deck-suggest-toggle {
+  background: none; border: none; cursor: pointer; color: var(--amber);
+  font-weight: 700; font-size: 1rem; padding: 6px 0; display: inline-flex; align-items: center; gap: 6px;
+}
+.deck-suggest-toggle .dst-caret { font-size: .8em; }
+.deck-suggest-body { margin-top: 12px; }
+.deck-suggest-more-wrap { text-align: center; margin-top: 14px; }
+
+/* Carte proposée : on masque les contrôles d'abonnement (on compose, on ne suit
+   pas) et on affiche le bouton « Ajouter au deck » sous la carte. */
+.deck-suggest-add { display: block; width: 100%; margin-top: 8px; font-size: .92rem; padding: 10px; }
+.deck-suggest-wrap .switch-row,
+.deck-suggest-wrap .sub-form,
+.deck-suggest-wrap .param-status,
+.deck-suggest-wrap .param-chips,
+.deck-suggest-wrap .param-add,
+.deck-suggest-wrap .param-form,
+.deck-suggest-wrap .param-subform,
+.deck-suggest-wrap .sub-count { display: none !important; }
+
+/* ===================== Bouton « Déposer / Ajouter un deck » (rotation) ===================== */
+.btn-deposit .bd-label { display: inline-block; transition: transform .22s ease, opacity .22s ease; will-change: transform, opacity; }
+.btn-deposit .bd-label.bd-slide-out { transform: translateY(-70%); opacity: 0; }
+.btn-deposit .bd-label.bd-slide-in { animation: bd-slide-in .28s ease; }
+@keyframes bd-slide-in { from { transform: translateY(70%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .btn-deposit .bd-label, .btn-deposit .bd-label.bd-slide-out, .btn-deposit .bd-label.bd-slide-in { transition: none; animation: none; transform: none; opacity: 1; }
+}
+
+/* ===================== A1/A3) Menu mobile : face « Catégories » (flip) + icônes ===================== */
+.m-menu { perspective: 1400px; }
+.m-menu-flip {
+  position: relative; width: 100%; min-height: 100%;
+  transform-style: preserve-3d; transition: transform .5s cubic-bezier(.2, .7, .2, 1);
+}
+.m-menu-flip.flipped { transform: rotateY(180deg); }
+.m-menu-face {
+  position: absolute; inset: 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  -webkit-backface-visibility: hidden; backface-visibility: hidden;
+}
+.m-face-back { transform: rotateY(180deg); }
+.m-menu-cat-title {
+  font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .14em;
+  color: var(--amber); margin: 6px 0 8px;
+}
+.m-menu-cats .m-cat-item { display: flex; align-items: center; justify-content: space-between; }
+.m-cat-n { color: var(--muted); font-weight: 600; font-size: .85em; }
+.m-cat-empty { color: var(--muted); padding: 12px 0; }
+/* Entrées de menu avec icône SVG (Catégories / Les nouvelles / La sélection). */
+.m-menu-list .m-has-ic { display: inline-flex; align-items: center; gap: 10px; }
+.m-menu-list .m-ic { flex: 0 0 auto; }
+@media (prefers-reduced-motion: reduce) { .m-menu-flip { transition: none; } }
+
+/* A3) Puces spéciales avec icône SVG (alignement). */
+.chip-f.chip-special { display: inline-flex; align-items: center; gap: 5px; }
+.chip-f.chip-special .chip-ic { flex: 0 0 auto; }
+
+/* ===================== B1) Panneau « Mon compte » : rangées empilées sur mobile ===================== */
+/* Cause du débordement : .notif-row reste en flex row (texte + switch/bouton côte à
+   côte) → largeur mini qui fait déborder le panneau. Sur mobile, on empile : le
+   texte prend toute la largeur, le contrôle passe dessous, aligné à gauche.
+   Les rangées de NAVIGATION (.notif-nav, texte + chevron) restent en ligne. */
+@media (max-width: 600px) {
+  .notif-row:not(.notif-nav) {
+    flex-direction: column; align-items: stretch; gap: 10px;
+  }
+  .notif-row:not(.notif-nav) .notif-sub { max-width: none; }
+  .notif-row:not(.notif-nav) > .notif-btn,
+  .notif-row:not(.notif-nav) .sup-actions,
+  .notif-row:not(.notif-nav) .switch,
+  .notif-row:not(.notif-nav) .pref-select,
+  .notif-row:not(.notif-nav) select,
+  .notif-row:not(.notif-nav) .pref-dn-input,
+  .notif-row:not(.notif-nav) .pref-dn-save { align-self: flex-start; }
+  /* Sélecteurs de profil : pleine largeur pour un tap confortable. */
+  .notif-row:not(.notif-nav) .pref-select,
+  .notif-row:not(.notif-nav) select { width: 100%; }
+}
+
+/* ===================== C1) Recto : état en haut-gauche, icônes en haut-droite ===================== */
+/* .state est le 1er enfant en flux (rangée du haut) ; les icônes restent absolues
+   à droite. On réserve la place des icônes sur cette rangée pour éviter le
+   chevauchement. Le titre (.card-top) passe en 2e rangée, sous cet en-tête.
+   NB mobile : .state est replié (tap pour révéler) → c'est le titre qui remonte
+   dans la bande des icônes ; sa réserve (padding-right:136px) reste donc utile. */
+.card-front > .state:first-of-type { padding-right: 130px; margin-bottom: 6px; min-height: 20px; }
+
+/* C4) Statut d'abonnement des cartes paramétrées : en bas, détaché du sélecteur. */
+.param-status { margin-top: 10px; }
+
+/* ===================== D) Titre dashboard : lettres qui se retournent ===================== */
+.hero-letter { display: inline-block; transform-origin: 50% 50%; white-space: pre; }
+@media (prefers-reduced-motion: no-preference) {
+  .hero-letter { animation: hero-letter-in .5s cubic-bezier(.2, .7, .2, 1) both; will-change: transform, opacity; }
+}
+@keyframes hero-letter-in {
+  from { transform: perspective(500px) rotateX(-90deg); opacity: 0; }
+  to   { transform: perspective(500px) rotateX(0deg);   opacity: 1; }
+}
+
+/* ===================== E6) Célébration : pack/deck entièrement adopté ===================== */
+.celebrate-burst { position: absolute; left: 50%; top: 50%; width: 0; height: 0; pointer-events: none; z-index: 5; }
+.cb-star {
+  position: absolute; left: 0; top: 0; width: 7px; height: 7px; margin: -3.5px;
+  border-radius: 50%; background: var(--amber); opacity: 0;
+  animation: cb-pop 1.1s ease-out forwards;
+}
+.cb-star:nth-child(3n)   { background: var(--green); }
+.cb-star:nth-child(3n+1) { background: #d9a54a; } /* ambre doux, dans l'ambiance */
+@keyframes cb-pop {
+  0%   { transform: translate(0, 0) scale(.2); opacity: 0; }
+  25%  { opacity: 1; }
+  60%  { transform: translate(var(--tx), var(--ty)) scale(1); opacity: 1; }
+  100% { transform: translate(calc(var(--tx) * 1.25), calc(var(--ty) * 1.25)) scale(.4); opacity: 0; }
+}
+.celebrated { animation: cb-glow .9s ease; }
+@keyframes cb-glow {
+  0%, 100% { box-shadow: var(--shadow); }
+  50% { box-shadow: 0 0 0 4px var(--amber-soft), 0 6px 22px rgba(120, 90, 180, .4); }
+}
+@media (prefers-reduced-motion: reduce) { .cb-star { animation: none; display: none; } }
+
+/* ===================== E5) Motif × teinte des decks ===================== */
+/* 8 teintes douces. Chaque classe pose --hue ; deux règles en dérivent le fond de
+   carte (--deck-bg, pâle) et la couleur du motif (--deck-motif, soutenu + translucide),
+   avec déclinaison thème sombre. Motif = SVG monochrome injecté (currentColor). */
+.tint-1 { --hue: #a567e3; } /* violet maison */
+.tint-2 { --hue: #5b7db8; } /* bleu nuit doux */
+.tint-3 { --hue: #6fa287; } /* vert sauge */
+.tint-4 { --hue: #d9a54a; } /* ambre doux */
+.tint-5 { --hue: #c97b5f; } /* terracotta doux */
+.tint-6 { --hue: #c58ab0; } /* rose poudré */
+.tint-7 { --hue: #8a86a3; } /* gris-violet (ardoise) */
+.tint-8 { --hue: #5fa8a4; } /* turquoise doux */
+[class*="tint-"] {
+  --deck-bg: color-mix(in srgb, var(--hue) 13%, #ffffff);
+  --deck-motif: color-mix(in srgb, var(--hue) 40%, transparent);
+}
+html[data-theme="dark"] [class*="tint-"] {
+  --deck-bg: color-mix(in srgb, var(--hue) 26%, #16131c);
+  --deck-motif: color-mix(in srgb, var(--hue) 50%, transparent);
+}
+
+/* Calque motif en fond de carte + voile de lisibilité par-dessus le motif. */
+.deck-motif-bg {
+  position: absolute; inset: 0; z-index: 0; color: var(--deck-motif);
+  overflow: hidden; border-radius: inherit; pointer-events: none;
+}
+.deck-motif-bg svg { width: 100%; height: 100%; display: block; }
+.deck-motif-bg::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(160deg, color-mix(in srgb, var(--deck-bg) 30%, transparent), color-mix(in srgb, var(--deck-bg) 72%, transparent));
+}
+
+/* Packs de l'étagère : fond teinté + motif, plus d'emoji. */
+.pack[class*="tint-"] { background: var(--deck-bg); }
+.pack[class*="tint-"] .pack-stack::before,
+.pack[class*="tint-"] .pack-stack::after { background: var(--deck-bg); }
+.pack .pack-body { position: relative; z-index: 1; }
+
+/* Vignette carrée (lignes « Mes decks », en-têtes) : mini-carte teintée + motif. */
+.deck-thumb {
+  position: relative; flex: 0 0 auto; width: 44px; height: 44px; border-radius: 11px;
+  overflow: hidden; background: var(--deck-bg);
+}
+.deck-thumb.deck-thumb-lg { width: 60px; height: 60px; border-radius: 14px; }
+
+/* Carte d'aperçu du formulaire de deck. */
+.deck-preview {
+  position: relative; overflow: hidden; border-radius: 16px; padding: 18px;
+  min-height: 110px; background: var(--deck-bg); box-shadow: var(--shadow);
+}
+.deck-preview .deck-preview-body { position: relative; z-index: 1; }
+.deck-preview .deck-preview-name { font-weight: 700; font-size: 1.05rem; color: var(--ink); }
+.deck-preview .deck-preview-sub { color: var(--muted); font-size: .85rem; margin-top: 4px; }
+
+/* Sélecteur de teinte (8 pastilles). */
+.deck-tint-picker { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 4px; }
+.deck-tint-opt {
+  width: 26px; height: 26px; border-radius: 50%; cursor: pointer; padding: 0;
+  border: 2px solid transparent; background: var(--hue);
+}
+.deck-tint-opt.on { border-color: var(--ink); outline: 2px solid var(--hue); outline-offset: 1px; }
+
+/* Vignette motif dans le menu « Ajouter à un deck » (petite). */
+.dam-thumb { width: 24px; height: 24px; border-radius: 7px; }
+.deck-row .deck-thumb { margin-right: 2px; }

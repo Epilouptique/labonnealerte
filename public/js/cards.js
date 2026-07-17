@@ -77,8 +77,12 @@
   // caractère « ⓘ » au rendu incohérent selon les OS. Taille pilotée par .flip-btn svg.
   var INFO_SVG = '<svg class="ic-info" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 7.6v.01"/></svg>';
 
+  // Icône « + » (recto) : « Ajouter à un deck ». Même famille que INFO_SVG/SHARE_SVG
+  // (trait 2px, linecap round, 18×18, currentColor). Placée juste à gauche du « i ».
+  var PLUS_SVG = '<svg class="ic-plus" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>';
+
   // A1) Cœur « j'aime » : contour (non aimé) ; le CSS le remplit quand .liked.
-  var LIKE_SVG = '<svg class="ic-like" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20.3l-1.45-1.32C5.4 14.36 2.5 11.7 2.5 8.5 2.5 6.08 4.42 4.2 6.8 4.2c1.36 0 2.66.63 3.5 1.64l.7.85.7-.85C12.54 4.83 13.84 4.2 15.2 4.2c2.38 0 4.3 1.88 4.3 4.3 0 3.2-2.9 5.86-8.05 10.48z"/></svg>';
+  var LIKE_SVG = '<svg class="ic-like" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20.3l-1.45-1.32C5.4 14.36 2.5 11.7 2.5 8.5 2.5 6.08 4.42 4.2 6.8 4.2c1.36 0 2.66.63 3.5 1.64l.7.85.7-.85C12.54 4.83 13.84 4.2 15.2 4.2c2.38 0 4.3 1.88 4.3 4.3 0 3.2-2.9 5.86-8.05 10.48z"/></svg>';
 
   // Format compact du compteur de likes : 1240 → « 1,2 k », 12000 → « 12 k ».
   function formatCount(n) {
@@ -106,9 +110,12 @@
   // string/number → input (avec placeholder/pattern éventuels).
   function paramControl(schema, def) {
     if (schema.type === 'enum') {
-      var opts = (schema.values || []).map(function (v) {
-        var sel = (def != null && String(v.value) === String(def)) ? ' selected' : '';
-        return '<option value="' + esc(v.value) + '"' + sel + '>' + esc(v.label) + '</option>';
+      // C5) Placeholder « Choisir… » sélectionné par défaut : ainsi TOUT choix émet
+      // un « change » (activation immédiate), y compris la valeur qui aurait été
+      // pré-remplie. (Le pré-remplissage département reste un simple repli visuel.)
+      var opts = '<option value="" disabled selected>Choisir ' + esc((schema.label || '').toLowerCase()) + '…</option>';
+      opts += (schema.values || []).map(function (v) {
+        return '<option value="' + esc(v.value) + '">' + esc(v.label) + '</option>';
       }).join('');
       return '<select class="param-select" data-key="' + esc(schema.key) + '" aria-label="' + esc(schema.label) + '">' + opts + '</select>';
     }
@@ -136,24 +143,25 @@
       : '';
     var addBtn = instances.length
       ? '<button type="button" class="param-add">+ ajouter</button>' : '';
+    // C5) Plus de bouton « Suivre » : l'abonnement s'active au CHANGE du sélecteur
+    // (ou à la saisie debouncée d'un champ libre) — géré par site.js.
     var picker =
       '<div class="param-form"' + (instances.length ? ' hidden' : '') + '>' +
         paramControl(schema, def) +
-        '<button type="button" class="sub-btn param-follow">Suivre</button>' +
       '</div>';
     // Parcours anonyme : email (réutilise .sub-form), les params sont joints au submit.
     var anon = (mode !== 'connected')
       ? '<div class="sub-form param-subform"><input type="email" placeholder="votre@email.fr" aria-label="Adresse email"><button type="button">OK</button></div>'
       : '';
-    // H) Indicateur d'abonnement TOUJOURS visible (comme les cartes broadcast) :
-    // en mode connecté, « Abonné » si ≥1 instance suivie, sinon « Non abonné ».
-    // (state.js met à jour ce libellé à l'ajout/retrait d'instance.)
+    // C4) Indicateur d'abonnement EN BAS de la carte (même place que le toggle des
+    // cartes simples). « Abonné » si ≥1 instance suivie, sinon « Non abonné ».
     var on = instances.length > 0;
     var status = (mode === 'connected')
       ? '<div class="param-status"><span class="switch-label' + (on ? ' on' : '') + '">' +
         (on ? 'Abonné' : 'Non abonné') + '</span></div>'
       : '';
-    return status + chips + addBtn + picker + anon;
+    // Ordre : instances suivies, ajout, sélecteur, (email anonyme), puis STATUT en bas.
+    return chips + addBtn + picker + anon + status;
   }
 
   function frontFace(s, mode, isLinked) {
@@ -172,15 +180,26 @@
     // Compteur d'abonnés discret (seulement à partir de 10).
     var count = (s.subscriber_count >= 10)
       ? '<div class="sub-count">' + s.subscriber_count + ' abonnés</div>' : '';
+    // « Ajouter à un deck » : icône « + » sur le recto, à gauche du « i », en mode
+    // connecté uniquement (pas de teasing pour les anonymes). Ouvre le menu flottant
+    // deck-add.js. La classe has-add décale partage/❤ pour laisser la place au « + ».
+    var showAdd = mode === 'connected' && !isLinked;
+    var addBtn = showAdd
+      ? '<button class="add-deck-btn card-add-deck" type="button" data-source-id="' + esc(s.id) +
+        '" aria-label="Ajouter à un deck" title="Ajouter à un deck">' + PLUS_SVG + '</button>'
+      : '';
     return '' +
-      '<div class="card-face card-front">' +
+      '<div class="card-face card-front' + (showAdd ? ' has-add' : '') + '">' +
         '<button class="share-btn card-share" type="button" aria-label="Partager" title="Partager">' + SHARE_SVG + '</button>' +
+        addBtn +
         '<button class="flip-btn" type="button" aria-label="En savoir plus" title="En savoir plus">' + INFO_SVG + '</button>' +
         likeBtn(s) +
+        // C1) Rangée du haut : état (.state) à gauche, icônes (absolues) à droite.
+        state +
+        // C1) Rangée du dessous : titre + badge.
         topRow(s) +
         (s.subtitle ? '<div class="card-subtitle">' + esc(s.subtitle) + '</div>' : '') +
         '<p>' + esc(s.description || '') + '</p>' +
-        state +
         count +
         action +
       '</div>';
@@ -206,21 +225,13 @@
 
     // Lien vers la page de statut (pas pour les sources liées : doomname n'en a pas).
     var statut = isLinked ? ''
-      : '<a class="back-statut" href="/source/' + esc(s.id) + '/statut">Statut &amp; historique →</a>';
-
-    // Phase 2 : « Ajouter à un deck » — action discrète sur le verso, en mode
-    // connecté uniquement (composer un deck = fonctionnalité de compte). Le picker
-    // est géré par js/deck-add.js (chargé sur la home).
-    var addDeck = (mode === 'connected' && !isLinked)
-      ? '<button type="button" class="back-add-deck" data-source-id="' + esc(s.id) + '">＋ Ajouter à un deck</button>'
-      : '';
+      : '<a class="back-statut" href="/source/' + esc(s.id) + '/statut">Plus d\'infos →</a>';
 
     return '' +
       '<div class="card-face card-back">' +
         '<button class="flip-back" type="button" aria-label="Retour" title="Retour">' + BACK_SVG + '</button>' +
         topRow(s) +
-        endpoint + tags + author + statut + addDeck +
-        '<a class="back-propose" href="/proposer">Proposez la vôtre →</a>' +
+        endpoint + tags + author + statut +
       '</div>';
   }
 
@@ -260,8 +271,33 @@
       '</div>';
   }
 
+  // E6) Salve de célébration autour d'un bouton (pack/deck entièrement adopté).
+  // Petites particules violet/vert/ambre qui émergent puis se dispersent (~1,4s,
+  // une fois). reduced-motion : simple lueur du bouton, pas de particules.
+  function celebrateBurst(btn) {
+    if (!btn) return;
+    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce) { btn.classList.add('celebrated'); setTimeout(function () { btn.classList.remove('celebrated'); }, 900); return; }
+    if (getComputedStyle(btn).position === 'static') btn.style.position = 'relative';
+    var wrap = document.createElement('span');
+    wrap.className = 'celebrate-burst'; wrap.setAttribute('aria-hidden', 'true');
+    var N = 10;
+    for (var i = 0; i < N; i++) {
+      var p = document.createElement('span');
+      p.className = 'cb-star';
+      var ang = (i / N) * 2 * Math.PI;
+      var dist = 26 + (i % 3) * 9;
+      p.style.setProperty('--tx', (Math.cos(ang) * dist).toFixed(1) + 'px');
+      p.style.setProperty('--ty', (Math.sin(ang) * dist).toFixed(1) + 'px');
+      p.style.animationDelay = (i * 20) + 'ms';
+      wrap.appendChild(p);
+    }
+    btn.appendChild(wrap);
+    setTimeout(function () { wrap.remove(); }, 1500);
+  }
+
   window.LBACards = {
     esc: esc, badgeFor: badgeFor, stateFor: stateFor, domainOf: domainOf, cardHTML: cardHTML, catLabel: catLabel,
-    BACK_SVG: BACK_SVG, formatCount: formatCount
+    BACK_SVG: BACK_SVG, formatCount: formatCount, celebrateBurst: celebrateBurst
   };
 })();

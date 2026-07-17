@@ -2159,3 +2159,22 @@ CREATE TABLE IF NOT EXISTS deck_reports (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_deck_reports_deck ON deck_reports (deck_id, target);
+
+
+-- ================================================================
+-- DECKS/COLLECTIONS : teinte dominante (motif x teinte). Le champ emoji EST
+-- l'identifiant du motif (bibliotheque public/js/deck-motifs.js) ; l'emoji ne
+-- s'affiche plus sur le deck, il sert de selecteur dans le formulaire. La teinte
+-- (1-8) colore le fond + le motif. Idempotent. Defaut = 1 (violet maison).
+-- ================================================================
+ALTER TABLE collections ADD COLUMN IF NOT EXISTS tint SMALLINT DEFAULT 1;
+
+-- Retrofit des packs officiels : emoji ramene dans le set des 24 motifs + teinte
+-- assortie (aucun deck ne doit afficher un emoji brut ; motif derive de l'emoji).
+UPDATE collections SET emoji = '💰', tint = 4 WHERE id = 'pack-bonnes-affaires';
+UPDATE collections SET emoji = '📚', tint = 6 WHERE id = 'pack-parents';
+UPDATE collections SET tint = 1 WHERE id = 'pack-essentiel';
+UPDATE collections SET tint = 7 WHERE id = 'pack-montagne';
+UPDATE collections SET tint = 2 WHERE id = 'pack-ciel';
+UPDATE collections SET tint = 8 WHERE id = 'pack-dev';
+UPDATE collections SET tint = 5 WHERE id = 'pack-quebec';

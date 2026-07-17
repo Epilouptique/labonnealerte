@@ -55,7 +55,13 @@
 
   function fillHeader() {
     var d = DECK.deck || {}, sources = DECK.sources || [];
-    document.getElementById('deck-emoji').textContent = d.emoji || '📦';
+    // E5) motif+teinte à la place de l'emoji.
+    var em = document.getElementById('deck-emoji');
+    if (em) {
+      var motif = (window.LBADeckMotifs && (LBADeckMotifs[d.emoji] || LBADeckMotifs['📦'])) || '';
+      em.innerHTML = '<span class="deck-thumb deck-thumb-lg tint-' + ((d.tint >= 1 && d.tint <= 8) ? d.tint : 1) +
+        '"><span class="deck-motif-bg" aria-hidden="true">' + motif + '</span></span>';
+    }
     document.getElementById('deck-name').textContent = d.name || '';
     document.getElementById('deck-desc').textContent = d.description || '';
 
@@ -151,6 +157,8 @@
       var msg = 'Deck copié dans vos decks · ' + parts.join(' · ') +
         '. Une copie privée est dans Mes decks.';
       setAdoptMsg(msg, 'ok');
+      // E6) Deck forké + entièrement adopté → célébration autour du bouton.
+      if (added > 0 && nNeeds === 0 && window.LBACards) LBACards.celebrateBurst(btn);
       await load(); // rafraîchit l'état des cartes (suivies)
     } catch (e) {
       setAdoptMsg('Réessayez dans un instant.', 'err');

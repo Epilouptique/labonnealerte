@@ -13,6 +13,8 @@ const ugc = require('../ugc');
 
 const router = express.Router();
 const MAX_DECKS = 10;
+// Teinte dominante 1-8 (défaut 1 = violet). Toute valeur hors plage → 1.
+function parseTint(v) { const n = parseInt(v, 10); return (Number.isInteger(n) && n >= 1 && n <= 8) ? n : 1; }
 
 /* ---------------- Rate-limit mémoire : création/édition de deck ---------------- */
 // 10 créations+éditions / heure / compte (réutilise l'esprit du likeLimiter).
@@ -57,7 +59,7 @@ async function enrichItems(deckId) {
 // Récupère un deck possédé par l'utilisateur, ou null.
 async function ownedDeck(deckId, subscriberId) {
   const { rows } = await pool.query(
-    `SELECT id, name, description, emoji, visibility, share_token, forked_from_name
+    `SELECT id, name, description, emoji, tint, visibility, share_token, forked_from_name
        FROM collections WHERE id = $1 AND owner_subscriber_id = $2`,
     [deckId, subscriberId]
   );
@@ -112,7 +114,7 @@ router.get('/decks', async (req, res) => {
   const auth = await requireAuth(req, res); if (!auth) return;
   try {
     const { rows } = await pool.query(
-      `SELECT c.id, c.name, c.description, c.emoji, c.visibility, c.share_token, c.forked_from_name,
+      `SELECT c.id, c.name, c.description, c.emoji, c.tint, c.visibility, c.share_token, c.forked_from_name,
               (SELECT COUNT(*) FROM collection_items ci WHERE ci.collection_id = c.id)::int AS card_count
          FROM collections c
         WHERE c.owner_subscriber_id = $1
@@ -151,12 +153,13 @@ router.post('/decks', async (req, res) => {
       return res.status(409).json({ error: `Maximum ${MAX_DECKS} decks.` });
     }
     const id = ugc.genDeckId();
+    const tint = parseTint(body.tint);
     await pool.query(
-      `INSERT INTO collections (id, name, description, emoji, owner_subscriber_id, visibility, display_order)
-       VALUES ($1, $2, $3, $4, $5, 'private', 100)`,
-      [id, name.value, desc.value || null, emoji, auth.id]
+      `INSERT INTO collections (id, name, description, emoji, tint, owner_subscriber_id, visibility, display_order)
+       VALUES ($1, $2, $3, $4, $5, $6, 'private', 100)`,
+      [id, name.value, desc.value || null, emoji, tint, auth.id]
     );
-    return res.status(200).json({ deck: { id, name: name.value, description: desc.value || null, emoji, visibility: 'private', card_count: 0 } });
+    return res.status(200).json({ deck: { id, name: name.value, description: desc.value || null, emoji, tint, visibility: 'private', card_count: 0 } });
   } catch (err) {
     console.error('[decks] Erreur POST /decks :', err.message);
     return res.status(503).json({ error: 'Service indisponible' });
@@ -191,12 +194,13 @@ router.patch('/decks/:id', async (req, res) => {
   try {
     const deck = await ownedDeck(req.params.id, auth.id);
     if (!deck) return res.status(404).json({ error: 'Deck inconnu' });
+    const tint = parseTint(body.tint);
     await pool.query(
-      `UPDATE collections SET name = $1, description = $2, emoji = $3, updated_at = NOW()
-        WHERE id = $4 AND owner_subscriber_id = $5`,
-      [name.value, desc.value || null, emoji, deck.id, auth.id]
+      `UPDATE collections SET name = $1, description = $2, emoji = $3, tint = $4, updated_at = NOW()
+        WHERE id = $5 AND owner_subscriber_id = $6`,
+      [name.value, desc.value || null, emoji, tint, deck.id, auth.id]
     );
-    return res.status(200).json({ deck: { id: deck.id, name: name.value, description: desc.value || null, emoji, visibility: deck.visibility } });
+    return res.status(200).json({ deck: { id: deck.id, name: name.value, description: desc.value || null, emoji, tint, visibility: deck.visibility } });
   } catch (err) {
     console.error('[decks] Erreur PATCH /decks/:id :', err.message);
     return res.status(503).json({ error: 'Service indisponible' });
@@ -328,7 +332,7 @@ router.post('/decks/:id/unshare', async (req, res) => {
 router.get('/decks/shared/:token', async (req, res) => {
   try {
     const meta = await pool.query(
-      `SELECT c.id, c.name, c.description, c.emoji, c.forked_from_name, subr.display_name AS author
+      `SELECT c.id, c.name, c.description, c.emoji, c.tint, c.forked_from_name, subr.display_name AS author
          FROM collections c JOIN subscribers subr ON subr.id = c.owner_subscriber_id
         WHERE c.share_token = $1 AND c.visibility = 'unlisted'`,
       [req.params.token]
@@ -338,7 +342,7 @@ router.get('/decks/shared/:token', async (req, res) => {
     const sources = await enrichItems(deck.id);
     return res.status(200).json({
       deck: {
-        name: deck.name, description: deck.description, emoji: deck.emoji,
+        name: deck.name, description: deck.description, emoji: deck.emoji, tint: deck.tint,
         author: deck.author || null, forked_from_name: deck.forked_from_name || null,
       },
       sources,
@@ -356,7 +360,7 @@ router.post('/decks/shared/:token/fork', async (req, res) => {
   if (!rateOk(auth.id)) return res.status(429).json({ error: 'Trop d\'opérations, réessayez plus tard.' });
   try {
     const src = await pool.query(
-      `SELECT c.id, c.name, c.description, c.emoji, subr.display_name AS author
+      `SELECT c.id, c.name, c.description, c.emoji, c.tint, subr.display_name AS author
          FROM collections c JOIN subscribers subr ON subr.id = c.owner_subscriber_id
         WHERE c.share_token = $1 AND c.visibility = 'unlisted'`,
       [req.params.token]
@@ -369,9 +373,9 @@ router.post('/decks/shared/:token/fork', async (req, res) => {
 
     const newId = ugc.genDeckId();
     await pool.query(
-      `INSERT INTO collections (id, name, description, emoji, owner_subscriber_id, visibility, display_order, forked_from_name)
-       VALUES ($1, $2, $3, $4, $5, 'private', 100, $6)`,
-      [newId, orig.name, orig.description, orig.emoji, auth.id, orig.author || null]
+      `INSERT INTO collections (id, name, description, emoji, tint, owner_subscriber_id, visibility, display_order, forked_from_name)
+       VALUES ($1, $2, $3, $4, $5, $6, 'private', 100, $7)`,
+      [newId, orig.name, orig.description, orig.emoji, orig.tint || 1, auth.id, orig.author || null]
     );
     // Copie indépendante des items (snapshot).
     await pool.query(
