@@ -2263,3 +2263,234 @@ SELECT 'grands-anniversaires', 'Grands anniversaires', 'Mémoire culturelle et s
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'grands-anniversaires');
 INSERT INTO source_states (source_id) SELECT 'grands-anniversaires'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'grands-anniversaires');
+
+
+-- ================================================================
+-- VAGUE « culture francophone, sport & traditions » (sources internes calculées).
+-- Anti-doublon : Saint-Patrick reste dans fetes-gourmandes ET fetes-nationales/irlande ;
+-- Cannes/Avignon dans grands-festivals ; Césars/Oscars dans ceremonies. Écartés faute
+-- de date officielle : rentree-litteraire (pas de jour unique), spectacles-recompenses
+-- (Molières/Victoires 2027 non annoncés), festival-bd-angouleme (2027 non confirmé).
+-- display_order 320+. Dates VÉRIFIÉES (voir en-tête de chaque source).
+-- ================================================================
+
+-- Saint-Nicolas : 6 décembre, fixe (Est, Belgique, Suisse).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'saint-nicolas', 'Saint-Nicolas', 'La grande fête du 6 décembre',
+  'Un rappel chaleureux l''avant-veille et le jour de la Saint-Nicolas (6 décembre), grande fête traditionnelle de l''Est de la France, de la Belgique et de la Suisse. Date fixe.',
+  'internal', 'official', false, ARRAY['fetes', 'vie-locale'], 320
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'saint-nicolas');
+INSERT INTO source_states (source_id) SELECT 'saint-nicolas'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'saint-nicolas');
+
+-- Prix littéraires d'automne : dates 2026 vérifiées (Académie française officielle,
+-- autres via calendrier Livres Hebdo). TODO annuel + Goncourt des lycéens.
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'prix-litteraires', 'Prix littéraires', 'Goncourt, Renaudot, Femina, Médicis…',
+  'La veille et le jour de proclamation des grands prix littéraires d''automne : Grand Prix du roman de l''Académie française, Médicis, Goncourt, Renaudot, Femina. Dates 2026 vérifiées.',
+  'internal', 'official', false, ARRAY['livres', 'culture'], 321
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'prix-litteraires');
+INSERT INTO source_states (source_id) SELECT 'prix-litteraires'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'prix-litteraires');
+
+-- Fête des Lumières de Lyon : 5-8 décembre 2026 (officiel fetedeslumieres.lyon.fr).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'fete-des-lumieres', 'Fête des Lumières', 'Lyon s''illumine en décembre',
+  'Un rappel à l''approche et pendant la Fête des Lumières de Lyon (autour du 8 décembre) : quatre soirs d''illuminations et d''installations dans toute la ville. Dates officielles.',
+  'internal', 'official', false, ARRAY['vie-locale', 'culture'], 322
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'fete-des-lumieres');
+INSERT INTO source_states (source_id) SELECT 'fete-des-lumieres'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'fete-des-lumieres');
+
+-- Carnavals : Nice 2027 (office de tourisme métropolitain) ; Dunkerque en TODO.
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'carnavals', 'Carnavals', 'Nice, Dunkerque…',
+  'Un rappel à l''approche des grands carnavals français. Carnaval de Nice 2027 (dates de l''office de tourisme, à reconfirmer sur le site officiel) ; Carnaval de Dunkerque ajouté dès publication du calendrier officiel des bandes.',
+  'internal', 'official', false, ARRAY['vie-locale', 'fetes'], 323
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'carnavals');
+INSERT INTO source_states (source_id) SELECT 'carnavals'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'carnavals');
+
+-- Francophonie : Journée internationale (20 mars, fixe). Semaine 2027 en TODO.
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'francophonie', 'Francophonie', 'La langue en partage, le 20 mars',
+  'Un rappel la veille et le jour de la Journée internationale de la Francophonie (20 mars, date fixe) : la langue commune à la France, au Québec, à la Belgique, à la Suisse et à l''Afrique francophone. La Semaine de la langue française sera ajoutée dès publication des dates 2027.',
+  'internal', 'official', false, ARRAY['monde', 'culture'], 324
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'francophonie');
+INSERT INTO source_states (source_id) SELECT 'francophonie'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'francophonie');
+
+
+-- ================================================================
+-- TRÈS GRANDE VAGUE : paramétrées v2 (meteo-europe, releases crates/packagist/rubygems)
+-- + calendaires & broadcast (festivals, admin/social, sport, mode). display_order 330+.
+-- Écartés (voir rapport) : reddit (bloqué sans OAuth en 2026), don-du-sang (filtrage
+-- honnête possible mais spammy au département — design commune à faire), loto-patrimoine,
+-- dates-bac, moustique-tigre (pas de flux temps réel propre). B8/B9 : extensions des
+-- sources existantes grandes-causes (TODO) et echeances-fiscales (PAS au 1er sept).
+-- ================================================================
+
+-- Météo Europe PARAMÉTRÉE par pays d'expatriation (MeteoAlarm, orange+, échelle pays).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
+SELECT 'meteo-europe', 'Météo Europe', 'Le pays d''expatriation de votre choix',
+  'Vigilance météo grave (orange ou rouge) dans le pays d''expatriation de votre choix (Espagne, Allemagne, Italie, Portugal, Grèce, Pays-Bas, Irlande, Luxembourg). Échelle du pays entier : « une vigilance grave quelque part dans le pays ». Données MeteoAlarm (EUMETNET), même flux que la Belgique.',
+  'internal', 'official', false, ARRAY['vigilance-meteo', 'monde', 'expatries'], 330, '[{"key":"pays","label":"Pays","type":"enum","values":[{"value":"espagne","label":"Espagne"},{"value":"allemagne","label":"Allemagne"},{"value":"italie","label":"Italie"},{"value":"portugal","label":"Portugal"},{"value":"grece","label":"Grèce"},{"value":"pays-bas","label":"Pays-Bas"},{"value":"irlande","label":"Irlande"},{"value":"luxembourg","label":"Luxembourg"}],"multiple":true,"required":true,"default":null}]'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'meteo-europe');
+UPDATE sources SET params_schema = '[{"key":"pays","label":"Pays","type":"enum","values":[{"value":"espagne","label":"Espagne"},{"value":"allemagne","label":"Allemagne"},{"value":"italie","label":"Italie"},{"value":"portugal","label":"Portugal"},{"value":"grece","label":"Grèce"},{"value":"pays-bas","label":"Pays-Bas"},{"value":"irlande","label":"Irlande"},{"value":"luxembourg","label":"Luxembourg"}],"multiple":true,"required":true,"default":null}]'::jsonb WHERE id = 'meteo-europe';
+
+-- Release crates.io (Rust), PARAMÉTRÉE par crate.
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
+SELECT 'crates-release', 'Release crates.io', 'Le crate Rust de votre choix',
+  'Prévenu à la sortie d''une nouvelle version stable d''un crate Rust que vous suivez. Registre public crates.io, sans clé.',
+  'internal', 'official', false, ARRAY['tech', 'dev'], 331, '[{"key":"crate","label":"Crate Rust","type":"string","placeholder":"serde","pattern":"^[a-z0-9][a-z0-9._-]{0,63}$","lowercase":true,"multiple":true,"required":true,"default":null,"hint":"nom du crate sur crates.io, ex. serde ou tokio"}]'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'crates-release');
+UPDATE sources SET params_schema = '[{"key":"crate","label":"Crate Rust","type":"string","placeholder":"serde","pattern":"^[a-z0-9][a-z0-9._-]{0,63}$","lowercase":true,"multiple":true,"required":true,"default":null,"hint":"nom du crate sur crates.io, ex. serde ou tokio"}]'::jsonb WHERE id = 'crates-release';
+
+-- Release Packagist (PHP/Composer), PARAMÉTRÉE par paquet.
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
+SELECT 'packagist-release', 'Release Packagist', 'Le paquet Composer de votre choix',
+  'Prévenu à la sortie d''une nouvelle version stable d''un paquet PHP/Composer que vous suivez. Registre public Packagist, sans clé.',
+  'internal', 'official', false, ARRAY['tech', 'dev'], 332, '[{"key":"paquet","label":"Paquet Composer","type":"string","placeholder":"monolog/monolog","pattern":"^[a-z0-9]([a-z0-9._-]*)?/[a-z0-9]([a-z0-9._-]*)$","lowercase":true,"multiple":true,"required":true,"default":null,"hint":"vendor/package sur Packagist, ex. monolog/monolog"}]'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'packagist-release');
+UPDATE sources SET params_schema = '[{"key":"paquet","label":"Paquet Composer","type":"string","placeholder":"monolog/monolog","pattern":"^[a-z0-9]([a-z0-9._-]*)?/[a-z0-9]([a-z0-9._-]*)$","lowercase":true,"multiple":true,"required":true,"default":null,"hint":"vendor/package sur Packagist, ex. monolog/monolog"}]'::jsonb WHERE id = 'packagist-release';
+
+-- Release RubyGems (Ruby), PARAMÉTRÉE par gem.
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
+SELECT 'rubygems-release', 'Release RubyGems', 'La gem Ruby de votre choix',
+  'Prévenu à la sortie d''une nouvelle version d''une gem Ruby que vous suivez. Registre public RubyGems, sans clé.',
+  'internal', 'official', false, ARRAY['tech', 'dev'], 333, '[{"key":"gem","label":"Gem Ruby","type":"string","placeholder":"rails","pattern":"^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$","lowercase":false,"multiple":true,"required":true,"default":null,"hint":"nom de la gem sur RubyGems, ex. rails ou devise"}]'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'rubygems-release');
+UPDATE sources SET params_schema = '[{"key":"gem","label":"Gem Ruby","type":"string","placeholder":"rails","pattern":"^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$","lowercase":false,"multiple":true,"required":true,"default":null,"hint":"nom de la gem sur RubyGems, ex. rails ou devise"}]'::jsonb WHERE id = 'rubygems-release';
+
+-- Festivals de musique (calendrier). Dates vérifiées ; TODO pour les non annoncés.
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'festivals-musique', 'Festivals de musique', 'Hellfest, Rock en Seine…',
+  'Un rappel à l''approche des grands festivals de musique français, dates officielles vérifiées : Rock en Seine, Hellfest. D''autres (Vieilles Charrues, Solidays, Interceltique) seront ajoutés dès publication de leurs dates.',
+  'internal', 'official', false, ARRAY['culture', 'festivals'], 334
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'festivals-musique');
+INSERT INTO source_states (source_id) SELECT 'festivals-musique'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'festivals-musique');
+
+-- Festival du Livre de Paris (calendrier). 16-18 avril 2027 (officiel).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'festival-livre-paris', 'Festival du Livre de Paris', 'Le grand rendez-vous du livre',
+  'Un rappel à l''approche et pendant le Festival du Livre de Paris, au Grand Palais (printemps). Dates officielles.',
+  'internal', 'official', false, ARRAY['livres', 'culture'], 335
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'festival-livre-paris');
+INSERT INTO source_states (source_id) SELECT 'festival-livre-paris'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'festival-livre-paris');
+
+-- Japan Expo (calendrier). 8-11 juillet 2027.
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'japan-expo', 'Japan Expo', 'Mangas et culture japonaise',
+  'Un rappel à l''approche et pendant Japan Expo, à Paris-Nord Villepinte (juillet). Dates officielles.',
+  'internal', 'official', false, ARRAY['jeux-video', 'culture'], 336
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'japan-expo');
+INSERT INTO source_states (source_id) SELECT 'japan-expo'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'japan-expo');
+
+-- Rendez-vous tech (keynotes + sorties d'OS). Ubuntu 26.10 daté ; keynotes en TODO.
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'rdv-tech', 'Rendez-vous tech', 'Sorties d''OS et grandes keynotes',
+  'La veille et le jour des grands rendez-vous tech datés officiellement : sorties d''OS majeures (Ubuntu), grandes keynotes. N''affiche que ce qui est officiellement annoncé.',
+  'internal', 'official', false, ARRAY['tech'], 337
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'rdv-tech');
+INSERT INTO source_states (source_id) SELECT 'rdv-tech'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'rdv-tech');
+
+-- Allocation de rentrée scolaire (versement CAF). 19 août 2026 (officiel).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'allocation-rentree-scolaire', 'Allocation de rentrée', 'Le versement de l''ARS',
+  'Un rappel à l''approche du versement de l''allocation de rentrée scolaire (mi-août, sous conditions de ressources). Dates officielles CAF, sans montant.',
+  'internal', 'official', false, ARRAY['social', 'vie-locale'], 338
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'allocation-rentree-scolaire');
+INSERT INTO source_states (source_id) SELECT 'allocation-rentree-scolaire'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'allocation-rentree-scolaire');
+
+-- Prime de Noël (versement CAF). 16 décembre 2026 (officiel).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'prime-noel', 'Prime de Noël', 'Le versement de mi-décembre',
+  'Un rappel à l''approche du versement de la prime de Noël (mi-décembre), automatique pour les bénéficiaires concernés (RSA, ASS…). Dates officielles CAF, sans montant.',
+  'internal', 'official', false, ARRAY['social'], 339
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'prime-noel');
+INSERT INTO source_states (source_id) SELECT 'prime-noel'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'prime-noel');
+
+-- Mercato foot (fermeture des fenêtres de transferts). Dates LFP 2026-2027 (officiel).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'mercato-foot', 'Mercato foot', 'La clôture des transferts',
+  'La veille et le jour de la clôture des fenêtres de transferts (mercato d''été et d''hiver). Dates officielles LFP (Ligue 1). Ton léger.',
+  'internal', 'official', false, ARRAY['sport'], 340
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'mercato-foot');
+INSERT INTO source_states (source_id) SELECT 'mercato-foot'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'mercato-foot');
+
+-- Fashion Week de Paris (prêt-à-porter femme). Calendrier officiel FHCM.
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'fashion-week', 'Fashion Week Paris', 'Les défilés prêt-à-porter',
+  'Un rappel la veille et à l''ouverture de la Fashion Week de Paris (prêt-à-porter femme). Dates officielles de la Fédération de la Haute Couture et de la Mode.',
+  'internal', 'official', false, ARRAY['culture'], 341
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'fashion-week');
+INSERT INTO source_states (source_id) SELECT 'fashion-week'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'fashion-week');
+
+
+-- ================================================================
+-- VAGUE « originales & vendeuses ». display_order 350+. Sources ZÉRO API pour A1-A3.
+-- Écartés (voir rapport) : alerte-enlevement + greves-nationales (aucun flux officiel),
+-- zfe-restrictions (calendrier légalement incertain post-2025), sorties-series-majeures
+-- (aucune date plateforme confirmée), nuit-des-chercheurs (pas d'édition FR 2026),
+-- foire-aux-vins (pas de fenêtre officielle nationale). Extensions : evenements-astro
+-- (éclipse Lune 28/08/2026), rdv-gaming (Steam Next Fest), echeances-fiscales (remb. impôt).
+-- ================================================================
+
+-- Fête des prénoms PARAMÉTRÉE (table interne du calendrier des Postes, zéro API).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
+SELECT 'fete-des-prenoms', 'Fête des prénoms', 'Le prénom de votre choix',
+  'La veille et le jour de la fête du ou des prénoms de votre choix (« Demain, c''est la fête des Hugo »). Calendrier français traditionnel, calculé. Si un prénom n''est pas répertorié, il reste sans alerte.',
+  'internal', 'official', false, ARRAY['fetes', 'vie-locale'], 350, '[{"key":"prenom","label":"Prénom","type":"string","placeholder":"Hugo","pattern":"^[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ''-]{1,24}$","lowercase":false,"multiple":true,"required":true,"default":null,"hint":"un prénom du calendrier français, ex. Hugo, Marie, Nicolas"}]'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'fete-des-prenoms');
+UPDATE sources SET params_schema = '[{"key":"prenom","label":"Prénom","type":"string","placeholder":"Hugo","pattern":"^[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ''-]{1,24}$","lowercase":false,"multiple":true,"required":true,"default":null,"hint":"un prénom du calendrier français, ex. Hugo, Marie, Nicolas"}]'::jsonb WHERE id = 'fete-des-prenoms';
+
+-- Rappel personnalisé PARAMÉTRÉE (alerte datée annuelle créée par l'utilisateur).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
+SELECT 'rappel-personnalise', 'Rappel personnalisé', 'Votre propre alerte datée',
+  'Créez votre propre rappel daté, répété chaque année : indiquez une date et un libellé (ex. « 14/02 Anniversaire de maman ») et soyez prévenu trois jours avant, puis le jour même. Le libellé n''apparaît que dans vos propres notifications.',
+  'internal', 'official', false, ARRAY['vie-locale'], 351, '[{"key":"rappel","label":"Rappel daté","type":"string","placeholder":"14/02 Anniversaire de maman","pattern":"^(0[1-9]|[12][0-9]|3[01])/(0[1-9]|1[0-2]) [^/@]{1,40}$","lowercase":false,"multiple":true,"required":true,"default":null,"hint":"format JJ/MM Libellé, ex. 14/02 Anniversaire de maman (rappel annuel)"}]'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'rappel-personnalise');
+UPDATE sources SET params_schema = '[{"key":"rappel","label":"Rappel daté","type":"string","placeholder":"14/02 Anniversaire de maman","pattern":"^(0[1-9]|[12][0-9]|3[01])/(0[1-9]|1[0-2]) [^/@]{1,40}$","lowercase":false,"multiple":true,"required":true,"default":null,"hint":"format JJ/MM Libellé, ex. 14/02 Anniversaire de maman (rappel annuel)"}]'::jsonb WHERE id = 'rappel-personnalise';
+
+-- Tour de France PARAMÉTRÉE par département (config vide au 18/07/2026, TODO parcours 2027).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
+SELECT 'tour-de-france-passage', 'Tour de France près de chez vous', 'Le département de votre choix',
+  'Prévenu l''avant-veille quand le Tour de France traverse le département de votre choix. Parcours officiel transcrit chaque année ; en attente du parcours détaillé par département.',
+  'internal', 'official', false, ARRAY['sport', 'vie-locale'], 352, '[{"key":"departement","label":"Département","type":"enum","values":[{"value":"01","label":"Ain"},{"value":"02","label":"Aisne"},{"value":"03","label":"Allier"},{"value":"04","label":"Alpes-de-Haute-Provence"},{"value":"05","label":"Hautes-Alpes"},{"value":"06","label":"Alpes-Maritimes"},{"value":"07","label":"Ardèche"},{"value":"08","label":"Ardennes"},{"value":"09","label":"Ariège"},{"value":"10","label":"Aube"},{"value":"11","label":"Aude"},{"value":"12","label":"Aveyron"},{"value":"13","label":"Bouches-du-Rhône"},{"value":"14","label":"Calvados"},{"value":"15","label":"Cantal"},{"value":"16","label":"Charente"},{"value":"17","label":"Charente-Maritime"},{"value":"18","label":"Cher"},{"value":"19","label":"Corrèze"},{"value":"2A","label":"Corse-du-Sud"},{"value":"2B","label":"Haute-Corse"},{"value":"21","label":"Côte-d''Or"},{"value":"22","label":"Côtes-d''Armor"},{"value":"23","label":"Creuse"},{"value":"24","label":"Dordogne"},{"value":"25","label":"Doubs"},{"value":"26","label":"Drôme"},{"value":"27","label":"Eure"},{"value":"28","label":"Eure-et-Loir"},{"value":"29","label":"Finistère"},{"value":"30","label":"Gard"},{"value":"31","label":"Haute-Garonne"},{"value":"32","label":"Gers"},{"value":"33","label":"Gironde"},{"value":"34","label":"Hérault"},{"value":"35","label":"Ille-et-Vilaine"},{"value":"36","label":"Indre"},{"value":"37","label":"Indre-et-Loire"},{"value":"38","label":"Isère"},{"value":"39","label":"Jura"},{"value":"40","label":"Landes"},{"value":"41","label":"Loir-et-Cher"},{"value":"42","label":"Loire"},{"value":"43","label":"Haute-Loire"},{"value":"44","label":"Loire-Atlantique"},{"value":"45","label":"Loiret"},{"value":"46","label":"Lot"},{"value":"47","label":"Lot-et-Garonne"},{"value":"48","label":"Lozère"},{"value":"49","label":"Maine-et-Loire"},{"value":"50","label":"Manche"},{"value":"51","label":"Marne"},{"value":"52","label":"Haute-Marne"},{"value":"53","label":"Mayenne"},{"value":"54","label":"Meurthe-et-Moselle"},{"value":"55","label":"Meuse"},{"value":"56","label":"Morbihan"},{"value":"57","label":"Moselle"},{"value":"58","label":"Nièvre"},{"value":"59","label":"Nord"},{"value":"60","label":"Oise"},{"value":"61","label":"Orne"},{"value":"62","label":"Pas-de-Calais"},{"value":"63","label":"Puy-de-Dôme"},{"value":"64","label":"Pyrénées-Atlantiques"},{"value":"65","label":"Hautes-Pyrénées"},{"value":"66","label":"Pyrénées-Orientales"},{"value":"67","label":"Bas-Rhin"},{"value":"68","label":"Haut-Rhin"},{"value":"69","label":"Rhône"},{"value":"70","label":"Haute-Saône"},{"value":"71","label":"Saône-et-Loire"},{"value":"72","label":"Sarthe"},{"value":"73","label":"Savoie"},{"value":"74","label":"Haute-Savoie"},{"value":"75","label":"Paris"},{"value":"76","label":"Seine-Maritime"},{"value":"77","label":"Seine-et-Marne"},{"value":"78","label":"Yvelines"},{"value":"79","label":"Deux-Sèvres"},{"value":"80","label":"Somme"},{"value":"81","label":"Tarn"},{"value":"82","label":"Tarn-et-Garonne"},{"value":"83","label":"Var"},{"value":"84","label":"Vaucluse"},{"value":"85","label":"Vendée"},{"value":"86","label":"Vienne"},{"value":"87","label":"Haute-Vienne"},{"value":"88","label":"Vosges"},{"value":"89","label":"Yonne"},{"value":"90","label":"Territoire de Belfort"},{"value":"91","label":"Essonne"},{"value":"92","label":"Hauts-de-Seine"},{"value":"93","label":"Seine-Saint-Denis"},{"value":"94","label":"Val-de-Marne"},{"value":"95","label":"Val-d''Oise"},{"value":"971","label":"Guadeloupe"},{"value":"972","label":"Martinique"},{"value":"973","label":"Guyane"},{"value":"974","label":"La Réunion"},{"value":"976","label":"Mayotte"}],"multiple":true,"required":true,"default":null}]'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'tour-de-france-passage');
+UPDATE sources SET params_schema = '[{"key":"departement","label":"Département","type":"enum","values":[{"value":"01","label":"Ain"},{"value":"02","label":"Aisne"},{"value":"03","label":"Allier"},{"value":"04","label":"Alpes-de-Haute-Provence"},{"value":"05","label":"Hautes-Alpes"},{"value":"06","label":"Alpes-Maritimes"},{"value":"07","label":"Ardèche"},{"value":"08","label":"Ardennes"},{"value":"09","label":"Ariège"},{"value":"10","label":"Aube"},{"value":"11","label":"Aude"},{"value":"12","label":"Aveyron"},{"value":"13","label":"Bouches-du-Rhône"},{"value":"14","label":"Calvados"},{"value":"15","label":"Cantal"},{"value":"16","label":"Charente"},{"value":"17","label":"Charente-Maritime"},{"value":"18","label":"Cher"},{"value":"19","label":"Corrèze"},{"value":"2A","label":"Corse-du-Sud"},{"value":"2B","label":"Haute-Corse"},{"value":"21","label":"Côte-d''Or"},{"value":"22","label":"Côtes-d''Armor"},{"value":"23","label":"Creuse"},{"value":"24","label":"Dordogne"},{"value":"25","label":"Doubs"},{"value":"26","label":"Drôme"},{"value":"27","label":"Eure"},{"value":"28","label":"Eure-et-Loir"},{"value":"29","label":"Finistère"},{"value":"30","label":"Gard"},{"value":"31","label":"Haute-Garonne"},{"value":"32","label":"Gers"},{"value":"33","label":"Gironde"},{"value":"34","label":"Hérault"},{"value":"35","label":"Ille-et-Vilaine"},{"value":"36","label":"Indre"},{"value":"37","label":"Indre-et-Loire"},{"value":"38","label":"Isère"},{"value":"39","label":"Jura"},{"value":"40","label":"Landes"},{"value":"41","label":"Loir-et-Cher"},{"value":"42","label":"Loire"},{"value":"43","label":"Haute-Loire"},{"value":"44","label":"Loire-Atlantique"},{"value":"45","label":"Loiret"},{"value":"46","label":"Lot"},{"value":"47","label":"Lot-et-Garonne"},{"value":"48","label":"Lozère"},{"value":"49","label":"Maine-et-Loire"},{"value":"50","label":"Manche"},{"value":"51","label":"Marne"},{"value":"52","label":"Haute-Marne"},{"value":"53","label":"Mayenne"},{"value":"54","label":"Meurthe-et-Moselle"},{"value":"55","label":"Meuse"},{"value":"56","label":"Morbihan"},{"value":"57","label":"Moselle"},{"value":"58","label":"Nièvre"},{"value":"59","label":"Nord"},{"value":"60","label":"Oise"},{"value":"61","label":"Orne"},{"value":"62","label":"Pas-de-Calais"},{"value":"63","label":"Puy-de-Dôme"},{"value":"64","label":"Pyrénées-Atlantiques"},{"value":"65","label":"Hautes-Pyrénées"},{"value":"66","label":"Pyrénées-Orientales"},{"value":"67","label":"Bas-Rhin"},{"value":"68","label":"Haut-Rhin"},{"value":"69","label":"Rhône"},{"value":"70","label":"Haute-Saône"},{"value":"71","label":"Saône-et-Loire"},{"value":"72","label":"Sarthe"},{"value":"73","label":"Savoie"},{"value":"74","label":"Haute-Savoie"},{"value":"75","label":"Paris"},{"value":"76","label":"Seine-Maritime"},{"value":"77","label":"Seine-et-Marne"},{"value":"78","label":"Yvelines"},{"value":"79","label":"Deux-Sèvres"},{"value":"80","label":"Somme"},{"value":"81","label":"Tarn"},{"value":"82","label":"Tarn-et-Garonne"},{"value":"83","label":"Var"},{"value":"84","label":"Vaucluse"},{"value":"85","label":"Vendée"},{"value":"86","label":"Vienne"},{"value":"87","label":"Haute-Vienne"},{"value":"88","label":"Vosges"},{"value":"89","label":"Yonne"},{"value":"90","label":"Territoire de Belfort"},{"value":"91","label":"Essonne"},{"value":"92","label":"Hauts-de-Seine"},{"value":"93","label":"Seine-Saint-Denis"},{"value":"94","label":"Val-de-Marne"},{"value":"95","label":"Val-d''Oise"},{"value":"971","label":"Guadeloupe"},{"value":"972","label":"Martinique"},{"value":"973","label":"Guyane"},{"value":"974","label":"La Réunion"},{"value":"976","label":"Mayotte"}],"multiple":true,"required":true,"default":null}]'::jsonb WHERE id = 'tour-de-france-passage';
+
+-- Ce qui change au 1er du mois (digest mensuel service-public), broadcast.
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'ce-qui-change', 'Ce qui change au 1er', 'Le récap officiel du mois',
+  'La veille du 1er de chaque mois, un rappel du récapitulatif officiel « ce qui change » publié par service-public.gouv.fr (SMIC, tarifs, aides, démarches, barèmes). Un digest utile, douze fois par an.',
+  'internal', 'official', false, ARRAY['vie-locale', 'reglementation'], 353
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'ce-qui-change');
+INSERT INTO source_states (source_id) SELECT 'ce-qui-change'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'ce-qui-change');
+
+-- Billetterie concerts (mises en vente des tournées événements), config vide + TODO.
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'billetterie-concerts', 'Billetterie concerts', 'Les ouvertures de vente à ne pas rater',
+  'Un rappel à l''approche des mises en vente de billets des grandes tournées en France (stades, arénas). N''affiche une date que lorsqu''elle est officiellement annoncée par le producteur ou la salle.',
+  'internal', 'official', false, ARRAY['culture', 'bons-plans'], 354
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'billetterie-concerts');
+INSERT INTO source_states (source_id) SELECT 'billetterie-concerts'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'billetterie-concerts');
+
+-- Rendez-vous aux jardins (ministère de la Culture). 4-6 juin 2027 (officiel).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'rendez-vous-aux-jardins', 'Rendez-vous aux jardins', 'Jardins ouverts en juin',
+  'Un rappel à l''approche des Rendez-vous aux jardins (début juin) : trois jours pour visiter des jardins publics et privés partout en France. Dates officielles du ministère de la Culture.',
+  'internal', 'official', false, ARRAY['culture', 'vie-locale'], 355
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'rendez-vous-aux-jardins');
+INSERT INTO source_states (source_id) SELECT 'rendez-vous-aux-jardins'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'rendez-vous-aux-jardins');

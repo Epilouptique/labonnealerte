@@ -10,6 +10,9 @@ function events(now) {
     { start: new Date(2026, 9, 22), end: new Date(2026, 9, 26), msg: '🎮 La Paris Games Week ouvre porte de Versailles' },
     // The Game Awards 2026 : jeudi 10 décembre 2026.
     { start: new Date(2026, 11, 10), end: new Date(2026, 11, 11), msg: '🎮 Ce soir : The Game Awards, les récompenses du jeu vidéo' },
+    // Steam Next Fest octobre 2026 : 19 au 26 octobre 2026 (dates officielles Valve).
+    // (Nintendo Direct exclu : jamais annoncé à l'avance.)
+    { start: new Date(2026, 9, 19), end: new Date(2026, 9, 27), msg: '🎮 Steam Next Fest : une semaine de démos gratuites de jeux à venir sur Steam' },
   ]
     .filter((e) => e.end.getTime() >= now.getTime())
     .sort((a, b) => a.start - b.start);

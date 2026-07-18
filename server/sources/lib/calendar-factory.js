@@ -60,7 +60,25 @@ function createCalendarSource(cfg) {
     return { state: 'inactive', since: null, until: null, message: null, url };
   }
 
-  return { id, check };
+  // Contrat optionnel pour la page « Le Point » : les événements à venir dans les
+  // `days` prochains jours (ou en cours). Renvoie [{ id, start, end, message, url }].
+  // Zéro nouvelle donnée : lit la même config que check().
+  function upcoming(now, days) {
+    const horizon = now.getTime() + (days || 10) * DAY_MS;
+    const list = (typeof events === 'function' ? events(now) : events) || [];
+    const out = [];
+    for (const ev of list) {
+      if (!ev || !(ev.start instanceof Date)) continue;
+      const activeEnd = ev.end instanceof Date ? ev.end : ev.start;
+      if (activeEnd.getTime() < now.getTime()) continue; // déjà passé
+      if (ev.start.getTime() > horizon) continue;        // trop loin
+      const phase = now < ev.start ? 'before' : 'during';
+      out.push({ id, start: ev.start, end: activeEnd, message: message(ev, phase), url: (ev && ev.url) || url });
+    }
+    return out;
+  }
+
+  return { id, check, upcoming };
 }
 
 module.exports = {

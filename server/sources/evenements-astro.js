@@ -14,6 +14,11 @@ const CATALOGUE = [
   { name: 'les Lyrides', type: 'pluie', detail: 'pluie d\'étoiles filantes à leur maximum (à l\'œil nu, ciel dégagé)', start: new Date(2026, 3, 21) },
   { name: 'Opposition de Saturne', type: 'opposition', detail: 'ses anneaux visibles aux jumelles', start: new Date(2026, 9, 4) },
   { name: 'les Orionides', type: 'pluie', detail: 'pluie d\'étoiles filantes à leur maximum (à l\'œil nu, ciel dégagé)', start: new Date(2026, 9, 21) },
+  // Éclipse PARTIELLE de Lune du 28 août 2026, visible de France avant l'aube (la seule
+  // éclipse de Lune notable visible de métropole en 2026-2027 ; aucune totale visible sur
+  // la période). ⚠️ Heure exacte à reconfirmer sur IMCCE. TODO comète œil nu : aucune
+  // garantie (C/2025 R3 spéculative) → non ajoutée.
+  { name: 'éclipse partielle de Lune', type: 'eclipse', detail: 'visible depuis la France avant l\'aube, Lune basse sur l\'horizon ouest (à l\'œil nu)', start: new Date(2026, 7, 28) },
   { name: 'Conjonction Jupiter–Mars', type: 'conjonction', detail: 'les deux planètes rapprochées dans le Lion', start: new Date(2026, 10, 14), end: new Date(2026, 10, 18) },
   { name: 'Opposition d\'Uranus', type: 'opposition', detail: 'repérable aux jumelles', start: new Date(2026, 10, 25) },
   { name: 'les Quadrantides', type: 'pluie', detail: 'pluie d\'étoiles filantes à leur maximum (à l\'œil nu, ciel dégagé)', start: new Date(2027, 0, 3) },
@@ -30,7 +35,7 @@ function events(now) {
 }
 
 function message(ev, phase) {
-  const emoji = ev.type === 'pluie' ? '🌠' : '🔭';
+  const emoji = ev.type === 'pluie' ? '🌠' : (ev.type === 'eclipse' ? '🌙' : '🔭');
   let quand;
   if (phase === 'during') {
     quand = 'Ce soir';

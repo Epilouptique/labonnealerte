@@ -14,6 +14,7 @@ const authRouter = require('./routes/auth');
 const pushRouter = require('./routes/push');
 const collectionsRouter = require('./routes/collections');
 const decksRouter = require('./routes/decks');
+const { apiRouter: lePointApiRouter, pagesRouter: lePointPagesRouter } = require('./routes/le-point');
 const { cleanupExpired } = require('./sessions');
 const { startPoller } = require('./poller');
 
@@ -85,6 +86,7 @@ app.use('/api', myAlertsApiRouter);
 app.use('/api', pushRouter);
 app.use('/api', collectionsRouter);
 app.use('/api', decksRouter);
+app.use('/api', lePointApiRouter);
 app.use('/api/dev', devRouter);
 // Connexion OAuth (Google / GitHub) — redirections serveur.
 app.use('/auth', authRouter);
@@ -104,6 +106,10 @@ app.get('/mentions-legales', (req, res) => {
 });
 app.get('/confidentialite', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'confidentialite.html'));
+});
+
+app.get('/le-point', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'le-point.html'));
 });
 
 // Fusion v2 (vague 12) : anciens ids broadcast → source paramétrée (qs = query

@@ -54,6 +54,8 @@
         return;
       }
       state.displayName = d.display_name || null;
+      // Pseudo unifié : rafraîchit « Bonjour <prénom> » + l'avatar sans recharger.
+      if (window.LBAAccount && window.LBAAccount.refreshName) window.LBAAccount.refreshName(state.displayName);
       if (msg) { msg.classList.remove('err'); msg.textContent = 'Enregistré ✓'; }
       clearTimeout(flashTimer);
       flashTimer = setTimeout(function () { if (msg) msg.classList.remove('show'); }, 1600);

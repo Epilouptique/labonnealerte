@@ -6,6 +6,7 @@ const express = require('express');
 const crypto = require('crypto');
 const { pool } = require('../db');
 const { createSession } = require('../sessions');
+const { applyAutofill, deriveDisplayNameFromEmail, deriveDisplayNameFromGithub } = require('../profile-autofill');
 
 const router = express.Router();
 
@@ -131,6 +132,11 @@ router.get('/google/callback', async (req, res) => {
     if (!ui.email) return fail(res, 'oauth');
 
     const id = await findOrCreateByEmail(ui.email, { googleId: ui.sub });
+    // Auto-remplissage silencieux du profil à la 1re connexion (champs NULL seulement).
+    await applyAutofill(pool, id, {
+      nameHint: ui.given_name || ui.name || deriveDisplayNameFromEmail(ui.email),
+      ip: req.ip,
+    });
     return landSession(res, id);
   } catch (err) {
     console.error('[auth] Google callback :', err.message);
@@ -187,6 +193,10 @@ router.get('/github/callback', async (req, res) => {
 
     const id = await findOrCreateByEmail(primary.email, {
       githubId: user.id, githubUsername: user.login,
+    });
+    await applyAutofill(pool, id, {
+      nameHint: deriveDisplayNameFromGithub(user.name, user.login) || deriveDisplayNameFromEmail(primary.email),
+      ip: req.ip,
     });
     return landSession(res, id);
   } catch (err) {

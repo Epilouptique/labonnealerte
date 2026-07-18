@@ -6,6 +6,10 @@ const { createCalendarSource } = require('./lib/calendar-factory');
 // (fenêtre d'annonce J-2 + 5 premiers jours), pas tout le mois.
 // Téléthon : les 2 jours du week-end (dates annuelles, à vérifier chaque année).
 // TODO Sidaction 2027 (week-end fin mars, à confirmer sur sidaction.org)
+// TODO Pièces Jaunes 2027 (janvier-février, à confirmer sur fondationhopitaux.fr —
+//   2027 non annoncé au 18/07/2026 ; 2026 = 7 janvier-7 février).
+// TODO Restos du Cœur — lancement 42e campagne d'hiver (fin novembre 2026, à confirmer
+//   sur restosducoeur.org — non annoncé au 18/07/2026 ; 41e lancée le 18 novembre 2025).
 
 function events(now) {
   const y = now.getFullYear();

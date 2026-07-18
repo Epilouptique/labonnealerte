@@ -795,6 +795,7 @@
   var INITIAL_ANON = 5, INITIAL_CONNECTED = 8, STEP = 9;
   var cat = 'all', visibleLimit = INITIAL_ANON, secondaryOpen = false, currentMode = 'anon';
   var accountEmail = null; // email de la session connectée (pour le panneau compte)
+  var accountDisplayName = null; // pseudo unifié (auto-rempli à la 1re connexion) — pilote « Bonjour » + avatar
   function initialLimit() { return currentMode === 'connected' ? INITIAL_CONNECTED : INITIAL_ANON; }
   var cards = [], moreBtn = null, qInput = null, grid = null, addCard = null;
   var sourcesData = []; // liste des sources (pour recalculer une recommandation à l'adoption)
@@ -842,27 +843,28 @@
   function isSpecial(slug) { return slug === 'nouveautes' || slug === 'selection'; }
 
   // A4) « Nouveautés » : 6 sources les plus récentes (created_at desc).
-  // A5) « La sélection » : 6 sources selon le profil (intérêt +2, département +1,
-  //     likes en départage) ; repli sans profil = 6 sources les plus likées.
+  // « Les plus populaires » (slug interne 'selection', conservé pour la compat des liens
+  //   ?mode=selection) : les ~12 cartes les plus likées de TOUT le site (likes_count desc,
+  //   départage par display_order croissant), IDENTIQUE pour tous — connectés comme
+  //   anonymes. La personnalisation ne pilote PLUS ce filtre (elle continue de piloter la
+  //   recommandation et le tri général, inchangés).
   function computeSpecialIds(mode) {
     var list = (sourcesData || []).filter(function (s) { return s.type !== 'linked'; });
+    var take = 6;
     if (mode === 'nouveautes') {
       list = list.slice().sort(function (a, b) {
         return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
       });
-    } else { // selection
-      var perso = hasPersonalization();
+    } else { // 'selection' = Les plus populaires
+      take = 12;
       list = list.slice().sort(function (a, b) {
-        if (perso) {
-          var sa = (sourceMatchesInterest(a) ? 2 : 0) + (sourceMatchesDept(a) ? 1 : 0);
-          var sb = (sourceMatchesInterest(b) ? 2 : 0) + (sourceMatchesDept(b) ? 1 : 0);
-          if (sb !== sa) return sb - sa;
-        }
-        return (b.likes_count || 0) - (a.likes_count || 0);
+        var d = (b.likes_count || 0) - (a.likes_count || 0);
+        if (d !== 0) return d;
+        return (a.display_order || 0) - (b.display_order || 0); // départage ex æquo
       });
     }
     var ids = {};
-    list.slice(0, 6).forEach(function (s) { ids[s.id] = true; });
+    list.slice(0, take).forEach(function (s) { ids[s.id] = true; });
     return ids;
   }
 
@@ -904,9 +906,9 @@
     }
     var prim = '<button class="chip-f on" type="button" data-cat="all">Toutes <span class="n">' + cards.length + '</span></button>';
     if (mode === 'connected') prim += chip('mine', 'Ma collection', mineCount);
-    // A6) Puces spéciales « Nouveautés » / « La sélection » en tête (après Toutes/Mes alertes).
+    // A6) Puces spéciales « Nouveautés » / « Les plus populaires » en tête (après Toutes/Mes alertes).
     prim += '<button class="chip-f chip-special" type="button" data-cat="nouveautes">' + ICON_NOUVEAUTES + ' Nouveautés</button>';
-    prim += '<button class="chip-f chip-special" type="button" data-cat="selection">' + ICON_SELECTION + ' La sélection</button>';
+    prim += '<button class="chip-f chip-special" type="button" data-cat="selection">' + ICON_SELECTION + ' Les plus populaires</button>';
     primary.forEach(function (s) { prim += chip(s, LBACat.label(s), counts[s]); });
     if (secondary.length) prim += '<button class="chip-f chip-more-toggle" type="button" aria-label="Plus de catégories">+</button>';
 
@@ -1362,6 +1364,7 @@
           (s.data.sources || []).forEach(function (x) { subMap[x.id] = x.subscribed; mineMap[x.id] = x; });
           profile.departement = s.data.departement || null;
           profile.interests = s.data.interests || [];
+          accountDisplayName = s.data.display_name || null;
         }
       } catch (e) { /* réseau : on reste anonyme */ }
     }
@@ -1418,7 +1421,8 @@
       // Salutation à la place du h1 : « Bonjour <prénom en accent> ».
       // D) Titre dynamique animé : initialise « Bonjour <prénom> » (sans animation
       // au chargement) ; les changements de filtre l'animent ensuite (selectChip).
-      heroName = LBASession.firstName ? LBASession.firstName(email) : null;
+      // Pseudo unifié : le display_name (auto-rempli) prime ; repli sur le prénom déduit de l'email.
+      heroName = accountDisplayName || (LBASession.firstName ? LBASession.firstName(email) : null);
       setHeroTitle(titleForMode('all'), false);
     } else {
       updateKPI(sources);
@@ -1544,7 +1548,7 @@
   var heroName = null;
   function titleForMode(slug) {
     if (slug === 'nouveautes') return 'Les nouvelles';
-    if (slug === 'selection') return 'Ma sélection';
+    if (slug === 'selection') return 'Les plus populaires';
     if (slug === 'mine') return 'Ma collection';
     if (slug === 'all' || !slug) return heroName ? ('Bonjour ' + heroName) : 'Bonjour';
     return (window.LBACat && LBACat.label) ? LBACat.label(slug) : slug; // catégorie normale
@@ -1584,9 +1588,29 @@
   function fillAccountHeader() {
     var nameEl = document.getElementById('acct-name');
     var emailEl = document.getElementById('acct-email');
-    var nm = (LBASession.firstName && accountEmail) ? LBASession.firstName(accountEmail) : null;
+    // Pseudo unifié : display_name d'abord, puis prénom déduit de l'email.
+    var nm = accountDisplayName || ((LBASession.firstName && accountEmail) ? LBASession.firstName(accountEmail) : null);
     if (nameEl) nameEl.textContent = nm ? 'Bonjour ' + nm : 'Mon compte';
     if (emailEl) emailEl.textContent = accountEmail || '';
+    renderAvatar(nm);
+  }
+
+  // Avatar à initiale : première lettre du pseudo (sinon de l'email), teinte violette
+  // stable de la charte. Propre dans les deux thèmes (CSS .acct-avatar).
+  function renderAvatar(nm) {
+    var av = document.getElementById('acct-avatar');
+    if (!av) return;
+    var basis = nm || accountEmail || '';
+    var ch = (basis.trim().charAt(0) || '?').toUpperCase();
+    av.textContent = ch;
+  }
+
+  // Rafraîchit le pseudo affiché après un changement dans « Mon compte » (profile.js).
+  function refreshName(name) {
+    accountDisplayName = name || accountDisplayName;
+    heroName = accountDisplayName || (LBASession.firstName ? LBASession.firstName(accountEmail) : null);
+    if (currentMode === 'connected') setHeroTitle(titleForMode(cat || 'all'), false);
+    fillAccountHeader();
   }
 
   // Échange animé (fondu) entre deux blocs plein-largeur.
@@ -1728,7 +1752,7 @@
     else openAccount();
   }
 
-  window.LBAAccount = { open: openAccount, close: closeAccount, toggle: toggleAccount };
+  window.LBAAccount = { open: openAccount, close: closeAccount, toggle: toggleAccount, refreshName: refreshName };
 
   // Volet J : sur la home, le logo remonte en haut sans recharger + reset des filtres.
   function bindBrandTop() {

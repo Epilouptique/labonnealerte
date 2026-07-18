@@ -1024,6 +1024,16 @@ body[data-mode="connected"] #stats { display: none; }
 .card-back.acct-back { padding: 30px 32px; background: var(--surface); display: flex; flex-direction: column; }
 .acct-head .acct-name { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
 .acct-email { color: var(--muted); font-size: 14px; margin-top: 4px; word-break: break-all; }
+/* Avatar à initiale : teinte violette de la charte, propre en clair comme en sombre. */
+.acct-avatar {
+  width: 52px; height: 52px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Baloo 2', system-ui, sans-serif;
+  font-size: 24px; font-weight: 700; line-height: 1; color: #fff;
+  background: linear-gradient(135deg, #a567e3, #bd8ef0);
+  box-shadow: 0 4px 14px rgba(165, 103, 227, .28);
+  margin-bottom: 12px; user-select: none;
+}
 .acct-close {
   position: absolute; top: 16px; right: 16px; z-index: 3;
   border: none; background: transparent; color: var(--muted);
@@ -1982,3 +1992,33 @@ html[data-theme="dark"] .tint-11 .deck-motif-bg::after { background: color-mix(i
 /* Vignette motif dans le menu « Ajouter à un deck » (petite). */
 .dam-thumb { width: 24px; height: 24px; border-radius: 7px; }
 .deck-row .deck-thumb { margin-right: 2px; }
+
+/* ---------------- Page « Le Point » ---------------- */
+.lepoint-main { max-width: 760px; padding-bottom: 60px; }
+.lepoint-head { margin: 8px 0 22px; }
+.lepoint-head .page-title { margin-bottom: 4px; }
+.lp-share { margin-top: 12px; }
+#lp-active { display: flex; flex-direction: column; gap: 10px; margin-bottom: 30px; }
+.lp-card {
+  display: block; text-decoration: none; color: inherit;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 14px; padding: 14px 16px; transition: border-color .15s ease, transform .15s ease;
+}
+.lp-card:hover { border-color: #a567e3; transform: translateY(-1px); }
+.lp-card-msg { font-size: 15px; line-height: 1.45; }
+.lp-calm { text-align: center; padding: 34px 16px; font-size: 20px; font-weight: 700; color: var(--ink); }
+.lp-calm-sub { display: inline-block; margin-top: 8px; font-size: 14px; font-weight: 400; color: var(--muted); }
+.lp-soon-label { margin-top: 8px; }
+.lp-upcoming { list-style: none; margin: 0; padding: 0; }
+.lp-soon-item a {
+  display: flex; gap: 14px; align-items: baseline; text-decoration: none; color: inherit;
+  padding: 11px 4px; border-bottom: 1px solid var(--line);
+}
+.lp-soon-item a:hover .lp-soon-msg { color: #a567e3; }
+.lp-soon-when { flex: 0 0 auto; min-width: 92px; font-weight: 700; font-size: 13px; color: #a567e3; }
+.lp-soon-msg { font-size: 14px; line-height: 1.4; }
+.lp-soon-empty { color: var(--muted); font-size: 14px; padding: 12px 4px; list-style: none; }
+@media (max-width: 560px) {
+  .lp-soon-item a { flex-direction: column; gap: 2px; }
+  .lp-soon-when { min-width: 0; }
+}

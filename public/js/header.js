@@ -73,12 +73,13 @@
               '<a href="/favoris" class="m-link">Mes favoris</a>'
             : '<a href="/connexion" class="m-primary" data-act="auth">Se connecter</a>' +
               '<a href="/favoris" class="m-link">Mes favoris</a>') +
+          '<a href="/le-point" class="m-link">Le Point</a>' +
           '<a href="/proposer">Déposer une alerte</a>' +
           '<button type="button" class="m-link" data-act="search">Rechercher</button>' +
           '<hr class="m-menu-sep">' +
           '<button type="button" class="m-link m-has-ic" data-act="categories">' + IC_CAT + ' Catégories</button>' +
           '<button type="button" class="m-link m-has-ic" data-act="nouveautes">' + IC_NOUV + ' Les nouvelles</button>' +
-          '<button type="button" class="m-link m-has-ic" data-act="selection">' + IC_SEL + ' La sélection</button>' +
+          '<button type="button" class="m-link m-has-ic" data-act="selection">' + IC_SEL + ' Les plus populaires</button>' +
           '<hr class="m-menu-sep">' +
           // E) « Mon compte » regroupé juste au-dessus de « Nous soutenir ».
           (logged ? '<button type="button" class="m-link" data-act="account">Mon compte</button>' : '') +

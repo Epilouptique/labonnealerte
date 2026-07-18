@@ -29,18 +29,39 @@ const ECHEANCES = {
 function ymd(str) { const p = str.split('-').map(Number); return new Date(p[0], p[1] - 1, p[2]); }
 
 function events(now) {
+  const out = [];
+
+  // (1) Échéances datées par année (kind 'deadline').
   const list = ECHEANCES[now.getFullYear()] || [];
-  return list
-    .map(function (e) {
-      const online = ymd(e.online);
-      return {
-        start: online,
-        end: new Date(online.getTime() + DAY_MS), // actif jusqu'à la fin du jour limite
-        paper: ymd(e.paper),
-        label: e.label,
-        secondaires: !!e.secondaires,
-      };
-    })
+  for (const e of list) {
+    const online = ymd(e.online);
+    out.push({
+      kind: 'deadline',
+      start: online,
+      end: new Date(online.getTime() + DAY_MS), // actif jusqu'à la fin du jour limite
+      paper: ymd(e.paper),
+      label: e.label,
+      secondaires: !!e.secondaires,
+    });
+  }
+
+  // (2) Nouveau taux de prélèvement à la source (kind 'pas') : le taux issu de la
+  //     déclaration de printemps s'applique dès le 1er septembre, chaque année.
+  //     Récurrent, calculable — on couvre l'année en cours et la suivante.
+  for (const year of [now.getFullYear(), now.getFullYear() + 1]) {
+    const d = new Date(year, 8, 1); // 1er septembre
+    out.push({ kind: 'pas', start: d, end: new Date(d.getTime() + DAY_MS) });
+  }
+
+  // (3) Remboursement d'impôt (été) : virements DGFiP. Dates officielles par année
+  //     (jamais de mémoire). ⚠️ TODO 2027 : ajouter les dates dès publication DGFiP.
+  const REMBOURSEMENTS = { 2026: ['2026-07-24', '2026-07-31'] };
+  for (const iso of REMBOURSEMENTS[now.getFullYear()] || []) {
+    const d = ymd(iso);
+    out.push({ kind: 'refund', start: d, end: new Date(d.getTime() + DAY_MS) });
+  }
+
+  return out
     .filter(function (e) { return e.end.getTime() >= now.getTime(); })
     .sort(function (a, b) { return a.start - b.start; });
 }
@@ -51,6 +72,12 @@ module.exports = createCalendarSource({
   url: 'https://www.impots.gouv.fr/particulier/calendrier-fiscal',
   events: events,
   message: function (ev) {
+    if (ev.kind === 'pas') {
+      return '💶 Nouveau taux de prélèvement à la source : votre taux issu de la déclaration s\'applique dès ce mois-ci.';
+    }
+    if (ev.kind === 'refund') {
+      return '💶 Le remboursement d\'impôt arrive sur votre compte cette semaine, si vous avez un trop-perçu.';
+    }
     const precision = ev.secondaires ? ' (résidences secondaires uniquement)' : '';
     return '💶 ' + ev.label + precision + ' : jusqu\'au ' + formatJourMois(ev.paper) +
       ' (' + formatJourMois(ev.start) + ' en ligne)';

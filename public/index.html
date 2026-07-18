@@ -25,6 +25,7 @@
     </button>
     <nav class="nav-right" id="nav-menu">
       <a class="mine-link" href="/connexion">Ma collection</a>
+      <a class="lepoint-link" href="/le-point" title="Le Point : alertes en cours et à venir">Le Point</a>
       <a class="fav-link" href="/favoris" aria-label="Mes favoris" title="Mes favoris"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></a>
       <span class="auth-email" id="auth-email" hidden></span>
       <a class="btn-login" id="auth-link" href="/connexion">Se connecter</a>
@@ -114,6 +115,7 @@
       <div class="card-face card-front acct-front">
         <button type="button" class="acct-close" id="acct-close" aria-label="Fermer le compte">✕</button>
         <div class="acct-head">
+          <div class="acct-avatar" id="acct-avatar" aria-hidden="true"></div>
           <h2 class="acct-name" id="acct-name">Mon compte</h2>
           <div class="acct-email" id="acct-email"></div>
           <div class="acct-collection-count" id="acct-collection-count" hidden></div>
@@ -296,7 +298,7 @@
 
 <footer>
   La Bonne Alerte — gratuit, open-source (MIT), sans spam, rien de caché.<br>
-  Un projet <a href="https://dahu-concept.fr" target="_blank" rel="noopener">Dahu-Concept</a> · <a href="/a-propos">À propos</a> · <a href="/soutenir">Nous soutenir</a> · <a href="/mentions-legales">Mentions légales</a> · <a href="/confidentialite">Confidentialité</a> · <a href="/proposer">Espace développeur</a> · <a href="https://github.com/Epilouptique/labonnealerte" target="_blank" rel="noopener">Code source</a>
+  Un projet <a href="https://dahu-concept.fr" target="_blank" rel="noopener">Dahu-Concept</a> · <a href="/le-point">Le Point</a> · <a href="/a-propos">À propos</a> · <a href="/soutenir">Nous soutenir</a> · <a href="/mentions-legales">Mentions légales</a> · <a href="/confidentialite">Confidentialité</a> · <a href="/proposer">Espace développeur</a> · <a href="https://github.com/Epilouptique/labonnealerte" target="_blank" rel="noopener">Code source</a>
 </footer>
 
 <script src="/js/session.js"></script>
