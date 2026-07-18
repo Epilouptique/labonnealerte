@@ -71,7 +71,7 @@
         '<p class="deck-pseudo-line">Vos decks partagés seront signés <strong>' + esc(name) + '</strong>.</p>';
     }
     return '' +
-      '<div class="acct-subhead">Nom public</div>' +
+      '<div class="section-label">Nom public</div>' +
       '<form id="deck-pseudo-form" class="deck-pseudo-form" novalidate>' +
         '<label for="deck-pseudo-input">Choisissez votre nom public pour signer vos decks</label>' +
         '<div class="deck-pseudo-row">' +
@@ -110,7 +110,7 @@
       : '<p class="deck-form-msg">Vous avez atteint le maximum de ' + STATE.max_decks + ' decks.</p>';
 
     viewEl.innerHTML = '' +
-      '<h1>Mes <span class="hl">decks</span></h1>' +
+      '<h1 class="page-title">Mes <span class="hl">decks</span></h1>' +
       '<div class="deck-pseudo">' + pseudoBlockHTML() + '</div>' +
       '<div class="section-label">Vos decks</div>' +
       rows +
@@ -212,7 +212,7 @@
 
     viewEl.innerHTML = '' +
       '<button type="button" class="deck-back" id="deck-form-back">← Retour</button>' +
-      '<h1>' + (editing ? 'Modifier le deck' : 'Nouveau deck') + '</h1>' +
+      '<h1 class="page-title">' + (editing ? 'Modifier le deck' : 'Nouveau deck') + '</h1>' +
       '<form id="deck-form" class="deck-form" novalidate>' +
         // Champs (nom + description) à GAUCHE, aperçu live à DROITE ; empilé en mobile.
         '<div class="deck-form-top">' +

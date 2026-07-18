@@ -2193,3 +2193,73 @@ UPDATE collections SET tint = 7 WHERE id = 'pack-montagne';
 UPDATE collections SET tint = 2 WHERE id = 'pack-ciel';
 UPDATE collections SET tint = 8 WHERE id = 'pack-dev';
 UPDATE collections SET tint = 5 WHERE id = 'pack-quebec';
+
+
+-- ================================================================
+-- VAGUE « risques majeurs & planete » (sources internes, ton factuel/calme).
+-- 3 candidates ecartees et documentees au rapport : urgences-sanitaires-oms
+-- (PHEIC non machine-lisible), incidents-nucleaires (niveau INES absent de tout
+-- flux fiable, RSS ASNR 404), radioactivite-ambiante (Teleray = nSv/h bruts sans
+-- seuil officiel). display_order en plage haute (300+).
+-- ================================================================
+
+-- Essai mensuel des sirenes SAIP : 1er mercredi du mois a midi (calcule, zero API).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'essai-sirenes', 'Essai des sirènes', 'Le test mensuel du signal d''alerte',
+  'Rappel calme le jour de l''essai mensuel des sirènes (SAIP) : le 1er mercredi de chaque mois à midi, un signal d''essai est diffusé. Aucune action à prendre, c''est un simple test.',
+  'internal', 'official', false, ARRAY['vie-locale', 'securite'], 300
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'essai-sirenes');
+INSERT INTO source_states (source_id) SELECT 'essai-sirenes'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'essai-sirenes');
+
+-- Tempete solaire a impact techno : NOAA SWPC, G>=4 OU R>=3 (distinct de aurores-france Kp>=7).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'tempete-solaire', 'Tempête solaire', 'Impact techno (GPS, radio, réseaux)',
+  'Alerte quand une tempête géomagnétique sévère (G4+) ou un fort blackout radio (R3+, éruption solaire) est en cours, avec de possibles perturbations GPS, radio HF et réseaux électriques. Données officielles NOAA. Sans effet sur la santé au sol.',
+  'internal', 'official', false, ARRAY['espace', 'tech'], 301
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'tempete-solaire');
+INSERT INTO source_states (source_id) SELECT 'tempete-solaire'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'tempete-solaire');
+
+-- Asteroide qui frole la Terre : NASA/JPL CNEOS, >=~50 m a moins de 1 distance lunaire sous 7 j.
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'asteroide-frole-terre', 'Astéroïde au plus près', 'Un passage proche, sans risque',
+  'Alerte rare quand un astéroïde notable (taille estimée ≥ ~50 m) passe à moins d''une distance Terre-Lune dans les 7 prochains jours. La distance est donnée en multiples de la distance Terre-Lune ; il n''y a jamais de risque de collision. Données NASA/JPL.',
+  'internal', 'official', false, ARRAY['espace', 'astronomie'], 302
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'asteroide-frole-terre');
+INSERT INTO source_states (source_id) SELECT 'asteroide-frole-terre'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'asteroide-frole-terre');
+
+-- Seisme mondial majeur : USGS, M>=7.5 (zone mondiale, distinct des seismes France).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'seisme-mondial-majeur', 'Séisme mondial majeur', 'Magnitude 7,5 ou plus dans le monde',
+  'Alerte quand un séisme de magnitude 7,5 ou plus est détecté dans le monde (une poignée par an). Zone mondiale, seuil bien plus élevé que les sources France : aucun recoupement avec seismes-departement (secousses locales). Données USGS.',
+  'internal', 'official', false, ARRAY['seismes', 'monde'], 303
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'seisme-mondial-majeur');
+INSERT INTO source_states (source_id) SELECT 'seisme-mondial-majeur'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'seisme-mondial-majeur');
+
+
+-- ================================================================
+-- VAGUE « monde & mémoire » (sources internes calculées, ton sobre et respectueux).
+-- Anti-doublon : fêtes nationales Québec/Belgique/Suisse déjà dans feries-* ; 14/07
+-- dans jours-feries ; Royaume-Uni écarté (pas de fête nationale fixe). display_order 310+.
+-- ================================================================
+
+-- Fêtes nationales PARAMÉTRÉES par pays (~23 pays, calculé, zéro API).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
+SELECT 'fetes-nationales', 'Fêtes nationales', 'Le pays de votre choix',
+  'La fête nationale du ou des pays de votre choix (~23 pays : pays d''origine des diasporas et pays d''expatriation), annoncée l''avant-veille et le jour J. Purement informatif. Québec, Belgique et Suisse sont déjà couverts par les sources fériés dédiées ; la France par les jours fériés.',
+  'internal', 'official', false, ARRAY['monde', 'fetes'], 310, '[{"key":"pays","label":"Pays","type":"enum","values":[{"value":"algerie","label":"Algérie"},{"value":"maroc","label":"Maroc"},{"value":"tunisie","label":"Tunisie"},{"value":"senegal","label":"Sénégal"},{"value":"cote-ivoire","label":"Côte d''Ivoire"},{"value":"mali","label":"Mali"},{"value":"cameroun","label":"Cameroun"},{"value":"rdc","label":"RD Congo"},{"value":"madagascar","label":"Madagascar"},{"value":"haiti","label":"Haïti"},{"value":"liban","label":"Liban"},{"value":"portugal","label":"Portugal"},{"value":"comores","label":"Comores"},{"value":"congo-brazzaville","label":"Congo-Brazzaville"},{"value":"usa","label":"États-Unis"},{"value":"espagne","label":"Espagne"},{"value":"allemagne","label":"Allemagne"},{"value":"italie","label":"Italie"},{"value":"luxembourg","label":"Luxembourg"},{"value":"monaco","label":"Monaco"},{"value":"grece","label":"Grèce"},{"value":"pays-bas","label":"Pays-Bas"},{"value":"irlande","label":"Irlande"}],"multiple":true,"required":true,"default":null}]'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'fetes-nationales');
+UPDATE sources SET params_schema = '[{"key":"pays","label":"Pays","type":"enum","values":[{"value":"algerie","label":"Algérie"},{"value":"maroc","label":"Maroc"},{"value":"tunisie","label":"Tunisie"},{"value":"senegal","label":"Sénégal"},{"value":"cote-ivoire","label":"Côte d''Ivoire"},{"value":"mali","label":"Mali"},{"value":"cameroun","label":"Cameroun"},{"value":"rdc","label":"RD Congo"},{"value":"madagascar","label":"Madagascar"},{"value":"haiti","label":"Haïti"},{"value":"liban","label":"Liban"},{"value":"portugal","label":"Portugal"},{"value":"comores","label":"Comores"},{"value":"congo-brazzaville","label":"Congo-Brazzaville"},{"value":"usa","label":"États-Unis"},{"value":"espagne","label":"Espagne"},{"value":"allemagne","label":"Allemagne"},{"value":"italie","label":"Italie"},{"value":"luxembourg","label":"Luxembourg"},{"value":"monaco","label":"Monaco"},{"value":"grece","label":"Grèce"},{"value":"pays-bas","label":"Pays-Bas"},{"value":"irlande","label":"Irlande"}],"multiple":true,"required":true,"default":null}]'::jsonb
+  WHERE id = 'fetes-nationales';
+
+-- Grands anniversaires historiques (chiffre rond), curés 2026-2027. TODO annuel.
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'grands-anniversaires', 'Grands anniversaires', 'Mémoire culturelle et scientifique',
+  'La veille et le jour J des grands anniversaires à chiffre rond (50, 100, 150 ans) de la culture et de la science, curés à la main pour 2026-2027. Mémoire culturelle et scientifique, jamais un calendrier des tragédies.',
+  'internal', 'official', false, ARRAY['culture', 'monde'], 311
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'grands-anniversaires');
+INSERT INTO source_states (source_id) SELECT 'grands-anniversaires'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'grands-anniversaires');

@@ -53,7 +53,8 @@ function createCalendarSource(cfg) {
       const activeEnd = ev.end instanceof Date ? ev.end : ev.start;
       if (now >= windowStart && now <= activeEnd) {
         const phase = now < ev.start ? 'before' : 'during';
-        return { state: 'active', since: windowStart, until: activeEnd, message: message(ev, phase), url };
+        // URL par événement si fournie (ev.url), sinon URL générique de la source.
+        return { state: 'active', since: windowStart, until: activeEnd, message: message(ev, phase), url: (ev && ev.url) || url };
       }
     }
     return { state: 'inactive', since: null, until: null, message: null, url };

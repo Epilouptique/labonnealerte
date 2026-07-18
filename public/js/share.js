@@ -118,5 +118,39 @@
     document.addEventListener('mousedown', outsideHandler, true);
   }
 
-  window.LBAShare = { open: open, close: close, optionsHTML: optionsHTML, bindCopy: bindCopy, isMobile: IS_MOBILE };
+  // 9) Grande carte de partage (modale plein écran) : overlay + carte au style du
+  // site (radius 24, ombre douce), croix de fermeture, clic hors carte et Échap.
+  // Réutilise optionsHTML/bindCopy. Unifie le partage des pages collection / deck
+  // partagé / source (remplace les lignes de boutons en ligne et le popover ancré).
+  function openModal(name, url) {
+    close(); // un seul à la fois
+    backdrop = document.createElement('div');
+    backdrop.className = 'share-modal-backdrop';
+    var card = document.createElement('div');
+    card.className = 'share-modal-card';
+    card.setAttribute('role', 'dialog');
+    card.setAttribute('aria-modal', 'true');
+    card.setAttribute('aria-label', 'Partager');
+    card.innerHTML =
+      '<button type="button" class="share-modal-close" aria-label="Fermer">✕</button>' +
+      '<div class="share-modal-title">Partager</div>' +
+      '<div class="share-grid share-modal-grid">' + optionsHTML(name, url) + '</div>';
+    backdrop.appendChild(card);
+    document.body.appendChild(backdrop);
+    pop = card; // pour close()
+
+    bindCopy(card, url);
+    card.querySelector('.share-modal-close').addEventListener('click', close);
+    card.querySelectorAll('.share-opt:not(.share-copy)').forEach(function (a) {
+      a.addEventListener('click', function () { setTimeout(close, 10); });
+    });
+    // Clic hors carte (sur le fond) ferme.
+    backdrop.addEventListener('click', function (e) { if (e.target === backdrop) close(); });
+    escHandler = function (e) { if (e.key === 'Escape') close(); };
+    document.addEventListener('keydown', escHandler);
+    // Focus la croix (piégeage léger, accessible).
+    var x = card.querySelector('.share-modal-close'); if (x) x.focus();
+  }
+
+  window.LBAShare = { open: open, openModal: openModal, close: close, optionsHTML: optionsHTML, bindCopy: bindCopy, isMobile: IS_MOBILE };
 })();

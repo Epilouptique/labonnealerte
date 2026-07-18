@@ -72,6 +72,18 @@
     try {
       var sources;
       if (MODE === 'connected') {
+        // 6) Rattrape les favoris locaux (lba-likes) côté serveur AVANT l'affichage,
+        // pour que /favoris reflète aussi les cœurs posés avant la table favorites,
+        // même sans passer par la home. Idempotent.
+        try {
+          var lids = likedIds();
+          if (lids.length) {
+            await fetch('/api/favorites/sync', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ token: token, ids: lids })
+            });
+          }
+        } catch (e) { /* non bloquant */ }
         var r = await fetch('/api/favorites?token=' + encodeURIComponent(token), { headers: { Accept: 'application/json' } });
         if (r.status === 401) { LBASession.clear(); MODE = 'anon'; document.body.setAttribute('data-mode', 'anon'); return loadAnon(); }
         if (!r.ok) throw new Error('http ' + r.status);

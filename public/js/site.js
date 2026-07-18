@@ -93,6 +93,21 @@
   function likeRemove(id) { var s = likesSet(); var i = s.indexOf(id); if (i !== -1) { s.splice(i, 1); likesSave(s); } }
   function isLiked(id) { return likesSet().indexOf(id) !== -1; }
 
+  // D) Remontée one-shot des favoris locaux vers le serveur (une fois par session
+  // d'onglet). Idempotent côté serveur ; rattrape les likes posés avant la table
+  // favorites et alimente /favoris + le multi-appareils (sens montée).
+  function syncFavorites(token) {
+    if (!token) return;
+    try { if (sessionStorage.getItem('lba-fav-synced') === '1') return; } catch (e) {}
+    var ids = likesSet();
+    if (!ids.length) { try { sessionStorage.setItem('lba-fav-synced', '1'); } catch (e) {} return; }
+    fetch('/api/favorites/sync', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: token, ids: ids })
+    }).then(function () { try { sessionStorage.setItem('lba-fav-synced', '1'); } catch (e) {} })
+      .catch(function () { /* réessai au prochain chargement */ });
+  }
+
   function setLikeUI(btn, liked, count) {
     btn.classList.toggle('liked', !!liked);
     btn.setAttribute('aria-pressed', liked ? 'true' : 'false');
@@ -1409,6 +1424,7 @@
       updateKPI(sources);
     }
     accountEmail = (mode === 'connected') ? email : null;
+    if (mode === 'connected') syncFavorites(token); // D) remontée one-shot des favoris locaux
     LBASession.renderHeader(email);
     setupKiosk(mode);
     if (mode === 'connected') refreshMineDependent(); // initialise le compteur « Ma collection » (chip + panneau)
@@ -1472,33 +1488,53 @@
   // deck survolé confortablement cliquable. reduced-motion : statique (glisse seule).
   function setupShelfAutoScroll(row) {
     if (REDUCE) return;
-    if (row.dataset.autoscroll === '1') return;          // déjà armé
-    if (row.scrollWidth <= row.clientWidth + 4) return;  // pas de débordement → inutile
-    row.dataset.autoscroll = '1';
-    Array.prototype.slice.call(row.children).forEach(function (el) {
-      var clone = el.cloneNode(true);
-      clone.setAttribute('aria-hidden', 'true'); clone.tabIndex = -1;
-      row.appendChild(clone);
-    });
-    row.style.scrollSnapType = 'none';
-    var half = row.scrollWidth / 2;
-    var factor = 1; // 1 = vitesse normale ; ralenti au survol
-    // Reboucle scrollLeft dans [0, half) : contenu dupliqué → saut invisible.
-    function wrap() {
-      if (row.scrollLeft >= half) row.scrollLeft -= half;
-      else if (row.scrollLeft <= 0) row.scrollLeft += half;
-    }
-    function step() {
-      row.scrollLeft += 0.4 * factor;
-      wrap();
+    if (row.dataset.autoscroll === '1') return; // déjà armé
+    // La mesure de débordement peut être 0 tant que la mise en page n'est pas prête
+    // (étagère fraîchement affichée) → on réessaie quelques frames avant d'abandonner.
+    var tries = 0;
+    (function arm() {
+      if (row.scrollWidth <= row.clientWidth + 4) {
+        if (tries++ < 30) requestAnimationFrame(arm); // pas encore débordé : réessai
+        return;
+      }
+      start();
+    })();
+
+    function start() {
+      row.dataset.autoscroll = '1';
+      // Duplique le contenu une fois → boucle sans couture.
+      Array.prototype.slice.call(row.children).forEach(function (el) {
+        var clone = el.cloneNode(true);
+        clone.setAttribute('aria-hidden', 'true'); clone.tabIndex = -1;
+        row.appendChild(clone);
+      });
+      row.style.scrollSnapType = 'none';
+      var half = row.scrollWidth / 2;
+      var factor = 1;   // 1 = normal ; ralenti au survol
+      // BUG corrigé : incrémenter directement scrollLeft de 0,4 était perdu (le
+      // navigateur arrondit scrollLeft, la sous-pixellisation ne s'accumulait jamais →
+      // carrousel figé). On accumule dans un flottant `pos` et on l'assigne.
+      var pos = row.scrollLeft || 0;
+      var self = false; // true pendant notre écriture (pour ignorer notre propre 'scroll')
+      function step() {
+        pos += 0.5 * factor;
+        if (pos >= half) pos -= half;
+        else if (pos < 0) pos += half;
+        self = true; row.scrollLeft = pos; self = false;
+        requestAnimationFrame(step);
+      }
+      row.addEventListener('mouseenter', function () { factor = 0.12; });
+      row.addEventListener('mouseleave', function () { factor = 1; });
+      // Glisse tactile / molette : on resynchronise `pos` sur la position réelle
+      // (rebouclage continu, infini dans les deux sens).
+      row.addEventListener('scroll', function () {
+        if (self) return;
+        pos = row.scrollLeft;
+        if (pos >= half) pos -= half; else if (pos < 0) pos += half;
+      }, { passive: true });
+      window.addEventListener('resize', function () { half = row.scrollWidth / 2; });
       requestAnimationFrame(step);
     }
-    row.addEventListener('mouseenter', function () { factor = 0.12; });
-    row.addEventListener('mouseleave', function () { factor = 1; });
-    // Glisse tactile / molette : scroll natif + rebouclage continu (infini deux sens).
-    row.addEventListener('scroll', wrap, { passive: true });
-    window.addEventListener('resize', function () { half = row.scrollWidth / 2; });
-    requestAnimationFrame(step);
   }
 
   /* ---------------- D) Titre du dashboard animé (connecté uniquement) ---------------- */

@@ -79,6 +79,9 @@ html[data-theme="light"] header { background: #ffffff; } /* thème clair : blanc
 .fav-link svg { display: block; }
 .fav-link:hover { color: var(--amber); }
 .fav-link:hover svg path { fill: currentColor; }
+/* 5) Cœur rempli (accent) quand des favoris existent. */
+.fav-link.has-fav { color: var(--amber); }
+.fav-link.has-fav svg path { fill: currentColor; }
 /* .theme-btn : meme theme en background dans les deux thèmes. */
 .theme-btn {
   border: 1px solid var(--line); background: #e7e7e7; color: #141218;
@@ -102,7 +105,7 @@ html[data-theme="light"] header { background: #ffffff; } /* thème clair : blanc
 .hero::before {
   content: ""; position: absolute; top: -120px; left: 50%; transform: translate(-50%, 0) scale(1);
   width: 640px; height: 420px; pointer-events: none;
-  background: radial-gradient(closest-side, color-mix(in srgb, var(--amber) 24%, transparent), transparent 70%);
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--amber) 50%, transparent), transparent 70%);
   filter: blur(10px); /* halo flou/nébuleux, doux */
   animation: hero-halo 15s ease-in-out infinite;
   will-change: transform, opacity; /* animé sur le compositor : pas de jank */
@@ -120,7 +123,8 @@ html[data-theme="light"] header { background: #ffffff; } /* thème clair : blanc
 }
 @media (prefers-reduced-motion: reduce) { .hero::before { animation: none; } }
 .hero > * { position: relative; }
-.hero h1 { font-size: clamp(32px, 5.4vw, 52px); font-weight: 800; letter-spacing: -0.03em; line-height: 1.08; font-family: 'Baloo 2',sans-serif;}
+/* 1) Titre de page commun (hero + /mes-decks…) : une seule source de vérité. */
+.page-title { font-size: clamp(32px, 5.4vw, 52px); font-weight: 800; letter-spacing: -0.03em; line-height: 1.08; font-family: 'Baloo 2',sans-serif; }
 .hero h1 .hl { color: var(--amber); }
 /* C) Bicoloration générale des H1 : 1er mot en --ink, le reste en violet (.hl).
    S'applique à toutes les pages (le .hl du hero n'était que local). */
@@ -647,20 +651,25 @@ body {
 .src-main { max-width: 760px; padding: 40px 0 80px; }
 .src-loading, .src-error { text-align: center; color: var(--muted); padding: 60px 0; }
 
-/* I) Halo de chargement doux mais VISIBLE (esprit du halo .hero::before, couleurs plus
-   soutenues) : pages qui chargent des données (mes-decks, favoris, collection via
-   .src-loading ; home via .grid.grid-loading). Respecte prefers-reduced-motion. */
+/* 7) Halo de chargement doux mais VISIBLE (esprit du halo .hero::before, couleurs plus
+   soutenues) — REMPLACE le texte « Chargement… » (gardé pour l'a11y via font-size:0).
+   Pages à données : mes-decks, favoris, collection, deck partagé, source (.src-loading),
+   connexion (.cx-loading), home (.grid.grid-loading). Respecte prefers-reduced-motion.
+   Deux keyframes : -c (élément en flux, scale seul) et la version translate (absolu). */
+@keyframes lba-halo-pulse-c {
+  0%, 100% { opacity: .35; transform: scale(.88); }
+  50%      { opacity: .72; transform: scale(1.12); }
+}
 @keyframes lba-halo-pulse {
   0%, 100% { opacity: .35; transform: translate(-50%, -50%) scale(.88); }
   50%      { opacity: .72; transform: translate(-50%, -50%) scale(1.12); }
 }
-.src-loading { position: relative; }
-.src-loading::before {
-  content: ""; display: block; width: 110px; height: 110px; margin: 0 auto 18px;
+.src-loading, .cx-loading { position: relative; font-size: 0; } /* texte -> a11y only, remplacé par le halo */
+.src-loading::before, .cx-loading::before {
+  content: ""; display: block; width: 104px; height: 104px; margin: 0 auto;
   border-radius: 50%;
   background: radial-gradient(circle at center, color-mix(in srgb, var(--amber) 62%, transparent), transparent 68%);
-  animation: lba-halo-pulse 1.35s ease-in-out infinite;
-  transform-origin: center;
+  animation: lba-halo-pulse-c 1.35s ease-in-out infinite;
 }
 .grid.grid-loading { position: relative; }
 .grid.grid-loading::after {
@@ -670,8 +679,8 @@ body {
   animation: lba-halo-pulse 1.35s ease-in-out infinite;
 }
 @media (prefers-reduced-motion: reduce) {
-  .src-loading::before, .grid.grid-loading::after { animation: none; opacity: .5; transform: translate(-50%, -50%); }
-  .src-loading::before { transform: none; }
+  .src-loading::before, .cx-loading::before { animation: none; opacity: .5; transform: none; }
+  .grid.grid-loading::after { animation: none; opacity: .5; transform: translate(-50%, -50%); }
 }
 .src-head { position: relative; background: var(--surface); border-radius: 24px; padding: 28px; box-shadow: var(--shadow); }
 /* I) Flèche « Mes alertes » : même flèche que .flip-back, en plus grand, alignée
@@ -823,6 +832,28 @@ body[data-mode="connected"] .grid { min-height: 0; }
   position: fixed; left: 0; right: 0; bottom: 0; top: auto; width: 100%; max-width: none;
   border-radius: 24px 24px 0 0; padding: 18px 18px calc(18px + env(safe-area-inset-bottom, 0px));
 }
+
+/* 9) Grande carte de partage (modale plein écran) — style carte du site. */
+.share-modal-backdrop {
+  position: fixed; inset: 0; z-index: 1000; background: rgba(24, 16, 40, .5);
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+  animation: share-modal-in .18s ease;
+}
+@keyframes share-modal-in { from { opacity: 0; } to { opacity: 1; } }
+.share-modal-card {
+  position: relative; width: min(430px, 100%); background: var(--surface); color: var(--ink);
+  border-radius: 24px; box-shadow: 0 24px 70px rgba(20, 12, 40, .34), 0 3px 12px rgba(20, 12, 40, .16);
+  padding: 26px 24px 24px;
+}
+.share-modal-close {
+  position: absolute; top: 14px; right: 16px; border: none; background: none;
+  font-size: 22px; line-height: 1; color: var(--muted); cursor: pointer; padding: 4px 6px; border-radius: 8px;
+}
+.share-modal-close:hover { color: var(--ink); }
+.share-modal-title { font-weight: 800; font-size: 1.2rem; letter-spacing: -.01em; margin-bottom: 18px; }
+.share-modal-grid { grid-template-columns: repeat(4, 1fr); gap: 6px; }
+@media (max-width: 380px) { .share-modal-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (prefers-reduced-motion: reduce) { .share-modal-backdrop { animation: none; } }
 
 /* F) badge → icône */
 .badge-ic { display: inline-flex; flex: none; line-height: 0; }
@@ -1103,8 +1134,13 @@ body[data-mode="connected"] #stats { display: none; }
 /* F1) Rangée inline : chips suivies + « + ajouter » + sélecteur coulent ensemble
    (wrap naturel). Le bloc s'ancre en bas de la carte (margin-top:auto). */
 .param-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: auto; }
-.param-form { display: inline-flex; gap: 8px; align-items: center; }
+.param-form { display: inline-flex; gap: 8px; align-items: center; flex: 1 1 auto; }
 .param-form[hidden] { display: none; }
+/* 10) Cycle « + ajouter » ⇄ formulaire : apparitions en fondu doux (le bouton se
+   masque, le form prend sa place et s'élargit ; puis l'inverse après l'ajout). */
+@keyframes param-swap-in { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: none; } }
+.param-form:not([hidden]), .param-add:not([hidden]) { animation: param-swap-in .16s ease; }
+@media (prefers-reduced-motion: reduce) { .param-form:not([hidden]), .param-add:not([hidden]) { animation: none; } }
 /* H) Indicateur d'abonnement permanent des cartes paramétrées (comme les broadcast). */
 .param-status { display: flex; align-items: center; }
 .param-status .switch-label { font-size: 13px; }
@@ -1485,6 +1521,8 @@ body.m-menu-open { overflow: hidden; }
   box-shadow: var(--shadow);
   transition: transform .16s ease, box-shadow .16s ease;
 }
+/* 3) Toutes les surfaces d'une tuile de deck montrent la main au survol. */
+.pack, .pack *, .deck-tile, .deck-tile * { cursor: pointer; }
 /* La pile derrière la tuile (deux feuilles décalées) = effet paquet. */
 .pack-stack { position: absolute; inset: 0; z-index: -1; border-radius: 16px; }
 .pack-stack::before, .pack-stack::after {
@@ -1543,7 +1581,7 @@ body.m-menu-open { overflow: hidden; }
 
 /* ===================== MES DECKS (phase 2 UGC) ===================== */
 .decks-main { padding-top: 26px; }
-.decks-main h1 { font-size: 1.7rem; letter-spacing: -.02em; margin: 0 0 14px; }
+.decks-main h1 { margin: 0 0 16px; } /* typographie via .page-title (1) */
 .decks-anon { text-align: center; padding: 40px 0; }
 .decks-anon .src-desc { margin: 8px auto 20px; max-width: 460px; }
 
@@ -1919,7 +1957,7 @@ html[data-theme="dark"] .tint-11 .deck-motif-bg::after { background: color-mix(i
 /* Carte d'aperçu du formulaire de deck. */
 .deck-preview {
   position: relative; overflow: hidden; border-radius: 16px; padding: 18px;
-  min-height: 165px;    max-width: 275px; background: var(--deck-bg); box-shadow: var(--shadow);
+  min-height: 165px;    width: 275px; background: var(--deck-bg); box-shadow: var(--shadow);
 }
 .deck-preview .deck-preview-body { position: relative; z-index: 1; }
 .deck-preview .deck-preview-name { font-weight: 700; font-size: 1.05rem; color: var(--ink); }

@@ -13,6 +13,17 @@
 
   var REDUCE = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
+  // 5) Cœur du header rempli si des favoris existent (localStorage lba-likes).
+  // Enregistré avant le retour anticipé « home » pour s'appliquer sur toutes les pages.
+  function markFavHeart() {
+    var liked; try { liked = JSON.parse(localStorage.getItem('lba-likes') || '[]'); } catch (e) { liked = []; }
+    if (Array.isArray(liked) && liked.length) {
+      document.querySelectorAll('.fav-link').forEach(function (a) { a.classList.add('has-fav'); });
+    }
+  }
+  if (document.readyState !== 'loading') setTimeout(markFavHeart, 0);
+  else document.addEventListener('DOMContentLoaded', markFavHeart);
+
   /* ===================== Menu mobile plein écran (partagé) ===================== */
   // opts : { isHome:boolean, logged:boolean }
   function buildMenu(nav, opts) {
@@ -309,7 +320,7 @@
     navRight.innerHTML =
       '<a class="mine-link" href="/connexion">Ma collection</a>' +
       '<a id="nav-openalert" href="/#openalert">OpenAlert</a>' +
-      '<a class="fav-link" href="/favoris" aria-label="Mes favoris" title="Mes favoris"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-6.7-4.35-9.1-8.05C1.2 10.3 2.3 6.5 5.7 6.5c1.9 0 3.1 1.1 3.8 2.1.7-1 1.9-2.1 3.8-2.1 3.4 0 4.5 3.8 2.8 6.45C18.7 16.65 12 21 12 21z"/></svg></a>' +
+      '<a class="fav-link" href="/favoris" aria-label="Mes favoris" title="Mes favoris"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></a>' +
       '<span class="auth-email" id="auth-email" hidden></span>' +
       '<a class="btn-login" id="auth-link" href="/connexion">Se connecter</a>' +
       '<button class="theme-btn" type="button" aria-label="Changer de thème">◐</button>';

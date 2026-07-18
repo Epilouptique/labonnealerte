@@ -224,12 +224,12 @@
       .finally(function () { ok.disabled = false; });
   });
 
-  /* ---- Partage (popover) ---- */
+  /* ---- Partage (9 : grande carte modale, unifiée avec collection/deck) ---- */
   document.addEventListener('click', function (e) {
     var btn = e.target.closest('#src-share');
     if (!btn) return;
     e.preventDefault(); e.stopPropagation();
-    if (window.LBAShare) LBAShare.open(btn, source ? source.name : 'La Bonne Alerte', SHARE_URL);
+    if (window.LBAShare && LBAShare.openModal) LBAShare.openModal(source ? source.name : 'La Bonne Alerte', SHARE_URL);
   });
 
   /* ---- Chargement ---- */

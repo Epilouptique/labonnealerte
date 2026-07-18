@@ -188,18 +188,13 @@
     var reportName = document.getElementById('deck-report-name');
     if (reportName) reportName.addEventListener('click', function () { doReport('name'); });
 
+    // 9) Partage en GRANDE CARTE modale (unifié avec les pages collection/source).
     var share = document.getElementById('deck-share');
-    var grid = document.getElementById('deck-share-grid');
-    if (share && grid) {
+    if (share) {
       share.addEventListener('click', function () {
         var url = 'https://www.labonnealerte.fr/deck/' + token;
         var name = (DECK && DECK.deck ? DECK.deck.name : 'La Bonne Alerte');
-        if (window.LBAShare && !grid.dataset.filled) {
-          grid.innerHTML = LBAShare.optionsHTML(name, url);
-          LBAShare.bindCopy(grid, url);
-          grid.dataset.filled = '1';
-        }
-        grid.hidden = !grid.hidden;
+        if (window.LBAShare && LBAShare.openModal) LBAShare.openModal(name, url);
       });
     }
   }

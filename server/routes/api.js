@@ -170,6 +170,32 @@ router.get('/favorites', async (req, res) => {
   }
 });
 
+// D) POST /api/favorites/sync — remontée one-shot des favoris locaux (lba-likes) vers
+// le serveur (idempotent). Rattrape les cœurs posés AVANT la table favorites et couvre
+// le multi-appareils dans le sens montée. Corps : { token, ids: [source_id, ...] }.
+router.post('/favorites/sync', async (req, res) => {
+  const body = req.body || {};
+  const auth = await authenticate(body.token);
+  if (!auth) return res.status(401).json({ error: 'Session invalide ou expirée' });
+  const ids = Array.isArray(body.ids)
+    ? body.ids.filter((x) => typeof x === 'string' && x).slice(0, 1000)
+    : [];
+  if (!ids.length) return res.status(200).json({ synced: 0 });
+  try {
+    // SELECT depuis sources → ignore les ids inconnus (pas de violation de FK).
+    const r = await pool.query(
+      `INSERT INTO favorites (subscriber_id, source_id)
+         SELECT $1, s.id FROM sources s WHERE s.id = ANY($2::text[]) AND s.enabled = true
+       ON CONFLICT DO NOTHING`,
+      [auth.id, ids]
+    );
+    res.json({ synced: r.rowCount });
+  } catch (err) {
+    console.error('[api] Erreur POST /favorites/sync :', err.message);
+    res.status(503).json({ error: 'DB unavailable' });
+  }
+});
+
 // B2) GET /api/sources/:id/links — liens de visibilité pro du déposant, pour la
 // page publique de la source UNIQUEMENT (jamais dans la liste /api/sources). Les
 // liens sont re-validés/assainis à l'affichage (défense en profondeur, même si le

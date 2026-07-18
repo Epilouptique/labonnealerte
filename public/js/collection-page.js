@@ -155,18 +155,13 @@
     var adopt = document.getElementById('coll-adopt');
     if (adopt) adopt.addEventListener('click', doAdopt);
 
+    // 9) Partage en GRANDE CARTE modale (au lieu de la ligne de boutons en place).
     var share = document.getElementById('coll-share');
-    var grid = document.getElementById('coll-share-grid');
-    if (share && grid) {
+    if (share) {
       share.addEventListener('click', function () {
         var url = 'https://www.labonnealerte.fr/collection/' + slug;
         var name = (COLL && COLL.collection ? COLL.collection.name : 'La Bonne Alerte');
-        if (window.LBAShare && !grid.dataset.filled) {
-          grid.innerHTML = LBAShare.optionsHTML(name, url);
-          LBAShare.bindCopy(grid, url);
-          grid.dataset.filled = '1';
-        }
-        grid.hidden = !grid.hidden;
+        if (window.LBAShare && LBAShare.openModal) LBAShare.openModal(name, url);
       });
     }
   }
