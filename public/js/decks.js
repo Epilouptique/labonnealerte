@@ -382,9 +382,7 @@
     document.getElementById('deck-delete').addEventListener('click', function () { onDelete(deck); });
     document.getElementById('deck-adopt').addEventListener('click', function () { onAdopt(deck); });
     document.getElementById('deck-share').addEventListener('click', function () { onShareToggle(deck); });
-    if (deck.visibility && deck.visibility !== 'private' && deck.share_token) {
-      showShareUrl(deck, deck.share_token);
-    }
+    renderShareMgmt(deck); // affiche « Arrêter le partage » si déjà partagé (le lien vit dans la modale)
   }
 
   // Rend la grille des cartes DU deck (depuis l'état local deckSources).
@@ -574,39 +572,31 @@
     return 'https://www.labonnealerte.fr/deck/' + token;
   }
 
-  function showShareUrl(deck, shareToken) {
-    var url = shareFullUrl(shareToken);
+  // Partage UNIFIÉ : même grande carte modale que /collection/:slug et /deck/:token
+  // (window.LBAShare.openModal — réseaux + copier le lien + croix, fermeture Échap/
+  // clic extérieur, responsive). Un seul point de vérité pour l'apparence du partage.
+  function shareModal(deck) {
+    var url = shareFullUrl(deck.share_token);
+    if (window.LBAShare && LBAShare.openModal) LBAShare.openModal(deck.name, url);
+    else window.prompt('Lien de partage', url); // repli si le composant n'est pas chargé
+  }
+
+  // Gestion du partage propre à /mes-decks (le propriétaire peut arrêter le partage) :
+  // le lien lui-même est dans la modale, la boîte ne garde que « Arrêter le partage ».
+  function renderShareMgmt(deck) {
     var box = document.getElementById('deck-share-box');
     if (!box) return;
+    var shared = deck.visibility && deck.visibility !== 'private' && deck.share_token;
+    if (!shared) { box.hidden = true; box.innerHTML = ''; return; }
     box.hidden = false;
-    box.innerHTML = '' +
-      '<div class="acct-subhead">Lien de partage</div>' +
-      '<div class="deck-share-row">' +
-        '<input type="text" class="deck-share-url" readonly value="' + esc(url) + '" aria-label="Lien de partage">' +
-        '<button type="button" class="notif-btn deck-share-copy">Copier</button>' +
-      '</div>' +
-      '<button type="button" class="acct-delete-link" id="deck-unshare">Arrêter le partage</button>';
-
-    var copyBtn = box.querySelector('.deck-share-copy');
-    copyBtn.addEventListener('click', function () {
-      var done = function () {
-        var o = copyBtn.textContent; copyBtn.textContent = 'Copié ✓';
-        setTimeout(function () { copyBtn.textContent = o; }, 1500);
-      };
-      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(done, done);
-      else {
-        var i = box.querySelector('.deck-share-url'); i.select();
-        try { document.execCommand('copy'); } catch (e) {}
-        done();
-      }
-    });
+    box.innerHTML = '<button type="button" class="acct-delete-link" id="deck-unshare">Arrêter le partage</button>';
     box.querySelector('#deck-unshare').addEventListener('click', function () { onUnshare(deck); });
   }
 
   async function onShareToggle(deck) {
-    var box = document.getElementById('deck-share-box');
-    // Déjà affiché : simple bascule de visibilité.
-    if (box && !box.hidden && box.innerHTML) { box.hidden = true; return; }
+    // Déjà partagé : ouvre directement la modale avec l'URL existante.
+    if (deck.visibility && deck.visibility !== 'private' && deck.share_token) { shareModal(deck); return; }
+    // Sinon : bascule en 'unlisted' + génère le token, PUIS ouvre la même modale.
     var btn = document.getElementById('deck-share');
     if (btn) btn.disabled = true;
     try {
@@ -619,7 +609,9 @@
       if (res.ok && d && d.share_token) {
         deck.visibility = 'unlisted';
         deck.share_token = d.share_token;
-        showShareUrl(deck, d.share_token);
+        if (btn) btn.textContent = 'Gérer le partage';
+        renderShareMgmt(deck);
+        shareModal(deck);
         return;
       }
       detailMsg((d && d.error) || 'Partage impossible.', 'err');
@@ -637,10 +629,9 @@
       if (res.ok) {
         deck.visibility = 'private';
         deck.share_token = null;
-        var box = document.getElementById('deck-share-box');
-        if (box) { box.hidden = true; box.innerHTML = ''; }
         var btn = document.getElementById('deck-share');
         if (btn) btn.textContent = 'Partager';
+        renderShareMgmt(deck);
         await refreshDecks();
       } else detailMsg('Impossible d\'arrêter le partage.', 'err');
     } catch (e) { detailMsg('Réessayez dans un instant.', 'err'); }

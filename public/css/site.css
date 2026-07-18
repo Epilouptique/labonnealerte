@@ -759,7 +759,7 @@ html { scroll-padding-top: 84px; }
 .chips-more.open { max-height: 240px; opacity: 1; }
 
 /* E) grille stable : au moins une rangée réservée */
-.grid { min-height: 230px; }
+.grid { }
 /* G) Connecté : pas de hauteur minimale imposée (une seule rangée ne doit pas
    réserver 230px de vide) ; l'espace au-dessus des cartes suffit à loger le label
    « Recommandée » sans qu'il déborde sur la rangée du dessous. */
@@ -1703,15 +1703,10 @@ body.m-menu-open { overflow: hidden; }
 }
 .deck-remove:hover { border-color: #dc2626; color: #dc2626; }
 
-/* Boîte de partage. */
+/* Boîte de gestion du partage (ne contient plus que « Arrêter le partage » ; le lien de
+   partage lui-même passe désormais par la modale unifiée LBAShare, comme collection). */
 .deck-share-box { margin: 6px 0 18px; }
 .deck-share-box[hidden] { display: none; }
-.deck-share-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-.deck-share-url {
-  flex: 1 1 260px; min-width: 0; font: inherit; font-size: 14px; color: var(--ink);
-  background: var(--bg); border: 1.5px solid var(--line); border-radius: 10px; padding: 10px 14px;
-}
-.deck-share-url:focus { outline: none; border-color: var(--amber); }
 
 /* ===================== AJOUTER À UN DECK (recto, UGC) ===================== */
 /* Icône « + » du recto, même famille que .flip-btn/.share-btn, à gauche du « i ».
@@ -1794,7 +1789,7 @@ body.m-menu-open { overflow: hidden; }
 }
 .deck-suggest-toggle .dst-caret { font-size: .8em; }
 .deck-suggest-body { margin-top: 12px; }
-.deck-suggest-more-wrap { text-align: center; margin-top: 14px; }
+.deck-suggest-more-wrap { text-align: center; margin-top: 14px;margin-bottom: 2rem; }
 
 /* Carte proposée : on masque les contrôles d'abonnement (on compose, on ne suit
    pas) et on affiche le bouton « Ajouter au deck » sous la carte. */
@@ -1819,24 +1814,30 @@ body.m-menu-open { overflow: hidden; }
 
 /* ===================== A1/A3) Menu mobile : face « Catégories » (flip) + icônes ===================== */
 .m-menu { perspective: 1400px; }
+/* Point 8 (SUITE — cause du « scrollbar bouge mais contenu figé ») : l'ancienne bascule
+   Menu⇄Catégories était un flip 3D (transform-style:preserve-3d + rotateY + backface-
+   visibility) avec les DEUX faces en position:absolute. Le conteneur de défilement
+   (.m-menu-face, overflow-y:auto) se retrouvait donc rendu comme une COUCHE 3D composée :
+   son scrollTop changeait (l'ascenseur avançait) mais la texture 3D n'était pas
+   re-rasterisée → le contenu paraissait figé. Un conteneur scrollable sous preserve-3d
+   est intrinsèquement incompatible avec un défilement fiable.
+   CORRECTIF : on remplace le flip 3D par un GLISSEMENT 2D (translateX). Une transform 2D
+   sur un conteneur scrollable se repeint correctement → le défilement fonctionne. La
+   révélation « Catégories » reste animée (slide horizontal), sans aucun contexte 3D. */
 .m-menu-flip {
-  /* Point 8 (cause racine) : height:100% (et non min-height) donne au flip une hauteur
-     DÉFINIE (= la hauteur du .m-menu en fixed inset:0 = viewport). Sans elle, la hauteur
-     du flip était indéfinie → le height:100% des faces se résolvait en auto, et comme
-     les faces ont AUSSI inset:0, la contrainte était sur-spécifiée : le navigateur
-     gardait height:auto (contenu) et ignorait bottom:0 → face non bornée → clipée par
-     .m-menu{overflow:hidden}, jamais défilable. Avec une hauteur définie ici, la face
-     est bornée au viewport et son overflow-y:auto défile réellement. */
-  position: relative; width: 100%; height: 100%;
-  transform-style: preserve-3d; transition: transform .5s cubic-bezier(.2, .7, .2, 1);
+  position: relative; width: 100%; height: 100%; overflow: hidden; /* clippe la face hors-champ */
 }
-.m-menu-flip.flipped { transform: rotateY(180deg); }
 .m-menu-face {
-  position: absolute; inset: 0; height: 100%;
+  position: absolute; inset: 0; height: 100%; /* flip a une hauteur définie → borne la face au viewport */
   overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
-  -webkit-backface-visibility: hidden; backface-visibility: hidden;
+  transition: transform .4s cubic-bezier(.2, .7, .2, 1);
 }
-.m-face-back { transform: rotateY(180deg); }
+/* Face avant visible, face Catégories parquée à droite. Au flip, elles glissent. */
+.m-face-front { transform: translateX(0); }
+.m-face-back  { transform: translateX(100%); }
+.m-menu-flip.flipped .m-face-front { transform: translateX(-100%); }
+.m-menu-flip.flipped .m-face-back  { transform: translateX(0); }
+@media (prefers-reduced-motion: reduce) { .m-menu-face { transition: none; } }
 .m-menu-cat-title {
   font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .14em;
   color: var(--amber); margin: 6px 0 8px;
