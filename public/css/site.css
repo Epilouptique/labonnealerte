@@ -45,7 +45,7 @@ body::before {
   opacity: 0.5;
 }
 .mono { font-family: 'JetBrains Mono', monospace; }
-.wrap { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+.wrap { max-width: 1240px; margin: 0 auto; padding: 0 24px; }
 /* Point 1) Autorise l'overlay du KPI à déborder à droite du header sans jamais
    créer de scroll horizontal. `clip` préserve le position:sticky du header
    (contrairement à `hidden`). */

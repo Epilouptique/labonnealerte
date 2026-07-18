@@ -14,7 +14,7 @@ const authRouter = require('./routes/auth');
 const pushRouter = require('./routes/push');
 const collectionsRouter = require('./routes/collections');
 const decksRouter = require('./routes/decks');
-const { apiRouter: lePointApiRouter, pagesRouter: lePointPagesRouter } = require('./routes/le-point');
+const { apiRouter: lePointApiRouter } = require('./routes/le-point');
 const { cleanupExpired } = require('./sessions');
 const { startPoller } = require('./poller');
 

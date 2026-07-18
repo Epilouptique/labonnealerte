@@ -2494,3 +2494,23 @@ SELECT 'rendez-vous-aux-jardins', 'Rendez-vous aux jardins', 'Jardins ouverts en
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'rendez-vous-aux-jardins');
 INSERT INTO source_states (source_id) SELECT 'rendez-vous-aux-jardins'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'rendez-vous-aux-jardins');
+
+
+-- ================================================================
+-- LOT 1 (audit-architecture.md, axe 4) — index de performance.
+-- ================================================================
+
+-- Poller, hot path : à chaque cycle (48×/jour), pour chaque source paramétrée,
+--   poller.js:387  SELECT DISTINCT params FROM subscriptions WHERE source_id = $1 AND params IS NOT NULL
+--   (+ poller doomname:587, + UPDATE de fusion WHERE source_id). L'unique index
+--   existant uq_subscriptions_sub_src_params démarre par subscriber_id → inutilisable
+--   pour un filtre sur source_id seul. Cet index sert directement ces requêtes.
+CREATE INDEX IF NOT EXISTS idx_subscriptions_source ON subscriptions (source_id);
+
+-- Lectures d'états actifs (Le Point, cartes, pages de statut) :
+--   le-point.js:53  SELECT ... FROM source_param_states WHERE state = 'active'
+-- Index PARTIEL : n'indexe que les combinaisons active/pending (rares), donc coût
+-- d'écriture quasi nul ; la clause state='active' implique state <> 'inactive' →
+-- le planificateur peut le servir. Les accès ciblés (source_id, params) restent sur la PK.
+CREATE INDEX IF NOT EXISTS idx_source_param_states_active
+  ON source_param_states (source_id) WHERE state <> 'inactive';
