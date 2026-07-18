@@ -60,6 +60,35 @@ function countryFromIp(ip) {
   return isValidCountry(geo.country) ? geo.country : 'AUTRE';
 }
 
+// Adresses privées/réservées : geoip ne les résout pas. Inclut le CGNAT 100.64/10
+// (réseau interne de Railway) — c'était la cause de country vide : `trust proxy: 1`
+// ne pèle qu'un saut et laissait une IP interne dans req.ip.
+function isPrivateIp(ip) {
+  if (!ip) return true;
+  ip = ip.replace(/^::ffff:/, '');
+  if (ip === '::1' || ip === '127.0.0.1') return true;
+  if (/^10\./.test(ip)) return true;
+  if (/^192\.168\./.test(ip)) return true;
+  if (/^172\.(1[6-9]|2\d|3[01])\./.test(ip)) return true;
+  if (/^169\.254\./.test(ip)) return true;                          // link-local IPv4
+  if (/^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(ip)) return true; // 100.64/10 CGNAT (Railway)
+  if (/^(fc|fd|fe80)/i.test(ip)) return true;                       // ULA + link-local IPv6
+  return false;
+}
+
+// Vraie IP cliente : premier IP PUBLIC de x-forwarded-for (le plus à gauche = client
+// d'origine), repli sur req.ip. Robuste quel que soit le nombre de sauts de proxy.
+function clientIp(req) {
+  const xff = String((req && req.headers && req.headers['x-forwarded-for']) || '');
+  const chain = xff.split(',').map((s) => s.trim()).filter(Boolean);
+  if (req && req.ip) chain.push(req.ip);
+  for (const c of chain) {
+    const ip = c.replace(/^::ffff:/, '');
+    if (!isPrivateIp(ip)) return ip;
+  }
+  return null;
+}
+
 /**
  * Remplit les champs NULL du profil. Best-effort, silencieux.
  * @param {import('pg').Pool} pool
@@ -97,5 +126,7 @@ module.exports = {
   deriveDisplayNameFromEmail,
   deriveDisplayNameFromGithub,
   countryFromIp,
+  clientIp,
+  isPrivateIp,
   _trySetDisplayName: trySetDisplayName,
 };

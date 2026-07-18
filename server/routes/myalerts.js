@@ -13,7 +13,7 @@ const { isValidCountry, isValidDepartement } = require('../geo');
 const { VALID_SLUGS } = require('../categories');
 const { validateParams, resolveLabel } = require('../params');
 const { trackDomain } = require('../doomname');
-const { applyAutofill, deriveDisplayNameFromEmail } = require('../profile-autofill');
+const { applyAutofill, deriveDisplayNameFromEmail, clientIp } = require('../profile-autofill');
 
 // État « le pire » d'un ensemble d'instances (pour l'affichage de la carte).
 const STATE_RANK = { active: 3, pending: 2, inactive: 1 };
@@ -168,7 +168,7 @@ apiRouter.get('/my-alerts', async (req, res) => {
     // display_name depuis la partie locale de l'email, country depuis l'IP. Uniquement
     // si NULL (silencieux, best-effort). On relit ensuite pour refléter dans la réponse.
     if (pr.display_name == null || pr.country == null) {
-      await applyAutofill(pool, auth.id, { nameHint: deriveDisplayNameFromEmail(auth.email), ip: req.ip });
+      await applyAutofill(pool, auth.id, { nameHint: deriveDisplayNameFromEmail(auth.email), ip: clientIp(req) });
       const re = await pool.query('SELECT display_name, country, departement FROM subscribers WHERE id = $1', [auth.id]);
       if (re.rows[0]) { pr.display_name = re.rows[0].display_name; pr.country = re.rows[0].country; pr.departement = re.rows[0].departement; }
     }

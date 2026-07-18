@@ -6,7 +6,7 @@ const express = require('express');
 const crypto = require('crypto');
 const { pool } = require('../db');
 const { createSession } = require('../sessions');
-const { applyAutofill, deriveDisplayNameFromEmail, deriveDisplayNameFromGithub } = require('../profile-autofill');
+const { applyAutofill, deriveDisplayNameFromEmail, deriveDisplayNameFromGithub, clientIp } = require('../profile-autofill');
 
 const router = express.Router();
 
@@ -135,7 +135,7 @@ router.get('/google/callback', async (req, res) => {
     // Auto-remplissage silencieux du profil à la 1re connexion (champs NULL seulement).
     await applyAutofill(pool, id, {
       nameHint: ui.given_name || ui.name || deriveDisplayNameFromEmail(ui.email),
-      ip: req.ip,
+      ip: clientIp(req),
     });
     return landSession(res, id);
   } catch (err) {
@@ -196,7 +196,7 @@ router.get('/github/callback', async (req, res) => {
     });
     await applyAutofill(pool, id, {
       nameHint: deriveDisplayNameFromGithub(user.name, user.login) || deriveDisplayNameFromEmail(primary.email),
-      ip: req.ip,
+      ip: clientIp(req),
     });
     return landSession(res, id);
   } catch (err) {

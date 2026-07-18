@@ -46,6 +46,10 @@ body::before {
 }
 .mono { font-family: 'JetBrains Mono', monospace; }
 .wrap { max-width: 1240px; margin: 0 auto; padding: 0 24px; }
+/* Point 7) Sur mobile, .wrap repasse en pleine largeur avec un padding réduit : les
+   cartes/grilles qui en héritent (home, collection, mes-decks, favoris, source)
+   disposent de tout l'espace. (La grille .grid collapse déjà en 1 colonne ≤620px.) */
+@media (max-width: 767px) { .wrap { max-width: 100%; padding: 0 16px; } }
 /* Point 1) Autorise l'overlay du KPI à déborder à droite du header sans jamais
    créer de scroll horizontal. `clip` préserve le position:sticky du header
    (contrairement à `hidden`). */
@@ -96,6 +100,10 @@ html[data-theme="light"] header { background: #ffffff; } /* thème clair : blanc
   font-weight: 700; font-size: 13.5px; border-radius: 999px;
   padding: 9px 16px; white-space: nowrap; font-family: inherit;
   transition: background .15s; margin-right: 10px;
+  /* Point 3) Largeur fixe = le libellé le plus long (« Déposer une alerte ») : le
+     changement de texte (rotation avec « Ajouter un deck ») ne décale plus les
+     voisins du menu. Contenu centré dans cette largeur. */
+  min-width: 185px; justify-content: center;
 }
 .btn-deposit:hover { background: color-mix(in srgb, var(--amber) 88%, #000); color: #fff; }
 .btn-deposit .plus { font-size: 18px; line-height: 1; font-weight: 400; position: relative; top: -1px; }
@@ -989,6 +997,9 @@ body[data-mode="connected"] #stats { display: none; }
 }
 .pref-select:focus { outline: none; border-color: var(--amber); }
 .pref-interests-row { flex-direction: column; align-items: stretch; gap: 12px; }
+/* Point 5) La rangée des centres d'intérêt s'empile (label au-dessus) et les chips
+   occupent TOUTE la largeur de la carte → la ligne se remplit (PC comme mobile). */
+.pref-interests-row .pref-chips { width: 100%; }
 .pref-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .pref-chip {
   border: 1.5px solid var(--line); background: transparent; color: var(--muted);
@@ -1144,8 +1155,15 @@ body[data-mode="connected"] #stats { display: none; }
 /* F1) Rangée inline : chips suivies + « + ajouter » + sélecteur coulent ensemble
    (wrap naturel). Le bloc s'ancre en bas de la carte (margin-top:auto). */
 .param-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: auto; }
-.param-form { display: inline-flex; gap: 8px; align-items: center; flex: 1 1 auto; }
+/* Point 2) « + ajouter » : le form prend la PLACE du bouton dans le flux inline
+   (flex: 0 0 auto → largeur de son contenu, jamais étiré ni renvoyé à la ligne). */
+.param-form { display: inline-flex; gap: 8px; align-items: center; flex: 0 0 auto; }
 .param-form[hidden] { display: none; }
+/* Point B) Le JS met bien add.hidden = true à l'ouverture du form (togglePicker), mais
+   .param-add définit display:inline-flex (règle auteur) qui l'emportait sur la règle UA
+   [hidden]{display:none} → le bouton restait visible À CÔTÉ du form. Ce miroir de
+   .param-form[hidden] rétablit l'exclusion mutuelle stricte bouton⇄form. */
+.param-add[hidden] { display: none !important; }
 /* 10) Cycle « + ajouter » ⇄ formulaire : apparitions en fondu doux (le bouton se
    masque, le form prend sa place et s'élargit ; puis l'inverse après l'ajout). */
 @keyframes param-swap-in { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: none; } }
@@ -1446,6 +1464,11 @@ body.account-open .hero { display: none; }
 .m-menu.m-anim { opacity: 0; transform: perspective(1200px) rotateY(-82deg); }
 .m-menu.m-anim.open { opacity: 1; transform: perspective(1200px) rotateY(0deg); }
 .m-menu-inner {
+  /* Point 8) Le conteneur de défilement est .m-menu-face (bornée au viewport grâce à
+     .m-menu-flip{height:100%}). L'inner n'est QUE le contenu : min-height:100% pour que
+     .m-menu-foot{margin-top:auto} reste en bas quand le menu est court, et il grandit
+     au-delà quand le contenu est long → c'est la face qui défile (un seul conteneur de
+     scroll, pas d'imbrication fragile). */
   min-height: 100%; display: flex; flex-direction: column;
   padding: 10px 22px calc(24px + env(safe-area-inset-bottom, 0px));
 }
@@ -1797,7 +1820,14 @@ body.m-menu-open { overflow: hidden; }
 /* ===================== A1/A3) Menu mobile : face « Catégories » (flip) + icônes ===================== */
 .m-menu { perspective: 1400px; }
 .m-menu-flip {
-  position: relative; width: 100%; min-height: 100%;
+  /* Point 8 (cause racine) : height:100% (et non min-height) donne au flip une hauteur
+     DÉFINIE (= la hauteur du .m-menu en fixed inset:0 = viewport). Sans elle, la hauteur
+     du flip était indéfinie → le height:100% des faces se résolvait en auto, et comme
+     les faces ont AUSSI inset:0, la contrainte était sur-spécifiée : le navigateur
+     gardait height:auto (contenu) et ignorait bottom:0 → face non bornée → clipée par
+     .m-menu{overflow:hidden}, jamais défilable. Avec une hauteur définie ici, la face
+     est bornée au viewport et son overflow-y:auto défile réellement. */
+  position: relative; width: 100%; height: 100%;
   transform-style: preserve-3d; transition: transform .5s cubic-bezier(.2, .7, .2, 1);
 }
 .m-menu-flip.flipped { transform: rotateY(180deg); }

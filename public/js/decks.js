@@ -67,13 +67,13 @@
   function pseudoBlockHTML() {
     var name = STATE.display_name;
     if (name) {
-      return '<div class="acct-subhead">Nom public</div>' +
+      return '<div class="acct-subhead">Mon pseudo</div>' +
         '<p class="deck-pseudo-line">Vos decks partagés seront signés <strong>' + esc(name) + '</strong>.</p>';
     }
     return '' +
-      '<div class="section-label">Nom public</div>' +
+      '<div class="section-label">Mon pseudo</div>' +
       '<form id="deck-pseudo-form" class="deck-pseudo-form" novalidate>' +
-        '<label for="deck-pseudo-input">Choisissez votre nom public pour signer vos decks</label>' +
+        '<label for="deck-pseudo-input">Choisissez votre pseudo pour signer vos decks</label>' +
         '<div class="deck-pseudo-row">' +
           '<input id="deck-pseudo-input" type="text" maxlength="30" autocomplete="off" placeholder="ex. Camille du Kiosque">' +
           '<button type="submit" class="notif-btn">Enregistrer</button>' +
@@ -144,7 +144,7 @@
     e.preventDefault();
     var input = document.getElementById('deck-pseudo-input');
     var name = (input && input.value || '').trim();
-    if (!name) { pseudoMsg('Entrez un nom public.', 'err'); return; }
+    if (!name) { pseudoMsg('Entrez un pseudo.', 'err'); return; }
     var btn = e.target.querySelector('button[type="submit"]');
     if (btn) btn.disabled = true;
     try {
@@ -171,7 +171,7 @@
     var input = document.getElementById('deck-pseudo-input');
     if (form) form.scrollIntoView({ behavior: 'smooth', block: 'center' });
     if (input) input.focus();
-    pseudoMsg('Choisissez d\'abord un nom public.', 'err');
+    pseudoMsg('Choisissez d\'abord un pseudo.', 'err');
   }
 
   // --- Formulaire créer / éditer -------------------------------------------

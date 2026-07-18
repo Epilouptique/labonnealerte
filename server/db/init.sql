@@ -2497,6 +2497,88 @@ WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'rendez-vous-aux
 
 
 -- ================================================================
+-- VAGUE « quotidien, admin, sport, pépites » (économie INSEE, sécheresse
+-- départementale, ISS, journées & prix). display_order 356+.
+-- APIs/datasets explorés et vérifiés (voir en-tête de chaque source). Écartés
+-- (rapport) : delais-titres (SPA ANTS sans API), taux-immobilier (BdF Webstat =
+-- compte requis ; Observatoire = PDF), ouverture-maprimerenov (aucun calendrier à
+-- l'avance), don-du-sang par commune (pas de fichier bulk officiel ; API Carto EFS
+-- sans code INSEE), saisons-astronomiques (doublon fetes-laiques), statut-operateurs
+-- (aucun flux structuré : cartes propriétaires par adresse).
+-- ================================================================
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
+SELECT 'risque-secheresse', 'Risque sécheresse', 'Le département de votre choix',
+  'Choisissez un ou plusieurs départements et soyez alerté dès que la préfecture y prend un arrêté de restriction d''eau de niveau alerte, alerte renforcée ou crise. Vue d''ensemble départementale (l''arrêté préfectoral officiel, ex-Propluvia). Pour les restrictions précises de votre commune, voir « Restrictions d''eau » (VigiEau). Source officielle VigiEau.',
+  'internal', 'official', false, ARRAY['secheresse', 'vigilance-meteo'], 356, '[{"key":"departement","label":"Département","type":"enum","values":[{"value":"01","label":"Ain"},{"value":"02","label":"Aisne"},{"value":"03","label":"Allier"},{"value":"04","label":"Alpes-de-Haute-Provence"},{"value":"05","label":"Hautes-Alpes"},{"value":"06","label":"Alpes-Maritimes"},{"value":"07","label":"Ardèche"},{"value":"08","label":"Ardennes"},{"value":"09","label":"Ariège"},{"value":"10","label":"Aube"},{"value":"11","label":"Aude"},{"value":"12","label":"Aveyron"},{"value":"13","label":"Bouches-du-Rhône"},{"value":"14","label":"Calvados"},{"value":"15","label":"Cantal"},{"value":"16","label":"Charente"},{"value":"17","label":"Charente-Maritime"},{"value":"18","label":"Cher"},{"value":"19","label":"Corrèze"},{"value":"2A","label":"Corse-du-Sud"},{"value":"2B","label":"Haute-Corse"},{"value":"21","label":"Côte-d''Or"},{"value":"22","label":"Côtes-d''Armor"},{"value":"23","label":"Creuse"},{"value":"24","label":"Dordogne"},{"value":"25","label":"Doubs"},{"value":"26","label":"Drôme"},{"value":"27","label":"Eure"},{"value":"28","label":"Eure-et-Loir"},{"value":"29","label":"Finistère"},{"value":"30","label":"Gard"},{"value":"31","label":"Haute-Garonne"},{"value":"32","label":"Gers"},{"value":"33","label":"Gironde"},{"value":"34","label":"Hérault"},{"value":"35","label":"Ille-et-Vilaine"},{"value":"36","label":"Indre"},{"value":"37","label":"Indre-et-Loire"},{"value":"38","label":"Isère"},{"value":"39","label":"Jura"},{"value":"40","label":"Landes"},{"value":"41","label":"Loir-et-Cher"},{"value":"42","label":"Loire"},{"value":"43","label":"Haute-Loire"},{"value":"44","label":"Loire-Atlantique"},{"value":"45","label":"Loiret"},{"value":"46","label":"Lot"},{"value":"47","label":"Lot-et-Garonne"},{"value":"48","label":"Lozère"},{"value":"49","label":"Maine-et-Loire"},{"value":"50","label":"Manche"},{"value":"51","label":"Marne"},{"value":"52","label":"Haute-Marne"},{"value":"53","label":"Mayenne"},{"value":"54","label":"Meurthe-et-Moselle"},{"value":"55","label":"Meuse"},{"value":"56","label":"Morbihan"},{"value":"57","label":"Moselle"},{"value":"58","label":"Nièvre"},{"value":"59","label":"Nord"},{"value":"60","label":"Oise"},{"value":"61","label":"Orne"},{"value":"62","label":"Pas-de-Calais"},{"value":"63","label":"Puy-de-Dôme"},{"value":"64","label":"Pyrénées-Atlantiques"},{"value":"65","label":"Hautes-Pyrénées"},{"value":"66","label":"Pyrénées-Orientales"},{"value":"67","label":"Bas-Rhin"},{"value":"68","label":"Haut-Rhin"},{"value":"69","label":"Rhône"},{"value":"70","label":"Haute-Saône"},{"value":"71","label":"Saône-et-Loire"},{"value":"72","label":"Sarthe"},{"value":"73","label":"Savoie"},{"value":"74","label":"Haute-Savoie"},{"value":"75","label":"Paris"},{"value":"76","label":"Seine-Maritime"},{"value":"77","label":"Seine-et-Marne"},{"value":"78","label":"Yvelines"},{"value":"79","label":"Deux-Sèvres"},{"value":"80","label":"Somme"},{"value":"81","label":"Tarn"},{"value":"82","label":"Tarn-et-Garonne"},{"value":"83","label":"Var"},{"value":"84","label":"Vaucluse"},{"value":"85","label":"Vendée"},{"value":"86","label":"Vienne"},{"value":"87","label":"Haute-Vienne"},{"value":"88","label":"Vosges"},{"value":"89","label":"Yonne"},{"value":"90","label":"Territoire de Belfort"},{"value":"91","label":"Essonne"},{"value":"92","label":"Hauts-de-Seine"},{"value":"93","label":"Seine-Saint-Denis"},{"value":"94","label":"Val-de-Marne"},{"value":"95","label":"Val-d''Oise"},{"value":"971","label":"Guadeloupe"},{"value":"972","label":"Martinique"},{"value":"973","label":"Guyane"},{"value":"974","label":"La Réunion"},{"value":"976","label":"Mayotte"}],"multiple":true,"required":true,"default":null}]'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'risque-secheresse');
+UPDATE sources SET params_schema = '[{"key":"departement","label":"Département","type":"enum","values":[{"value":"01","label":"Ain"},{"value":"02","label":"Aisne"},{"value":"03","label":"Allier"},{"value":"04","label":"Alpes-de-Haute-Provence"},{"value":"05","label":"Hautes-Alpes"},{"value":"06","label":"Alpes-Maritimes"},{"value":"07","label":"Ardèche"},{"value":"08","label":"Ardennes"},{"value":"09","label":"Ariège"},{"value":"10","label":"Aube"},{"value":"11","label":"Aude"},{"value":"12","label":"Aveyron"},{"value":"13","label":"Bouches-du-Rhône"},{"value":"14","label":"Calvados"},{"value":"15","label":"Cantal"},{"value":"16","label":"Charente"},{"value":"17","label":"Charente-Maritime"},{"value":"18","label":"Cher"},{"value":"19","label":"Corrèze"},{"value":"2A","label":"Corse-du-Sud"},{"value":"2B","label":"Haute-Corse"},{"value":"21","label":"Côte-d''Or"},{"value":"22","label":"Côtes-d''Armor"},{"value":"23","label":"Creuse"},{"value":"24","label":"Dordogne"},{"value":"25","label":"Doubs"},{"value":"26","label":"Drôme"},{"value":"27","label":"Eure"},{"value":"28","label":"Eure-et-Loir"},{"value":"29","label":"Finistère"},{"value":"30","label":"Gard"},{"value":"31","label":"Haute-Garonne"},{"value":"32","label":"Gers"},{"value":"33","label":"Gironde"},{"value":"34","label":"Hérault"},{"value":"35","label":"Ille-et-Vilaine"},{"value":"36","label":"Indre"},{"value":"37","label":"Indre-et-Loire"},{"value":"38","label":"Isère"},{"value":"39","label":"Jura"},{"value":"40","label":"Landes"},{"value":"41","label":"Loir-et-Cher"},{"value":"42","label":"Loire"},{"value":"43","label":"Haute-Loire"},{"value":"44","label":"Loire-Atlantique"},{"value":"45","label":"Loiret"},{"value":"46","label":"Lot"},{"value":"47","label":"Lot-et-Garonne"},{"value":"48","label":"Lozère"},{"value":"49","label":"Maine-et-Loire"},{"value":"50","label":"Manche"},{"value":"51","label":"Marne"},{"value":"52","label":"Haute-Marne"},{"value":"53","label":"Mayenne"},{"value":"54","label":"Meurthe-et-Moselle"},{"value":"55","label":"Meuse"},{"value":"56","label":"Morbihan"},{"value":"57","label":"Moselle"},{"value":"58","label":"Nièvre"},{"value":"59","label":"Nord"},{"value":"60","label":"Oise"},{"value":"61","label":"Orne"},{"value":"62","label":"Pas-de-Calais"},{"value":"63","label":"Puy-de-Dôme"},{"value":"64","label":"Pyrénées-Atlantiques"},{"value":"65","label":"Hautes-Pyrénées"},{"value":"66","label":"Pyrénées-Orientales"},{"value":"67","label":"Bas-Rhin"},{"value":"68","label":"Haut-Rhin"},{"value":"69","label":"Rhône"},{"value":"70","label":"Haute-Saône"},{"value":"71","label":"Saône-et-Loire"},{"value":"72","label":"Sarthe"},{"value":"73","label":"Savoie"},{"value":"74","label":"Haute-Savoie"},{"value":"75","label":"Paris"},{"value":"76","label":"Seine-Maritime"},{"value":"77","label":"Seine-et-Marne"},{"value":"78","label":"Yvelines"},{"value":"79","label":"Deux-Sèvres"},{"value":"80","label":"Somme"},{"value":"81","label":"Tarn"},{"value":"82","label":"Tarn-et-Garonne"},{"value":"83","label":"Var"},{"value":"84","label":"Vaucluse"},{"value":"85","label":"Vendée"},{"value":"86","label":"Vienne"},{"value":"87","label":"Haute-Vienne"},{"value":"88","label":"Vosges"},{"value":"89","label":"Yonne"},{"value":"90","label":"Territoire de Belfort"},{"value":"91","label":"Essonne"},{"value":"92","label":"Hauts-de-Seine"},{"value":"93","label":"Seine-Saint-Denis"},{"value":"94","label":"Val-de-Marne"},{"value":"95","label":"Val-d''Oise"},{"value":"971","label":"Guadeloupe"},{"value":"972","label":"Martinique"},{"value":"973","label":"Guyane"},{"value":"974","label":"La Réunion"},{"value":"976","label":"Mayotte"}],"multiple":true,"required":true,"default":null}]'::jsonb WHERE id = 'risque-secheresse';
+UPDATE sources SET description = 'Restrictions d''usage de l''eau (sécheresse) pour la ou les communes de votre choix : arrêtés préfectoraux en vigueur (alerte, alerte renforcée, crise). Le niveau « vigilance » est exclu (anti-bruit). Pour la vue d''ensemble par département, voir « Risque sécheresse ». Source officielle VigiEau.' WHERE id = 'vigieau';
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'indice-reference-loyers', 'Indice des loyers (IRL)', 'Publication trimestrielle INSEE',
+  'À chaque publication trimestrielle de l''indice de référence des loyers (INSEE) : sa valeur et son évolution sur un an — la référence pour réviser un loyer. Mi-janvier, avril, juillet et octobre.',
+  'internal', 'official', false, ARRAY['immobilier', 'vie-locale'], 357
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'indice-reference-loyers');
+INSERT INTO source_states (source_id) SELECT 'indice-reference-loyers'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'indice-reference-loyers');
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'inflation-insee', 'Inflation (INSEE)', 'Indice des prix, chaque mois',
+  'À chaque publication mensuelle de l''indice des prix à la consommation (INSEE) : l''inflation sur un an, en un chiffre. Sans commentaire.',
+  'internal', 'official', false, ARRAY['economie', 'vie-locale'], 358
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'inflation-insee');
+INSERT INTO source_states (source_id) SELECT 'inflation-insee'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'inflation-insee');
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'chomage-stats', 'Taux de chômage', 'Publication trimestrielle INSEE',
+  'À chaque publication trimestrielle du taux de chômage au sens du BIT (INSEE) : sa valeur pour la France. Un repère, quatre fois par an.',
+  'internal', 'official', false, ARRAY['economie'], 359
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'chomage-stats');
+INSERT INTO source_states (source_id) SELECT 'chomage-stats'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'chomage-stats');
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'semaine-bleue', 'Semaine Bleue', 'Semaine des personnes âgées',
+  'Un rappel à l''approche de la Semaine Bleue (début octobre) : une semaine nationale d''animations avec et pour les retraités et les personnes âgées. Dates officielles.',
+  'internal', 'official', false, ARRAY['vie-locale', 'sante'], 360
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'semaine-bleue');
+INSERT INTO source_states (source_id) SELECT 'semaine-bleue'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'semaine-bleue');
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'don-organes', 'Don d''organes', 'Journée nationale, le 22 juin',
+  'Le 22 juin, un rappel de la Journée nationale de réflexion sur le don d''organes et la greffe (Agence de la biomédecine) : l''occasion de faire connaître sa position à ses proches.',
+  'internal', 'official', false, ARRAY['sante', 'vie-locale'], 361
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'don-organes');
+INSERT INTO source_states (source_id) SELECT 'don-organes'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'don-organes');
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'prix-turing', 'Prix Turing', 'Le « Nobel de l''informatique »',
+  'Chaque printemps (généralement en mars), l''ACM décerne le prix Turing, la plus haute distinction en informatique. Un rappel à la saison de l''annonce.',
+  'internal', 'official', false, ARRAY['tech', 'dev'], 362
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'prix-turing');
+INSERT INTO source_states (source_id) SELECT 'prix-turing'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'prix-turing');
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'grands-prix-gastronomie', 'Grands prix gastronomie', 'Bocuse d''Or, World''s 50 Best',
+  'Un rappel à l''approche des grands rendez-vous de la gastronomie mondiale : le palmarès The World''s 50 Best Restaurants et la finale du Bocuse d''Or (au SIRHA de Lyon). Dates officielles.',
+  'internal', 'official', false, ARRAY['culture', 'gastronomie'], 363
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'grands-prix-gastronomie');
+INSERT INTO source_states (source_id) SELECT 'grands-prix-gastronomie'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'grands-prix-gastronomie');
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'courses-mythiques', 'Courses mythiques', 'Marathon de Paris, Paris-Versailles',
+  'Un rappel la veille et le jour J des grandes courses à pied françaises (Marathon de Paris, Semi de Paris, Paris-Versailles). N''affiche une date que lorsqu''elle est officiellement annoncée.',
+  'internal', 'official', false, ARRAY['sport', 'vie-locale'], 364
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'courses-mythiques');
+INSERT INTO source_states (source_id) SELECT 'courses-mythiques'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'courses-mythiques');
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
+SELECT 'iss-passages', 'Passage de l''ISS', 'La Station spatiale au-dessus de votre ville',
+  'Expérimental : soyez prévenu quand la Station spatiale internationale sera visible à l''œil nu au-dessus de votre ville dans les prochaines heures (le soir, ciel dégagé). Choisissez parmi les grandes villes françaises.',
+  'internal', 'official', false, ARRAY['iss', 'espace'], 365, '[{"key":"ville","label":"Ville","type":"enum","values":[{"value":"paris","label":"Paris"},{"value":"marseille","label":"Marseille"},{"value":"lyon","label":"Lyon"},{"value":"toulouse","label":"Toulouse"},{"value":"nice","label":"Nice"},{"value":"nantes","label":"Nantes"},{"value":"montpellier","label":"Montpellier"},{"value":"strasbourg","label":"Strasbourg"},{"value":"bordeaux","label":"Bordeaux"},{"value":"lille","label":"Lille"},{"value":"rennes","label":"Rennes"},{"value":"reims","label":"Reims"},{"value":"toulon","label":"Toulon"},{"value":"grenoble","label":"Grenoble"},{"value":"dijon","label":"Dijon"},{"value":"gap","label":"Gap"}],"multiple":true,"required":true,"default":null}]'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'iss-passages');
+UPDATE sources SET params_schema = '[{"key":"ville","label":"Ville","type":"enum","values":[{"value":"paris","label":"Paris"},{"value":"marseille","label":"Marseille"},{"value":"lyon","label":"Lyon"},{"value":"toulouse","label":"Toulouse"},{"value":"nice","label":"Nice"},{"value":"nantes","label":"Nantes"},{"value":"montpellier","label":"Montpellier"},{"value":"strasbourg","label":"Strasbourg"},{"value":"bordeaux","label":"Bordeaux"},{"value":"lille","label":"Lille"},{"value":"rennes","label":"Rennes"},{"value":"reims","label":"Reims"},{"value":"toulon","label":"Toulon"},{"value":"grenoble","label":"Grenoble"},{"value":"dijon","label":"Dijon"},{"value":"gap","label":"Gap"}],"multiple":true,"required":true,"default":null}]'::jsonb WHERE id = 'iss-passages';
+
+
+-- ================================================================
 -- LOT 1 (audit-architecture.md, axe 4) — index de performance.
 -- ================================================================
 
