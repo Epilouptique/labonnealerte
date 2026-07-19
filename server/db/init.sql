@@ -81,6 +81,14 @@ ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS country TEXT;
 ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS departement TEXT;
 ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS interests TEXT[];
 
+-- Traçabilité de l'origine de country / departement : 'manual' (saisi/confirmé par
+-- l'utilisateur dans Mon compte) ou 'auto' (pré-rempli depuis l'IP à l'inscription).
+-- NULL = inconnu (comptes antérieurs, jamais rétro-remplis). Champs internes : aucune
+-- UI, aucun comportement ne s'y appuie de façon bloquante — usage futur (ex. cibler les
+-- profils jamais confirmés).
+ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS country_source TEXT;
+ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS departement_source TEXT;
+
 -- Sessions durables (90 jours, expiration glissante). Le lien magique ne sert
 -- qu'à ouvrir une session ; l'authentification des routes se fait via ce token.
 CREATE TABLE IF NOT EXISTS sessions (

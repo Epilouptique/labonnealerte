@@ -280,8 +280,14 @@ apiRouter.post('/my-alerts/profile', async (req, res) => {
   try {
     const auth = await authenticate(token);
     if (!auth) return res.status(401).json({ error: 'Session invalide ou expirée' });
+    // Sauvegarde depuis Mon compte = action délibérée de l'utilisateur : on marque
+    // l'origine 'manual' pour chaque champ renseigné (NULL reste sans origine). Vaut
+    // confirmation même si la valeur devinée n'est pas modifiée (elle est validée ici).
     await pool.query(
-      'UPDATE subscribers SET country = $1, departement = $2, interests = $3 WHERE id = $4',
+      `UPDATE subscribers SET country = $1, departement = $2, interests = $3,
+         country_source = CASE WHEN $1::text IS NULL THEN NULL ELSE 'manual' END,
+         departement_source = CASE WHEN $2::text IS NULL THEN NULL ELSE 'manual' END
+       WHERE id = $4`,
       [country, departement, interests.length ? interests : null, auth.id]
     );
     return res.status(200).json({ country, departement, interests });

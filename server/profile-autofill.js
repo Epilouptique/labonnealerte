@@ -124,7 +124,7 @@ async function applyAutofill(pool, subscriberId, ctx) {
       const code = countryFromIp(ctx.ip);
       if (code) {
         await pool.query(
-          'UPDATE subscribers SET country = $1 WHERE id = $2 AND country IS NULL',
+          "UPDATE subscribers SET country = $1, country_source = 'auto' WHERE id = $2 AND country IS NULL",
           [code, subscriberId]
         );
         effectiveCountry = code;
@@ -138,7 +138,7 @@ async function applyAutofill(pool, subscriberId, ctx) {
       const dep = departementFromIp(ctx.ip);
       if (dep) {
         await pool.query(
-          'UPDATE subscribers SET departement = $1 WHERE id = $2 AND departement IS NULL',
+          "UPDATE subscribers SET departement = $1, departement_source = 'auto' WHERE id = $2 AND departement IS NULL",
           [dep, subscriberId]
         );
       }
