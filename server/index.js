@@ -27,6 +27,32 @@ app.set('trust proxy', 1);
 // Désactivé aussi explicitement via helmet (X-Powered-By).
 app.disable('x-powered-by');
 
+// ⚠️ DIAGNOSTIC TEMPORAIRE (lot IPv6) — activé UNIQUEMENT si la variable d'env
+// LOG_CLIENT_IP=1 est posée sur Railway. Trace les en-têtes d'IP BRUTS pour vérifier si
+// Railway transmet l'IPv6 réelle du visiteur (vs une IPv4 traduite par le proxy amont).
+// Limité aux requêtes de page (accept text/html) pour ne pas polluer les logs avec les
+// assets/API. AUCUN autre effet : pas d'écriture DB, pas de résolution geoip.
+// À RETIRER (ou laisser dormant, désactivé par défaut) une fois le diagnostic obtenu.
+if (process.env.LOG_CLIENT_IP === '1') {
+  const { clientIp } = require('./profile-autofill');
+  app.use((req, res, next) => {
+    try {
+      const accept = String(req.headers['accept'] || '');
+      if (accept.includes('text/html')) {
+        console.log('[ip-diag]', JSON.stringify({
+          path: req.path,
+          xff: req.headers['x-forwarded-for'] || null,
+          xRealIp: req.headers['x-real-ip'] || null,
+          remote: (req.socket && req.socket.remoteAddress) || null,
+          reqIp: req.ip,
+          clientIp: clientIp(req),
+        }));
+      }
+    } catch (e) { /* non bloquant */ }
+    next();
+  });
+}
+
 // B) En-têtes de sécurité + Content-Security-Policy adaptée au site.
 app.use(helmet({
   contentSecurityPolicy: {
