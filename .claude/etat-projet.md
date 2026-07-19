@@ -85,3 +85,39 @@ R1 maintenance QUOTIDIEN 4h (checked_at/events/TODO/fragiles via scripts *-reado
 4. Lots 2-5 audit au fil de l'eau.
 5. V3 « veilles citoyennes » (3 familles : datées d'abord — rappel-personnalise en préfigure la mécanique ; maintenues ; surveillées — veille-rss idem ; badge community, espace séparé, pré-modération + charte, compte obligatoire, display_name posé).
 6. App native Android (Expo, FCM), PWA en pont. Apple Sign-In si iOS.
+
+## Règle absolue — Header & menu (source unique)
+Il existe UN SEUL header mobile normal et UN SEUL header PC normal, injectés par un composant/script
+partagé (pas de HTML dupliqué par page). Toute nouvelle page DOIT utiliser ce composant, jamais
+une variante recopiée. Exceptions uniquement sur la home (dashboard) : 3e ligne mobile, 2-3e ligne PC.
+Voir docs/header-spec.md pour le détail figé.
+HEADER — SOURCE UNIQUE (acquis, ne pas re-diverger) : le header hors-home est
+injecté ENTIÈREMENT par js/header.js. Les pages hors-home ne contiennent qu'une
+ancre <header><div class="wrap nav"></div></header> — AUCUN header statique, AUCUN
+logo en dur. Le logo (LOGO_HTML dans header.js, avec ligature SVG) est la source
+unique et alimente aussi le menu mobile (buildMenu). 1re ligne PC identique partout :
+Ma collection · ♥ Favoris · Se connecter|Mon compte (auth via LBASession.renderHeader)
+· thème. Pas d'OpenAlert dans nav-right (footer + menu mobile seulement). Le Point
+retiré du header desktop (media query >720px), présent dans le menu mobile.
+Exceptions : la HOME garde son header propre (index.html + mobile-header.js : 2e/3e
+ligne catégories, KPI, condensation scroll m-scrolled) — dette assumée, 1re ligne
+alignée à la main ; connexion.html et offline.html sont volontairement sans header.
+Header mobile hors-home = body.m-secondary (hamburger + recherche). Pour ajouter une
+page : charger theme.js + session.js + header.js, ne mettre qu'une ancre de header.
+
+## Géoloc IP & département (tranché — NE PAS y revenir sans élément nouveau)
+Pré-remplissage AUTO du département RETIRÉ (geoip-lite : `area` mesure la confiance, pas
+l'exactitude — Gap→Champs-sur-Marne/93 area 20, faux de ~600 km). Département = saisie
+manuelle uniquement. Le pays auto (countryFromIp) reste, fiable. Plus-proche-voisin sur
+101 centroïdes conservé dans server/departements-geo.js (débranché, réutilisable si un
+jour la source d'entrée est fiable). Colonnes country_source/departement_source ('auto'
+inscription | 'manual' Mon compte | NULL inconnu) posées pour traçabilité future.
+PISTE IPv6 ABANDONNÉE : l'IPv6 abonné géolocalise bien mieux (IPLocate met l'IPv6 de Gap
+en 05), MAIS Railway ne fait PAS d'inbound IPv6 — l'endpoint *.up.railway.app n'a AUCUN
+AAAA (vérifié : A=69.46.46.115, AAAA absent), et la doc/forum confirme « public inbound
+connections still use IPv4 ». Le serveur ne verra donc jamais l'IPv6 du visiteur. Seule
+voie pour ressusciter la piste : mettre Cloudflare (ou équivalent) en frontal — chantier
+DNS/archi séparé, pas un lot Claude Code. IPLocate free = pas de champ de précision (donc
+pas de garde-fou type `area`) → non intégrable seul même en IPv4. Middleware diag
+temporaire LOG_CLIENT_IP=1 dans index.js désormais SANS OBJET (à retirer au prochain
+nettoyage — il ne montrera jamais que de l'IPv4).
