@@ -8,16 +8,17 @@
 //   PAS comme un changement de pseudo (aucune écriture dans display_name_changes).
 // - country : déduit de l'IP via geoip-lite (dataset LOCAL, zéro appel réseau, aucune clé).
 //   Mappé sur un code autorisé, sinon « AUTRE ». L'IP n'est PAS conservée pour cet usage.
-// - departement : PRÉ-REMPLI (best-effort) quand geoip donne une localisation FR précise
-//   (city non vide → ll fiable), via le plus proche centroïde départemental. Voir
-//   departements-geo.js. C'est un simple CHAMP DE PROFIL éditable dans Mon compte : il
-//   n'active/coche/souscrit RIEN tout seul, et une erreur reste sans conséquence. Au
-//   moindre doute (hors FR, city vide, ll absent) on laisse vide.
+// - departement : JAMAIS pré-rempli automatiquement. Le pré-remplissage via geoip-lite a
+//   été retiré : testé en réel (Gap → « Champs-sur-Marne », area:20, sous le seuil de
+//   confiance mais faux de ~600 km), il a prouvé que le champ `area` de geoip mesure la
+//   CONFIANCE de l'estimation, pas son EXACTITUDE — aucun seuil ne fiabilise cette donnée
+//   au niveau département. Le champ reste NULL par défaut, à saisir manuellement dans Mon
+//   compte. Le plus-proche-voisin (departements-geo.js) est conservé intact pour un usage
+//   futur sur une source fiable (ex. géolocalisation navigateur consentie).
 
 const geoip = require('geoip-lite');
 const { validateDisplayName } = require('./ugc');
 const { isValidCountry } = require('./geo');
-const { departementFromGeo } = require('./departements-geo');
 
 // "hugo.vialjaime@x" → "Hugo" ; "jean-marc42@x" → "Jean-marc" ; s'arrête au 1er point/chiffre.
 function deriveDisplayNameFromEmail(email) {
@@ -64,22 +65,6 @@ function countryFromIp(ip) {
   return isValidCountry(geo.country) ? geo.country : 'AUTRE';
 }
 
-// Département FR pré-rempli à partir de l'IP (null si non résolu de façon fiable).
-function departementFromIp(ip) {
-  const geo = geoip.lookup(String(ip || '').replace(/^::ffff:/, ''));
-  const dep = departementFromGeo(geo);
-  // DIAGNOSTIC TEMPORAIRE (bug Gap→93) : trace la sortie BRUTE geoip pour juger le
-  // seuil `area` en conditions réelles. À RETIRER une fois le seuil validé sur les logs.
-  try {
-    if (geo && geo.country === 'FR') {
-      console.log('[dept-diag]', JSON.stringify({
-        region: geo.region, city: geo.city, ll: geo.ll, area: geo.area, resolu: dep,
-      }));
-    }
-  } catch (e) { /* non bloquant */ }
-  return dep;
-}
-
 // Adresses privées/réservées : geoip ne les résout pas. Inclut le CGNAT 100.64/10
 // (réseau interne de Railway) — c'était la cause de country vide : `trust proxy: 1`
 // ne pèle qu'un saut et laissait une IP interne dans req.ip.
@@ -118,7 +103,7 @@ function clientIp(req) {
 async function applyAutofill(pool, subscriberId, ctx) {
   try {
     const cur = await pool.query(
-      'SELECT display_name, country, departement FROM subscribers WHERE id = $1',
+      'SELECT display_name, country FROM subscribers WHERE id = $1',
       [subscriberId]
     );
     const row = cur.rows[0];
@@ -129,7 +114,6 @@ async function applyAutofill(pool, subscriberId, ctx) {
     }
 
     // Pays : déduit de l'IP si non renseigné.
-    let effectiveCountry = row.country;
     if (row.country == null && ctx && ctx.ip) {
       const code = countryFromIp(ctx.ip);
       if (code) {
@@ -137,22 +121,11 @@ async function applyAutofill(pool, subscriberId, ctx) {
           "UPDATE subscribers SET country = $1, country_source = 'auto' WHERE id = $2 AND country IS NULL",
           [code, subscriberId]
         );
-        effectiveCountry = code;
       }
     }
 
-    // Département : pré-rempli UNIQUEMENT si le pays (existant ou tout juste déduit) est
-    // la France et que le champ est encore vide. Écriture LIMITÉE à subscribers (profil) :
-    // rien n'est touché dans subscriptions ni source_param_states → aucune activation.
-    if (row.departement == null && effectiveCountry === 'FR' && ctx && ctx.ip) {
-      const dep = departementFromIp(ctx.ip);
-      if (dep) {
-        await pool.query(
-          "UPDATE subscribers SET departement = $1, departement_source = 'auto' WHERE id = $2 AND departement IS NULL",
-          [dep, subscriberId]
-        );
-      }
-    }
+    // Département : JAMAIS pré-rempli automatiquement (voir en-tête du fichier). Reste
+    // NULL jusqu'à saisie manuelle dans Mon compte.
   } catch (err) {
     console.warn('[profile-autofill] non bloquant :', err.message);
   }
@@ -163,7 +136,6 @@ module.exports = {
   deriveDisplayNameFromEmail,
   deriveDisplayNameFromGithub,
   countryFromIp,
-  departementFromIp,
   clientIp,
   isPrivateIp,
   _trySetDisplayName: trySetDisplayName,
