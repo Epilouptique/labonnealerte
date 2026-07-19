@@ -85,7 +85,10 @@
 <meta name="theme-color" content="#0f1419" media="(prefers-color-scheme: dark)">
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 </head>
-<body>
+<body class="loading">
+
+<!-- Halo de l'écran de chargement commun (visible tant que body.loading). -->
+<div class="page-loading" role="status" aria-live="polite">Chargement…</div>
 
 <main class="cx-main">
   <a class="cx-logo brandmark" href="/"><span class="lig"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path d="M 0 20 C -6 93, 66 52, 60 10"/></svg><span class="l">l</span>a</span>bonne<span class="a">alerte</span><span class="bang"><span class="bar"></span><span class="dot"></span></span><span class="fr">fr</span></a>
@@ -130,6 +133,7 @@
   <p class="cx-privacy"><a href="/mentions-legales">Mentions légales</a> · <a href="/confidentialite">Confidentialité</a></p>
 </main>
 
+<script src="/js/page-loading.js"></script>
 <script src="/js/session.js"></script>
 <script src="/js/myalerts.js"></script>
 <script src="/js/theme.js"></script>

@@ -18,7 +18,7 @@
 <meta name="theme-color" content="#0f1419" media="(prefers-color-scheme: dark)">
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 </head>
-<body>
+<body class="loading">
 
 <header>
   <div class="wrap nav">
@@ -29,6 +29,9 @@
     </nav>
   </div>
 </header>
+
+<!-- Halo de l'écran de chargement commun (visible tant que body.loading). -->
+<div class="page-loading" role="status" aria-live="polite">Chargement…</div>
 
 <main class="wrap decks-main">
   <div id="decks-loading" class="src-loading">Chargement…</div>
@@ -47,6 +50,7 @@
   <a href="/">Kiosque</a> · <a href="/a-propos">À propos</a> · <a href="/soutenir">Nous soutenir</a> · <a href="/mentions-legales">Mentions légales</a> · <a href="/confidentialite">Confidentialité</a> · <a href="/proposer">Espace développeur</a>
 </footer>
 
+<script src="/js/page-loading.js"></script>
 <script src="/js/session.js"></script>
 <script src="/js/categories.js"></script>
 <script src="/js/cards.js"></script>
