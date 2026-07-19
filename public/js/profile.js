@@ -42,6 +42,8 @@
     var msg = document.getElementById('pref-dn-msg');
     if (!input) return;
     var val = (input.value || '').trim();
+    // Valeur inchangée : ne pas re-solliciter le serveur (quota 3/mois).
+    if (val === (state.displayName || '')) { if (msg) { msg.classList.remove('show', 'err'); } return; }
     if (msg) { msg.classList.remove('err'); msg.classList.add('show'); msg.textContent = '…'; }
     try {
       var res = await fetch('/api/my-alerts/display-name', {
@@ -153,7 +155,6 @@
       '    <div class="notif-txt"><strong>Mon pseudo</strong></div>' +
       '    <div class="pref-dn-input-row">' +
       '      <input id="pref-dn" class="pref-dn-input" type="text" maxlength="25" placeholder="ex. Hugo des Alpes" value="' + esc(state.displayName || '') + '">' +
-      '      <button type="button" id="pref-dn-save" class="pref-dn-save notif-btn">Enregistrer</button>' +
       '    </div>' +
       '  </div>' +
       '</div>';
@@ -171,10 +172,17 @@
       state.departement = e.target.value || null;
       save();
     });
-    var dnSave = document.getElementById('pref-dn-save');
-    if (dnSave) dnSave.addEventListener('click', saveDisplayName);
+    // Sauvegarde à la volée (plus de bouton) : après une courte pause de frappe
+    // (anti-rafales — la validation serveur est limitée à 3/mois), à la sortie du
+    // champ, et sur Entrée. saveDisplayName ignore une valeur inchangée.
     var dnInput = document.getElementById('pref-dn');
-    if (dnInput) dnInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); saveDisplayName(); } });
+    if (dnInput) {
+      var dnTimer = null;
+      var scheduleDn = function () { clearTimeout(dnTimer); dnTimer = setTimeout(saveDisplayName, 700); };
+      dnInput.addEventListener('input', scheduleDn);
+      dnInput.addEventListener('blur', function () { clearTimeout(dnTimer); saveDisplayName(); });
+      dnInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); clearTimeout(dnTimer); saveDisplayName(); } });
+    }
 
     document.getElementById('pref-chips').addEventListener('click', function (e) {
       // Point 5 : bascule d'ouverture/fermeture de la 2e ligne (transition fluide).

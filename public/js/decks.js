@@ -111,7 +111,6 @@
 
     viewEl.innerHTML = '' +
       '<h1 class="page-title">Mes <span class="hl">decks</span></h1>' +
-      '<div class="deck-pseudo">' + pseudoBlockHTML() + '</div>' +
       '<div class="section-label">Vos decks</div>' +
       rows +
       '<div class="deck-list-actions">' + createBtn + '</div>';

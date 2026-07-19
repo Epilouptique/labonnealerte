@@ -1443,7 +1443,7 @@
       // au chargement) ; les changements de filtre l'animent ensuite (selectChip).
       // Pseudo unifié : le display_name (auto-rempli) prime ; repli sur le prénom déduit de l'email.
       heroName = accountDisplayName || (LBASession.firstName ? LBASession.firstName(email) : null);
-      setHeroTitle(titleForMode('all'), false);
+      setHeroTitle(titleForMode('all'), true); // animer dès le 1er affichage du titre
     } else {
       updateKPI(sources);
     }

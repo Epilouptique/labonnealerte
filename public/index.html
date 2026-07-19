@@ -69,13 +69,9 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
       </button>
     </label>
-     <div class="chips" id="chips" role="group" aria-label="Filtrer par catégorie">
-      <!-- Placeholder de chargement : une seule ligne (dans .chips-row pour ne pas
-           s'étirer). Remplacé par la vraie barre dès la réponse de GET /api/sources. -->
-      <div class="chips-row">
-        <button class="chip-f on" type="button" data-cat="all">Toutes <span class="n"></span></button>
-      </div>
-    </div>
+     <!-- Vide au chargement (masqué par body.loading) : la vraie barre est rendue
+          par site.js dès la réponse de GET /api/sources. -->
+     <div class="chips" id="chips" role="group" aria-label="Filtrer par catégorie"></div>
   </div>
   </div><!-- /.kiosk-head -->
 
@@ -107,9 +103,6 @@
 <!-- Panneau « Mon compte » (mode connecté) : ouvert depuis le header, prend la
      place de la grille. Carte flip : recto compte / verso historique. -->
 <section class="account-panel wrap" id="account-panel" hidden>
-  <!-- B2) Label de section fixe (hors du conteneur qui tourne) : son texte
-       change selon la face affichée — « Mon compte » / « Mon historique ». -->
-  <div class="acct-panel-label" id="acct-panel-label">Mon compte</div>
   <div class="card flip acct-card" id="acct-card">
     <div class="card-inner">
       <!-- Recto : compte -->
@@ -307,6 +300,7 @@
 <script src="/js/share.js"></script>
 <script src="/js/deck-motifs.js"></script>
 <script src="/js/site.js"></script>
+<script src="/js/hero-letters.js"></script>
 <script src="/js/nav.js"></script>
 <script src="/js/header.js"></script>
 <script src="/js/mobile-header.js"></script>

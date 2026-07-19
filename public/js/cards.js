@@ -1,6 +1,6 @@
 /* cards.js — rendu partagé des cartes du kiosque (recto/verso).
    RECTO : grand public (titre, sous-titre, description, état, switch/lien).
-   VERSO : dev/curieux (même en-tête, endpoint, tags cliquables, auteur, lien proposer).
+   VERSO : dev/curieux (même en-tête, tags cliquables, auteur, lien proposer).
    Le switch est présent dans les DEUX modes. Les 'linked' gardent leur lien.
    Labels de catégories via window.LBACat. Expose window.LBACards. */
 
@@ -222,11 +222,6 @@
   }
 
   function backFace(s, cats, isLinked, mode) {
-    var endpoint = isLinked
-      ? '<div class="endpoint mono">Service partenaire — API sur ' + esc(domainOf(s.link_url)) + '</div>'
-      : '<a class="endpoint mono" href="/api/sources/' + esc(s.id) + '/alert.json" target="_blank" rel="noopener">' +
-        'GET /api/sources/' + esc(s.id) + '/alert.json</a>';
-
     // Tags cliquables → filtre la catégorie sur la home.
     var tags = (cats.length)
       ? '<div class="back-tags">' + cats.map(function (c) {
@@ -247,7 +242,7 @@
       '<div class="card-face card-back">' +
         '<button class="flip-back" type="button" aria-label="Retour" title="Retour">' + BACK_SVG + '</button>' +
         topRow(s) +
-        endpoint + tags + author + statut +
+        tags + author + statut +
       '</div>';
   }
 

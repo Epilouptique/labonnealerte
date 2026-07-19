@@ -109,7 +109,7 @@ html[data-theme="light"] header { background: #ffffff; } /* thème clair : blanc
 .btn-deposit .plus { font-size: 18px; line-height: 1; font-weight: 400; position: relative; top: -1px; }
 
 /* ---------- hero ---------- */
-.hero { padding: 88px 0 48px; text-align: center; position: relative; }
+.hero { padding: 88px 0 48px; position: relative; }
 .hero::before {
   content: ""; position: absolute; top: -120px; left: 50%; transform: translate(-50%, 0) scale(1);
   width: 640px; height: 420px; pointer-events: none;
@@ -132,7 +132,7 @@ html[data-theme="light"] header { background: #ffffff; } /* thème clair : blanc
 @media (prefers-reduced-motion: reduce) { .hero::before { animation: none; } }
 .hero > * { position: relative; }
 /* 1) Titre de page commun (hero + /mes-decks…) : une seule source de vérité. */
-.page-title { font-size: clamp(32px, 5.4vw, 52px); font-weight: 800; letter-spacing: -0.03em; line-height: 1.08; font-family: 'Baloo 2',sans-serif; }
+.page-title { font-size: clamp(32px, 5.4vw, 52px); font-weight: 800; letter-spacing: -0.03em; line-height: 1.08; font-family: 'Baloo 2',sans-serif; text-align:center; padding: 40px 0 22px;}
 .hero h1 .hl { color: var(--amber); }
 /* C) Bicoloration générale des H1 : 1er mot en --ink, le reste en violet (.hl).
    S'applique à toutes les pages (le .hl du hero n'était que local). */
@@ -549,6 +549,34 @@ body.loading > .page-loading::before {
   body.loading > .page-loading::before { animation: none; opacity: .6; }
 }
 
+/* ===== Accessibilité : contrastes renforcés (body.high-contrast) =====
+   Activé depuis « Mon compte » (toggle) ou la préférence locale lba-contrast.
+   Renforce le texte secondaire, matérialise les bordures, souligne les liens et
+   accentue le focus — en clair comme en sombre. */
+body.high-contrast { --muted: #2a2622; --line: #0f1419; }
+:root[data-theme="dark"] body.high-contrast,
+html[data-theme="dark"] body.high-contrast { --muted: #e8e8e8; --line: #f2efe9; }
+/* Clair : accent violet assombri (#7d3fbf) pour que TOUT texte amber (liens, chips,
+   section-labels, accents .hl, focus…) atteigne 4.5:1 avec ses fonds ; le sombre est
+   déjà conforme (amber clair #bd8ef0 ≈ 7:1). Vérifié par calcul WCAG. */
+html[data-theme="light"] body.high-contrast { --amber: #7d3fbf; }
+/* Mêmes tons codés en dur (le-point) réalignés sur l'accent renforcé. */
+html[data-theme="light"] body.high-contrast .lp-soon-when,
+html[data-theme="light"] body.high-contrast .lp-soon-item a:hover .lp-soon-msg { color: #7d3fbf; }
+
+body.high-contrast .card,
+body.high-contrast .notif-card,
+body.high-contrast .pack { border: 1px solid var(--line); }
+/* Liens de contenu soulignés (on épargne les boutons/marque déjà identifiables). */
+body.high-contrast a:not(.brand):not(.btn-login):not(.btn-deposit):not(.chip-f):not(.card):not(.pack):not(.notif-nav):not(.tag) {
+  text-decoration: underline;
+}
+body.high-contrast :focus-visible { outline: 3px solid var(--amber); outline-offset: 2px; }
+
+/* Header desktop : le lien « Le Point » est retiré (accessible via le footer et le
+   menu mobile). Sur mobile (body.m-kiosk) il reste dans le menu déroulant. */
+body:not(.m-kiosk) .lepoint-link { display: none; }
+
 /* ---------- erreur de chargement de la grille ---------- */
 .grid-error {
   grid-column: 1 / -1; text-align: center; color: var(--muted);
@@ -866,6 +894,8 @@ body[data-mode="connected"] .grid { min-height: 0; }
 @media (min-width: 1280px) {
   body:not(.dev) .kiosk-head > .section-label { top: 20px; }
 }
+/* Mobile : le label « Le kiosque » est superflu (la recherche/les chips suffisent). */
+body.m-kiosk .kiosk-head > .section-label { display: none; }
 
 /* ---------- Chantier retouches A-K ---------- */
 /* A) popover de partage */
@@ -936,7 +966,7 @@ html[data-theme="dark"] .stats-section { background: color-mix(in srgb, var(--su
 /* Connecté : le h1 reste affiché (« Bonjour <prénom> », prénom en accent via
    .hl-name) ; seule la tagline est masquée. */
 body[data-mode="connected"] .hero p { display: none; }
-body[data-mode="connected"] .hero { padding: 40px 0 22px; }
+body[data-mode="connected"] .hero { padding: 0px 0 0px; }
 body[data-mode="connected"] #stats { display: none; }
 .hero h1 .hl-name { color: var(--amber); } /* prénom en accent, « Bonjour » en --ink */
 
