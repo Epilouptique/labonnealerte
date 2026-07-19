@@ -66,13 +66,23 @@ const DEP_CENTROIDS = [
   { code: '976', lat: -12.82, lon: 45.16 },
 ];
 
+// Seuil de confiance sur le rayon de précision geoip (champ `area`, en km). Au-delà,
+// la localisation est un repli régional/national (souvent le point d'agrégation du FAI,
+// ex. IDF pour un mobile utilisé depuis les Hautes-Alpes) : la city renvoyée est alors
+// trompeuse et produisait des départements faux ET éloignés (~600 km). On préfère un
+// champ VIDE à une valeur fausse. Observé : area précis 1-50, replis 100-1000.
+const AREA_MAX_KM = 50;
+
 // Plus proche centroïde départemental d'un résultat geoip-lite.
 // Renvoie un code département (ex. '38', '2A', '974') ou null si non résolu.
-// NE renvoie JAMAIS de valeur par défaut : hors France, city vide ou ll absent → null.
+// NE renvoie JAMAIS de valeur par défaut : hors France, city vide, ll absent, ou
+// précision insuffisante (area > AREA_MAX_KM) → null.
 function departementFromGeo(geo) {
   if (!geo || geo.country !== 'FR') return null;
   // Garde stricte : sans city, ll = centroïde de repli du pays (non fiable) → on s'abstient.
   if (!geo.city) return null;
+  // Garde de confiance : au-delà du seuil, la city est un repli peu fiable → on s'abstient.
+  if (geo.area != null && Number(geo.area) > AREA_MAX_KM) return null;
   const ll = geo.ll;
   if (!Array.isArray(ll) || ll.length < 2) return null;
   const lat = Number(ll[0]);
@@ -92,4 +102,4 @@ function departementFromGeo(geo) {
   return best;
 }
 
-module.exports = { DEP_CENTROIDS, departementFromGeo };
+module.exports = { DEP_CENTROIDS, departementFromGeo, AREA_MAX_KM };

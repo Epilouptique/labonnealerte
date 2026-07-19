@@ -67,7 +67,17 @@ function countryFromIp(ip) {
 // Département FR pré-rempli à partir de l'IP (null si non résolu de façon fiable).
 function departementFromIp(ip) {
   const geo = geoip.lookup(String(ip || '').replace(/^::ffff:/, ''));
-  return departementFromGeo(geo);
+  const dep = departementFromGeo(geo);
+  // DIAGNOSTIC TEMPORAIRE (bug Gap→93) : trace la sortie BRUTE geoip pour juger le
+  // seuil `area` en conditions réelles. À RETIRER une fois le seuil validé sur les logs.
+  try {
+    if (geo && geo.country === 'FR') {
+      console.log('[dept-diag]', JSON.stringify({
+        region: geo.region, city: geo.city, ll: geo.ll, area: geo.area, resolu: dep,
+      }));
+    }
+  } catch (e) { /* non bloquant */ }
+  return dep;
 }
 
 // Adresses privées/réservées : geoip ne les résout pas. Inclut le CGNAT 100.64/10
