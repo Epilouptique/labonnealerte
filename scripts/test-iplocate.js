@@ -9,9 +9,13 @@
  * Usage :
  *   node scripts/test-iplocate.js                 # liste d'IP de test par défaut
  *   node scripts/test-iplocate.js 1.2.3.4 5.6.7.8 # IP fournies (ex. ta vraie IP de Gap)
+ *   node scripts/test-iplocate.js 2a01:e34:abcd:1234::1  # IPv6 (adresse COMPLETE d'abonné,
+ *                                                        # PAS une base de préfixe ::1 qui
+ *                                                        # renvoie le siège du FAI)
  *   IPLOCATE_APIKEY=xxxx node scripts/test-iplocate.js   # avec clé (quota 1000/j)
  *
  * Sans clé : IPLocate autorise un petit quota keyless (suffisant pour quelques essais).
+ * geoip-lite ET IPLocate acceptent l'IPv4 comme l'IPv6.
  */
 
 const https = require('https');
@@ -40,7 +44,7 @@ function iplocate(ip) {
   console.log('IP'.padEnd(17), '| geoip-lite (city, area km)'.padEnd(30), '| IPLocate (city / subdivision / postal / lat,lon)');
   for (const ip of ips) {
     const g = geoip.lookup(ip);
-    const gTxt = g ? `${g.city || '(vide)'} (a${g.area})` : '(non FR/inconnu)';
+    const gTxt = g ? `${g.country}/${g.city || '(vide)'} (a${g.area})` : '(inconnu)';
     const l = await iplocate(ip);
     if (l.error) { console.log(ip.padEnd(17), '| ' + gTxt.padEnd(28), '| ERREUR: ' + l.error); }
     else {
