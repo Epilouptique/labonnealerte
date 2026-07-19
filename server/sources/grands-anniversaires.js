@@ -32,10 +32,19 @@ const ENTRIES = [
   { y: 2026, m: 11, d: 5, emoji: '🕯️',
     msg: 'Il y a 100 ans disparaissait Claude Monet, à Giverny (5 décembre 1926).',
     url: 'https://fr.wikipedia.org/wiki/Claude_Monet' },
+  // Mary Cassatt, centenaire de la mort (14 juin 2026) : VÉRIFIÉ mais déjà passé au
+  // moment de l'ajout (19/07/2026) → volontairement non inséré (n'aurait jamais pu
+  // s'activer). Conservé ici pour trace de la vérification.
   // — 2027 —
   { y: 2027, m: 0, d: 10, emoji: '🎬',
     msg: 'Il y a 100 ans, « Metropolis » de Fritz Lang sortait en salles (10 janvier 1927).',
     url: 'https://fr.wikipedia.org/wiki/Metropolis_(film,_1927)' },
+  { y: 2027, m: 4, d: 11, emoji: '🕯️',
+    msg: 'Il y a 100 ans disparaissait Juan Gris, peintre cubiste espagnol actif en France (11 mai 1927).',
+    url: 'https://fr.wikipedia.org/wiki/Juan_Gris' },
+  { y: 2027, m: 6, d: 22, emoji: '📖',
+    msg: 'Il y a 30 ans paraissait le premier chapitre de « One Piece » dans le Weekly Shōnen Jump (22 juillet 1997).',
+    url: 'https://fr.wikipedia.org/wiki/One_Piece' },
   { y: 2027, m: 4, d: 21, emoji: '✈️',
     msg: 'Il y a 100 ans, Charles Lindbergh réussissait la première traversée de l\'Atlantique en solitaire et se posait au Bourget (21 mai 1927).',
     url: 'https://fr.wikipedia.org/wiki/Charles_Lindbergh' },
@@ -48,6 +57,12 @@ const ENTRIES = [
   { y: 2027, m: 9, d: 6, emoji: '🎬',
     msg: 'Il y a 100 ans, « Le Chanteur de jazz » inaugurait le cinéma parlant (6 octobre 1927).',
     url: 'https://fr.wikipedia.org/wiki/Le_Chanteur_de_jazz' },
+  { y: 2027, m: 10, d: 28, emoji: '🎮',
+    msg: 'Il y a 30 ans sortait le tout premier « Grand Theft Auto » (28 novembre 1997).',
+    url: 'https://fr.wikipedia.org/wiki/Grand_Theft_Auto_(jeu_vid%C3%A9o)' },
+  { y: 2027, m: 11, d: 18, emoji: '🎮',
+    msg: 'Il y a 40 ans sortait le premier « Final Fantasy » sur Famicom, au Japon (18 décembre 1987).',
+    url: 'https://fr.wikipedia.org/wiki/Final_Fantasy_(jeu_vid%C3%A9o)' },
 ];
 
 function events(now) {

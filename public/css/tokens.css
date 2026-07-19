@@ -20,7 +20,7 @@ html[data-theme="light"] {
 
 html[data-theme="dark"] {
   --bg: #141218;
-  --surface: #211f26;
+  --surface: #2e3440;
   --ink: #f2efe9;
   --muted: #9aa3ad;
   --line: transparent;

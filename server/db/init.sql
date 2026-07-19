@@ -2587,6 +2587,42 @@ UPDATE sources SET params_schema = '[{"key":"ville","label":"Ville","type":"enum
 
 
 -- ================================================================
+-- VAGUE « événements culturels » (théâtre, arts visuels, BD/manga). Sources internes
+-- calculées (calendar-factory). Dates VÉRIFIÉES le 19/07/2026 sur sites officiels (voir
+-- en-tête de chaque source). Anti-doublon : Angoulême/Molières/Avignon restent en TODO
+-- (2027 non annoncé) ; Japan Expo dans japan-expo ; anniversaires (One Piece, Final
+-- Fantasy, GTA, Juan Gris) dans grands-anniversaires. display_order 366+.
+-- ================================================================
+
+-- Théâtre : Journée mondiale du théâtre (27 mars, fixe). Avignon/Molières/Fourvière en TODO.
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'theatre-evenements', 'Théâtre', 'La Journée mondiale du théâtre',
+  'La veille et le jour de la Journée mondiale du théâtre (27 mars, date fixe). Le Festival d''Avignon (In et Off), les Molières et les Nuits de Fourvière seront ajoutés dès publication de leurs dates 2027.',
+  'internal', 'official', false, ARRAY['culture', 'festivals'], 366
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'theatre-evenements');
+INSERT INTO source_states (source_id) SELECT 'theatre-evenements'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'theatre-evenements');
+
+-- Arts visuels : peinture, art contemporain, dessin, illustration. Dates officielles.
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'arts-visuels-evenements', 'Arts visuels', 'Art Basel, Salon du Dessin, Duchamp…',
+  'Un rappel à l''approche des grands rendez-vous des arts visuels (dates officielles vérifiées) : Art Basel Paris, Prix Marcel Duchamp, Biennale de Venise, Salon du Dessin, Drawing Now, Carnet de Voyage, Salon jeunesse de Montreuil. D''autres (Nuit des musées) seront ajoutés dès publication de leurs dates.',
+  'internal', 'official', false, ARRAY['culture', 'festivals'], 367
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'arts-visuels-evenements');
+INSERT INTO source_states (source_id) SELECT 'arts-visuels-evenements'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'arts-visuels-evenements');
+
+-- BD & manga : festivals, prix, conventions (hors Japan Expo). Dates officielles.
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'bd-manga-evenements', 'BD & manga', 'Conventions, prix et festivals',
+  'Un rappel à l''approche des grands rendez-vous BD et manga francophones, dates officielles vérifiées : Otakuthon (Montréal), Paris Manga, Made in Asia (Bruxelles), Prix Töpffer (Genève). Angoulême, Comic Con Paris et Polymanga seront ajoutés dès publication de leurs dates 2027.',
+  'internal', 'official', false, ARRAY['culture', 'festivals'], 368
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'bd-manga-evenements');
+INSERT INTO source_states (source_id) SELECT 'bd-manga-evenements'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'bd-manga-evenements');
+
+
+-- ================================================================
 -- LOT 1 (audit-architecture.md, axe 4) — index de performance.
 -- ================================================================
 
@@ -2604,3 +2640,85 @@ CREATE INDEX IF NOT EXISTS idx_subscriptions_source ON subscriptions (source_id)
 -- le planificateur peut le servir. Les accès ciblés (source_id, params) restent sur la PK.
 CREATE INDEX IF NOT EXISTS idx_source_param_states_active
   ON source_param_states (source_id) WHERE state <> 'inactive';
+
+
+-- ================================================================
+-- VAGUE « Québec — culture, fiscalité, sport, société, éducation » (sources
+-- internes calculées, dates officielles vérifiées 2026-07-19, jamais de mémoire).
+-- Anti-doublon confirmé : aucun chevauchement avec meteo-quebec (avertissements
+-- ECCC), pannes-hydro-quebec (pannes réseau), feries-quebec (jours fériés CNESST).
+-- La Fête nationale (24 juin) et la Journée des Patriotes restent dans feries-quebec
+-- et NE sont PAS reprises dans societe-quebec (décision : éviter le doublon).
+-- Écartés faute de source fiable/date officielle (documentés au rapport de vague) :
+-- temps des sucres (météo-dépendant), ouverture motoneige FCMQ (pas de date ferme),
+-- Mondial Choral (disparu 2014), Fête des Neiges de Montréal (dormante depuis 2020).
+-- ipc-quebec : PRÊTE À BRANCHER, désactivée (enabled=false), flux ISQ/StatCan à câbler.
+-- display_order en plage 370+.
+-- ================================================================
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'festivals-quebec', 'Festivals du Québec', 'Les grands rendez-vous culturels',
+  'Un rappel à l''ouverture des grands festivals québécois : Osheaga, Mutek, FEQ, Jazz de Montréal, Francos, Carnaval de Québec, Western de Saint-Tite, Juste pour Rire. Dates officielles.',
+  'internal', 'official', false, ARRAY['culture', 'festivals', 'quebec'], 370
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'festivals-quebec');
+INSERT INTO source_states (source_id) SELECT 'festivals-quebec'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'festivals-quebec');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'fiscalite-quebec', 'Échéances Québec', 'Impôts, REER, tarifs, salaire minimum',
+  'Les rendez-vous fiscaux et administratifs annuels du Québec : date limite REER (1er mars), hausse des tarifs d''Hydro-Québec (1er avril), date limite de déclaration de revenus (30 avril) et revalorisation du salaire minimum (1er mai). Sans montant inventé.',
+  'internal', 'official', false, ARRAY['economie', 'social', 'quebec'], 371
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'fiscalite-quebec');
+INSERT INTO source_states (source_id) SELECT 'fiscalite-quebec'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'fiscalite-quebec');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'sport-quebec', 'Sport au Québec', 'Canadiens, Coupe Grey, Le Brier',
+  'Les grands rendez-vous sportifs : ouverture de la saison des Canadiens de Montréal, finale de la Coupe Grey (football canadien) et Le Brier (championnat canadien de curling). Dates officielles.',
+  'internal', 'official', false, ARRAY['sport', 'quebec'], 372
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'sport-quebec');
+INSERT INTO source_states (source_id) SELECT 'sport-quebec'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'sport-quebec');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'societe-quebec', 'Société & institutions Québec', 'Déménagement, autochtones, élections',
+  'Les rendez-vous d''identité et d''institutions du Québec : Journée nationale des peuples autochtones (21 juin), jour du déménagement (1er juillet) et élections générales provinciales. Sans doublon avec les jours fériés.',
+  'internal', 'official', false, ARRAY['vie-locale', 'social', 'quebec'], 373
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'societe-quebec');
+INSERT INTO source_states (source_id) SELECT 'societe-quebec'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'societe-quebec');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'education-quebec', 'École au Québec', 'Rentrée & semaine de relâche',
+  'La rentrée scolaire et la semaine de relâche au Québec (région de Montréal — les dates varient selon le centre de services scolaire, à vérifier localement). Distinct du calendrier français.',
+  'internal', 'official', false, ARRAY['vie-locale', 'quebec'], 374
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'education-quebec');
+INSERT INTO source_states (source_id) SELECT 'education-quebec'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'education-quebec');
+
+-- IPC Québec : PRÊTE À BRANCHER (flux ISQ/StatCan à câbler) → désactivée.
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'ipc-quebec', 'Inflation Québec', 'La publication mensuelle de l''IPC',
+  'Signalement de la publication mensuelle de l''Indice des prix à la consommation pour le Québec (angle inflation). PRÊTE À BRANCHER : nécessite le raccordement du flux ISQ / API Statistique Canada (voir rapport).',
+  'internal', 'official', false, ARRAY['economie', 'quebec'], 375
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'ipc-quebec');
+INSERT INTO source_states (source_id) SELECT 'ipc-quebec'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'ipc-quebec');
+UPDATE sources SET enabled = false WHERE id = 'ipc-quebec';
+
+-- Ajout au pack officiel « Québec » (sources actives uniquement ; ipc-quebec exclue).
+INSERT INTO collection_items (collection_id, source_id, default_params, position)
+VALUES ('pack-quebec', 'festivals-quebec', NULL, 4)
+ON CONFLICT (collection_id, source_id) DO UPDATE SET default_params = EXCLUDED.default_params, position = EXCLUDED.position;
+INSERT INTO collection_items (collection_id, source_id, default_params, position)
+VALUES ('pack-quebec', 'fiscalite-quebec', NULL, 5)
+ON CONFLICT (collection_id, source_id) DO UPDATE SET default_params = EXCLUDED.default_params, position = EXCLUDED.position;
+INSERT INTO collection_items (collection_id, source_id, default_params, position)
+VALUES ('pack-quebec', 'sport-quebec', NULL, 6)
+ON CONFLICT (collection_id, source_id) DO UPDATE SET default_params = EXCLUDED.default_params, position = EXCLUDED.position;
+INSERT INTO collection_items (collection_id, source_id, default_params, position)
+VALUES ('pack-quebec', 'societe-quebec', NULL, 7)
+ON CONFLICT (collection_id, source_id) DO UPDATE SET default_params = EXCLUDED.default_params, position = EXCLUDED.position;
+INSERT INTO collection_items (collection_id, source_id, default_params, position)
+VALUES ('pack-quebec', 'education-quebec', NULL, 8)
+ON CONFLICT (collection_id, source_id) DO UPDATE SET default_params = EXCLUDED.default_params, position = EXCLUDED.position;
