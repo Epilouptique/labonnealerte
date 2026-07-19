@@ -285,10 +285,21 @@
 
   var nav = document.querySelector('header .nav');
   if (!nav) return;
-  var brand = nav.querySelector('.brand');
-  if (!brand) return;
 
   function elFrom(html) { var t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstChild; }
+
+  // Logo/marque : SOURCE UNIQUE (les pages hors home ne le dupliquent plus en dur —
+  // elles ne fournissent qu'un <div class="wrap nav"> vide). On crée l'ancre .brand si
+  // absente, sinon on NORMALISE son contenu (certaines pages avaient un logo divergent,
+  // sans la ligature SVG animée). Ce logo alimente aussi le menu mobile (buildMenu).
+  var LOGO_HTML = '<span class="lig"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path d="M 0 20 C -6 93, 66 52, 60 10"/></svg><span class="l">l</span>a</span>bonne<span class="a">alerte</span><span class="bang"><span class="bar"></span><span class="dot"></span></span><span class="fr">fr</span>';
+  var brand = nav.querySelector('.brand');
+  if (!brand) {
+    brand = elFrom('<a class="brand brandmark" href="/">' + LOGO_HTML + '</a>');
+    nav.insertBefore(brand, nav.firstChild);
+  } else {
+    brand.innerHTML = LOGO_HTML;
+  }
 
   // 1) Bouton « Déposer une alerte » juste après le logo.
   if (!nav.querySelector('.btn-deposit')) {
@@ -302,6 +313,7 @@
   }
   // 3) Barre de recherche (redirige vers la home). id "q" pour le menu « Rechercher ».
   var navRight = nav.querySelector('.nav-right');
+  if (!navRight) { navRight = elFrom('<nav class="nav-right"></nav>'); nav.appendChild(navRight); }
   if (!nav.querySelector('.search')) {
     var search = elFrom(
       '<label class="search">' +
@@ -312,16 +324,15 @@
       '</label>');
     if (navRight) nav.insertBefore(search, navRight); else nav.appendChild(search);
   }
-  // 4) nav-right standard (remplace les liens propres à la page, ex. « ← Retour »).
-  if (navRight) {
-    navRight.innerHTML =
-      '<a class="mine-link" href="/connexion">Ma collection</a>' +
-      '<a id="nav-openalert" href="/#openalert">OpenAlert</a>' +
-      '<a class="fav-link" href="/favoris" aria-label="Mes favoris" title="Mes favoris"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></a>' +
-      '<span class="auth-email" id="auth-email" hidden></span>' +
-      '<a class="btn-login" id="auth-link" href="/connexion">Se connecter</a>' +
-      '<button class="theme-btn" type="button" aria-label="Changer de thème">◐</button>';
-  }
+  // 4) nav-right standard : STRICTEMENT la même 1re ligne que la home (Ma collection,
+  //    favoris, connexion|Mon compte, thème). Pas d'« OpenAlert » ici (absent de la
+  //    home) — il reste accessible par le footer et le menu mobile.
+  navRight.innerHTML =
+    '<a class="mine-link" href="/connexion">Ma collection</a>' +
+    '<a class="fav-link" href="/favoris" aria-label="Mes favoris" title="Mes favoris"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></a>' +
+    '<span class="auth-email" id="auth-email" hidden></span>' +
+    '<a class="btn-login" id="auth-link" href="/connexion">Se connecter</a>' +
+    '<button class="theme-btn" type="button" aria-label="Changer de thème">◐</button>';
 
   document.body.classList.add('m-kiosk');
   // Point 5) Marqueur des pages secondaires (header injecté, pas de 2e rangée de
