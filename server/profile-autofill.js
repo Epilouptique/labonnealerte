@@ -8,12 +8,16 @@
 //   PAS comme un changement de pseudo (aucune écriture dans display_name_changes).
 // - country : déduit de l'IP via geoip-lite (dataset LOCAL, zéro appel réseau, aucune clé).
 //   Mappé sur un code autorisé, sinon « AUTRE ». L'IP n'est PAS conservée pour cet usage.
-// - departement : VOLONTAIREMENT laissé vide — geoip-lite ne donne pas de correspondance
-//   région→département fiable pour la France ; au moindre doute on laisse vide (RGPD + qualité).
+// - departement : PRÉ-REMPLI (best-effort) quand geoip donne une localisation FR précise
+//   (city non vide → ll fiable), via le plus proche centroïde départemental. Voir
+//   departements-geo.js. C'est un simple CHAMP DE PROFIL éditable dans Mon compte : il
+//   n'active/coche/souscrit RIEN tout seul, et une erreur reste sans conséquence. Au
+//   moindre doute (hors FR, city vide, ll absent) on laisse vide.
 
 const geoip = require('geoip-lite');
 const { validateDisplayName } = require('./ugc');
 const { isValidCountry } = require('./geo');
+const { departementFromGeo } = require('./departements-geo');
 
 // "hugo.vialjaime@x" → "Hugo" ; "jean-marc42@x" → "Jean-marc" ; s'arrête au 1er point/chiffre.
 function deriveDisplayNameFromEmail(email) {
@@ -60,6 +64,12 @@ function countryFromIp(ip) {
   return isValidCountry(geo.country) ? geo.country : 'AUTRE';
 }
 
+// Département FR pré-rempli à partir de l'IP (null si non résolu de façon fiable).
+function departementFromIp(ip) {
+  const geo = geoip.lookup(String(ip || '').replace(/^::ffff:/, ''));
+  return departementFromGeo(geo);
+}
+
 // Adresses privées/réservées : geoip ne les résout pas. Inclut le CGNAT 100.64/10
 // (réseau interne de Railway) — c'était la cause de country vide : `trust proxy: 1`
 // ne pèle qu'un saut et laissait une IP interne dans req.ip.
@@ -98,7 +108,7 @@ function clientIp(req) {
 async function applyAutofill(pool, subscriberId, ctx) {
   try {
     const cur = await pool.query(
-      'SELECT display_name, country FROM subscribers WHERE id = $1',
+      'SELECT display_name, country, departement FROM subscribers WHERE id = $1',
       [subscriberId]
     );
     const row = cur.rows[0];
@@ -107,12 +117,29 @@ async function applyAutofill(pool, subscriberId, ctx) {
     if (row.display_name == null && ctx && ctx.nameHint) {
       await trySetDisplayName(pool, subscriberId, ctx.nameHint);
     }
+
+    // Pays : déduit de l'IP si non renseigné.
+    let effectiveCountry = row.country;
     if (row.country == null && ctx && ctx.ip) {
       const code = countryFromIp(ctx.ip);
       if (code) {
         await pool.query(
           'UPDATE subscribers SET country = $1 WHERE id = $2 AND country IS NULL',
           [code, subscriberId]
+        );
+        effectiveCountry = code;
+      }
+    }
+
+    // Département : pré-rempli UNIQUEMENT si le pays (existant ou tout juste déduit) est
+    // la France et que le champ est encore vide. Écriture LIMITÉE à subscribers (profil) :
+    // rien n'est touché dans subscriptions ni source_param_states → aucune activation.
+    if (row.departement == null && effectiveCountry === 'FR' && ctx && ctx.ip) {
+      const dep = departementFromIp(ctx.ip);
+      if (dep) {
+        await pool.query(
+          'UPDATE subscribers SET departement = $1 WHERE id = $2 AND departement IS NULL',
+          [dep, subscriberId]
         );
       }
     }
@@ -126,6 +153,7 @@ module.exports = {
   deriveDisplayNameFromEmail,
   deriveDisplayNameFromGithub,
   countryFromIp,
+  departementFromIp,
   clientIp,
   isPrivateIp,
   _trySetDisplayName: trySetDisplayName,
