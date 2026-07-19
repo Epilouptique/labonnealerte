@@ -42,7 +42,7 @@ body::before {
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  opacity: 0.5;
+  opacity: 0.4;
 }
 .mono { font-family: 'JetBrains Mono', monospace; }
 .wrap { max-width: 1240px; margin: 0 auto; padding: 0 24px; }
@@ -573,9 +573,11 @@ body.high-contrast a:not(.brand):not(.btn-login):not(.btn-deposit):not(.chip-f):
 }
 body.high-contrast :focus-visible { outline: 3px solid var(--amber); outline-offset: 2px; }
 
-/* Header desktop : le lien « Le Point » est retiré (accessible via le footer et le
-   menu mobile). Sur mobile (body.m-kiosk) il reste dans le menu déroulant. */
-body:not(.m-kiosk) .lepoint-link { display: none; }
+/* Header desktop (> 720px) : le lien « Le Point » est retiré dans TOUS les états
+   (connecté ou non, écran de chargement ou non) — accessible via le footer. Sur
+   mobile (≤ 720px) il reste dans le menu déroulant. Media query = indépendant du
+   timing de body.m-kiosk (posé par JS). */
+@media (min-width: 721px) { .lepoint-link { display: none; } }
 
 /* ---------- erreur de chargement de la grille ---------- */
 .grid-error {
