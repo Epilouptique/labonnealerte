@@ -90,10 +90,6 @@
           '<a href="/mentions-legales">Mentions légales</a>' +
           (logged ? '<button type="button" class="m-link m-logout" data-act="logout">Se déconnecter</button>' : '') +
         '</nav>' +
-        '<div class="m-menu-foot">' +
-          '<button type="button" class="theme-btn m-theme" aria-label="Changer de thème">◐</button>' +
-          '<span class="m-theme-label">Thème clair / sombre</span>' +
-        '</div>' +
       '</div>';
 
     // A1) Face ARRIÈRE : liste des catégories (révélée par retournement du menu).
@@ -328,6 +324,10 @@
   }
 
   document.body.classList.add('m-kiosk');
+  // Point 5) Marqueur des pages secondaires (header injecté, pas de 2e rangée de
+  // catégories) : permet au CSS mobile de condenser le header sur UNE seule ligne
+  // (hamburger + recherche), contrairement à la home qui garde son en-tête multi-rangs.
+  document.body.classList.add('m-secondary');
 
   // Recherche → redirige vers la home avec ?q=<terme> (Entrée, bouton loupe).
   function goSearch() {

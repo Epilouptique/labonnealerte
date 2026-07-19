@@ -31,6 +31,24 @@
   // Liaison du bouton (plus d'onclick inline — CSP script-src 'self').
   (function () { var tb = document.querySelector('.theme-btn'); if (tb) tb.addEventListener('click', window.toggleTheme); })();
 
+  /* ---------------- Accessibilité : contrastes renforcés ----------------
+     Préférence locale (pas de compte requis, pas de colonne DB). Même API que
+     theme.js pour les autres pages : la home charge site.js à la place de theme.js,
+     on réplique donc ici window.toggleContrast / window.isContrastOn. */
+  var CONTRAST_KEY = 'lba-contrast';
+  var hc = false;
+  try { hc = localStorage.getItem(CONTRAST_KEY) === '1'; } catch (e) {}
+  function applyContrast() { if (document.body) document.body.classList.toggle('high-contrast', hc); }
+  if (document.body) applyContrast();
+  else document.addEventListener('DOMContentLoaded', applyContrast);
+  window.isContrastOn = function () { return hc; };
+  window.toggleContrast = function () {
+    hc = !hc;
+    try { localStorage.setItem(CONTRAST_KEY, hc ? '1' : '0'); } catch (e) {}
+    applyContrast();
+    return hc;
+  };
+
   /* ---------------- Abonnement : switch dans les deux modes ---------------- */
   var EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -1347,6 +1365,7 @@
       if (!Array.isArray(sources)) throw new Error('format');
     } catch (e) {
       g.classList.remove('grid-loading');
+      document.body.classList.remove('loading'); // erreur : le reste de la page reste utilisable
       showGridError(g, extras);
       updateKPI(null);
       return;
@@ -1402,6 +1421,7 @@
 
     removeSkeletons(g);
     g.classList.remove('grid-loading'); // I) fin du chargement
+    document.body.classList.remove('loading'); // révèle carte « Proposer » + OpenAlert
     if (extras) extras.insertAdjacentHTML('beforebegin', html);
     // Mémorise l'ordre source de chaque carte (pour restaurer sa position après reco).
     g.querySelectorAll('.card[data-cats]').forEach(function (c, i) { c.dataset.order = i; });

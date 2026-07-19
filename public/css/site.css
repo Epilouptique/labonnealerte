@@ -138,6 +138,14 @@ html[data-theme="light"] header { background: #ffffff; } /* thème clair : blanc
    S'applique à toutes les pages (le .hl du hero n'était que local). */
 h1 .hl { color: var(--amber); }
 .hero p { color: var(--muted); font-size: 18px; margin: 18px auto 0; max-width: 520px; }
+/* Point 1) Très petits smartphones (iPhone SE, ~375px et moins) : le .wrap ne laisse
+   que 16px de marge — on renforce l'air autour du titre et du paragraphe pour qu'ils
+   ne collent plus aux bords. */
+@media (max-width: 400px) {
+  .hero { padding-top: 64px; }
+  .hero .page-title { padding-inline: 8px; }
+  .hero p { padding-inline: 14px; font-size: 17px; }
+}
 .kpi {
   margin-top: 28px; display: inline-flex; gap: 8px; align-items: center;
   font-size: 13px; color: var(--muted);
@@ -516,6 +524,31 @@ footer a { color: var(--muted); }
 .card.skeleton .sk { animation: sk-pulse 1.4s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .card.skeleton .sk { animation: none; } }
 
+/* ===== Écran de chargement COMMUN à toutes les pages (body.loading) =====
+   Pendant le chargement, seules restent visibles : la 1re ligne du header, le
+   footer, et un halo centré (vertical + horizontal). Tout le reste (hero, toolbar,
+   grille, sections, panneaux…) est masqué. Le flag est retiré dès que le contenu
+   est prêt : site.js pour l'accueil, js/page-loading.js pour les pages à données. */
+body.loading { display: flex; flex-direction: column; min-height: 100vh; }
+body.loading > header,
+body.loading > footer { flex: 0 0 auto; }
+body.loading > *:not(header):not(footer):not(.page-loading) { display: none !important; }
+
+.page-loading { display: none; } /* invisible hors chargement */
+body.loading > .page-loading {
+  display: flex; flex: 1 1 auto;
+  align-items: center; justify-content: center;
+  font-size: 0; /* « Chargement… » gardé pour l'a11y, remplacé par le halo */
+}
+body.loading > .page-loading::before {
+  content: ""; width: 120px; height: 120px; border-radius: 50%;
+  background: radial-gradient(circle at center, color-mix(in srgb, var(--amber) 60%, transparent), transparent 68%);
+  animation: lba-halo-pulse-c 1.35s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  body.loading > .page-loading::before { animation: none; opacity: .6; }
+}
+
 /* ---------- erreur de chargement de la grille ---------- */
 .grid-error {
   grid-column: 1 / -1; text-align: center; color: var(--muted);
@@ -749,6 +782,23 @@ body {
 .tl-src { color: var(--ink); font-weight: 700; }
 .tl-quote { color: var(--muted); font-style: italic; font-size: 13px; margin-top: 4px; }
 .tl-empty { color: var(--muted); }
+
+/* Point 2) Page de statut (/source/:id) responsive : rien ne doit déborder à droite
+   sur mobile. Le manifeste JSON (<pre> injecté par source.js) ne wrappe pas → on le
+   rend scrollable horizontalement plutôt que de le laisser pousser la page. */
+#manifest-code pre {
+  overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%;
+  white-space: pre; margin: 0; font-size: 12.5px;
+}
+.src-desc, .src-subtitle, .src-author { overflow-wrap: anywhere; }
+@media (max-width: 560px) {
+  .src-main { padding: 24px 0 60px; }
+  .src-head { padding: 20px 18px; }
+  .src-head h1 { overflow-wrap: anywhere; }
+  .src-back { top: 14px; right: 12px; }
+  .src-action { max-width: none; }
+  .uptime-legend { gap: 8px 14px; }
+}
 
 /* ---------- Chantier home #2 ---------- */
 /* C) ancre sous header fixe */
@@ -1256,6 +1306,16 @@ body[data-mode="connected"] #stats { display: none; }
   body.m-kiosk .btn-deposit,
   body.m-kiosk .nav-right { display: none !important; }
 
+  /* Point 5) Pages secondaires (hors home) : header sur UNE seule ligne =
+     hamburger à gauche + barre de recherche. Le logo (accessible depuis le menu)
+     et le spacer sont masqués pour tenir sur une ligne sans retour. */
+  body.m-secondary header .nav { flex-wrap: nowrap; row-gap: 0; }
+  body.m-secondary.m-kiosk .brand,
+  body.m-secondary.m-kiosk .m-nav-spacer { display: none; }
+  body.m-secondary.m-kiosk header .nav > .search {
+    order: 2; flex: 1 1 auto; margin-left: 10px;
+  }
+
   /* Rangée 2 : recherche (loupe à gauche, pas de bouton — inchangé). */
   body.m-kiosk header .nav > .search { order: 3; flex: 1 1 100%; min-width: 0; margin: 0; }
 
@@ -1597,6 +1657,9 @@ body.m-menu-open { overflow: hidden; }
 @media (max-width: 520px) {
   .pack { width: 168px; }
   .coll-head h1 { font-size: 1.4rem; }
+  /* Point 4) La flèche retour est trop basse sur mobile (top:22px la décrochait du
+     titre) : on la remonte pour l'aligner sur la 1re ligne du titre. */
+  .coll-head .src-back { top: 12px; right: 8px; }
 }
 
 /* ===================== DECK PARTAGÉ (phase 2 UGC) ===================== */
@@ -2026,9 +2089,18 @@ html[data-theme="dark"] .tint-11 .deck-motif-bg::after { background: color-mix(i
 
 /* ---------------- Page « Le Point » ---------------- */
 .lepoint-main { max-width: 760px; padding-bottom: 60px; }
-.lepoint-head { margin: 8px 0 22px; }
+.lepoint-head { margin: 8px 0 22px; text-align: center; }
 .lepoint-head .page-title { margin-bottom: 4px; }
+.lepoint-head .src-desc { margin-left: auto; margin-right: auto; }
 .lp-share { margin-top: 12px; }
+/* Point 6) Les deux labels (« En ce moment » / « À venir ») étaient tous deux
+   renvoyés dans la marge gauche à top:2px en ≥1280px → ils se chevauchaient.
+   Comme sur .decks-main, on les remet dans le flux ici. */
+@media (min-width: 1280px) {
+  body:not(.dev) main.lepoint-main .section-label {
+    position: static; text-align: left; left: auto; width: auto; margin: 0 0 14px;
+  }
+}
 #lp-active { display: flex; flex-direction: column; gap: 10px; margin-bottom: 30px; }
 .lp-card {
   display: block; text-decoration: none; color: inherit;
