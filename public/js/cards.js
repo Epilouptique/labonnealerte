@@ -143,18 +143,29 @@
       '</label>';
   }
 
+  // Clés de schéma « géographiques » : seules ces cartes ont le comportement switch OFF +
+  // pré-remplissage profil. Les autres (carburant, releases, vigieau…) gardent l'activation
+  // immédiate au choix/saisie.
+  var GEO_KEYS = { departement: 1, region: 1, pays: 1, ville: 1 };
+  function isGeoSchema(schema) { return !!(schema && GEO_KEYS[schema.key]); }
+
   function paramFace(s, mode) {
     var schema = s.params_schema[0];
     var instances = Array.isArray(s.instances) ? s.instances : [];
-    // Pré-remplissage du contrôle depuis le profil (window.LBADefaults : pays/region/
-    // departement/ville). paramControl ne pré-sélectionne QUE si la valeur est valide pour
-    // ce schéma → région/pays/ville sans source correspondante ne pré-remplissent rien.
-    var def = (window.LBADefaults && window.LBADefaults[schema.key]) || schema.default || null;
-    // Si cette valeur est déjà suivie, on ne la pré-remplit pas (le picker sert à en
-    // ajouter une AUTRE) → placeholder.
-    if (def != null && instances.some(function (inst) {
-      return inst.params && String(inst.params[schema.key]) === String(def);
-    })) { def = null; }
+    var isGeo = isGeoSchema(schema);
+    // Pré-remplissage : SEULEMENT les cartes géo, depuis le profil (window.LBADefaults).
+    // Non-géo : placeholder pour les enum (activation au change), valeur par défaut
+    // éventuelle pour les champs libres (comportement d'origine).
+    var def = null;
+    if (isGeo) {
+      def = (window.LBADefaults && window.LBADefaults[schema.key]) || null;
+      // Déjà suivie ? on ne pré-remplit pas (le picker sert à en ajouter une AUTRE).
+      if (def != null && instances.some(function (inst) {
+        return inst.params && String(inst.params[schema.key]) === String(def);
+      })) { def = null; }
+    } else if (schema.type !== 'enum') {
+      def = schema.default || null;
+    }
 
     var chips = instances.length
       ? '<div class="param-chips">' + instances.map(function (inst) {
@@ -168,13 +179,14 @@
     var addBtn = instances.length
       ? '<button type="button" class="param-add">+ ajouter</button>' : '';
 
-    // Picker = contrôle (pré-rempli si le profil fournit une valeur valide) + switch
-    // « S'abonner » (OFF). L'abonnement ne part QU'au basculement du switch (site.js) :
-    // le pré-remplissage est un confort de saisie, jamais une activation.
+    // Picker = contrôle + (cartes GÉO uniquement) switch « S'abonner » OFF. Géo :
+    // l'abonnement ne part qu'au basculement du switch (pré-remplissage = confort de
+    // saisie, jamais activation). Non-géo : PAS de switch ici → l'abonnement s'active
+    // immédiatement au change/saisie (site.js), comportement d'origine.
     var picker =
       '<div class="param-form"' + (instances.length ? ' hidden' : '') + '>' +
         paramControl(schema, def) +
-        followSwitch() +
+        (isGeo ? followSwitch() : '') +
       '</div>';
     // Parcours anonyme : email (réutilise .sub-form), les params sont joints au submit.
     var anon = (mode !== 'connected')
@@ -197,10 +209,14 @@
             '<span class="track"></span><span class="thumb"></span></span>' +
           '<span class="switch-label' + (muted ? '' : ' on') + '">' + (muted ? 'En pause' : 'Abonné') + '</span>' +
         '</label>';
-    } else {
-      // Non abonné : le switch « S'abonner » du picker EST le contrôle → pas de label
-      // « Non abonné » séparé (redondant).
+    } else if (isGeo) {
+      // Géo non abonné : le switch « S'abonner » du picker EST le contrôle → pas de label
+      // séparé (redondant).
       status = '';
+    } else {
+      // Non-géo non abonné : libellé d'origine (setParamStatus le fait passer à « Abonné »
+      // après activation immédiate ; l'interrupteur pause/reprise apparaît au re-rendu).
+      status = '<div class="param-status"><span class="switch-label">Non abonné</span></div>';
     }
     // F1) instances + « + ajouter » + picker (contrôle + switch S'abonner) groupés dans
     // une rangée inline (flux des chips, retour à la ligne naturel).

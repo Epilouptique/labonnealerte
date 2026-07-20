@@ -595,6 +595,20 @@
     l.textContent = on ? 'Abonné' : 'Non abonné';
     l.classList.toggle('on', !!on);
   }
+  // Fait apparaître IMMÉDIATEMENT l'interrupteur pause/reprise après un premier abonnement
+  // (sans attendre un re-rendu). Remplace le libellé « Non abonné » (non-géo) ou s'ajoute
+  // après la rangée de params (géo). Permet de mettre en pause SANS perdre le paramètre.
+  function ensureMuteSwitch(card) {
+    if (card.querySelector('.param-mute-row')) return;
+    var html = '<label class="switch-row param-mute-row">' +
+        '<span class="switch"><input type="checkbox" class="param-mute" checked aria-label="Activer ou mettre en pause cette alerte">' +
+          '<span class="track"></span><span class="thumb"></span></span>' +
+        '<span class="switch-label on">Abonné</span>' +
+      '</label>';
+    var status = card.querySelector('.param-status');
+    if (status) { status.outerHTML = html; }
+    else { var row = card.querySelector('.param-row'); if (row) row.insertAdjacentHTML('afterend', html); }
+  }
 
   // Lit le contrôle de saisie (select enum OU input string/number) et valide
   // le format côté client (attribut pattern). Retourne { params, label } ou null.
@@ -629,6 +643,7 @@
       addChip(card, data.params || params, data.label || label);
       card.dataset.subscribed = '1';
       setParamStatus(card, true);
+      ensureMuteSwitch(card); // interrupteur pause/reprise disponible tout de suite
       togglePicker(card, false);
       // C5) Réinitialise le contrôle pour un éventuel ajout suivant (placeholder).
       var ctrl0 = card.querySelector('.param-select, .param-input');
@@ -654,9 +669,17 @@
       var c = card.querySelector('.param-chips');
       if (c && !c.querySelector('.param-chip')) {
         card.dataset.subscribed = '0';
-        setParamStatus(card, false);
+        // Désabonnement TOTAL : on retire l'interrupteur pause/reprise et on rétablit
+        // l'état « non abonné » (libellé pour les non-géo ; le switch S'abonner du picker
+        // suffit pour les géo).
+        var mute = card.querySelector('.param-mute-row'); if (mute) mute.remove();
         var add = card.querySelector('.param-add'); if (add) add.remove();
         togglePicker(card, true);
+        var isGeo = !!card.querySelector('.param-follow-cb');
+        if (!isGeo && !card.querySelector('.param-status')) {
+          var row = card.querySelector('.param-row');
+          if (row) row.insertAdjacentHTML('afterend', '<div class="param-status"><span class="switch-label">Non abonné</span></div>');
+        }
       }
       refreshMineDependent();
     } catch (e) { /* silencieux */ }
@@ -705,6 +728,32 @@
     }
     if (document.body.getAttribute('data-mode') === 'connected') followParamConnected(card);
     else followParamAnon(card);
+  });
+
+  // Cartes NON-géo : activation IMMÉDIATE au choix (select) ou à la saisie debouncée
+  // (input) — comportement d'origine. On distingue les cartes géo par la présence du
+  // switch « S'abonner » (.param-follow-cb) : sur celles-là, l'activation passe UNIQUEMENT
+  // par le switch (bloc ci-dessus), jamais au change/saisie.
+  function isGeoCard(card) { return !!card.querySelector('.param-follow-cb'); }
+  document.addEventListener('change', function (e) {
+    var sel = e.target.closest('.param-select');
+    if (!sel || !sel.value) return; // ignore le placeholder « Choisir… »
+    var card = sel.closest('.card'); if (!card || isGeoCard(card)) return;
+    if (document.body.getAttribute('data-mode') === 'connected') followParamConnected(card);
+    else followParamAnon(card);
+  });
+  var paramInputTimers = new WeakMap();
+  document.addEventListener('input', function (e) {
+    var inp = e.target.closest('.param-input');
+    if (!inp) return;
+    var card = inp.closest('.card'); if (!card || isGeoCard(card)) return;
+    var prev = paramInputTimers.get(inp); if (prev) clearTimeout(prev);
+    paramInputTimers.set(inp, setTimeout(function () {
+      if (!(inp.value || '').trim()) return;
+      // readParam (dans follow*) valide le pattern : une saisie invalide est ignorée.
+      if (document.body.getAttribute('data-mode') === 'connected') followParamConnected(card);
+      else followParamAnon(card);
+    }, 700));
   });
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Enter' && e.target.matches('.sub-form input')) {
