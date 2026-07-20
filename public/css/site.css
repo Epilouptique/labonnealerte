@@ -1284,6 +1284,21 @@ body[data-mode="connected"] #stats { display: none; }
   border-radius: 999px; padding: 6px 11px; font: inherit; font-size: 12.5px; font-weight: 600;
 }
 .param-add:hover { filter: brightness(1.06); }
+/* Chip SUGGÉRÉE (« votre département ») : même gabarit qu'une .param-chip mais ATTÉNUÉE
+   — fond transparent, bordure pointillée ambre, badge « suggéré ». Visuellement distincte
+   d'une instance suivie (fond ambre-soft) et du bouton d'ajout (fond ambre plein). Reste
+   OFF : aucun abonnement tant que l'utilisateur ne clique pas (= ajout réel). */
+.param-suggest {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: transparent; color: var(--muted); cursor: pointer;
+  border: 1.5px dashed var(--amber); border-radius: 999px;
+  padding: 5px 11px; font: inherit; font-size: 12.5px; font-weight: 600;
+}
+.param-suggest:hover { color: var(--ink); background: var(--amber-soft); }
+.param-suggest .ps-badge {
+  font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+  color: var(--amber);
+}
 .param-statut-label { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: var(--ink); }
 .param-statut-label .param-select { flex: none; min-width: 180px; }
 .param-statut-hint { font-size: 13px; color: var(--muted); margin-top: 10px; }

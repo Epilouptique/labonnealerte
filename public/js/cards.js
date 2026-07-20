@@ -143,6 +143,27 @@
       : '';
     var addBtn = instances.length
       ? '<button type="button" class="param-add">+ ajouter</button>' : '';
+
+    // Suggestion « votre département » : PUREMENT VISUELLE (aucun réseau, aucune écriture
+    // à l'affichage). Conditions : mode connecté, schéma = département enum, département
+    // profil (window.LBADefaults) présent comme valeur valide du schéma, ET pas déjà suivi.
+    // Au clic → rejoint le flux d'ajout normal (site.js), seul chemin qui écrit. Reste
+    // visible même si l'utilisateur a ajouté d'autres départements (affichée à part).
+    var suggest = '';
+    if (mode === 'connected' && schema.type === 'enum' && schema.key === 'departement' &&
+        window.LBADefaults && window.LBADefaults.departement) {
+      var sugCode = String(window.LBADefaults.departement);
+      var already = instances.some(function (inst) {
+        return inst.params && String(inst.params[schema.key]) === sugCode;
+      });
+      var match = (schema.values || []).filter(function (v) { return String(v.value) === sugCode; })[0];
+      if (!already && match) {
+        suggest = '<button type="button" class="param-suggest" data-value="' + esc(sugCode) + '"' +
+          ' title="Votre département — appuyez pour suivre">' +
+          '<span class="ps-badge">suggéré</span>' + esc(match.label) +
+        '</button>';
+      }
+    }
     // C5) Plus de bouton « Suivre » : l'abonnement s'active au CHANGE du sélecteur
     // (ou à la saisie debouncée d'un champ libre) — géré par site.js.
     var picker =
@@ -176,7 +197,7 @@
     // F1) instances + « + ajouter » + sélecteur groupés dans une rangée inline (flux
     // des chips, retour à la ligne naturel) : « + ajouter » a la largeur de son contenu
     // et, au clic, l'input apparaît À SA PLACE (site.js masque le bouton, montre le form).
-    var row = '<div class="param-row">' + chips + addBtn + picker + '</div>';
+    var row = '<div class="param-row">' + chips + suggest + addBtn + picker + '</div>';
     return row + anon + status;
   }
 

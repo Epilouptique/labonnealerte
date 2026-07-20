@@ -681,6 +681,19 @@
       togglePicker(card, true);
       var ctrl = card.querySelector('.param-select, .param-input');
       if (ctrl) ctrl.focus();
+    } else if (e.target.closest('.param-suggest')) {
+      // Clic sur la suggestion « votre département » : geste EXPLICITE = ajout réel.
+      // On injecte la valeur dans le contrôle existant et on emprunte le MÊME chemin
+      // d'abonnement que n'importe quel ajout (followParamConnected/Anon). La suggestion
+      // (élément purement visuel) disparaît, remplacée par la vraie chip via addChip.
+      e.preventDefault();
+      var sug = e.target.closest('.param-suggest');
+      var code = sug.getAttribute('data-value');
+      var ctrl2 = card.querySelector('.param-select, .param-input');
+      if (ctrl2) ctrl2.value = code;
+      sug.remove();
+      if (document.body.getAttribute('data-mode') === 'connected') followParamConnected(card);
+      else followParamAnon(card);
     }
   });
 
