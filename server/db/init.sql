@@ -3059,3 +3059,15 @@ WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'domaine-disponibilite');
 UPDATE sources SET params_schema = '[{"key":"domaine","label":"Domaine à surveiller","type":"string","placeholder":"annad.fr","pattern":"^[a-z0-9-]+(\\.[a-z0-9-]+)+$","lowercase":true,"multiple":true,"required":true,"default":null,"hint":"Le nom de domaine seul, sans https:// (exemple : annad.fr). Alerte si le site répond en erreur (4xx/5xx) ou ne répond plus, confirmée sur deux vérifications."}]'::jsonb WHERE id = 'domaine-disponibilite';
 INSERT INTO source_states (source_id) SELECT 'domaine-disponibilite'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'domaine-disponibilite');
+
+-- ── Carte webmaster : réputation sécurité d'un domaine (URLhaus). display_order 411.
+-- requires_confirmation = FALSE → alerte IMMÉDIATE dès signalement en blocklist
+-- (une inscription malware est un signal fort en soi, pas de temporisation).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
+SELECT 'domaine-securite', 'Réputation d''un domaine', 'Le domaine est-il signalé malveillant ?',
+  'Vérifiez si un domaine est signalé dans la base publique de malware/phishing URLhaus (abuse.ch). Alerte immédiate en cas de signalement, avec le type de menace. Nécessite une clé API URLhaus (côté serveur).',
+  'internal', 'official', false, ARRAY['securite', 'phishing', 'noms-de-domaine'], 411, '[{"key":"domaine","label":"Domaine à vérifier","type":"string","placeholder":"annad.fr","pattern":"^[a-z0-9-]+(\\.[a-z0-9-]+)+$","lowercase":true,"multiple":true,"required":true,"default":null,"hint":"Le nom de domaine seul, sans https:// (exemple : annad.fr). Alerte si le domaine est signalé dans la base malware/phishing publique URLhaus."}]'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'domaine-securite');
+UPDATE sources SET params_schema = '[{"key":"domaine","label":"Domaine à vérifier","type":"string","placeholder":"annad.fr","pattern":"^[a-z0-9-]+(\\.[a-z0-9-]+)+$","lowercase":true,"multiple":true,"required":true,"default":null,"hint":"Le nom de domaine seul, sans https:// (exemple : annad.fr). Alerte si le domaine est signalé dans la base malware/phishing publique URLhaus."}]'::jsonb WHERE id = 'domaine-securite';
+INSERT INTO source_states (source_id) SELECT 'domaine-securite'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'domaine-securite');

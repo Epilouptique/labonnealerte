@@ -20,12 +20,11 @@
 //     repasse 'inactive' → le poller déactive proprement l'alerte.
 
 const { safeProbe } = require('../safe-fetch');
+const { DOMAIN_RE, DOMAIN_PATTERN, normalizeDomain, horodatage } = require('./lib/domaine');
 
 const TIMEOUT_MS = 7_000;
 const CACHE_TTL_MS = 5 * 60 * 1000; // TTL court (< cycle de poll de 30 min → probe frais/cycle)
 const MAX_FETCH = Math.max(1, parseInt(process.env.EXTERNAL_MAX_COMBOS || '20', 10) || 20);
-// Nom de domaine simple (au moins un point), sans schéma ni chemin.
-const DOMAIN_RE = /^[a-z0-9-]+(\.[a-z0-9-]+)+$/i;
 
 const paramsSchema = [
   {
@@ -33,7 +32,7 @@ const paramsSchema = [
     label: 'Domaine à surveiller',
     type: 'string',
     placeholder: 'annad.fr',
-    pattern: '^[a-z0-9-]+(\\.[a-z0-9-]+)+$',
+    pattern: DOMAIN_PATTERN,
     lowercase: true,
     multiple: true,
     required: true,
@@ -44,18 +43,6 @@ const paramsSchema = [
 
 // Cache par domaine : domaine → { at, result }.
 const cache = new Map();
-
-function normalizeDomain(raw) {
-  return String(raw || '')
-    .trim().toLowerCase()
-    .replace(/^https?:\/\//, '') // au cas où l'abonné colle un schéma
-    .replace(/\/.*$/, '')        // retire tout chemin
-    .replace(/:\d+$/, '');       // retire un port éventuel
-}
-
-function horodatage(d) {
-  return new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', dateStyle: 'short', timeStyle: 'short' }).format(d);
-}
 
 function inactive(domaine) {
   return { state: 'inactive', since: null, until: null, message: null, url: 'https://' + domaine };
