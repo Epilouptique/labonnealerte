@@ -1287,6 +1287,12 @@ body[data-mode="connected"] #stats { display: none; }
 /* Switch « S'abonner » d'une carte paramétrée : à droite du contrôle dans le picker,
    passe à la ligne sur carte étroite. Réutilise .switch/.switch-row existants. */
 .param-follow-row { flex: 0 0 auto; }
+/* Non-géo : switch DISABLED tant que non abonné (l'activation se fait à la saisie) →
+   grisé et non cliquable, repère visuel cohérent sans être une action sur du vide. */
+.param-follow-row .switch input:disabled { cursor: default; }
+.param-follow-row .switch input:disabled ~ .track,
+.param-follow-row .switch input:disabled ~ .thumb { opacity: .5; }
+.param-follow-row:has(input:disabled) .switch-label { opacity: .55; }
 .param-statut-label { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: var(--ink); }
 .param-statut-label .param-select { flex: none; min-width: 180px; }
 .param-statut-hint { font-size: 13px; color: var(--muted); margin-top: 10px; }

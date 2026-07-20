@@ -674,12 +674,9 @@
         // suffit pour les géo).
         var mute = card.querySelector('.param-mute-row'); if (mute) mute.remove();
         var add = card.querySelector('.param-add'); if (add) add.remove();
+        // Le picker (contrôle + switch S'abonner) redevient l'état « non abonné » pour
+        // les deux familles → plus de libellé « Non abonné » séparé à recréer.
         togglePicker(card, true);
-        var isGeo = !!card.querySelector('.param-follow-cb');
-        if (!isGeo && !card.querySelector('.param-status')) {
-          var row = card.querySelector('.param-row');
-          if (row) row.insertAdjacentHTML('afterend', '<div class="param-status"><span class="switch-label">Non abonné</span></div>');
-        }
       }
       refreshMineDependent();
     } catch (e) { /* silencieux */ }
@@ -716,7 +713,7 @@
   // modifiée par l'utilisateur) : si vide/invalide, on annule le switch et on focalise.
   document.addEventListener('change', function (e) {
     var cb = e.target.closest('.param-follow-cb');
-    if (!cb) return;
+    if (!cb || cb.disabled) return; // non-géo disabled : activation via saisie, pas ce switch
     var card = cb.closest('.card'); if (!card) return;
     if (!cb.checked) return; // re-décocher avant abonnement : rien à faire
     var ctrl = card.querySelector('.param-select, .param-input');
@@ -734,7 +731,10 @@
   // (input) — comportement d'origine. On distingue les cartes géo par la présence du
   // switch « S'abonner » (.param-follow-cb) : sur celles-là, l'activation passe UNIQUEMENT
   // par le switch (bloc ci-dessus), jamais au change/saisie.
-  function isGeoCard(card) { return !!card.querySelector('.param-follow-cb'); }
+  // Géo = la carte porte le switch cliquable .param-follow-geo (les non-géo ont
+  // .param-follow-auto, disabled). Le discriminant ne peut PLUS être la simple présence
+  // de .param-follow-cb, désormais rendu sur toutes les cartes.
+  function isGeoCard(card) { return !!card.querySelector('.param-follow-geo'); }
   document.addEventListener('change', function (e) {
     var sel = e.target.closest('.param-select');
     if (!sel || !sel.value) return; // ignore le placeholder « Choisir… »

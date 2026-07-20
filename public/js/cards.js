@@ -132,12 +132,17 @@
       ph + pat + val + ' aria-label="' + esc(schema.label) + '">';
   }
 
-  // Switch « S'abonner » (OFF) : contrôle d'activation explicite d'une combinaison
-  // paramétrée. Remplace l'activation-au-change : rien ne s'abonne tant que ce switch
-  // n'est pas basculé par l'utilisateur (site.js le câble sur followParam*).
-  function followSwitch() {
+  // Switch « S'abonner » (OFF), présent dès le 1er rendu sur TOUTE carte paramétrée.
+  //  · GÉO (param-follow-geo) : cliquable → l'abonnement part au clic explicite (site.js).
+  //  · NON-GÉO (param-follow-auto) : DISABLED tant que non abonné → un clic sur du vide
+  //    n'active rien ; l'abonnement part automatiquement à la saisie/au choix d'une valeur
+  //    (site.js), puis l'interrupteur pause/reprise prend le relais. Le switch non-géo est
+  //    donc un repère visuel cohérent, pas une action sur du vide.
+  function followSwitch(isGeo) {
+    var cls = isGeo ? 'param-follow-cb param-follow-geo' : 'param-follow-cb param-follow-auto';
+    var dis = isGeo ? '' : ' disabled';
     return '<label class="switch-row param-follow-row">' +
-        '<span class="switch"><input type="checkbox" class="param-follow-cb" aria-label="S\'abonner">' +
+        '<span class="switch"><input type="checkbox" class="' + cls + '"' + dis + ' aria-label="S\'abonner">' +
           '<span class="track"></span><span class="thumb"></span></span>' +
         '<span class="switch-label">S\'abonner</span>' +
       '</label>';
@@ -179,14 +184,13 @@
     var addBtn = instances.length
       ? '<button type="button" class="param-add">+ ajouter</button>' : '';
 
-    // Picker = contrôle + (cartes GÉO uniquement) switch « S'abonner » OFF. Géo :
-    // l'abonnement ne part qu'au basculement du switch (pré-remplissage = confort de
-    // saisie, jamais activation). Non-géo : PAS de switch ici → l'abonnement s'active
-    // immédiatement au change/saisie (site.js), comportement d'origine.
+    // Picker = contrôle + switch « S'abonner » (présent dès le 1er rendu, géo ET non-géo).
+    // Géo : switch cliquable, abonnement au clic. Non-géo : switch disabled, abonnement à
+    // la saisie/au choix (comportement d'origine). Voir followSwitch().
     var picker =
       '<div class="param-form"' + (instances.length ? ' hidden' : '') + '>' +
         paramControl(schema, def) +
-        (isGeo ? followSwitch() : '') +
+        followSwitch(isGeo) +
       '</div>';
     // Parcours anonyme : email (réutilise .sub-form), les params sont joints au submit.
     var anon = (mode !== 'connected')
@@ -209,14 +213,10 @@
             '<span class="track"></span><span class="thumb"></span></span>' +
           '<span class="switch-label' + (muted ? '' : ' on') + '">' + (muted ? 'En pause' : 'Abonné') + '</span>' +
         '</label>';
-    } else if (isGeo) {
-      // Géo non abonné : le switch « S'abonner » du picker EST le contrôle → pas de label
-      // séparé (redondant).
-      status = '';
     } else {
-      // Non-géo non abonné : libellé d'origine (setParamStatus le fait passer à « Abonné »
-      // après activation immédiate ; l'interrupteur pause/reprise apparaît au re-rendu).
-      status = '<div class="param-status"><span class="switch-label">Non abonné</span></div>';
+      // Non abonné (géo ou non-géo) : le switch « S'abonner » du picker EST l'indicateur
+      // → pas de label séparé.
+      status = '';
     }
     // F1) instances + « + ajouter » + picker (contrôle + switch S'abonner) groupés dans
     // une rangée inline (flux des chips, retour à la ligne naturel).
