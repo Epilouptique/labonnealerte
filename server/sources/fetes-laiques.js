@@ -22,6 +22,15 @@ const FETES = [
   { date: '2027-02-06', name: 'Nouvel An chinois', emoji: '🧧' },
   { date: '2027-02-14', name: 'Saint-Valentin', emoji: '❤️' },
   { date: '2027-03-20', name: 'Équinoxe de printemps', emoji: '🌸' },
+  // Journée NATIONALE des mémoires de la traite, de l'esclavage et de leurs abolitions
+  // (10 mai, date fixe — décret n° 2006-388). Distincte, et complémentaire, des
+  // commémorations LOCALES d'outre-mer (portées par commemorations-outremer.js).
+  {
+    date: '2027-05-10',
+    name: 'Journée nationale des mémoires de la traite, de l’esclavage et de leurs abolitions',
+    emoji: '🕊️',
+    note: ' (commémoration nationale, distincte des dates locales d’outre-mer)',
+  },
   { date: '2027-06-21', name: 'Fête de la musique', emoji: '🎵' },
   { date: '2027-09-23', name: 'Équinoxe d’automne', emoji: '🍂' },
   { date: '2027-10-31', name: 'Halloween', emoji: '🎃' },
@@ -35,7 +44,7 @@ function events(now) {
   return FETES
     .map(function (f) {
       const start = ymd(f.date);
-      return { start: start, end: new Date(start.getTime() + DAY_MS), name: f.name, emoji: f.emoji };
+      return { start: start, end: new Date(start.getTime() + DAY_MS), name: f.name, emoji: f.emoji, note: f.note };
     })
     .filter(function (e) { return e.end.getTime() >= now.getTime(); });
 }
@@ -46,6 +55,6 @@ module.exports = createCalendarSource({
   url: 'https://www.service-public.gouv.fr/particuliers/vosdroits/F2405',
   events: events,
   message: function (ev) {
-    return ev.emoji + ' ' + ev.name + ' : ' + formatAvecJour(ev.start);
+    return ev.emoji + ' ' + ev.name + ' : ' + formatAvecJour(ev.start) + (ev.note || '');
   },
 });

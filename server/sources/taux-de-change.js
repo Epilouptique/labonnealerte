@@ -17,6 +17,8 @@ const WINDOW_DAYS = 7;
 const CACHE_TTL_MS = 12 * 60 * 60 * 1000;
 
 // Devises réellement servies par Frankfurter (panier BCE). MAD (dirham) ABSENT.
+// Ajout expatriés : 9 devises supplémentaires, toutes servies par Frankfurter
+// (vérifié) et pertinentes pour les diasporas françaises hors zone euro.
 const DEVISES = [
   { code: 'USD', nom: 'dollar américain' },
   { code: 'GBP', nom: 'livre sterling' },
@@ -24,6 +26,15 @@ const DEVISES = [
   { code: 'CAD', nom: 'dollar canadien' },
   { code: 'JPY', nom: 'yen japonais' },
   { code: 'AUD', nom: 'dollar australien' },
+  { code: 'CNY', nom: 'yuan chinois' },
+  { code: 'SGD', nom: 'dollar de Singapour' },
+  { code: 'HKD', nom: 'dollar de Hong Kong' },
+  { code: 'ILS', nom: 'shekel israélien' },
+  { code: 'BRL', nom: 'réal brésilien' },
+  { code: 'THB', nom: 'baht thaïlandais' },
+  { code: 'INR', nom: 'roupie indienne' },
+  { code: 'ZAR', nom: 'rand sud-africain' },
+  { code: 'MXN', nom: 'peso mexicain' },
 ];
 const NOM = {};
 DEVISES.forEach((d) => { NOM[d.code] = d.nom; });

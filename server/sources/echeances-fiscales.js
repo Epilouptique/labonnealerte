@@ -76,6 +76,21 @@ function events(now) {
     out.push({ kind: 'declaration', start: d, end: new Date(d.getTime() + DAY_MS) });
   }
 
+  // (5) Régime des NON-RÉSIDENTS (expatriés) : date limite de déclaration propre
+  //     au Service des impôts des particuliers non-résidents (SIPNR). ⚠️ La date
+  //     exacte 2027 n'a PAS pu être reconfirmée à l'exploration (19/07/2026) → table
+  //     laissée vide, aucune entrée active tant que la date officielle n'est pas
+  //     vérifiée sur impots.gouv.fr (rubrique « international particulier »). NE PAS
+  //     présumer. TODO : renseigner NON_RESIDENTS[année] dès confirmation.
+  const NON_RESIDENTS = {
+    // 2027: '2027-05-XX', // ⚠️ à confirmer sur impots.gouv.fr avant activation
+  };
+  const nrIso = NON_RESIDENTS[now.getFullYear()];
+  if (nrIso) {
+    const d = ymd(nrIso);
+    out.push({ kind: 'non-residents', start: d, end: new Date(d.getTime() + DAY_MS) });
+  }
+
   return out
     .filter(function (e) { return e.end.getTime() >= now.getTime(); })
     .sort(function (a, b) { return a.start - b.start; });
@@ -95,6 +110,9 @@ module.exports = createCalendarSource({
     }
     if (ev.kind === 'declaration') {
       return '💶 Ouverture de la déclaration de revenus en ligne : le service est accessible sur impots.gouv.fr.';
+    }
+    if (ev.kind === 'non-residents') {
+      return '💶 Non-résidents (expatriés) : date limite de déclaration de revenus auprès du Service des impôts des particuliers non-résidents.';
     }
     const precision = ev.secondaires ? ' (résidences secondaires uniquement)' : '';
     return '💶 ' + ev.label + precision + ' : jusqu\'au ' + formatJourMois(ev.paper) +

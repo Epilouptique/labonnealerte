@@ -4,6 +4,19 @@
 // sources broadcast vacances-zone-a/b/c (migrées + désactivées par init.sql).
 //
 // Contrat v2 : { id, paramsSchema, checkWithParams(paramsList) }.
+//
+// ⚠️ TODO daté (extension DOM-TOM Guadeloupe/Martinique/Guyane — vague outre-mer) :
+//   NON FAIT volontairement. La vacances-factory est construite AUTOUR du modèle
+//   métropole « Zone A/B/C » : elle fige ZONES = ['Zone A','Zone B','Zone C'],
+//   filtre l'API sur ces trois valeurs et reconstruit le libellé via `Zone ${lettre}`.
+//   Les zones DOM du dataset officiel portent d'autres noms (« Guadeloupe »,
+//   « Martinique », « Guyane »…) qui ne rentrent pas dans ce moule → un ajout
+//   naïf casserait le formatage et le filtre. De plus, l'exploration précédente a
+//   signalé un RETARD d'ingestion des calendriers DOM côté dataset education.gouv.
+//   Forcer l'intégration serait fragile (cf. consigne : « ne pas forcer »).
+//   → À traiter proprement plus tard : généraliser la factory (ZONES paramétrable,
+//     libellé découplé de « Zone X ») PUIS confirmer la disponibilité des données
+//     DOM dans le dataset avant d'exposer les territoires ici.
 
 const { createVacancesParamSource } = require('./lib/vacances-factory');
 

@@ -26,6 +26,12 @@ const COUNTRIES = [
   { value: 'pays-bas', label: 'Pays-Bas', feed: 'netherlands', url: 'https://www.knmi.nl/' },
   { value: 'irlande', label: 'Irlande', feed: 'ireland', url: 'https://www.met.ie/' },
   { value: 'luxembourg', label: 'Luxembourg', feed: 'luxembourg', url: 'https://www.meteolux.lu/' },
+  // Ajout diaspora française (UK en tête). Flux MeteoAlarm/EUMETNET (suffixe legacy-atom).
+  { value: 'royaume-uni', label: 'Royaume-Uni', feed: 'united-kingdom', url: 'https://www.metoffice.gov.uk/' },
+  { value: 'suede', label: 'Suède', feed: 'sweden', url: 'https://www.smhi.se/' },
+  { value: 'norvege', label: 'Norvège', feed: 'norway', url: 'https://www.met.no/' },
+  { value: 'danemark', label: 'Danemark', feed: 'denmark', url: 'https://www.dmi.dk/' },
+  { value: 'autriche', label: 'Autriche', feed: 'austria', url: 'https://www.geosphere.at/' },
 ];
 const BY_VALUE = {};
 COUNTRIES.forEach((c) => { BY_VALUE[c.value] = c; });

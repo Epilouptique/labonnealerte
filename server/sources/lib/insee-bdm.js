@@ -21,7 +21,9 @@ const fetchFn = (...args) => import('node-fetch').then(({ default: fetch }) => f
 const API = (idbank, n) =>
   `https://bdm.insee.fr/series/sdmx/data/SERIES_BDM/${idbank}?lastNObservations=${n}`;
 const TIMEOUT_MS = 10_000;
-const N_OBS = 8; // assez pour le glissement annuel (trimestriel : n-1 = index 4)
+const N_OBS = 14; // couvre le glissement annuel MENSUEL (n-1 = index 12) ET trimestriel
+                  // (index 4). 14 laisse une marge. Plus d'observations = plus de data,
+                  // aucune logique changée (les séries déjà-en-% n'utilisent pas obs[step]).
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin',

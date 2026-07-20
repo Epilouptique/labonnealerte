@@ -1652,8 +1652,8 @@ WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'journees-geek')
 
 -- 7.1) Grands salons (calendrier).
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
-SELECT 'grands-salons', 'Grands salons', 'Agriculture, Auto, VivaTech',
-  'Un rappel à l''ouverture des grands salons parisiens : Salon de l''Agriculture, Mondial de l''Auto, VivaTech. Dates officielles.',
+SELECT 'grands-salons', 'Grands salons', 'Agriculture, Auto, VivaTech, SIAL, Bourget…',
+  'Un rappel à l''ouverture des grands salons : Salon de l''Agriculture, Mondial de l''Auto, VivaTech, SIAL Paris, MIF Expo (Made in France), Salon du Bourget. Dates officielles.',
   'internal', 'official', false, ARRAY['vie-locale', 'evenements-locaux'], 140
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'grands-salons');
 INSERT INTO source_states (source_id) SELECT 'grands-salons'
@@ -1789,10 +1789,10 @@ UPDATE sources SET params_schema = '[{"key":"departement","label":"Département"
 
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
 SELECT 'taux-de-change', 'Taux de change', 'La devise de votre choix',
-  'Alerte quand l''euro varie de 3 % ou plus sur 7 jours face à une devise que vous suivez (USD, GBP, CHF, CAD, JPY, AUD). Message factuel, sans conseil. Taux BCE via Frankfurter, sans cle.',
-  'internal', 'official', false, ARRAY['finance', 'expatries'], 160, '[{"key":"devise","label":"Devise (base euro)","type":"enum","values":[{"value":"USD","label":"EUR → USD (dollar américain)"},{"value":"GBP","label":"EUR → GBP (livre sterling)"},{"value":"CHF","label":"EUR → CHF (franc suisse)"},{"value":"CAD","label":"EUR → CAD (dollar canadien)"},{"value":"JPY","label":"EUR → JPY (yen japonais)"},{"value":"AUD","label":"EUR → AUD (dollar australien)"}],"multiple":true,"required":true,"default":null}]'::jsonb
+  'Alerte quand l''euro varie de 3 % ou plus sur 7 jours face à une devise que vous suivez (USD, GBP, CHF, CAD, JPY, AUD, et pour les expatriés CNY, SGD, HKD, ILS, BRL, THB, INR, ZAR, MXN). Message factuel, sans conseil. Taux BCE via Frankfurter, sans cle.',
+  'internal', 'official', false, ARRAY['finance', 'expatries'], 160, '[{"key":"devise","label":"Devise (base euro)","type":"enum","values":[{"value":"USD","label":"EUR → USD (dollar américain)"},{"value":"GBP","label":"EUR → GBP (livre sterling)"},{"value":"CHF","label":"EUR → CHF (franc suisse)"},{"value":"CAD","label":"EUR → CAD (dollar canadien)"},{"value":"JPY","label":"EUR → JPY (yen japonais)"},{"value":"AUD","label":"EUR → AUD (dollar australien)"},{"value":"CNY","label":"EUR → CNY (yuan chinois)"},{"value":"SGD","label":"EUR → SGD (dollar de Singapour)"},{"value":"HKD","label":"EUR → HKD (dollar de Hong Kong)"},{"value":"ILS","label":"EUR → ILS (shekel israélien)"},{"value":"BRL","label":"EUR → BRL (réal brésilien)"},{"value":"THB","label":"EUR → THB (baht thaïlandais)"},{"value":"INR","label":"EUR → INR (roupie indienne)"},{"value":"ZAR","label":"EUR → ZAR (rand sud-africain)"},{"value":"MXN","label":"EUR → MXN (peso mexicain)"}],"multiple":true,"required":true,"default":null}]'::jsonb
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'taux-de-change');
-UPDATE sources SET params_schema = '[{"key":"devise","label":"Devise (base euro)","type":"enum","values":[{"value":"USD","label":"EUR → USD (dollar américain)"},{"value":"GBP","label":"EUR → GBP (livre sterling)"},{"value":"CHF","label":"EUR → CHF (franc suisse)"},{"value":"CAD","label":"EUR → CAD (dollar canadien)"},{"value":"JPY","label":"EUR → JPY (yen japonais)"},{"value":"AUD","label":"EUR → AUD (dollar australien)"}],"multiple":true,"required":true,"default":null}]'::jsonb WHERE id = 'taux-de-change';
+UPDATE sources SET params_schema = '[{"key":"devise","label":"Devise (base euro)","type":"enum","values":[{"value":"USD","label":"EUR → USD (dollar américain)"},{"value":"GBP","label":"EUR → GBP (livre sterling)"},{"value":"CHF","label":"EUR → CHF (franc suisse)"},{"value":"CAD","label":"EUR → CAD (dollar canadien)"},{"value":"JPY","label":"EUR → JPY (yen japonais)"},{"value":"AUD","label":"EUR → AUD (dollar australien)"},{"value":"CNY","label":"EUR → CNY (yuan chinois)"},{"value":"SGD","label":"EUR → SGD (dollar de Singapour)"},{"value":"HKD","label":"EUR → HKD (dollar de Hong Kong)"},{"value":"ILS","label":"EUR → ILS (shekel israélien)"},{"value":"BRL","label":"EUR → BRL (réal brésilien)"},{"value":"THB","label":"EUR → THB (baht thaïlandais)"},{"value":"INR","label":"EUR → INR (roupie indienne)"},{"value":"ZAR","label":"EUR → ZAR (rand sud-africain)"},{"value":"MXN","label":"EUR → MXN (peso mexicain)"}],"multiple":true,"required":true,"default":null}]'::jsonb WHERE id = 'taux-de-change';
 
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
 SELECT 'meteo-quebec', 'Météo Québec', 'La région de votre choix',
@@ -1817,9 +1817,9 @@ UPDATE sources SET params_schema = '[{"key":"province","label":"Province","type"
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
 SELECT 'meteo-suisse', 'Météo Suisse romande', 'Le canton de votre choix',
   'Alerte sur les dangers météo de niveau 3 ou plus en Suisse romande (Genève, Vaud, Valais, Neuchâtel, Fribourg, Jura). Données MétéoSuisse.',
-  'internal', 'official', false, ARRAY['vigilance-meteo', 'suisse'], 164, '[{"key":"canton","label":"Canton (Suisse romande)","type":"enum","values":[{"value":"geneve","label":"Genève"},{"value":"vaud","label":"Vaud"},{"value":"valais","label":"Valais"},{"value":"neuchatel","label":"Neuchâtel"},{"value":"fribourg","label":"Fribourg"},{"value":"jura","label":"Jura"}],"multiple":true,"required":true,"default":null}]'::jsonb
+  'internal', 'official', false, ARRAY['vigilance-meteo', 'suisse'], 164, '[{"key":"canton","label":"Canton","type":"enum","values":[{"value":"geneve","label":"Genève"},{"value":"vaud","label":"Vaud"},{"value":"valais","label":"Valais"},{"value":"neuchatel","label":"Neuchâtel"},{"value":"fribourg","label":"Fribourg"},{"value":"jura","label":"Jura"}],"multiple":true,"required":true,"default":null}]'::jsonb
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'meteo-suisse');
-UPDATE sources SET params_schema = '[{"key":"canton","label":"Canton (Suisse romande)","type":"enum","values":[{"value":"geneve","label":"Genève"},{"value":"vaud","label":"Vaud"},{"value":"valais","label":"Valais"},{"value":"neuchatel","label":"Neuchâtel"},{"value":"fribourg","label":"Fribourg"},{"value":"jura","label":"Jura"}],"multiple":true,"required":true,"default":null}]'::jsonb WHERE id = 'meteo-suisse';
+UPDATE sources SET params_schema = '[{"key":"canton","label":"Canton","type":"enum","values":[{"value":"geneve","label":"Genève"},{"value":"vaud","label":"Vaud"},{"value":"valais","label":"Valais"},{"value":"neuchatel","label":"Neuchâtel"},{"value":"fribourg","label":"Fribourg"},{"value":"jura","label":"Jura"}],"multiple":true,"required":true,"default":null}]'::jsonb WHERE id = 'meteo-suisse';
 
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
 SELECT 'cyclones-outremer', 'Cyclones outre-mer', 'Le territoire de votre choix',
@@ -2348,10 +2348,10 @@ WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'francophonie');
 -- Météo Europe PARAMÉTRÉE par pays d'expatriation (MeteoAlarm, orange+, échelle pays).
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
 SELECT 'meteo-europe', 'Météo Europe', 'Le pays d''expatriation de votre choix',
-  'Vigilance météo grave (orange ou rouge) dans le pays d''expatriation de votre choix (Espagne, Allemagne, Italie, Portugal, Grèce, Pays-Bas, Irlande, Luxembourg). Échelle du pays entier : « une vigilance grave quelque part dans le pays ». Données MeteoAlarm (EUMETNET), même flux que la Belgique.',
-  'internal', 'official', false, ARRAY['vigilance-meteo', 'monde', 'expatries'], 330, '[{"key":"pays","label":"Pays","type":"enum","values":[{"value":"espagne","label":"Espagne"},{"value":"allemagne","label":"Allemagne"},{"value":"italie","label":"Italie"},{"value":"portugal","label":"Portugal"},{"value":"grece","label":"Grèce"},{"value":"pays-bas","label":"Pays-Bas"},{"value":"irlande","label":"Irlande"},{"value":"luxembourg","label":"Luxembourg"}],"multiple":true,"required":true,"default":null}]'::jsonb
+  'Vigilance météo grave (orange ou rouge) dans le pays d''expatriation de votre choix (Espagne, Allemagne, Italie, Portugal, Grèce, Pays-Bas, Irlande, Luxembourg, Royaume-Uni, Suède, Norvège, Danemark, Autriche). Échelle du pays entier : « une vigilance grave quelque part dans le pays ». Données MeteoAlarm (EUMETNET), même flux que la Belgique.',
+  'internal', 'official', false, ARRAY['vigilance-meteo', 'monde', 'expatries'], 330, '[{"key":"pays","label":"Pays","type":"enum","values":[{"value":"espagne","label":"Espagne"},{"value":"allemagne","label":"Allemagne"},{"value":"italie","label":"Italie"},{"value":"portugal","label":"Portugal"},{"value":"grece","label":"Grèce"},{"value":"pays-bas","label":"Pays-Bas"},{"value":"irlande","label":"Irlande"},{"value":"luxembourg","label":"Luxembourg"},{"value":"royaume-uni","label":"Royaume-Uni"},{"value":"suede","label":"Suède"},{"value":"norvege","label":"Norvège"},{"value":"danemark","label":"Danemark"},{"value":"autriche","label":"Autriche"}],"multiple":true,"required":true,"default":null}]'::jsonb
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'meteo-europe');
-UPDATE sources SET params_schema = '[{"key":"pays","label":"Pays","type":"enum","values":[{"value":"espagne","label":"Espagne"},{"value":"allemagne","label":"Allemagne"},{"value":"italie","label":"Italie"},{"value":"portugal","label":"Portugal"},{"value":"grece","label":"Grèce"},{"value":"pays-bas","label":"Pays-Bas"},{"value":"irlande","label":"Irlande"},{"value":"luxembourg","label":"Luxembourg"}],"multiple":true,"required":true,"default":null}]'::jsonb WHERE id = 'meteo-europe';
+UPDATE sources SET params_schema = '[{"key":"pays","label":"Pays","type":"enum","values":[{"value":"espagne","label":"Espagne"},{"value":"allemagne","label":"Allemagne"},{"value":"italie","label":"Italie"},{"value":"portugal","label":"Portugal"},{"value":"grece","label":"Grèce"},{"value":"pays-bas","label":"Pays-Bas"},{"value":"irlande","label":"Irlande"},{"value":"luxembourg","label":"Luxembourg"},{"value":"royaume-uni","label":"Royaume-Uni"},{"value":"suede","label":"Suède"},{"value":"norvege","label":"Norvège"},{"value":"danemark","label":"Danemark"},{"value":"autriche","label":"Autriche"}],"multiple":true,"required":true,"default":null}]'::jsonb WHERE id = 'meteo-europe';
 
 -- Release crates.io (Rust), PARAMÉTRÉE par crate.
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
@@ -2807,3 +2807,223 @@ SELECT 'recensement-citoyen', 'Recensement citoyen', 'Le rappel des 16 ans',
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'recensement-citoyen');
 INSERT INTO source_states (source_id) SELECT 'recensement-citoyen'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'recensement-citoyen');
+
+-- ── Vague outre-mer & expatriés (nouvelles sources A, B, J, D). display_order 384+.
+
+-- A. Commémorations LOCALES de l'abolition de l'esclavage, PARAMÉTRÉES par territoire.
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
+SELECT 'commemorations-outremer', 'Commémorations outre-mer', 'L''abolition de l''esclavage, par territoire',
+  'La date locale de commémoration de l''abolition de l''esclavage pour le territoire de votre choix : Guadeloupe (27 mai), Martinique (22 mai), Guyane (10 juin), La Réunion (20 décembre, Fèt Kaf), Mayotte (27 avril). Distincte de la journée nationale du 10 mai.',
+  'internal', 'official', false, ARRAY['memoire', 'outre-mer'], 384, '[{"key":"territoire","label":"Territoire","type":"enum","values":[{"value":"guadeloupe","label":"Guadeloupe"},{"value":"martinique","label":"Martinique"},{"value":"guyane","label":"Guyane"},{"value":"reunion","label":"La Réunion"},{"value":"mayotte","label":"Mayotte"}],"multiple":true,"required":true,"default":null}]'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'commemorations-outremer');
+UPDATE sources SET params_schema = '[{"key":"territoire","label":"Territoire","type":"enum","values":[{"value":"guadeloupe","label":"Guadeloupe"},{"value":"martinique","label":"Martinique"},{"value":"guyane","label":"Guyane"},{"value":"reunion","label":"La Réunion"},{"value":"mayotte","label":"Mayotte"}],"multiple":true,"required":true,"default":null}]'::jsonb WHERE id = 'commemorations-outremer';
+INSERT INTO source_states (source_id) SELECT 'commemorations-outremer'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'commemorations-outremer');
+
+-- B. Ouverture / fermeture officielle de la saison cyclonique par bassin (broadcast).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'saison-cyclonique', 'Saison cyclonique', 'Ouverture et fermeture officielles par bassin',
+  'Les bornes officielles de la saison cyclonique (Météo-France) : bassin Atlantique (Antilles, Guyane) du 1er juin au 30 novembre ; bassin Océan Indien (La Réunion, Mayotte) du 15 novembre au 30 avril. Repère de calendrier informatif, pas une alerte de vigilance en temps réel.',
+  'internal', 'official', false, ARRAY['meteo', 'outre-mer'], 385
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'saison-cyclonique');
+INSERT INTO source_states (source_id) SELECT 'saison-cyclonique'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'saison-cyclonique');
+
+-- J. Soldes en outre-mer, PARAMÉTRÉES par territoire (arrêté du 27 mai 2019).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
+SELECT 'soldes-outremer', 'Soldes outre-mer', 'Les dates propres à votre territoire',
+  'Les dates de soldes (4 semaines) pour le territoire d''outre-mer de votre choix, selon les règles dérogatoires de l''arrêté du 27 mai 2019 : Guadeloupe, Martinique, Guyane, La Réunion (saisons australes), Mayotte, Saint-Pierre-et-Miquelon, Saint-Barthélemy, Saint-Martin.',
+  'internal', 'official', false, ARRAY['soldes', 'outre-mer'], 386, '[{"key":"territoire","label":"Territoire","type":"enum","values":[{"value":"guadeloupe","label":"Guadeloupe"},{"value":"martinique","label":"Martinique"},{"value":"guyane","label":"Guyane"},{"value":"reunion","label":"La Réunion"},{"value":"mayotte","label":"Mayotte"},{"value":"saint-pierre-et-miquelon","label":"Saint-Pierre-et-Miquelon"},{"value":"saint-barthelemy","label":"Saint-Barthélemy"},{"value":"saint-martin","label":"Saint-Martin"}],"multiple":true,"required":true,"default":null}]'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'soldes-outremer');
+UPDATE sources SET params_schema = '[{"key":"territoire","label":"Territoire","type":"enum","values":[{"value":"guadeloupe","label":"Guadeloupe"},{"value":"martinique","label":"Martinique"},{"value":"guyane","label":"Guyane"},{"value":"reunion","label":"La Réunion"},{"value":"mayotte","label":"Mayotte"},{"value":"saint-pierre-et-miquelon","label":"Saint-Pierre-et-Miquelon"},{"value":"saint-barthelemy","label":"Saint-Barthélemy"},{"value":"saint-martin","label":"Saint-Martin"}],"multiple":true,"required":true,"default":null}]'::jsonb WHERE id = 'soldes-outremer';
+INSERT INTO source_states (source_id) SELECT 'soldes-outremer'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'soldes-outremer');
+
+-- D. Tours cyclistes d'outre-mer (source EN SOMMEIL : dates 2027 à transcrire).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'tours-cyclistes-outremer', 'Tours cyclistes outre-mer', 'Guadeloupe, Martinique…',
+  'Les grands tours cyclistes d''outre-mer (Tour de la Guadeloupe, Tour de la Martinique). Source en attente des calendriers officiels 2027 : elle s''activera dès que les dates seront publiées (aucune date présumée).',
+  'internal', 'official', false, ARRAY['cyclisme', 'sport', 'outre-mer'], 387
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'tours-cyclistes-outremer');
+INSERT INTO source_states (source_id) SELECT 'tours-cyclistes-outremer'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'tours-cyclistes-outremer');
+
+-- ── Vague consommation / santé / réglementaire (5 sources RSS & INSEE). display_order 388+.
+
+-- 1. ANSM : alertes médicaments & dispositifs médicaux (broadcast RSS, complète RappelConso).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'ansm-rappels-medicaments', 'Alertes ANSM', 'Médicaments & dispositifs médicaux',
+  'Alerte quand l''ANSM publie une actualité ou une information de sécurité (ruptures et disponibilité de médicaments, retraits, signaux de sécurité sur les dispositifs médicaux). Complète RappelConso, qui exclut le médicament. Source officielle ansm.sante.fr.',
+  'internal', 'official', false, ARRAY['medicaments', 'sante', 'rappels-produits'], 388
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'ansm-rappels-medicaments');
+INSERT INTO source_states (source_id) SELECT 'ansm-rappels-medicaments'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'ansm-rappels-medicaments');
+
+-- 2. Prix de l'alimentation (INSEE IPC poste 01.1, glissement annuel mensuel).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'ipc-alimentaire', 'Prix de l''alimentation', 'L''inflation alimentaire, chaque mois',
+  'À chaque publication mensuelle de l''INSEE : l''évolution des prix de l''alimentation (indice des prix à la consommation, produits alimentaires) sur un an, en un chiffre. Sans commentaire.',
+  'internal', 'official', false, ARRAY['consommation', 'alimentation', 'inflation'], 389
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'ipc-alimentaire');
+INSERT INTO source_states (source_id) SELECT 'ipc-alimentaire'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'ipc-alimentaire');
+
+-- 3. Prix des logements anciens (INSEE-Notaires, glissement annuel trimestriel).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'prix-logements-anciens', 'Prix de l''immobilier ancien', 'L''indice INSEE-Notaires, chaque trimestre',
+  'À chaque publication trimestrielle définitive de l''indice INSEE-Notaires des prix des logements anciens (France) : l''évolution sur un an, en un chiffre. Sans commentaire.',
+  'internal', 'official', false, ARRAY['immobilier', 'logement', 'consommation'], 390
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'prix-logements-anciens');
+INSERT INTO source_states (source_id) SELECT 'prix-logements-anciens'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'prix-logements-anciens');
+
+-- 4. Actualités officielles service-public.gouv.fr (broadcast RSS, per-item).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'service-public-actualites', 'Actualités service-public', 'Les nouveautés pratiques du quotidien',
+  'Les actualités officielles de service-public.gouv.fr pour les particuliers, au fil de l''eau (démarches, aides, tarifs réglementés, droits). Distincte du rappel calendaire « Ce qui change au 1er du mois » : ici chaque annonce individuelle.',
+  'internal', 'official', false, ARRAY['vie-pratique', 'consommation', 'reglementation'], 391
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'service-public-actualites');
+INSERT INTO source_states (source_id) SELECT 'service-public-actualites'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'service-public-actualites');
+
+-- 5. Alertes consommateurs UFC-Que Choisir (broadcast RSS filtré).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'ufc-que-choisir-actions', 'Alertes UFC-Que Choisir', 'Rappels, arnaques, actions de groupe',
+  'Les alertes consommateurs d''UFC-Que Choisir (rappels de produits, arnaques, mises en garde, actions de groupe). Flux filtré sur les contenus d''alerte pour éviter le bruit. Source quechoisir.org.',
+  'internal', 'official', false, ARRAY['consommation', 'arnaques'], 392
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'ufc-que-choisir-actions');
+INSERT INTO source_states (source_id) SELECT 'ufc-que-choisir-actions'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'ufc-que-choisir-actions');
+
+-- ── Vague mode & concerts (2 sources calculées calendar-factory). display_order 393+.
+
+-- Semaines de la mode & salons pro (distinct de fashion-week = PAP femme Paris).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'semaines-mode', 'Semaines de la mode', 'Fashion weeks & salons pro',
+  'Le calendrier des grandes semaines de la mode et salons professionnels : Paris (Haute Couture, Homme), Milan (Moda Donna, Moda Uomo), Who''s Next, Maison & Objet. Dates officielles des organisateurs (fhcm.paris, cameramoda.it…).',
+  'internal', 'official', false, ARRAY['mode', 'culture'], 393
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'semaines-mode');
+INSERT INTO source_states (source_id) SELECT 'semaines-mode'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'semaines-mode');
+
+-- Grands concerts : têtes d'affiche en France, dates officielles 2027 (billetterie/salle).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'grands-concerts', 'Grands concerts', 'Les têtes d''affiche en France',
+  'Un rappel à l''approche des concerts des grandes têtes d''affiche en France (Florent Pagny, Gims, Karol G, Olivia Rodrigo, Niska, SCH, Blink-182, Grand Corps Malade…). Dates officielles des billetteries et salles.',
+  'internal', 'official', false, ARRAY['musique', 'concerts', 'culture'], 394
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'grands-concerts');
+INSERT INTO source_states (source_id) SELECT 'grands-concerts'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'grands-concerts');
+
+-- ── Vague journées & semaines thématiques (7 sources calculées). display_order 395+.
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'sante-prevention', 'Prévention santé', 'Journées & semaines de prévention',
+  'Les grands rendez-vous de prévention santé : journée de la santé mentale (10 octobre), journée sans tabac (31 mai), semaine du cerveau, semaine de la vaccination, mobilisation don de moelle osseuse. Distinct des campagnes Octobre Rose / Movember / Téléthon.',
+  'internal', 'official', false, ARRAY['sante'], 395
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'sante-prevention');
+INSERT INTO source_states (source_id) SELECT 'sante-prevention'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'sante-prevention');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'journees-environnement', 'Journées environnement', 'Terre, océans, biodiversité, nature',
+  'Les journées de l''environnement : Jour de la Terre (22 avril), biodiversité (22 mai), environnement (5 juin), océans (8 juin), Fête de la Nature. Distinct des rendez-vous écolo (Heure de la Terre, World Cleanup Day) et du Jour du dépassement.',
+  'internal', 'official', false, ARRAY['environnement'], 396
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'journees-environnement');
+INSERT INTO source_states (source_id) SELECT 'journees-environnement'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'journees-environnement');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'numerique-cyber', 'Numérique & cyber', 'Données, mots de passe, Cybermois',
+  'Les rendez-vous du numérique et de la cybersécurité : journée de la protection des données (28 janvier), World Password Day (1er jeudi de mai), Cybermois (octobre). Repères de sensibilisation.',
+  'internal', 'official', false, ARRAY['cybersecurite', 'numerique', 'securite'], 397
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'numerique-cyber');
+INSERT INTO source_states (source_id) SELECT 'numerique-cyber'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'numerique-cyber');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'mobilite-douce', 'Mobilité douce', 'Vélo, marche, sans voiture',
+  'Les rendez-vous de la mobilité douce : Semaine européenne de la mobilité (16-22 septembre), Journée sans voiture (22 septembre), Mai à vélo. Pour se déplacer autrement.',
+  'internal', 'official', false, ARRAY['transports', 'environnement'], 398
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'mobilite-douce');
+INSERT INTO source_states (source_id) SELECT 'mobilite-douce'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'mobilite-douce');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'civisme-solidarite', 'Civisme & solidarité', 'Aidants, handicap & emploi',
+  'Les rendez-vous du civisme et de la solidarité : Journée nationale des aidants (6 octobre), Semaine européenne pour l''emploi des personnes handicapées (SEEPH). Distinct des grandes causes (Téléthon…).',
+  'internal', 'official', false, ARRAY['solidarite', 'civisme'], 399
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'civisme-solidarite');
+INSERT INTO source_states (source_id) SELECT 'civisme-solidarite'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'civisme-solidarite');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'sport-participatif', 'Sport pour tous', 'Journée olympique, SOP',
+  'Les rendez-vous du sport participatif : Journée olympique (23 juin), Semaine olympique et paralympique (SOP). Le sport pour toutes et tous, distinct des grands rendez-vous du sport d''élite.',
+  'internal', 'official', false, ARRAY['sport', 'jeunesse'], 400
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'sport-participatif');
+INSERT INTO source_states (source_id) SELECT 'sport-participatif'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'sport-participatif');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'journees-civiques-mondiales', 'Journées civiques mondiales', 'Droits, paix, démocratie, presse',
+  'Une sélection courte de grandes journées civiques mondiales (ONU) : liberté de la presse (3 mai), démocratie (15 septembre), paix (21 septembre), philosophie (3e jeudi de novembre), droits de l''homme (10 décembre). Le jour J uniquement.',
+  'internal', 'official', false, ARRAY['civisme', 'vie-locale'], 401
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'journees-civiques-mondiales');
+INSERT INTO source_states (source_id) SELECT 'journees-civiques-mondiales'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'journees-civiques-mondiales');
+
+-- ── Vague salons & journées thématiques (5 sources calculées). display_order 402+.
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'gastronomie-terroir', 'Gastronomie & terroir', 'Salons, foires & journées food',
+  'Les rendez-vous de la gastronomie et de l''agriculture : Salon du Chocolat, Concours Général Agricole, Sommet de l''Élevage, Foire de Châlons, journées mondiales de l''alimentation (16 octobre) et des abeilles (20 mai).',
+  'internal', 'official', false, ARRAY['gastronomie', 'agriculture'], 402
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'gastronomie-terroir');
+INSERT INTO source_states (source_id) SELECT 'gastronomie-terroir'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'gastronomie-terroir');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'patrimoine-nature', 'Patrimoine & nature', 'Monuments, forêts, métiers d''art',
+  'Les journées et salons du patrimoine et de la nature : faune sauvage (3 mars), forêts (21 mars), monuments et sites (18 avril), Jour de la Nuit, Nuit de la chauve-souris, Journées des Métiers d''Art (JEMA), Salon du Patrimoine. Distinct des journées environnement.',
+  'internal', 'official', false, ARRAY['patrimoine', 'nature'], 403
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'patrimoine-nature');
+INSERT INTO source_states (source_id) SELECT 'patrimoine-nature'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'patrimoine-nature');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'entrepreneuriat-seniors', 'Entrepreneuriat', 'Salons pro, industrie & 3e âge',
+  'Les temps forts de l''entrepreneuriat et de la vie économique : GO Entrepreneurs (Lyon, Paris), BIG by Bpifrance, Semaine de l''industrie, et la journée internationale des personnes âgées (1er octobre).',
+  'internal', 'official', false, ARRAY['entrepreneuriat', 'seniors'], 404
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'entrepreneuriat-seniors');
+INSERT INTO source_states (source_id) SELECT 'entrepreneuriat-seniors'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'entrepreneuriat-seniors');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'revalorisation-retraite', 'Revalorisation retraites', 'Base (1er janvier) & Agirc-Arrco (1er novembre)',
+  'Les deux rendez-vous annuels de revalorisation des retraites : retraite de base au 1er janvier (taux annoncé en décembre) et complémentaire Agirc-Arrco au 1er novembre. Sans montant ni taux présumé.',
+  'internal', 'official', false, ARRAY['retraite', 'seniors'], 405
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'revalorisation-retraite');
+INSERT INTO source_states (source_id) SELECT 'revalorisation-retraite'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'revalorisation-retraite');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'innovation-civile', 'Innovation civile', 'Propriété intellectuelle & aviation',
+  'Deux journées internationales : la propriété intellectuelle (26 avril, OMPI) et l''aviation civile (7 décembre, OACI). Repères de sensibilisation.',
+  'internal', 'official', false, ARRAY['innovation', 'numerique'], 406
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'innovation-civile');
+INSERT INTO source_states (source_id) SELECT 'innovation-civile'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'innovation-civile');
+
+-- ── Vague sport & barèmes auto. display_order 407+.
+-- (Les extensions grands-rendez-vous-sportifs et grands-salons sont code-only,
+--  aucune modification de base requise.)
+
+-- Barèmes automobiles à date fixe (malus écologique au 1er janvier, sans montant).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'baremes-auto', 'Barèmes auto', 'Malus écologique au 1er janvier',
+  'Un rappel des barèmes automobiles à date fixe : le malus écologique (CO₂/masse) est révisé au 1er janvier par la loi de finances. On annonce l''échéance, sans présumer les montants.',
+  'internal', 'official', false, ARRAY['automobile', 'impots'], 407
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'baremes-auto');
+INSERT INTO source_states (source_id) SELECT 'baremes-auto'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'baremes-auto');

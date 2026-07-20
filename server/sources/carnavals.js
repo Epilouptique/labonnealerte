@@ -9,8 +9,17 @@
 //     Carnaval publie son calendrier ~3 mois avant. Mardi Gras 2027 = 2 mars, mais les
 //     dates exactes des bandes ne sont pas officielles → TODO (aucune date inventée).
 //
+//   - Carnavals des ANTILLES / GUYANE 2027 : les « jours gras » (Dimanche Gras →
+//     Mercredi des Cendres) sont liturgiques, donc calculables avec certitude à
+//     partir de Pâques 2027 (28 mars) → Mardi Gras = 9 février 2027. Jours gras
+//     2027 = du dimanche 7 au mercredi 10 février (identiques pour Guadeloupe,
+//     Martinique et Guyane). Le programme détaillé (parades, Vaval…) varie par
+//     commune → non transcrit ici (TODO si besoin ultérieur), on annonce les dates
+//     clés du carnaval, pas l'agenda complet.
+//
 // ⚠️ TODO : ajouter Dunkerque 2027 dès le calendrier officiel du Comité ; recurer Nice
-// chaque année ; reconfirmer Nice 2027 sur nicecarnaval.com.
+// chaque année ; reconfirmer Nice 2027 sur nicecarnaval.com ; recaler les jours gras
+// antillais chaque année sur la date de Pâques.
 const { createCalendarSource } = require('./lib/calendar-factory');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -18,6 +27,11 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 // { ville, annee, début m/d, fin m/d (dernier jour inclus) }.
 const CARNAVALS = [
   { ville: 'Nice', annee: 2027, m1: 1, d1: 9, m2: 1, d2: 28 },
+  // Jours gras 2027 (Dimanche Gras → Mercredi des Cendres) — Antilles & Guyane.
+  // NB : m1/m2 sont des index de mois 0-based (février = 1), comme pour Nice.
+  { ville: 'la Guadeloupe', annee: 2027, m1: 1, d1: 7, m2: 1, d2: 10 },
+  { ville: 'la Martinique', annee: 2027, m1: 1, d1: 7, m2: 1, d2: 10 },
+  { ville: 'la Guyane', annee: 2027, m1: 1, d1: 7, m2: 1, d2: 10 },
 ];
 
 function events(now) {

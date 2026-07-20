@@ -31,7 +31,7 @@ CANTONS.forEach((c) => { BY_VALUE[c.value] = c; });
 const paramsSchema = [
   {
     key: 'canton',
-    label: 'Canton (Suisse romande)',
+    label: 'Canton',
     type: 'enum',
     values: CANTONS.map((c) => ({ value: c.value, label: c.label })),
     multiple: true,

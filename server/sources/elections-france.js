@@ -37,6 +37,10 @@
 //     C'est précisément la raison pour laquelle ELECTIONS reste VIDE : on n'active
 //     qu'après publication du décret de convocation. Ne pas casser cette règle,
 //     ne pas préinscrire les dates 2027 tant que le décret n'est pas paru.
+//   • Vague outre-mer/expatriés : le volet CONSULAIRE (Français de l'étranger,
+//     kind 'inscription-consulaire', 6e vendredi avant T1, art. L. 30) est DÉJÀ
+//     prévu dans le TODO ci-dessus — rien à dupliquer ici, il s'activera avec le
+//     même décret de convocation.
 
 const { createCalendarSource, formatAvecJour } = require('./lib/calendar-factory');
 
