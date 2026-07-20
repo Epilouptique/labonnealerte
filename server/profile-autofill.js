@@ -8,17 +8,63 @@
 //   PAS comme un changement de pseudo (aucune écriture dans display_name_changes).
 // - country : déduit de l'IP via geoip-lite (dataset LOCAL, zéro appel réseau, aucune clé).
 //   Mappé sur un code autorisé, sinon « AUTRE ». L'IP n'est PAS conservée pour cet usage.
-// - departement : JAMAIS pré-rempli automatiquement. Le pré-remplissage via geoip-lite a
-//   été retiré : testé en réel (Gap → « Champs-sur-Marne », area:20, sous le seuil de
-//   confiance mais faux de ~600 km), il a prouvé que le champ `area` de geoip mesure la
-//   CONFIANCE de l'estimation, pas son EXACTITUDE — aucun seuil ne fiabilise cette donnée
-//   au niveau département. Le champ reste NULL par défaut, à saisir manuellement dans Mon
-//   compte. Le plus-proche-voisin (departements-geo.js) est conservé intact pour un usage
-//   futur sur une source fiable (ex. géolocalisation navigateur consentie).
+// - departement : PRÉ-REMPLI depuis le code postal IPLocate, sur la vraie IP du visiteur.
+//   Historique : le pré-remplissage via geoip-lite avait été retiré (le champ `area`
+//   mesure la confiance, pas l'exactitude — Gap→Champs-sur-Marne area 20, faux de 600 km).
+//   Rouvert sur une base fiable : Cloudflare en frontal transmet l'IPv6 réelle du visiteur
+//   (clientIp() sécurisée par ORIGIN_SECRET), et IPLocate en donne le code postal EXACT
+//   (Gap→05000, confirmé en réel). On dérive le département du postal (pas d'estimation par
+//   distance : departements-geo.js reste dormant/inutilisé). Garde « vide > faux » :
+//   résolution absente / hors FR / postal manquant ou invalide → NULL. Champ éditable,
+//   jamais activant. Écriture limitée à subscribers.
 
+const https = require('https');
 const geoip = require('geoip-lite');
 const { validateDisplayName } = require('./ugc');
-const { isValidCountry } = require('./geo');
+const { isValidCountry, isValidDepartement } = require('./geo');
+
+// Dérive un code département FR depuis un code postal (IPLocate le fournit exact).
+//  · Métropole : 2 premiers chiffres (75001→75, 05000→05).
+//  · Corse (20xxx) : split par plage de code postal — 2A (Corse-du-Sud) < 20200,
+//    2B (Haute-Corse) >= 20200. Règle approximative (quelques communes frontalières
+//    dérogent) mais sans conséquence : champ éditable, priorité « vide > faux ».
+//  · DROM (97xxx) : 3 premiers chiffres (971..976). 98xxx (COM) non valides → rejetés.
+// Le résultat est TOUJOURS validé par isValidDepartement() ; sinon null (échec propre).
+function departementFromPostal(postal) {
+  const p = String(postal == null ? '' : postal).trim();
+  if (!/^\d{5}$/.test(p)) return null;
+  let code;
+  if (p.startsWith('20')) code = parseInt(p, 10) < 20200 ? '2A' : '2B';
+  else if (p.startsWith('97') || p.startsWith('98')) code = p.slice(0, 3);
+  else code = p.slice(0, 2);
+  return isValidDepartement(code) ? code : null;
+}
+
+// Lookup IPLocate best-effort, non bloquant, timeout court. Renvoie l'objet JSON ou null
+// (erreur réseau / timeout / parse). Réutilise le même endpoint que scripts/test-iplocate
+// et le middleware [ip-geo-diag] ; clé optionnelle via IPLOCATE_APIKEY.
+function iplocateLookup(ip, timeoutMs = 2500) {
+  return new Promise((resolve) => {
+    if (!ip) return resolve(null);
+    const key = process.env.IPLOCATE_APIKEY || '';
+    const url = 'https://iplocate.io/api/lookup/' + encodeURIComponent(ip) +
+      (key ? '?apikey=' + encodeURIComponent(key) : '');
+    const r = https.get(url, (resp) => {
+      let d = '';
+      resp.on('data', (c) => (d += c));
+      resp.on('end', () => { try { resolve(JSON.parse(d)); } catch (e) { resolve(null); } });
+    });
+    r.on('error', () => resolve(null));
+    r.setTimeout(timeoutMs, () => { r.destroy(); resolve(null); });
+  });
+}
+
+// Département FR pré-rempli à partir de l'IP via IPLocate (null si non résolu fiablement).
+async function departementFromIp(ip) {
+  const geo = await iplocateLookup(ip);
+  if (!geo || geo.country_code !== 'FR') return null;
+  return departementFromPostal(geo.postal_code);
+}
 
 // "hugo.vialjaime@x" → "Hugo" ; "jean-marc42@x" → "Jean-marc" ; s'arrête au 1er point/chiffre.
 function deriveDisplayNameFromEmail(email) {
@@ -139,7 +185,7 @@ function clientIp(req) {
 async function applyAutofill(pool, subscriberId, ctx) {
   try {
     const cur = await pool.query(
-      'SELECT display_name, country FROM subscribers WHERE id = $1',
+      'SELECT display_name, country, departement FROM subscribers WHERE id = $1',
       [subscriberId]
     );
     const row = cur.rows[0];
@@ -149,7 +195,8 @@ async function applyAutofill(pool, subscriberId, ctx) {
       await trySetDisplayName(pool, subscriberId, ctx.nameHint);
     }
 
-    // Pays : déduit de l'IP si non renseigné.
+    // Pays : déduit de l'IP via geoip-lite si non renseigné (INCHANGÉ, fiable).
+    let effectiveCountry = row.country;
     if (row.country == null && ctx && ctx.ip) {
       const code = countryFromIp(ctx.ip);
       if (code) {
@@ -157,11 +204,24 @@ async function applyAutofill(pool, subscriberId, ctx) {
           "UPDATE subscribers SET country = $1, country_source = 'auto' WHERE id = $2 AND country IS NULL",
           [code, subscriberId]
         );
+        effectiveCountry = code;
       }
     }
 
-    // Département : JAMAIS pré-rempli automatiquement (voir en-tête du fichier). Reste
-    // NULL jusqu'à saisie manuelle dans Mon compte.
+    // Département : pré-rempli via IPLocate (code postal exact) UNIQUEMENT si le pays
+    // effectif est FR et le champ encore vide. Appel non bloquant (timeout court) : si
+    // IPLocate est lent/indisponible ou ne résout rien de fiable → on laisse NULL, aucune
+    // erreur. Écriture LIMITÉE à subscribers (departement + departement_source) : rien
+    // dans subscriptions ni source_param_states → aucune activation d'alerte.
+    if (row.departement == null && effectiveCountry === 'FR' && ctx && ctx.ip) {
+      const dep = await departementFromIp(ctx.ip);
+      if (dep) {
+        await pool.query(
+          "UPDATE subscribers SET departement = $1, departement_source = 'auto' WHERE id = $2 AND departement IS NULL",
+          [dep, subscriberId]
+        );
+      }
+    }
   } catch (err) {
     console.warn('[profile-autofill] non bloquant :', err.message);
   }
@@ -172,6 +232,8 @@ module.exports = {
   deriveDisplayNameFromEmail,
   deriveDisplayNameFromGithub,
   countryFromIp,
+  departementFromPostal,
+  departementFromIp,
   clientIp,
   isPrivateIp,
   _trySetDisplayName: trySetDisplayName,
