@@ -61,6 +61,21 @@ function events(now) {
     out.push({ kind: 'refund', start: d, end: new Date(d.getTime() + DAY_MS) });
   }
 
+  // (4) Ouverture de la déclaration de revenus en ligne (kind 'declaration'),
+  //     distincte des dates LIMITES ci-dessus. La date d'ouverture varie chaque
+  //     année (mi-avril : 9 avril en 2026, 10 avril en 2025) — JAMAIS présumée.
+  //     ⚠️ TODO : date 2027 NON annoncée à l'exploration → ajouter l'ISO dans
+  //     OUVERTURE_DECLARATION dès l'annonce officielle impots.gouv.fr. Tant que la
+  //     table est vide pour l'année, aucune entrée active (pas de fausse alerte).
+  const OUVERTURE_DECLARATION = {
+    // 2027: '2027-04-XX', // ⚠️ à confirmer sur impots.gouv.fr avant activation
+  };
+  const declIso = OUVERTURE_DECLARATION[now.getFullYear()];
+  if (declIso) {
+    const d = ymd(declIso);
+    out.push({ kind: 'declaration', start: d, end: new Date(d.getTime() + DAY_MS) });
+  }
+
   return out
     .filter(function (e) { return e.end.getTime() >= now.getTime(); })
     .sort(function (a, b) { return a.start - b.start; });
@@ -77,6 +92,9 @@ module.exports = createCalendarSource({
     }
     if (ev.kind === 'refund') {
       return '💶 Le remboursement d\'impôt arrive sur votre compte cette semaine, si vous avez un trop-perçu.';
+    }
+    if (ev.kind === 'declaration') {
+      return '💶 Ouverture de la déclaration de revenus en ligne : le service est accessible sur impots.gouv.fr.';
     }
     const precision = ev.secondaires ? ' (résidences secondaires uniquement)' : '';
     return '💶 ' + ev.label + precision + ' : jusqu\'au ' + formatJourMois(ev.paper) +

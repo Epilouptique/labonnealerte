@@ -2722,3 +2722,81 @@ ON CONFLICT (collection_id, source_id) DO UPDATE SET default_params = EXCLUDED.d
 INSERT INTO collection_items (collection_id, source_id, default_params, position)
 VALUES ('pack-quebec', 'education-quebec', NULL, 8)
 ON CONFLICT (collection_id, source_id) DO UPDATE SET default_params = EXCLUDED.default_params, position = EXCLUDED.position;
+
+-- ── Vague prestations sociales & vie étudiante (sources calculées calendar-factory).
+-- display_order en plage 376+.
+
+-- Dates de versement des prestations CAF (table annuelle en dur, décalages réels).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'versement-prestations-caf', 'Versement CAF', 'Le rappel de la date de virement',
+  'Un rappel la veille du versement mensuel des prestations CAF (autour du 5, avec les décalages réels week-end/fériés). Aucun montant : information collective, jamais individuelle. Dates officielles caf.fr.',
+  'internal', 'official', false, ARRAY['caf', 'allocations', 'social'], 376
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'versement-prestations-caf');
+INSERT INTO source_states (source_id) SELECT 'versement-prestations-caf'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'versement-prestations-caf');
+
+-- Revalorisations annuelles des prestations sociales (1er avril & 1er octobre).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'revalorisation-prestations-sociales', 'Revalorisation des aides', 'RSA, primes, allocations, APL',
+  'Les deux rendez-vous annuels de revalorisation : 1er avril (RSA, prime d''activité, allocations familiales) et 1er octobre (APL). Sans montant, avec la précision des effets réels sur les versements.',
+  'internal', 'official', false, ARRAY['allocations', 'social', 'aides'], 377
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'revalorisation-prestations-sociales');
+INSERT INTO source_states (source_id) SELECT 'revalorisation-prestations-sociales'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'revalorisation-prestations-sociales');
+
+-- Calendrier Parcoursup (dates officielles codées par session).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'parcoursup', 'Parcoursup', 'Les échéances de la procédure',
+  'Les grandes échéances de Parcoursup : ouverture et date limite des vœux, confirmation, début des réponses d''admission. Dates officielles parcoursup.gouv.fr.',
+  'internal', 'official', false, ARRAY['parcoursup', 'formations', 'examens'], 378
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'parcoursup');
+INSERT INTO source_states (source_id) SELECT 'parcoursup'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'parcoursup');
+
+-- Dossier Social Étudiant (DSE) du CROUS (bourse + logement).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'crous-dse', 'Bourse & logement Crous', 'La campagne du Dossier Social Étudiant',
+  'L''ouverture et la date limite recommandée du Dossier Social Étudiant (demande de bourse sur critères sociaux et de logement Crous). Dates officielles lescrous.fr/dse.',
+  'internal', 'official', false, ARRAY['bourses', 'aides', 'formations'], 379
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'crous-dse');
+INSERT INTO source_states (source_id) SELECT 'crous-dse'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'crous-dse');
+
+-- ── Vague échéances administratives (suite : items 5-8, calendar-factory).
+-- display_order en plage 380+.
+
+-- Bourses de collège et de lycée (date limite unique codée par campagne).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'bourses-scolaires', 'Bourses collège & lycée', 'La date limite de demande',
+  'Un rappel avant la date limite de demande de bourse de collège et de lycée (dossier en ligne à la rentrée). Dates officielles education.gouv.fr.',
+  'internal', 'official', false, ARRAY['bourses', 'aides', 'formations'], 380
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'bourses-scolaires');
+INSERT INTO source_states (source_id) SELECT 'bourses-scolaires'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'bourses-scolaires');
+
+-- Cotisation Foncière des Entreprises (CFE) — public professionnel uniquement.
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'cfe-entreprises', 'CFE des entreprises', 'L''échéance du 15 décembre',
+  'Pour les professionnels soumis à la CFE (indépendants, auto-entrepreneurs, TPE) : rappel avant la date limite de paiement du 15 décembre (majoration de 5 % au-delà). Avis en ligne dans l''espace professionnel impots.gouv.fr.',
+  'internal', 'official', false, ARRAY['impots', 'finance', 'creation-entreprise'], 381
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'cfe-entreprises');
+INSERT INTO source_states (source_id) SELECT 'cfe-entreprises'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'cfe-entreprises');
+
+-- Actualisation mensuelle France Travail (fenêtre générique du 28 au 15).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'actualisation-france-travail', 'Actualisation France Travail', 'La fenêtre mensuelle de déclaration',
+  'Un rappel de la fenêtre mensuelle d''actualisation France Travail (ouverte du 28 au 15 du mois suivant). Information collective, sans aucune donnée personnelle ni montant.',
+  'internal', 'official', false, ARRAY['emploi', 'allocations'], 382
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'actualisation-france-travail');
+INSERT INTO source_states (source_id) SELECT 'actualisation-france-travail'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'actualisation-france-travail');
+
+-- Recensement citoyen à 16 ans (rappel pédagogique annuel de rentrée).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'recensement-citoyen', 'Recensement citoyen', 'Le rappel des 16 ans',
+  'Un rappel pédagogique à chaque rentrée : tout jeune de 16 ans doit se faire recenser (mairie ou en ligne), utile pour le bac et le permis. Sans aucune date individuelle ni donnée personnelle.',
+  'internal', 'official', false, ARRAY['vie-locale', 'administration', 'social'], 383
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'recensement-citoyen');
+INSERT INTO source_states (source_id) SELECT 'recensement-citoyen'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'recensement-citoyen');

@@ -21,6 +21,22 @@
 //       du scrutin → { start: <6e vendredi avant T1>, kind: 'inscription-consulaire' }.
 //   NE RIEN inscrire tant que le décret n'est pas publié (une date fausse est
 //   inacceptable ; une source qui dort est acceptable).
+//
+// ── MÉCANIQUE VÉRIFIÉE À CONSIGNER (présidentielle 2027) ─────────────────────
+// (Consignée ici pour la suite — NE RIEN ACTIVER par anticipation, voir ci-dessous.)
+//   • Depuis le décret du 12 juin 2026, le délai d'inscription sur les listes
+//     électorales est UNIFIÉ : 6e vendredi précédant le scrutin, en mairie ET en
+//     ligne (auparavant : mairie = 6e vendredi, en ligne = 6e mercredi ; désormais
+//     alignés). Adapter le TODO ci-dessus en conséquence (plus de distinction
+//     mairie/en ligne pour la date-butoir métropolitaine).
+//   • Dates arrêtées par le Conseil des ministres du 1er juillet 2026 :
+//     1er tour = 18 avril 2027, 2nd tour = 2 mai 2027.
+//     → date limite d'inscription calculée À TITRE INDICATIF ≈ 6 mars 2027
+//       (6e vendredi avant le 18 avril 2027). NON figée ici.
+//   • MAIS le décret de CONVOCATION n'est PAS encore publié (attendu ~février 2027).
+//     C'est précisément la raison pour laquelle ELECTIONS reste VIDE : on n'active
+//     qu'après publication du décret de convocation. Ne pas casser cette règle,
+//     ne pas préinscrire les dates 2027 tant que le décret n'est pas paru.
 
 const { createCalendarSource, formatAvecJour } = require('./lib/calendar-factory');
 
