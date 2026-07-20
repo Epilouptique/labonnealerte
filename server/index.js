@@ -34,11 +34,38 @@ app.disable('x-powered-by');
 // assets/API. AUCUN autre effet : pas d'écriture DB, pas de résolution geoip.
 // À RETIRER (ou laisser dormant, désactivé par défaut) une fois le diagnostic obtenu.
 if (process.env.LOG_CLIENT_IP === '1') {
+  const https = require('https');
   const { clientIp } = require('./profile-autofill');
+
+  // Résolution IPLocate PONCTUELLE (diagnostic seul, jamais branchée sur l'inscription).
+  // Non bloquante : lancée après next(), logguée quand elle répond. Aucune écriture DB.
+  // Clé optionnelle via IPLOCATE_APIKEY (comme scripts/test-iplocate.js) ; sinon keyless.
+  function iplocateDiag(ip) {
+    const key = process.env.IPLOCATE_APIKEY || '';
+    const url = 'https://iplocate.io/api/lookup/' + encodeURIComponent(ip) +
+      (key ? '?apikey=' + encodeURIComponent(key) : '');
+    https.get(url, (r) => {
+      let d = '';
+      r.on('data', (c) => (d += c));
+      r.on('end', () => {
+        try {
+          const j = JSON.parse(d);
+          console.log('[ip-geo-diag]', JSON.stringify({
+            ip, country: j.country_code, city: j.city,
+            subdivision: j.subdivision, postal: j.postal_code,
+            ll: [j.latitude, j.longitude],
+          }));
+        } catch (e) { console.log('[ip-geo-diag] parse-fail', d.slice(0, 100)); }
+      });
+    }).on('error', (e) => console.log('[ip-geo-diag] err', e.message));
+  }
+
   app.use((req, res, next) => {
+    var ip = null;
     try {
       const accept = String(req.headers['accept'] || '');
       if (accept.includes('text/html')) {
+        ip = clientIp(req);
         console.log('[ip-diag]', JSON.stringify({
           path: req.path,
           cfConnectingIp: req.headers['cf-connecting-ip'] || null,
@@ -46,11 +73,13 @@ if (process.env.LOG_CLIENT_IP === '1') {
           xRealIp: req.headers['x-real-ip'] || null,
           remote: (req.socket && req.socket.remoteAddress) || null,
           reqIp: req.ip,
-          clientIp: clientIp(req),
+          clientIp: ip,
         }));
       }
     } catch (e) { /* non bloquant */ }
     next();
+    // Après next() → ne retarde jamais la réponse. Seulement si une IP publique est retenue.
+    if (ip) { try { iplocateDiag(ip); } catch (e) { /* non bloquant */ } }
   });
 }
 
