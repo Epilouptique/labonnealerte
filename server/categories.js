@@ -24,7 +24,7 @@ const GROUPS = {
   'culture-medias': ['culture', 'livres', 'sorties-livres', 'bd', 'manga', 'musique', 'sorties-albums', 'vinyles', 'streaming', 'films', 'series', 'podcasts', 'jeux-de-societe', 'patrimoine', 'memoire'],
   'gaming': ['jeux-video', 'sorties-jeux', 'precommandes-jeux', 'dlc', 'patchs-jeux', 'e-sport', 'tournois', 'twitch', 'free-to-play', 'retrogaming'],
   'sport': ['sport', 'football', 'rugby', 'tennis', 'cyclisme', 'ski', 'randonnee', 'trail', 'natation', 'resultats-sportifs', 'transferts', 'inscriptions-courses'],
-  'vie-locale': ['vie-locale', 'fetes', 'local', 'jeunesse', 'evenements-locaux', 'marches-locaux', 'brocantes', 'vide-greniers', 'travaux-voirie', 'coupures-circulation', 'collecte-dechets', 'dechetteries', 'piscines', 'bibliotheques', 'ecoles', 'vacances-scolaires', 'cantines', 'mairie'],
+  'vie-locale': ['vie-locale', 'fetes', 'local', 'jeunesse', 'evenements-locaux', 'marches-locaux', 'brocantes', 'vide-greniers', 'travaux-voirie', 'coupures-circulation', 'collecte-dechets', 'dechetteries', 'piscines', 'bibliotheques', 'ecoles', 'education', 'vacances-scolaires', 'cantines', 'mairie'],
   'alimentation': ['alimentation', 'gastronomie', 'restaurants', 'food-trucks', 'produits-locaux', 'vins', 'bieres', 'recoltes'],
   'agriculture-jardin': ['agriculture', 'meteo-agricole', 'gel-cultures', 'vendanges', 'jardinage', 'semis', 'champignons', 'chasse', 'peche', 'apiculture'],
   'auto-moto': ['automobile', 'rappels-vehicules', 'controle-technique', 'prix-occasion', 'nouveautes-auto', 'moto', 'zfe', 'vignette-critair', 'radars', 'permis-points'],
@@ -64,7 +64,7 @@ const SPECIAL = {
 
 // Restauration d'accents au niveau du mot.
 const ACCENTS = {
-  numerique: 'numérique', memoire: 'mémoire', meteo: 'météo', electricite: 'électricité', energie: 'énergie', economie: 'économie', securite: 'sécurité',
+  education: 'éducation', numerique: 'numérique', memoire: 'mémoire', meteo: 'météo', electricite: 'électricité', energie: 'énergie', economie: 'économie', securite: 'sécurité',
   cybersecurite: 'cybersécurité', sante: 'santé', cinema: 'cinéma', theatre: 'théâtre',
   musees: 'musées', evenements: 'événements', delais: 'délais', echantillons: 'échantillons',
   precommandes: 'précommandes', encheres: 'enchères', secheresse: 'sécheresse', seismes: 'séismes',

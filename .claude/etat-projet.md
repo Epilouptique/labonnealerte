@@ -1,4 +1,4 @@
-# LaBonneAlerte — État du projet (18 juillet 2026, fin de fil "vagues & v2")
+# LaBonneAlerte — État du projet (21 juillet 2026, fin de fil "vagues & v2 (suite)")
 
 Ce document fait foi pour tout nouveau fil. Il remplace toute version antérieure d'etat-projet.md (fichiers du projet Claude Chat ET .claude/ côté VS Code — synchroniser les deux).
 
@@ -37,8 +37,9 @@ params enum|string|number, un param plat, multiple ; rétrocompatible (sans para
 ## Fonctionnalités produit
 
 - Heures de veille : 23h-8h Paris défaut, différé + digest (deferred_notifications), tzdata vérifié. Limite : fuseau global — à adapter pour Québec/expat.
-- Personnalisation : country/departement/interests → boost tri + reco (reco jamais hors-département, jamais de source disabled).
-- Auto-remplissage 1re connexion : display_name (Google given_name / GitHub name / email → collision Hugo2..8), pays par geoip-lite local — correctif clientIp() : x-forwarded-for premier IP PUBLIC (Railway CGNAT 100.64/10 non résolu par geoip-lite, cause du bug pays). Département jamais deviné. RGPD en confidentialité.
+- Personnalisation : country/departement/region/ville/interests → boost tri + reco (reco jamais hors-département, jamais de source disabled). region/ville ajoutés (mêmes garde-fous que departement, visibles/éditables dans Mon compte, *_source 'auto'/'manual').
+- Auto-remplissage 1re connexion : display_name (Google given_name / GitHub name / email → collision Hugo2..8) ; pays par geoip-lite local ; departement/region/ville par IPLocate (voir section « Géoloc IP »). clientIp() : cf-connecting-ip (Cloudflare, vérifié par ORIGIN_SECRET) en priorité, sinon x-forwarded-for premier IP PUBLIC (Railway CGNAT 100.64/10). RGPD en confidentialité.
+- Pré-remplissage géo sur cartes paramétrées : pour un schéma clé departement/region/pays/ville, le contrôle (select/input) est pré-rempli depuis le profil (pas de chip séparée). GÉO : switch « S'abonner » visible mais OFF, activation UNIQUEMENT au clic (jamais au pré-remplissage). NON-GÉO : switch visible mais disabled tant que vide, activation immédiate au choix/saisie (comportement d'origine). Une fois abonné, interrupteur pause/reprise (toggle-mute) = pause sans perdre le paramètre (distinct de la suppression d'instance). Seul le département matche une source aujourd'hui (region=Québec only, pays=slugs diaspora, ville=slugs iss/INSEE) → prefill générique, rien de faux affiché.
 - Likes + Favoris : table favorites + /favoris + sync montante localStorage→serveur + cœur header. Limite : sync descendante multi-appareils absente.
 - « Les plus populaires » (ex-Sélection, top-12 likes public, slug interne 'selection' conservé) + « Nouveautés ».
 - Collections : 7 packs officiels (étagère carrousel infini + fondu bords, adoption 1 clic idempotente, params résolus profil>pack>à compléter, sources dormantes auto-incluses à l'activation) + Decks utilisateurs (10 max, 24 motifs SVG + 11 teintes — UN SEUL CSS partagé toutes pages, partage lien non-listé token 128 bits révocable, fork-copie avec attribution figée, pseudo public display_name unique « Mon pseudo », signalements 3 IP → suspension auto, remontée Robot 1). « Ma collection » (abonnements) ≠ « Mes decks » (compositions). Avatar initiale.
@@ -48,12 +49,14 @@ params enum|string|number, un param plat, multiple ; rétrocompatible (sans para
 
 Lot 1 FAIT (index subscriptions(source_id) + partiel source_param_states actifs + import mort retiré — candidats favorites/deferred/reports écartés car déjà couverts). Lots 2-5 restants : migration npm/pypi sur release-factory, belgique/suisse sur lib/meteoalarm, découpe site.js (~1800 l.)/site.css (~2000 l.)/init.sql (~2500 l.), enum dépt dédupliqué, rate-limit /auth/*, 11 globals LBA*. À préserver : factories, contrat v2, idempotence, anti-spam.
 
-## Corrections UX récentes & points ouverts
+## Corrections UX récentes & accessibilité
 
-Faits : cartes mobile (.wrap media query), pref-chips pleine largeur, « Mon pseudo », bouton header min-width 185px, mes-decks CSS unifié (le divergent constaté était un prod-lag), param-add[hidden]. 
-⚠️ OUVERT — MENU MOBILE SCROLL : 3 tentatives. Dernier état : hauteurs bornées (m-menu-flip height:100%) MAIS symptôme persistant « la scrollbar bouge, le contenu non » → prompt de reprise fourni (3 pistes : enfant absolute/fixed rattaché à un ancêtre, transform résiduel du preserve-3d, doublon de rendu ; inspection DYNAMIQUE exigée ; repli si échec : sortir la liste du preserve-3d, flip par crossfade). 
-⚠️ OUVERT — PARTAGE /mes-decks : doit utiliser la modale LBAShare unifiée des collections (prompt fourni, réutilisation stricte, zéro duplication). 
-À vérifier post-déploiement : auto-remplissage pays sur vrai callback, iss-passages en conditions réelles (un soir à Gap).
+Faits (fil précédent) : cartes mobile (.wrap media query), pref-chips pleine largeur, « Mon pseudo », bouton header min-width 185px, mes-decks CSS unifié, param-add[hidden].
+Faits (ce fil) : hero padding petits smartphones (≤400px) ; page /source responsive (manifeste JSON scrollable, .src-head compact) ; croix .src-back collection remontée mobile ; header une ligne hors home (body.m-secondary) ; /le-point aligné (header standard injecté, h1 centré, labels de section « En ce moment »/« À venir » qui se chevauchaient en ≥1280px corrigés) ; menu mobile : ligne thème retirée ; Mon compte réorganisé — section « Apparence » (thème clair/sombre + « Renforcer les contrastes »), liens morts « Mes decks »/« Proposer une source » retirés de Divers.
+✅ RÉSOLU — MENU MOBILE SCROLL : le flip Menu⇄Catégories était un preserve-3d (couche 3D composée → contenu figé au scroll). Converti en glissement 2D translateX (m-menu-flip sans preserve-3d, m-menu-face = conteneur scrollable overflow-y:auto). Le flip 3D des CARTES kiosque (.card-inner) est intact.
+✅ RÉSOLU — PARTAGE /mes-decks : decks.js utilise window.LBAShare.openModal (grande modale unifiée collection/deck), plus de lien brut.
+ACCESSIBILITÉ : body.high-contrast (toggle Mon compte › Apparence, persistance localStorage lba-contrast, appliqué site-wide via theme.js/site.js). Règles CSS de contraste renforcé implémentées (overrides --muted/--line/--amber en light ET dark, ajustements par composant).
+À vérifier post-déploiement : iss-passages en conditions réelles (un soir à Gap).
 Pages de chargement : PAS de page unique — états locaux par page (.grid-loading home, .src-loading mes-decks/favoris/collection/deck), halo animé, reduced-motion respecté.
 
 ## Plateforme & infra
@@ -79,7 +82,7 @@ R1 maintenance QUOTIDIEN 4h (checked_at/events/TODO/fragiles via scripts *-reado
 
 ## Roadmap
 
-1. Clore les 2 points UX ouverts (menu mobile scroll, partage mes-decks) + chantier upcoming() public + passes à clés.
+1. Chantier upcoming() public (toutes-combinaisons jours-feries + fetes-nationales) + passes à clés. (Points UX menu mobile scroll + partage mes-decks : CLOS.)
 2. ONBOARDING première visite (dernier volet densité : 3 questions dans le hero → grille personnalisée avant connexion → packs suggérés — cadrage fait, jamais lancé).
 3. LANCEMENT (chantier jamais ouvert — discussion stratégique à avoir : README, dons /soutenir à activer, RGPD final, /le-point en vitrine, canaux : communautés dev pour OpenAlert, locales pour vigilances, activer Robot 3). Le produit est prêt pour des yeux extérieurs.
 4. Lots 2-5 audit au fil de l'eau.
@@ -105,19 +108,29 @@ alignée à la main ; connexion.html et offline.html sont volontairement sans he
 Header mobile hors-home = body.m-secondary (hamburger + recherche). Pour ajouter une
 page : charger theme.js + session.js + header.js, ne mettre qu'une ancre de header.
 
-## Géoloc IP & département (tranché — NE PAS y revenir sans élément nouveau)
-Pré-remplissage AUTO du département RETIRÉ (geoip-lite : `area` mesure la confiance, pas
-l'exactitude — Gap→Champs-sur-Marne/93 area 20, faux de ~600 km). Département = saisie
-manuelle uniquement. Le pays auto (countryFromIp) reste, fiable. Plus-proche-voisin sur
-101 centroïdes conservé dans server/departements-geo.js (débranché, réutilisable si un
-jour la source d'entrée est fiable). Colonnes country_source/departement_source ('auto'
-inscription | 'manual' Mon compte | NULL inconnu) posées pour traçabilité future.
-PISTE IPv6 ABANDONNÉE : l'IPv6 abonné géolocalise bien mieux (IPLocate met l'IPv6 de Gap
-en 05), MAIS Railway ne fait PAS d'inbound IPv6 — l'endpoint *.up.railway.app n'a AUCUN
-AAAA (vérifié : A=69.46.46.115, AAAA absent), et la doc/forum confirme « public inbound
-connections still use IPv4 ». Le serveur ne verra donc jamais l'IPv6 du visiteur. Seule
-voie pour ressusciter la piste : mettre Cloudflare (ou équivalent) en frontal — chantier
-DNS/archi séparé, pas un lot Claude Code. IPLocate free = pas de champ de précision (donc
-pas de garde-fou type `area`) → non intégrable seul même en IPv4. Middleware diag
-temporaire LOG_CLIENT_IP=1 dans index.js désormais SANS OBJET (à retirer au prochain
-nettoyage — il ne montrera jamais que de l'IPv4).
+## Géoloc IP & département (RÉSOLU via Cloudflare + IPLocate — historique figé)
+Parcours complet (ne pas rejouer les impasses) :
+1. geoip-lite ABANDONNÉ pour le département : `area` mesure la confiance, pas l'exactitude
+   (Gap→Champs-sur-Marne/93, area 20, faux de ~600 km). Un seuil `area` ne fiabilise rien.
+2. IPv6 (plus précise) d'abord BLOQUÉE : Railway ne fait pas d'inbound IPv6 sur son edge
+   public (endpoint *.up.railway.app sans AAAA ; « public inbound connections use IPv4 »).
+3. BASCULE Cloudflare en frontal (DNS migré depuis OVH ; SSL Full strict ; apex
+   labonnealerte.fr fonctionne maintenant SANS www). Cloudflare transmet cf-connecting-ip
+   (vraie IP visiteur, IPv4 ou IPv6).
+4. SÉCURISATION : ORIGIN_SECRET (var Railway) + Transform Rule Cloudflare injectant
+   X-Origin-Secret. clientIp() ne fait confiance à cf-connecting-ip QUE si
+   x-origin-secret == ORIGIN_SECRET (sinon repli x-forwarded-for filtré CGNAT) → empêche
+   la falsification via l'URL Railway directe. Avertissement throttlé si tentative.
+5. RÉSOLUTION FINALE : IPLocate (postal_code EXACT → département ; subdivision → region ;
+   city → ville, en UN appel non bloquant, timeout court, clé IPLOCATE_APIKEY). Dérivation
+   postal→dept dans profile-autofill.js (métropole 2 chiffres, Corse 2A/2B par plage,
+   DROM 971..976), validée par isValidDepartement. Toujours « vide > faux » (hors FR /
+   postal manquant / IPLocate down → NULL). Écriture profil UNIQUEMENT (departement/region/
+   ville + *_source='auto'), JAMAIS dans subscriptions/source_param_states → aucune
+   activation d'alerte automatique. Champs éditables dans Mon compte (→ *_source='manual').
+Colonnes : country/departement/region/ville + *_source ('auto' inscription | 'manual' Mon
+compte | NULL inconnu ; autofill ne remplit que si valeur NULL ET source NULL → un champ
+vidé à la main n'est jamais re-deviné). server/departements-geo.js (plus-proche-voisin 101
+centroïdes) reste DORMANT (postal exact d'IPLocate suffit), conservé pour usage futur.
+⚠️ Middleware diag temporaire dans index.js (LOG_CLIENT_IP=1 → [ip-diag] + [ip-geo-diag])
+TOUJOURS EN PLACE (dormant par défaut) — à retirer au prochain nettoyage.

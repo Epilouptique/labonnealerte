@@ -65,13 +65,46 @@ const ENTRIES = [
     url: 'https://fr.wikipedia.org/wiki/Final_Fantasy_(jeu_vid%C3%A9o)' },
 ];
 
+// Anniversaires manga/anime RÉCURRENTS (1re parution/diffusion en France) : date fixe
+// annuelle (jour+mois), l'âge se recalcule chaque année (pas de recuration à faire).
+// DISTINCTS des anniversaires ronds ci-dessus : ex. l'entrée « One Piece 30 ans »
+// (22 juillet 2027, 1re parution JAPONAISE) coexiste avec la parution FR du 20 septembre.
+// { m(0-based), d, base (année de 1re parution/diffusion FR), emoji, nom, editeur, type }.
+const RECURRENTS_MANGA = [
+  { m: 0, d: 19, base: 2007, emoji: '📖', nom: 'Death Note', editeur: 'Kana', type: 'parution', url: 'https://fr.wikipedia.org/wiki/Death_Note' },
+  { m: 2, d: 9, base: 2002, emoji: '📖', nom: 'Naruto', editeur: 'Kana', type: 'parution', url: 'https://fr.wikipedia.org/wiki/Naruto' },
+  { m: 4, d: 17, base: 1993, emoji: '📖', nom: 'Dragon Ball', editeur: 'Glénat', type: 'parution', url: 'https://fr.wikipedia.org/wiki/Dragon_Ball' },
+  // ⚠️ One Piece : jour de 1re parution FR (20 sept.) à re-vérifier sur Nautiljon.
+  { m: 8, d: 20, base: 2000, emoji: '📖', nom: 'One Piece', editeur: 'Glénat', type: 'parution', url: 'https://fr.wikipedia.org/wiki/One_Piece' },
+  { m: 11, d: 23, base: 1993, emoji: '📺', nom: 'Sailor Moon', editeur: 'Club Dorothée, TF1', type: 'diffusion', url: 'https://fr.wikipedia.org/wiki/Sailor_Moon' },
+];
+
+function recurrentMsg(r, year) {
+  // NB : l'emoji est ajouté par message() (comme pour ENTRIES) — ne pas le remettre ici.
+  const age = year - r.base;
+  if (r.type === 'diffusion') {
+    return `Il y a ${age} ans, ${r.nom} était diffusé pour la première fois en France (${r.editeur}, ${r.base}).`;
+  }
+  return `Il y a ${age} ans, ${r.nom} paraissait pour la première fois en France (${r.editeur}, ${r.base}).`;
+}
+
 function events(now) {
-  return ENTRIES
-    .map((e) => ({
-      start: new Date(e.y, e.m, e.d, 0, 0),
-      end: new Date(e.y, e.m, e.d, 23, 59),
-      emoji: e.emoji, msg: e.msg, url: e.url,
-    }))
+  const list = ENTRIES.map((e) => ({
+    start: new Date(e.y, e.m, e.d, 0, 0),
+    end: new Date(e.y, e.m, e.d, 23, 59),
+    emoji: e.emoji, msg: e.msg, url: e.url,
+  }));
+  // Anniversaires manga récurrents : année en cours et suivante.
+  for (const year of [now.getFullYear(), now.getFullYear() + 1]) {
+    for (const r of RECURRENTS_MANGA) {
+      list.push({
+        start: new Date(year, r.m, r.d, 0, 0),
+        end: new Date(year, r.m, r.d, 23, 59),
+        emoji: r.emoji, msg: recurrentMsg(r, year), url: r.url,
+      });
+    }
+  }
+  return list
     .filter((ev) => ev.end.getTime() >= now.getTime())
     .sort((a, b) => a.start - b.start);
 }

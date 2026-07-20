@@ -2273,7 +2273,7 @@ UPDATE sources SET params_schema = '[{"key":"pays","label":"Pays","type":"enum",
 -- Grands anniversaires historiques (chiffre rond), curés 2026-2027. TODO annuel.
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
 SELECT 'grands-anniversaires', 'Grands anniversaires', 'Mémoire culturelle et scientifique',
-  'La veille et le jour J des grands anniversaires à chiffre rond (50, 100, 150 ans) de la culture et de la science, curés à la main pour 2026-2027. Mémoire culturelle et scientifique, jamais un calendrier des tragédies.',
+  'La veille et le jour J des grands anniversaires à chiffre rond (50, 100, 150 ans) de la culture et de la science, curés à la main pour 2026-2027, plus les anniversaires de 1re parution en France de mangas cultes (Naruto, Dragon Ball, One Piece…). Mémoire culturelle et scientifique, jamais un calendrier des tragédies.',
   'internal', 'official', false, ARRAY['culture', 'monde'], 311
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'grands-anniversaires');
 INSERT INTO source_states (source_id) SELECT 'grands-anniversaires'
@@ -2379,8 +2379,8 @@ UPDATE sources SET params_schema = '[{"key":"gem","label":"Gem Ruby","type":"str
 
 -- Festivals de musique (calendrier). Dates vérifiées ; TODO pour les non annoncés.
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
-SELECT 'festivals-musique', 'Festivals de musique', 'Hellfest, Rock en Seine…',
-  'Un rappel à l''approche des grands festivals de musique français, dates officielles vérifiées : Rock en Seine, Hellfest. D''autres (Vieilles Charrues, Solidays, Interceltique) seront ajoutés dès publication de leurs dates.',
+SELECT 'festivals-musique', 'Festivals de musique', 'Hellfest, Rock en Seine, Tomorrowland…',
+  'Un rappel à l''approche des grands festivals de musique (France et Europe), dates officielles vérifiées : Rock en Seine, Hellfest, Interceltique, Paléo, Tomorrowland, Sziget, FrancoFolies, Rock Werchter, et la Journée internationale du jazz.',
   'internal', 'official', false, ARRAY['culture', 'festivals'], 334
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'festivals-musique');
 INSERT INTO source_states (source_id) SELECT 'festivals-musique'
@@ -3027,3 +3027,23 @@ SELECT 'baremes-auto', 'Barèmes auto', 'Malus écologique au 1er janvier',
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'baremes-auto');
 INSERT INTO source_states (source_id) SELECT 'baremes-auto'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'baremes-auto');
+
+-- ── Vague culture manga & jeunesse (2 sources calculées). display_order 408+.
+-- (Les extensions festivals-musique et grands-anniversaires sont code-only ; leurs
+--  descriptions sont rafraîchies ci-dessus.)
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'manga-conventions', 'Conventions manga', 'Japan Touch, Polymanga, Comiket…',
+  'Un rappel à l''approche des grandes conventions manga, anime et pop-culture asiatique (France, Belgique, Suisse, Québec, Japon) : Otakuthon, Paris Manga, Made in Asia, Toulouse Game Show, Japan Touch, Comiket, AnimeJapan, Polymanga. Distinct de Japan Expo (source dédiée).',
+  'internal', 'official', false, ARRAY['manga', 'culture', 'jeux-video'], 408
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'manga-conventions');
+INSERT INTO source_states (source_id) SELECT 'manga-conventions'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'manga-conventions');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'journees-jeunesse-education', 'Journées jeunesse & éducation', 'Éducation, jeunesse, numérique responsable',
+  'Une sélection courte de journées internationales de la jeunesse et de l''éducation (ONU/UNESCO) : éducation (24 janvier), Safer Internet Day, Girls in ICT Day, compétences des jeunes, amitié, jeunesse (12 août), alphabétisation, enseignants (5 octobre). Le jour J uniquement.',
+  'internal', 'official', false, ARRAY['jeunesse', 'education'], 409
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'journees-jeunesse-education');
+INSERT INTO source_states (source_id) SELECT 'journees-jeunesse-education'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'journees-jeunesse-education');
