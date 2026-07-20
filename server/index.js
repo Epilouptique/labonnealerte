@@ -69,6 +69,8 @@ if (process.env.LOG_CLIENT_IP === '1') {
         console.log('[ip-diag]', JSON.stringify({
           path: req.path,
           cfConnectingIp: req.headers['cf-connecting-ip'] || null,
+          // true = requête réellement passée par Cloudflare (secret partagé valide).
+          originSecretOk: !!(process.env.ORIGIN_SECRET && req.headers['x-origin-secret'] === process.env.ORIGIN_SECRET),
           xff: req.headers['x-forwarded-for'] || null,
           xRealIp: req.headers['x-real-ip'] || null,
           remote: (req.socket && req.socket.remoteAddress) || null,

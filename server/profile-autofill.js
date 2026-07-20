@@ -81,22 +81,46 @@ function isPrivateIp(ip) {
   return false;
 }
 
+// Avertissement de sécurité throttlé (1/min max) : cf-connecting-ip présent sans secret
+// valide alors que ORIGIN_SECRET est configuré → potentielle tentative d'accès direct à
+// Railway (contournement de Cloudflare) avec en-tête forgé. Discret, ne spamme pas.
+let lastDirectWarnAt = 0;
+function warnDirectAccess() {
+  const now = Date.now();
+  if (now - lastDirectWarnAt > 60000) {
+    lastDirectWarnAt = now;
+    console.warn('[securite] cf-connecting-ip recu sans x-origin-secret valide : ignore (acces direct Railway hors Cloudflare ?).');
+  }
+}
+
 // Vraie IP cliente. Ordre de priorité :
 //  1. CF-Connecting-IP : injecté par Cloudflare (frontal du domaine), contient la vraie
 //     IP du visiteur — IPv4 OU IPv6 selon ce qu'il utilise. Plus fiable que XFF (pas de
-//     chaîne d'intermédiaires, pas de CGNAT Railway). ⚠️ Infalsifiable UNIQUEMENT tant que
-//     Railway n'est joignable QUE via Cloudflare : un accès direct à *.up.railway.app
-//     permettrait de forger cet en-tête (cf. note sécurité — risque connu, à couvrir par
-//     Authenticated Origin Pull ou header secret Cloudflare→origine).
+//     chaîne d'intermédiaires, pas de CGNAT Railway). ⚠️ Falsifiable via un accès DIRECT à
+//     *.up.railway.app (qui contourne Cloudflare). On ne lui fait donc confiance QUE si la
+//     requête porte le secret partagé x-origin-secret == ORIGIN_SECRET, injecté par une
+//     Transform Rule Cloudflare (connu seulement de Cloudflare et de l'origine).
 //  2. Repli : x-forwarded-for (premier IP PUBLIC, filtrage CGNAT 100.64/10), puis req.ip.
 // isPrivateIp() s'applique aussi au résultat CF (IPv6 globale acceptée, ULA/link-local non).
 function clientIp(req) {
-  const cf = req && req.headers && req.headers['cf-connecting-ip'];
+  const headers = (req && req.headers) || {};
+  const cf = headers['cf-connecting-ip'];
   if (cf) {
-    const ip = String(cf).trim().replace(/^::ffff:/, '');
-    if (ip && !isPrivateIp(ip)) return ip;
+    const secret = process.env.ORIGIN_SECRET;
+    // Confiance accordée UNIQUEMENT si le secret est configuré ET correspond. Si le secret
+    // n'est pas configuré (undefined), on n'accorde AUCUNE confiance (évite le piège
+    // `undefined === undefined` d'un header absent) → repli XFF.
+    if (secret && headers['x-origin-secret'] === secret) {
+      const ip = String(cf).trim().replace(/^::ffff:/, '');
+      if (ip && !isPrivateIp(ip)) return ip;
+    } else if (secret) {
+      // Secret configuré mais header absent/incorrect alors que cf-connecting-ip est là :
+      // probable accès direct à Railway avec en-tête forgé. Avertissement throttlé (1/min).
+      warnDirectAccess();
+    }
+    // Sinon (secret non configuré, ou header invalide) : cf-connecting-ip ignoré → repli.
   }
-  const xff = String((req && req.headers && req.headers['x-forwarded-for']) || '');
+  const xff = String(headers['x-forwarded-for'] || '');
   const chain = xff.split(',').map((s) => s.trim()).filter(Boolean);
   if (req && req.ip) chain.push(req.ip);
   for (const c of chain) {
