@@ -3047,3 +3047,15 @@ SELECT 'journees-jeunesse-education', 'Journées jeunesse & éducation', 'Éduca
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'journees-jeunesse-education');
 INSERT INTO source_states (source_id) SELECT 'journees-jeunesse-education'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'journees-jeunesse-education');
+
+-- ── Carte webmaster : surveillance de disponibilité d'un domaine. display_order 410.
+-- requires_confirmation = TRUE → l'alerte de panne exige 2 échecs consécutifs
+-- (inactive → pending → active), via la machine à états du poller.
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
+SELECT 'domaine-disponibilite', 'Surveillance de domaine', 'Le site de votre choix répond-il ?',
+  'Surveillez la disponibilité d''un domaine : alerte si le site répond en erreur (4xx/5xx), en timeout, ou ne répond plus. L''alerte est confirmée sur deux vérifications (pas de fausse alerte sur un incident passager). https, protections anti-SSRF.',
+  'internal', 'official', true, ARRAY['uptime', 'pannes-services', 'noms-de-domaine'], 410, '[{"key":"domaine","label":"Domaine à surveiller","type":"string","placeholder":"annad.fr","pattern":"^[a-z0-9-]+(\\.[a-z0-9-]+)+$","lowercase":true,"multiple":true,"required":true,"default":null,"hint":"Le nom de domaine seul, sans https:// (exemple : annad.fr). Alerte si le site répond en erreur (4xx/5xx) ou ne répond plus, confirmée sur deux vérifications."}]'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'domaine-disponibilite');
+UPDATE sources SET params_schema = '[{"key":"domaine","label":"Domaine à surveiller","type":"string","placeholder":"annad.fr","pattern":"^[a-z0-9-]+(\\.[a-z0-9-]+)+$","lowercase":true,"multiple":true,"required":true,"default":null,"hint":"Le nom de domaine seul, sans https:// (exemple : annad.fr). Alerte si le site répond en erreur (4xx/5xx) ou ne répond plus, confirmée sur deux vérifications."}]'::jsonb WHERE id = 'domaine-disponibilite';
+INSERT INTO source_states (source_id) SELECT 'domaine-disponibilite'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'domaine-disponibilite');
