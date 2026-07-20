@@ -41,6 +41,7 @@ if (process.env.LOG_CLIENT_IP === '1') {
       if (accept.includes('text/html')) {
         console.log('[ip-diag]', JSON.stringify({
           path: req.path,
+          cfConnectingIp: req.headers['cf-connecting-ip'] || null,
           xff: req.headers['x-forwarded-for'] || null,
           xRealIp: req.headers['x-real-ip'] || null,
           remote: (req.socket && req.socket.remoteAddress) || null,

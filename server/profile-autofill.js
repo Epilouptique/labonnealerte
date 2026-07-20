@@ -81,9 +81,21 @@ function isPrivateIp(ip) {
   return false;
 }
 
-// Vraie IP cliente : premier IP PUBLIC de x-forwarded-for (le plus à gauche = client
-// d'origine), repli sur req.ip. Robuste quel que soit le nombre de sauts de proxy.
+// Vraie IP cliente. Ordre de priorité :
+//  1. CF-Connecting-IP : injecté par Cloudflare (frontal du domaine), contient la vraie
+//     IP du visiteur — IPv4 OU IPv6 selon ce qu'il utilise. Plus fiable que XFF (pas de
+//     chaîne d'intermédiaires, pas de CGNAT Railway). ⚠️ Infalsifiable UNIQUEMENT tant que
+//     Railway n'est joignable QUE via Cloudflare : un accès direct à *.up.railway.app
+//     permettrait de forger cet en-tête (cf. note sécurité — risque connu, à couvrir par
+//     Authenticated Origin Pull ou header secret Cloudflare→origine).
+//  2. Repli : x-forwarded-for (premier IP PUBLIC, filtrage CGNAT 100.64/10), puis req.ip.
+// isPrivateIp() s'applique aussi au résultat CF (IPv6 globale acceptée, ULA/link-local non).
 function clientIp(req) {
+  const cf = req && req.headers && req.headers['cf-connecting-ip'];
+  if (cf) {
+    const ip = String(cf).trim().replace(/^::ffff:/, '');
+    if (ip && !isPrivateIp(ip)) return ip;
+  }
   const xff = String((req && req.headers && req.headers['x-forwarded-for']) || '');
   const chain = xff.split(',').map((s) => s.trim()).filter(Boolean);
   if (req && req.ip) chain.push(req.ip);
