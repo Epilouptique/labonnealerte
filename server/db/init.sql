@@ -89,6 +89,13 @@ ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS interests TEXT[];
 ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS country_source TEXT;
 ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS departement_source TEXT;
 
+-- Granularités région / ville (pré-remplissage IPLocate : subdivision + city). Mêmes
+-- règles que country/departement : NULL = non renseigné, *_source 'auto'|'manual'|NULL.
+ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS region TEXT;
+ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS ville TEXT;
+ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS region_source TEXT;
+ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS ville_source TEXT;
+
 -- Sessions durables (90 jours, expiration glissante). Le lien magique ne sert
 -- qu'à ouvrir une session ; l'authentification des routes se fait via ce token.
 CREATE TABLE IF NOT EXISTS sessions (

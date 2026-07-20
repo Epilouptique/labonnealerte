@@ -156,7 +156,7 @@ apiRouter.get('/my-alerts', async (req, res) => {
 
     // Préférences : email activé, appareils push, et personnalisation d'affichage.
     const prefs = await pool.query(
-      `SELECT s.email_enabled, s.country, s.departement, s.interests, s.display_name,
+      `SELECT s.email_enabled, s.country, s.departement, s.region, s.ville, s.interests, s.display_name,
               s.quiet_start, s.quiet_end, s.quiet_disabled,
               (SELECT COUNT(*)::int FROM push_subscriptions p WHERE p.subscriber_id = s.id) AS push_endpoints_count
          FROM subscribers s WHERE s.id = $1`,
@@ -167,10 +167,16 @@ apiRouter.get('/my-alerts', async (req, res) => {
     // Auto-remplissage à la première connexion par lien magique (aucun nom OAuth) :
     // display_name depuis la partie locale de l'email, country depuis l'IP. Uniquement
     // si NULL (silencieux, best-effort). On relit ensuite pour refléter dans la réponse.
-    if (pr.display_name == null || pr.country == null) {
+    // Élargi aux granularités géo : un champ jamais touché (source NULL) peut être
+    // pré-rempli. applyAutofill garde-fou n'écrit QUE les champs NULL & source NULL, donc
+    // un champ vidé manuellement n'est pas re-rempli, et cet appel reste idempotent.
+    if (pr.display_name == null || pr.country == null || pr.departement == null || pr.region == null || pr.ville == null) {
       await applyAutofill(pool, auth.id, { nameHint: deriveDisplayNameFromEmail(auth.email), ip: clientIp(req) });
-      const re = await pool.query('SELECT display_name, country, departement FROM subscribers WHERE id = $1', [auth.id]);
-      if (re.rows[0]) { pr.display_name = re.rows[0].display_name; pr.country = re.rows[0].country; pr.departement = re.rows[0].departement; }
+      const re = await pool.query('SELECT display_name, country, departement, region, ville FROM subscribers WHERE id = $1', [auth.id]);
+      if (re.rows[0]) {
+        pr.display_name = re.rows[0].display_name; pr.country = re.rows[0].country;
+        pr.departement = re.rows[0].departement; pr.region = re.rows[0].region; pr.ville = re.rows[0].ville;
+      }
     }
 
     const emailEnabled = pr.email_enabled !== undefined ? pr.email_enabled : true;
@@ -186,6 +192,8 @@ apiRouter.get('/my-alerts', async (req, res) => {
       push_endpoints_count: pushCount,
       country: pr.country || null,
       departement: pr.departement || null,
+      region: pr.region || null,
+      ville: pr.ville || null,
       interests: pr.interests || [],
       display_name: pr.display_name || null,
       // Heures de veille (défaut 23/8 appliqué en code si NULL).
@@ -271,6 +279,18 @@ apiRouter.post('/my-alerts/profile', async (req, res) => {
     return res.status(400).json({ error: 'Département invalide' });
   }
 
+  // region / ville : texte libre (subdivision + ville IPLocate). Assainis : trim, sans
+  // caractères de contrôle, borné à 80. NULL si vide. Pas d'enum (aucune source ne les
+  // consomme aujourd'hui ; champs de profil/transparence). Le client envoie TOUJOURS
+  // l'ensemble des champs → l'overwrite complet ci-dessous est sûr.
+  function cleanText(v) {
+    if (v == null) return null;
+    const s = String(v).replace(/[\u0000-\u001f\u007f]/g, '').trim();
+    return s ? s.slice(0, 80) : null;
+  }
+  let region = cleanText(body.region);
+  let ville = cleanText(body.ville);
+
   // interests : sous-ensemble des slugs de catégories existants (dédupliqué).
   let interests = Array.isArray(body.interests) ? body.interests : [];
   interests = interests
@@ -284,13 +304,15 @@ apiRouter.post('/my-alerts/profile', async (req, res) => {
     // l'origine 'manual' pour chaque champ renseigné (NULL reste sans origine). Vaut
     // confirmation même si la valeur devinée n'est pas modifiée (elle est validée ici).
     await pool.query(
-      `UPDATE subscribers SET country = $1, departement = $2, interests = $3,
+      `UPDATE subscribers SET country = $1, departement = $2, interests = $3, region = $5, ville = $6,
          country_source = CASE WHEN $1::text IS NULL THEN NULL ELSE 'manual' END,
-         departement_source = CASE WHEN $2::text IS NULL THEN NULL ELSE 'manual' END
+         departement_source = CASE WHEN $2::text IS NULL THEN NULL ELSE 'manual' END,
+         region_source = CASE WHEN $5::text IS NULL THEN NULL ELSE 'manual' END,
+         ville_source = CASE WHEN $6::text IS NULL THEN NULL ELSE 'manual' END
        WHERE id = $4`,
-      [country, departement, interests.length ? interests : null, auth.id]
+      [country, departement, interests.length ? interests : null, auth.id, region, ville]
     );
-    return res.status(200).json({ country, departement, interests });
+    return res.status(200).json({ country, departement, region, ville, interests });
   } catch (err) {
     console.error('[my-alerts] Erreur POST /profile :', err.message);
     return res.status(503).json({ error: 'Service indisponible' });

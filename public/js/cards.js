@@ -110,12 +110,17 @@
   // string/number → input (avec placeholder/pattern éventuels).
   function paramControl(schema, def) {
     if (schema.type === 'enum') {
-      // C5) Placeholder « Choisir… » sélectionné par défaut : ainsi TOUT choix émet
-      // un « change » (activation immédiate), y compris la valeur qui aurait été
-      // pré-remplie. (Le pré-remplissage département reste un simple repli visuel.)
-      var opts = '<option value="" disabled selected>Choisir ' + esc((schema.label || '').toLowerCase()) + '…</option>';
-      opts += (schema.values || []).map(function (v) {
-        return '<option value="' + esc(v.value) + '">' + esc(v.label) + '</option>';
+      // Pré-remplissage : si le profil fournit une valeur VALIDE du schéma, on la
+      // pré-sélectionne. Pré-sélectionner via l'attribut `selected` NE déclenche AUCUN
+      // « change » → aucune activation (l'abonnement passe par le switch S'abonner). Sinon
+      // placeholder « Choisir… ». L'activation ne dépend plus du change (voir site.js).
+      var values = schema.values || [];
+      var hasDef = def != null && values.some(function (v) { return String(v.value) === String(def); });
+      var opts = '<option value="" disabled' + (hasDef ? '' : ' selected') +
+        '>Choisir ' + esc((schema.label || '').toLowerCase()) + '…</option>';
+      opts += values.map(function (v) {
+        var sel = (hasDef && String(v.value) === String(def)) ? ' selected' : '';
+        return '<option value="' + esc(v.value) + '"' + sel + '>' + esc(v.label) + '</option>';
       }).join('');
       return '<select class="param-select" data-key="' + esc(schema.key) + '" aria-label="' + esc(schema.label) + '">' + opts + '</select>';
     }
@@ -127,10 +132,29 @@
       ph + pat + val + ' aria-label="' + esc(schema.label) + '">';
   }
 
+  // Switch « S'abonner » (OFF) : contrôle d'activation explicite d'une combinaison
+  // paramétrée. Remplace l'activation-au-change : rien ne s'abonne tant que ce switch
+  // n'est pas basculé par l'utilisateur (site.js le câble sur followParam*).
+  function followSwitch() {
+    return '<label class="switch-row param-follow-row">' +
+        '<span class="switch"><input type="checkbox" class="param-follow-cb" aria-label="S\'abonner">' +
+          '<span class="track"></span><span class="thumb"></span></span>' +
+        '<span class="switch-label">S\'abonner</span>' +
+      '</label>';
+  }
+
   function paramFace(s, mode) {
     var schema = s.params_schema[0];
     var instances = Array.isArray(s.instances) ? s.instances : [];
+    // Pré-remplissage du contrôle depuis le profil (window.LBADefaults : pays/region/
+    // departement/ville). paramControl ne pré-sélectionne QUE si la valeur est valide pour
+    // ce schéma → région/pays/ville sans source correspondante ne pré-remplissent rien.
     var def = (window.LBADefaults && window.LBADefaults[schema.key]) || schema.default || null;
+    // Si cette valeur est déjà suivie, on ne la pré-remplit pas (le picker sert à en
+    // ajouter une AUTRE) → placeholder.
+    if (def != null && instances.some(function (inst) {
+      return inst.params && String(inst.params[schema.key]) === String(def);
+    })) { def = null; }
 
     var chips = instances.length
       ? '<div class="param-chips">' + instances.map(function (inst) {
@@ -144,31 +168,13 @@
     var addBtn = instances.length
       ? '<button type="button" class="param-add">+ ajouter</button>' : '';
 
-    // Suggestion « votre département » : PUREMENT VISUELLE (aucun réseau, aucune écriture
-    // à l'affichage). Conditions : mode connecté, schéma = département enum, département
-    // profil (window.LBADefaults) présent comme valeur valide du schéma, ET pas déjà suivi.
-    // Au clic → rejoint le flux d'ajout normal (site.js), seul chemin qui écrit. Reste
-    // visible même si l'utilisateur a ajouté d'autres départements (affichée à part).
-    var suggest = '';
-    if (mode === 'connected' && schema.type === 'enum' && schema.key === 'departement' &&
-        window.LBADefaults && window.LBADefaults.departement) {
-      var sugCode = String(window.LBADefaults.departement);
-      var already = instances.some(function (inst) {
-        return inst.params && String(inst.params[schema.key]) === sugCode;
-      });
-      var match = (schema.values || []).filter(function (v) { return String(v.value) === sugCode; })[0];
-      if (!already && match) {
-        suggest = '<button type="button" class="param-suggest" data-value="' + esc(sugCode) + '"' +
-          ' title="Votre département — appuyez pour suivre">' +
-          '<span class="ps-badge">suggéré</span>' + esc(match.label) +
-        '</button>';
-      }
-    }
-    // C5) Plus de bouton « Suivre » : l'abonnement s'active au CHANGE du sélecteur
-    // (ou à la saisie debouncée d'un champ libre) — géré par site.js.
+    // Picker = contrôle (pré-rempli si le profil fournit une valeur valide) + switch
+    // « S'abonner » (OFF). L'abonnement ne part QU'au basculement du switch (site.js) :
+    // le pré-remplissage est un confort de saisie, jamais une activation.
     var picker =
       '<div class="param-form"' + (instances.length ? ' hidden' : '') + '>' +
         paramControl(schema, def) +
+        followSwitch() +
       '</div>';
     // Parcours anonyme : email (réutilise .sub-form), les params sont joints au submit.
     var anon = (mode !== 'connected')
@@ -192,12 +198,13 @@
           '<span class="switch-label' + (muted ? '' : ' on') + '">' + (muted ? 'En pause' : 'Abonné') + '</span>' +
         '</label>';
     } else {
-      status = '<div class="param-status"><span class="switch-label">Non abonné</span></div>';
+      // Non abonné : le switch « S'abonner » du picker EST le contrôle → pas de label
+      // « Non abonné » séparé (redondant).
+      status = '';
     }
-    // F1) instances + « + ajouter » + sélecteur groupés dans une rangée inline (flux
-    // des chips, retour à la ligne naturel) : « + ajouter » a la largeur de son contenu
-    // et, au clic, l'input apparaît À SA PLACE (site.js masque le bouton, montre le form).
-    var row = '<div class="param-row">' + chips + suggest + addBtn + picker + '</div>';
+    // F1) instances + « + ajouter » + picker (contrôle + switch S'abonner) groupés dans
+    // une rangée inline (flux des chips, retour à la ligne naturel).
+    var row = '<div class="param-row">' + chips + addBtn + picker + '</div>';
     return row + anon + status;
   }
 

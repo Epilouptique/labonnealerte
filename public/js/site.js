@@ -505,6 +505,7 @@
     var input = e.target.closest('.switch input');
     if (!input) return;
     if (input.classList.contains('param-mute')) return; // F2 : géré séparément (pause)
+    if (input.classList.contains('param-follow-cb')) return; // abonnement paramétré : géré séparément
     var card = input.closest('.card');
     if (!card) return;
     if (document.body.getAttribute('data-mode') === 'connected') {
@@ -584,6 +585,8 @@
     // Point 7 : « + ajouter » masqué tant que le picker est ouvert (sinon une ligne
     // en trop reste affichée), réaffiché à la fermeture (validation ou annulation).
     var add = card.querySelector('.param-add'); if (add) add.hidden = show;
+    // À l'ouverture, le switch « S'abonner » repart TOUJOURS de OFF (rien de pré-activé).
+    if (show) { var cb = card.querySelector('.param-follow-cb'); if (cb) cb.checked = false; }
   }
   // H) Maintient l'indicateur « Abonné / Non abonné » d'une carte paramétrée.
   function setParamStatus(card, on) {
@@ -681,44 +684,27 @@
       togglePicker(card, true);
       var ctrl = card.querySelector('.param-select, .param-input');
       if (ctrl) ctrl.focus();
-    } else if (e.target.closest('.param-suggest')) {
-      // Clic sur la suggestion « votre département » : geste EXPLICITE = ajout réel.
-      // On injecte la valeur dans le contrôle existant et on emprunte le MÊME chemin
-      // d'abonnement que n'importe quel ajout (followParamConnected/Anon). La suggestion
-      // (élément purement visuel) disparaît, remplacée par la vraie chip via addChip.
-      e.preventDefault();
-      var sug = e.target.closest('.param-suggest');
-      var code = sug.getAttribute('data-value');
-      var ctrl2 = card.querySelector('.param-select, .param-input');
-      if (ctrl2) ctrl2.value = code;
-      sug.remove();
-      if (document.body.getAttribute('data-mode') === 'connected') followParamConnected(card);
-      else followParamAnon(card);
     }
   });
 
-  // C5) Activation IMMÉDIATE des cartes paramétrées : plus de bouton « Suivre ».
-  // Sélecteur enum → au « change » ; champ libre → à la saisie (debounce). Le
-  // parcours anonyme révèle le formulaire email au lieu d'abonner directement.
+  // Activation d'une combinaison paramétrée = basculement EXPLICITE du switch « S'abonner »
+  // (remplace l'ancienne activation-au-change/à-la-saisie). Le pré-remplissage du contrôle
+  // n'abonne donc JAMAIS tout seul. On lit la valeur courante du contrôle (pré-remplie ou
+  // modifiée par l'utilisateur) : si vide/invalide, on annule le switch et on focalise.
   document.addEventListener('change', function (e) {
-    var sel = e.target.closest('.param-select');
-    if (!sel || !sel.value) return; // ignore le placeholder « Choisir… »
-    var card = sel.closest('.card'); if (!card) return;
+    var cb = e.target.closest('.param-follow-cb');
+    if (!cb) return;
+    var card = cb.closest('.card'); if (!card) return;
+    if (!cb.checked) return; // re-décocher avant abonnement : rien à faire
+    var ctrl = card.querySelector('.param-select, .param-input');
+    var emptySel = ctrl && ctrl.tagName === 'SELECT' && !ctrl.value;
+    if (emptySel || !readParam(card)) { // readParam valide aussi le pattern des champs libres
+      cb.checked = false;
+      if (ctrl) { ctrl.focus(); if (ctrl.tagName !== 'SELECT') ctrl.style.borderColor = 'var(--amber)'; }
+      return;
+    }
     if (document.body.getAttribute('data-mode') === 'connected') followParamConnected(card);
     else followParamAnon(card);
-  });
-  var paramInputTimers = new WeakMap();
-  document.addEventListener('input', function (e) {
-    var inp = e.target.closest('.param-input');
-    if (!inp) return;
-    var card = inp.closest('.card'); if (!card) return;
-    var prev = paramInputTimers.get(inp); if (prev) clearTimeout(prev);
-    paramInputTimers.set(inp, setTimeout(function () {
-      if (!(inp.value || '').trim()) return;
-      // readParam (dans follow*) valide le pattern : une saisie invalide est ignorée.
-      if (document.body.getAttribute('data-mode') === 'connected') followParamConnected(card);
-      else followParamAnon(card);
-    }, 700));
   });
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Enter' && e.target.matches('.sub-form input')) {
@@ -831,7 +817,7 @@
   var cards = [], moreBtn = null, qInput = null, grid = null, addCard = null;
   var sourcesData = []; // liste des sources (pour recalculer une recommandation à l'adoption)
   // D) Personnalisation (connecté) : renseignée depuis /api/my-alerts au chargement.
-  var profile = { departement: null, interests: [] };
+  var profile = { country: null, departement: null, region: null, ville: null, interests: [] };
   // Une source est-elle géolocalisée sur le département choisi ? Signal simple et
   // lisible : son id se termine par « -<dept> » (vigilance-meteo-05, vigicrues-05…).
   function sourceMatchesDept(s) {
@@ -1394,15 +1380,25 @@
           mode = 'connected';
           email = s.data.email;
           (s.data.sources || []).forEach(function (x) { subMap[x.id] = x.subscribed; mineMap[x.id] = x; });
+          profile.country = s.data.country || null;
           profile.departement = s.data.departement || null;
+          profile.region = s.data.region || null;
+          profile.ville = s.data.ville || null;
           profile.interests = s.data.interests || [];
           accountDisplayName = s.data.display_name || null;
         }
       } catch (e) { /* réseau : on reste anonyme */ }
     }
     currentMode = mode;
-    // Valeur par défaut du sélecteur paramétré (personnalisation département).
-    window.LBADefaults = { departement: profile.departement || null };
+    // Valeurs de pré-remplissage des contrôles paramétrés (par clé de schéma : pays /
+    // region / departement / ville). paramControl ne pré-sélectionne QUE si la valeur est
+    // une valeur valide du schéma → région/pays/ville sans source ne remplissent rien.
+    window.LBADefaults = {
+      pays: profile.country || null,
+      region: profile.region || null,
+      departement: profile.departement || null,
+      ville: profile.ville || null,
+    };
 
     // D) Ordre personnalisé (connecté) : les sources matchant département/intérêts
     // remontent, tri secondaire STABLE sur l'ordre serveur (display_order). Si aucun

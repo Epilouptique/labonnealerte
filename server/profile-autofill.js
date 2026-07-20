@@ -59,11 +59,16 @@ function iplocateLookup(ip, timeoutMs = 2500) {
   });
 }
 
-// Département FR pré-rempli à partir de l'IP via IPLocate (null si non résolu fiablement).
-async function departementFromIp(ip) {
+// Enrichissement géo FR depuis l'IP via IPLocate, en UN SEUL appel. Renvoie
+// { departement, region, ville } (chaque champ null si non exploitable). Hors FR → tout
+// null. Garde « vide > faux » : on ne dérive que ce qu'IPLocate fournit clairement.
+async function geoFromIp(ip) {
   const geo = await iplocateLookup(ip);
-  if (!geo || geo.country_code !== 'FR') return null;
-  return departementFromPostal(geo.postal_code);
+  if (!geo || geo.country_code !== 'FR') return { departement: null, region: null, ville: null };
+  const departement = departementFromPostal(geo.postal_code);
+  const region = geo.subdivision ? String(geo.subdivision).trim() || null : null;
+  const ville = geo.city ? String(geo.city).trim() || null : null;
+  return { departement, region, ville };
 }
 
 // "hugo.vialjaime@x" → "Hugo" ; "jean-marc42@x" → "Jean-marc" ; s'arrête au 1er point/chiffre.
@@ -185,7 +190,9 @@ function clientIp(req) {
 async function applyAutofill(pool, subscriberId, ctx) {
   try {
     const cur = await pool.query(
-      'SELECT display_name, country, departement FROM subscribers WHERE id = $1',
+      `SELECT display_name, country, departement, region, ville,
+              departement_source, region_source, ville_source
+         FROM subscribers WHERE id = $1`,
       [subscriberId]
     );
     const row = cur.rows[0];
@@ -208,17 +215,35 @@ async function applyAutofill(pool, subscriberId, ctx) {
       }
     }
 
-    // Département : pré-rempli via IPLocate (code postal exact) UNIQUEMENT si le pays
-    // effectif est FR et le champ encore vide. Appel non bloquant (timeout court) : si
-    // IPLocate est lent/indisponible ou ne résout rien de fiable → on laisse NULL, aucune
-    // erreur. Écriture LIMITÉE à subscribers (departement + departement_source) : rien
-    // dans subscriptions ni source_param_states → aucune activation d'alerte.
-    if (row.departement == null && effectiveCountry === 'FR' && ctx && ctx.ip) {
-      const dep = await departementFromIp(ctx.ip);
-      if (dep) {
+    // Géo fine (département / région / ville) : pré-remplie via IPLocate en UN SEUL appel,
+    // UNIQUEMENT si le pays effectif est FR et qu'au moins un des champs est encore vide.
+    // Appel non bloquant (timeout court) : si IPLocate est lent/indisponible ou ne résout
+    // rien de fiable → on laisse NULL, aucune erreur. Chaque champ n'écrit que s'il est
+    // NULL (jamais d'écrasement). Écriture LIMITÉE à subscribers : rien dans subscriptions
+    // ni source_param_states → AUCUNE activation d'alerte.
+    // Un champ n'est « à remplir » que s'il est NULL ET jamais touché (source NULL) :
+    // ainsi un champ vidé manuellement (source='manual', valeur NULL) n'est PAS re-rempli.
+    const fillDept = row.departement == null && row.departement_source == null;
+    const fillReg = row.region == null && row.region_source == null;
+    const fillVille = row.ville == null && row.ville_source == null;
+    if ((fillDept || fillReg || fillVille) && effectiveCountry === 'FR' && ctx && ctx.ip) {
+      const geo = await geoFromIp(ctx.ip);
+      if (fillDept && geo.departement) {
         await pool.query(
-          "UPDATE subscribers SET departement = $1, departement_source = 'auto' WHERE id = $2 AND departement IS NULL",
-          [dep, subscriberId]
+          "UPDATE subscribers SET departement = $1, departement_source = 'auto' WHERE id = $2 AND departement IS NULL AND departement_source IS NULL",
+          [geo.departement, subscriberId]
+        );
+      }
+      if (fillReg && geo.region) {
+        await pool.query(
+          "UPDATE subscribers SET region = $1, region_source = 'auto' WHERE id = $2 AND region IS NULL AND region_source IS NULL",
+          [geo.region, subscriberId]
+        );
+      }
+      if (fillVille && geo.ville) {
+        await pool.query(
+          "UPDATE subscribers SET ville = $1, ville_source = 'auto' WHERE id = $2 AND ville IS NULL AND ville_source IS NULL",
+          [geo.ville, subscriberId]
         );
       }
     }
@@ -233,7 +258,7 @@ module.exports = {
   deriveDisplayNameFromGithub,
   countryFromIp,
   departementFromPostal,
-  departementFromIp,
+  geoFromIp,
   clientIp,
   isPrivateIp,
   _trySetDisplayName: trySetDisplayName,

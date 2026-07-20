@@ -13,7 +13,7 @@
   var token = S.get();
   if (!token) return; // anonyme : pas de personnalisation
 
-  var state = { country: 'FR', departement: null, interests: [], displayName: null };
+  var state = { country: 'FR', departement: null, region: null, ville: null, interests: [], displayName: null };
   var geo = { countries: [], departements: [] };
   var kioskCats = []; // slugs de catégories réellement utilisées par le kiosque
 
@@ -67,10 +67,14 @@
   }
 
   async function save() {
+    // On envoie TOUJOURS l'ensemble des champs (le serveur fait un overwrite complet et
+    // pose *_source='manual' pour chaque champ renseigné).
     var payload = {
       token: token,
       country: state.country || null,
       departement: state.country === 'FR' ? state.departement : null,
+      region: state.region || null,
+      ville: state.ville || null,
       interests: state.interests,
     };
     try {
@@ -83,6 +87,8 @@
       // La France reste le défaut d'affichage si rien n'est renseigné.
       state.country = d.country || 'FR';
       state.departement = d.departement || null;
+      state.region = d.region || null;
+      state.ville = d.ville || null;
       state.interests = d.interests || [];
       flash('Enregistré ✓', true);
     } catch (e) {
@@ -141,6 +147,16 @@
       '    <div class="notif-txt"><strong>Département</strong><span class="notif-sub">Priorise les alertes locales</span></div>' +
       '    <select id="pref-dept" class="pref-select" aria-label="Département">' + optionList(geo.departements, state.departement, '—') + '</select>' +
       '  </div>' +
+      // Région / Ville : texte libre (pré-remplis automatiquement, éditables). Zone de
+      // transparence : l'utilisateur voit et corrige ce qui a été deviné.
+      '  <div class="notif-row" id="pref-region-row">' +
+      '    <div class="notif-txt"><strong>Région</strong><span class="notif-sub">Détectée automatiquement, à corriger si besoin</span></div>' +
+      '    <input id="pref-region" class="pref-dn-input" type="text" maxlength="80" placeholder="—" value="' + esc(state.region || '') + '">' +
+      '  </div>' +
+      '  <div class="notif-row" id="pref-ville-row">' +
+      '    <div class="notif-txt"><strong>Ville</strong><span class="notif-sub">Détectée automatiquement, à corriger si besoin</span></div>' +
+      '    <input id="pref-ville" class="pref-dn-input" type="text" maxlength="80" placeholder="—" value="' + esc(state.ville || '') + '">' +
+      '  </div>' +
       '  <div class="notif-row pref-interests-row">' +
       '    <div class="notif-txt"><strong>Centres d\'intérêt</strong><span class="notif-sub">Vos thèmes remontent en tête du kiosque</span></div>' +
       '    <div class="pref-chips" id="pref-chips"></div>' +
@@ -171,6 +187,19 @@
     document.getElementById('pref-dept').addEventListener('change', function (e) {
       state.departement = e.target.value || null;
       save();
+    });
+    // Région / Ville : sauvegarde à la sortie du champ (change), seulement si modifié.
+    var regionInput = document.getElementById('pref-region');
+    if (regionInput) regionInput.addEventListener('change', function (e) {
+      var v = (e.target.value || '').trim();
+      if (v === (state.region || '')) return;
+      state.region = v || null; save();
+    });
+    var villeInput = document.getElementById('pref-ville');
+    if (villeInput) villeInput.addEventListener('change', function (e) {
+      var v = (e.target.value || '').trim();
+      if (v === (state.ville || '')) return;
+      state.ville = v || null; save();
     });
     // Sauvegarde à la volée (plus de bouton) : après une courte pause de frappe
     // (anti-rafales — la validation serveur est limitée à 3/mois), à la sortie du
@@ -223,6 +252,8 @@
       // Profil courant (France = défaut d'affichage si non renseigné).
       state.country = (me && me.country) || 'FR';
       state.departement = (me && me.departement) || null;
+      state.region = (me && me.region) || null;
+      state.ville = (me && me.ville) || null;
       state.interests = (me && me.interests) || [];
       state.displayName = (me && me.display_name) || null;
 
