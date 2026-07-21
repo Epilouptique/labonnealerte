@@ -3206,3 +3206,55 @@ WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'marathons-villes');
 UPDATE sources SET params_schema = '[{"key":"course","label":"Course","type":"enum","values":[{"value":"marathon-paris","label":"Marathon de Paris"},{"value":"semi-paris","label":"Semi-marathon de Paris"},{"value":"run-in-lyon","label":"Run in Lyon (marathon)"},{"value":"20km-paris","label":"20 km de Paris"}],"multiple":true,"required":true,"default":null}]'::jsonb WHERE id = 'marathons-villes';
 INSERT INTO source_states (source_id) SELECT 'marathons-villes'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'marathons-villes');
+
+-- ================================================================
+-- Vague « veille d'état imprévisible » (display_order 424-428). Sources PARAMÉTRÉES.
+-- Anti-SSRF via safe-fetch (URL utilisateur). Référence au 1er cycle sans alerte
+-- (pas de faux positif rétroactif). Limites documentées en tête de chaque module .js.
+-- veille-prix : NON codée (trop fragile, prix JS-rendus) — TODO reprise via headless.
+-- ================================================================
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
+SELECT 'veille-page', 'Veille de page', 'Suivez n''importe quelle page web',
+  'Entrez l''adresse d''une page web : vous êtes prévenu dès que son contenu change. Détection par comparaison du texte visible (on signale qu''un changement a eu lieu, pas ce qui a changé). Fonctionne mieux sur des pages classiques ; pas les sites 100% JavaScript ni les pages d''actualité en flux continu. Protections anti-SSRF, https.',
+  'internal', 'official', false, ARRAY['numerique', 'veille'], 424, '[{"key":"url","label":"URL de la page à surveiller","type":"string","placeholder":"https://exemple.fr/page","pattern":"^https://[^\\s]{1,300}$","lowercase":false,"multiple":true,"required":true,"default":null,"hint":"URL https d''une page. Vous êtes prévenu quand son contenu change. Fonctionne mieux sur des pages « classiques » (pas les sites 100% JavaScript ni les pages d''actualité qui changent en continu)."}]'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'veille-page');
+UPDATE sources SET params_schema = '[{"key":"url","label":"URL de la page à surveiller","type":"string","placeholder":"https://exemple.fr/page","pattern":"^https://[^\\s]{1,300}$","lowercase":false,"multiple":true,"required":true,"default":null,"hint":"URL https d''une page. Vous êtes prévenu quand son contenu change. Fonctionne mieux sur des pages « classiques » (pas les sites 100% JavaScript ni les pages d''actualité qui changent en continu)."}]'::jsonb WHERE id = 'veille-page';
+INSERT INTO source_states (source_id) SELECT 'veille-page'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'veille-page');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
+SELECT 'veille-stock', 'Veille de stock', 'Retour en stock d''un produit',
+  'Entrez l''adresse d''une page produit : vous êtes prévenu quand sa disponibilité change (retour en stock ou rupture). Heuristique par mots-clés, best-effort : fiable sur les boutiques classiques, pas sur les sites 100% JavaScript. Protections anti-SSRF, https.',
+  'internal', 'official', false, ARRAY['bons-plans', 'disponibilite'], 425, '[{"key":"url","label":"URL de la page produit","type":"string","placeholder":"https://boutique.fr/produit","pattern":"^https://[^\\s]{1,300}$","lowercase":false,"multiple":true,"required":true,"default":null,"hint":"URL https d''une page produit. Vous êtes prévenu quand la disponibilité change (retour en stock / rupture). Heuristique : fonctionne mieux sur les sites classiques, pas sur les boutiques 100% JavaScript."}]'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'veille-stock');
+UPDATE sources SET params_schema = '[{"key":"url","label":"URL de la page produit","type":"string","placeholder":"https://boutique.fr/produit","pattern":"^https://[^\\s]{1,300}$","lowercase":false,"multiple":true,"required":true,"default":null,"hint":"URL https d''une page produit. Vous êtes prévenu quand la disponibilité change (retour en stock / rupture). Heuristique : fonctionne mieux sur les sites classiques, pas sur les boutiques 100% JavaScript."}]'::jsonb WHERE id = 'veille-stock';
+INSERT INTO source_states (source_id) SELECT 'veille-stock'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'veille-stock');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
+SELECT 'veille-entreprise', 'Veille d''entreprise', 'Statut légal (SIREN) suivi',
+  'Surveillez une entreprise par son SIREN : vous êtes prévenu en cas de radiation / cessation d''activité, de changement de dénomination ou de dirigeant. Données publiques officielles (INSEE + RNE via recherche-entreprises). Aucune alerte rétroactive : seul un changement après votre abonnement compte.',
+  'internal', 'official', false, ARRAY['creation-entreprise', 'veille'], 426, '[{"key":"siren","label":"SIREN de l''entreprise","type":"string","placeholder":"552032534","pattern":"^\\d{9}$","lowercase":false,"multiple":true,"required":true,"default":null,"hint":"Le SIREN à 9 chiffres de l''entreprise (ex. Danone = 552032534). Alerte en cas de radiation, changement de nom ou de dirigeant."}]'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'veille-entreprise');
+UPDATE sources SET params_schema = '[{"key":"siren","label":"SIREN de l''entreprise","type":"string","placeholder":"552032534","pattern":"^\\d{9}$","lowercase":false,"multiple":true,"required":true,"default":null,"hint":"Le SIREN à 9 chiffres de l''entreprise (ex. Danone = 552032534). Alerte en cas de radiation, changement de nom ou de dirigeant."}]'::jsonb WHERE id = 'veille-entreprise';
+INSERT INTO source_states (source_id) SELECT 'veille-entreprise'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'veille-entreprise');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
+SELECT 'veille-boamp', 'Veille marchés publics', 'Un mot-clé dans les appels d’offres',
+  'Entrez un mot-clé : vous êtes prévenu à la publication d''un nouvel avis de marché public (BOAMP) dont l''objet correspond. Données officielles BOAMP. Idéal pour les entreprises qui répondent aux appels d''offres.',
+  'internal', 'official', false, ARRAY['marches-publics', 'veille'], 427, '[{"key":"motcle","label":"Mot-clé (objet du marché)","type":"string","placeholder":"voirie, informatique, restauration scolaire…","lowercase":false,"multiple":true,"required":true,"default":null,"hint":"Un mot-clé recherché dans l''objet des avis de marchés publics (BOAMP). Alerte à la publication d''un nouvel avis correspondant."}]'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'veille-boamp');
+UPDATE sources SET params_schema = '[{"key":"motcle","label":"Mot-clé (objet du marché)","type":"string","placeholder":"voirie, informatique, restauration scolaire…","lowercase":false,"multiple":true,"required":true,"default":null,"hint":"Un mot-clé recherché dans l''objet des avis de marchés publics (BOAMP). Alerte à la publication d''un nouvel avis correspondant."}]'::jsonb WHERE id = 'veille-boamp';
+INSERT INTO source_states (source_id) SELECT 'veille-boamp'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'veille-boamp');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
+SELECT 'veille-hydrometrie', 'Niveau de rivière', 'Franchissement d’un seuil (station)',
+  'Surveillez une station hydrométrique et un seuil de hauteur d''eau (en mm) : vous êtes prévenu au franchissement du seuil (montée ou baisse). Données officielles Hub''Eau temps réel. Pour riverains, pêcheurs, kayakistes. Distinct de la vigilance crues départementale.',
+  'internal', 'official', false, ARRAY['crues', 'environnement'], 428, '[{"key":"surveillance","label":"Station et seuil (code + mm)","type":"string","placeholder":"O972001001 1500","lowercase":false,"multiple":true,"required":true,"default":null,"hint":"Code de la station Hub''Eau puis le seuil de hauteur d''eau en millimètres, séparés par un espace (ex. « O972001001 1500 »). Alerte au franchissement du seuil. Trouvez le code sur hubeau.eaufrance.fr."}]'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'veille-hydrometrie');
+UPDATE sources SET params_schema = '[{"key":"surveillance","label":"Station et seuil (code + mm)","type":"string","placeholder":"O972001001 1500","lowercase":false,"multiple":true,"required":true,"default":null,"hint":"Code de la station Hub''Eau puis le seuil de hauteur d''eau en millimètres, séparés par un espace (ex. « O972001001 1500 »). Alerte au franchissement du seuil. Trouvez le code sur hubeau.eaufrance.fr."}]'::jsonb WHERE id = 'veille-hydrometrie';
+INSERT INTO source_states (source_id) SELECT 'veille-hydrometrie'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'veille-hydrometrie');

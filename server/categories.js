@@ -13,7 +13,7 @@ const GROUPS = {
   'transports': ['transports', 'trains', 'greves', 'trafic-routier', 'bouchons', 'autoroutes', 'fermetures-routes', 'cols-montagne', 'viabilite-hivernale', 'transports-en-commun', 'metro', 'aerien', 'retards-vols', 'covoiturage', 'bornes-recharge'],
   // A7) « github » retirée de la taxonomie (les sources qui la portaient sont
   //     réaffectées à « tech » par la migration Lot 1 dans init.sql).
-  'tech-dev': ['tech', 'dev', 'numerique', 'innovation', 'domaines', 'noms-de-domaine', 'certificats-ssl', 'uptime', 'pannes-services', 'status-cloud', 'releases', 'versions-logiciels', 'mises-a-jour', 'npm-packages', 'changements-api', 'fin-de-support', 'hackathons', 'frameworks', 'mises-a-jour-os', 'hardware'],
+  'tech-dev': ['tech', 'dev', 'numerique', 'veille', 'innovation', 'domaines', 'noms-de-domaine', 'certificats-ssl', 'uptime', 'pannes-services', 'status-cloud', 'releases', 'versions-logiciels', 'mises-a-jour', 'npm-packages', 'changements-api', 'fin-de-support', 'hackathons', 'frameworks', 'mises-a-jour-os', 'hardware'],
   'securite-cyber': ['securite', 'cybersecurite', 'cve', 'vulnerabilites', 'failles', 'fuites-de-donnees', 'phishing', 'arnaques', 'rappels-securite', 'alertes-fraude'],
   'administration': ['administration', 'impots', 'echeances-fiscales', 'declarations', 'aides', 'subventions', 'allocations', 'caf', 'retraite', 'social', 'permis-de-conduire', 'carte-grise', 'elections', 'journal-officiel', 'reglementation', 'consommation', 'assurance', 'vie-pratique', 'seniors'],
   'pro-marches': ['marches-publics', 'appels-offres', 'appels-a-projets', 'financements', 'creation-entreprise', 'entrepreneuriat', 'franchises', 'salons-pro', 'networking'],
