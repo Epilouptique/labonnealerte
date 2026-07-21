@@ -25,32 +25,58 @@ const PUBLIC_URL = 'https://www.vigicrues.gouv.fr/';
 const TIMEOUT_MS = 10_000;
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1h (le niveau bouge vite)
 const MAX_FETCH = Math.max(1, parseInt(process.env.EXTERNAL_MAX_COMBOS || '20', 10) || 20);
-// « CODE SEUIL » : code station alphanumérique (6-12) + espace + seuil (mm).
-const PARAM_RE = /^([A-Za-z0-9]{6,12})\s+(\d{1,7})(?:[.,](\d+))?$/;
+// Ancien format combiné « CODE SEUIL » (rétrocompat des abonnements antérieurs au multi-champs).
+const LEGACY_RE = /^([A-Za-z0-9]{6,12})\s+(\d{1,7})(?:[.,](\d+))?$/;
 
+// v2 MULTI-CHAMPS : station (string, code Hub'Eau) + seuil (number, mm). Rendu en 2 contrôles.
 const paramsSchema = [
   {
-    key: 'surveillance',
-    label: 'Station et seuil (code + mm)',
+    key: 'station',
+    label: 'Code de la station Hub\'Eau',
     type: 'string',
-    placeholder: 'O972001001 1500',
+    placeholder: 'O972001001',
+    pattern: '^[A-Za-z0-9]{6,12}$',
     lowercase: false,
     multiple: true,
     required: true,
     default: null,
-    hint: 'Code de la station Hub\'Eau puis le seuil de hauteur d\'eau en millimètres, séparés par un espace (ex. « O972001001 1500 »). Alerte au franchissement du seuil. Trouvez le code sur hubeau.eaufrance.fr.',
+    hint: 'Le code de la station hydrométrique (trouvez-le sur hubeau.eaufrance.fr).',
+  },
+  {
+    key: 'seuil',
+    label: 'Seuil de hauteur d\'eau (mm)',
+    type: 'number',
+    placeholder: '1500',
+    min: 0,
+    multiple: true,
+    required: true,
+    default: null,
+    hint: 'La hauteur d\'eau en millimètres au franchissement de laquelle être alerté (montée ou baisse).',
   },
 ];
 
-// Cache par valeur de param : { above:boolean|null, at, result }.
+// Cache par combo (clé « CODE SEUIL ») : { above:boolean|null, at, result }.
 const cache = new Map();
 
 function inactive() {
   return { state: 'inactive', since: null, until: null, message: null, url: PUBLIC_URL };
 }
 
-function parseParam(v) {
-  const m = PARAM_RE.exec(String(v || '').trim());
+// { code, seuil } depuis un objet params : NOUVEAU format (station + seuil) OU ANCIEN combiné
+// (surveillance = « CODE SEUIL »), pour ne perdre aucun abonnement existant.
+function comboOf(p) {
+  if (p && p.station != null && p.station !== '' && p.seuil != null && p.seuil !== '') {
+    const code = String(p.station).toUpperCase();
+    const seuil = Number(p.seuil);
+    if (/^[A-Z0-9]{6,12}$/.test(code) && Number.isFinite(seuil) && seuil >= 0) return { code, seuil };
+    return null;
+  }
+  if (p && p.surveillance != null) return parseLegacy(p.surveillance);
+  return null;
+}
+
+function parseLegacy(v) {
+  const m = LEGACY_RE.exec(String(v || '').trim());
   if (!m) return null;
   const seuil = parseFloat(m[3] ? `${m[2]}.${m[3]}` : m[2]);
   return { code: m[1].toUpperCase(), seuil };
@@ -77,11 +103,10 @@ async function checkWithParams(paramsList) {
   const out = [];
 
   for (const params of combos) {
-    const raw = String((params && params.surveillance) || '');
-    const parsed = parseParam(raw);
+    const parsed = comboOf(params);
     if (!parsed) { out.push(Object.assign({ params }, inactive())); continue; }
 
-    const key = raw.trim();
+    const key = `${parsed.code} ${parsed.seuil}`;
     const entry = cache.get(key);
     if (entry && now - entry.at < CACHE_TTL_MS) { out.push(Object.assign({ params }, entry.result)); continue; }
     if (fetches >= MAX_FETCH) { out.push(Object.assign({ params }, entry ? entry.result : inactive())); continue; }

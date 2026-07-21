@@ -612,21 +612,33 @@
 
   // Lit le contrôle de saisie (select enum OU input string/number) et valide
   // le format côté client (attribut pattern). Retourne { params, label } ou null.
+  // Collecte la valeur de CHAQUE champ du picker (v2 multi-champs) et valide chacun selon
+  // son type/pattern. Retourne { params, label } SEULEMENT si TOUS les champs sont remplis et
+  // valides (sinon null → l'auto-abonnement non-géo attend que tout soit saisi).
+  // Rétrocompat : un picker à 1 seul contrôle se comporte exactement comme avant.
   function readParam(card) {
-    var ctrl = card.querySelector('.param-select, .param-input');
-    if (!ctrl) return null;
-    var val = ctrl.value;
-    if (ctrl.tagName === 'INPUT') {
-      val = String(val || '').trim();
-      var ok = !!val;
-      var pat = ctrl.getAttribute('pattern');
-      if (ok && pat) { try { ok = new RegExp(pat, 'i').test(val); } catch (e) { ok = true; } }
-      if (!ok) { ctrl.focus(); ctrl.style.borderColor = 'var(--amber)'; return null; }
-      ctrl.style.borderColor = '';
+    var form = card.querySelector('.param-form') || card;
+    var ctrls = form.querySelectorAll('.param-select, .param-input');
+    if (!ctrls.length) return null;
+    var params = {};
+    var labels = [];
+    for (var i = 0; i < ctrls.length; i++) {
+      var ctrl = ctrls[i];
+      var val = ctrl.value;
+      if (ctrl.tagName === 'INPUT') {
+        val = String(val || '').trim();
+        var ok = !!val;
+        var pat = ctrl.getAttribute('pattern');
+        if (ok && pat) { try { ok = new RegExp(pat, 'i').test(val); } catch (e) { ok = true; } }
+        if (!ok) { ctrl.focus(); ctrl.style.borderColor = 'var(--amber)'; return null; }
+        ctrl.style.borderColor = '';
+      } else if (!val) { // SELECT sans choix (placeholder « Choisir… »)
+        return null;
+      }
+      params[ctrl.getAttribute('data-key')] = val;
+      labels.push((ctrl.tagName === 'SELECT' && ctrl.options[ctrl.selectedIndex]) ? ctrl.options[ctrl.selectedIndex].text : val);
     }
-    var label = (ctrl.tagName === 'SELECT' && ctrl.options[ctrl.selectedIndex]) ? ctrl.options[ctrl.selectedIndex].text : val;
-    var params = {}; params[ctrl.getAttribute('data-key')] = val;
-    return { params: params, label: label };
+    return { params: params, label: labels.join(' · ') };
   }
 
   async function followParamConnected(card) {
@@ -645,9 +657,9 @@
       setParamStatus(card, true);
       ensureMuteSwitch(card); // interrupteur pause/reprise disponible tout de suite
       togglePicker(card, false);
-      // C5) Réinitialise le contrôle pour un éventuel ajout suivant (placeholder).
-      var ctrl0 = card.querySelector('.param-select, .param-input');
-      if (ctrl0) ctrl0.value = '';
+      // C5) Réinitialise TOUS les contrôles du picker pour un éventuel ajout suivant.
+      var ctrls0 = card.querySelectorAll('.param-form .param-select, .param-form .param-input');
+      for (var ci = 0; ci < ctrls0.length; ci++) ctrls0[ci].value = '';
       celebrate(card);
       refreshMineDependent();
       // Carte recommandée adoptée : l'étiquette part, une nouvelle reco est calculée.

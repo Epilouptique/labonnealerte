@@ -156,24 +156,27 @@
   function isGeoSchema(schema) { return !!(schema && (GEO_KEYS[schema.key] || schema.type === 'commune')); }
 
   function paramFace(s, mode) {
-    var schema = s.params_schema[0];
+    // v2 multi-champs : params_schema est un TABLEAU ; on rend UN contrôle PAR champ.
+    // (Rétrocompat : un schéma à 1 champ produit exactement le même rendu qu'avant.)
+    var fields = Array.isArray(s.params_schema) ? s.params_schema : [];
     var instances = Array.isArray(s.instances) ? s.instances : [];
-    var isGeo = isGeoSchema(schema);
-    // Pré-remplissage : SEULEMENT les cartes géo, depuis le profil (window.LBADefaults).
-    // Non-géo : placeholder pour les enum (activation au change), valeur par défaut
-    // éventuelle pour les champs libres (comportement d'origine).
-    var def = null;
-    if (isGeo) {
-      def = (window.LBADefaults && window.LBADefaults[schema.key]) || null;
-      // Champ commune : pré-rempli avec le NOM de ville du profil (résolu en INSEE côté
-      // serveur à la souscription). LBADefaults n'a pas de clé 'commune' → repli sur 'ville'.
-      if (def == null && schema.type === 'commune') def = (window.LBADefaults && window.LBADefaults.ville) || null;
-      // Déjà suivie ? on ne pré-remplit pas (le picker sert à en ajouter une AUTRE).
-      if (def != null && instances.some(function (inst) {
-        return inst.params && String(inst.params[schema.key]) === String(def);
-      })) { def = null; }
-    } else if (schema.type !== 'enum') {
-      def = schema.default || null;
+    // Carte « géo » si AU MOINS un champ est géographique (switch cliquable + pré-remplissage
+    // profil). Pour un schéma à 1 champ, identique à l'ancien isGeoSchema(schema[0]).
+    var isGeo = fields.some(isGeoSchema);
+    // Valeur pré-remplie PAR CHAMP : pré-remplissage géo depuis le profil (window.LBADefaults) ;
+    // valeur par défaut éventuelle pour les champs libres (string/number non-enum).
+    function defFor(field) {
+      if (isGeoSchema(field)) {
+        var d = (window.LBADefaults && window.LBADefaults[field.key]) || null;
+        // Champ commune : pré-rempli avec le NOM de ville du profil (résolu en INSEE au serveur).
+        if (d == null && field.type === 'commune') d = (window.LBADefaults && window.LBADefaults.ville) || null;
+        // Déjà suivie ? on ne pré-remplit pas (le picker sert à en ajouter une AUTRE).
+        if (d != null && instances.some(function (inst) {
+          return inst.params && String(inst.params[field.key]) === String(d);
+        })) d = null;
+        return d;
+      }
+      return field.type !== 'enum' ? (field.default || null) : null;
     }
 
     var chips = instances.length
@@ -191,9 +194,11 @@
     // Picker = contrôle + switch « S'abonner » (présent dès le 1er rendu, géo ET non-géo).
     // Géo : switch cliquable, abonnement au clic. Non-géo : switch disabled, abonnement à
     // la saisie/au choix (comportement d'origine). Voir followSwitch().
+    // Un contrôle par champ (select pour enum, input pour string/number), empilés dans le picker.
+    var controls = fields.map(function (f) { return paramControl(f, defFor(f)); }).join('');
     var picker =
       '<div class="param-form"' + (instances.length ? ' hidden' : '') + '>' +
-        paramControl(schema, def) +
+        controls +
         followSwitch(isGeo) +
       '</div>';
     // Parcours anonyme : email (réutilise .sub-form), les params sont joints au submit.
