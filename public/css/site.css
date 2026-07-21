@@ -1930,6 +1930,7 @@ body.m-menu-open { overflow: hidden; }
    révélation « Catégories » reste animée (slide horizontal), sans aucun contexte 3D. */
 .m-menu-flip {
   position: relative; width: 100%; height: 100%; overflow: hidden; /* clippe la face hors-champ */
+  background: var(--surface);
 }
 .m-menu-face {
   position: absolute; inset: 0; height: 100%; /* flip a une hauteur définie → borne la face au viewport */
@@ -1983,7 +1984,7 @@ body.m-menu-open { overflow: hidden; }
 /* J) Nom public dans « Mon compte » : saisie + bouton alignés au style du site. */
 .pref-dn-input-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .pref-dn-input {
-  flex: 1 1 200px; min-width: 0; font: inherit; font-size: 15px; color: var(--ink);
+  /*flex: 1 1 200px;*/ min-width: 0; font: inherit; font-size: 15px; color: var(--ink);
   background: var(--bg); border: 1.5px solid var(--line); border-radius: 10px; padding: 10px 14px;
 }
 .pref-dn-input:focus { outline: none; border-color: var(--amber); }
