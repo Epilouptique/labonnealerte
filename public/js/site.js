@@ -252,7 +252,7 @@
     card.classList.add('card-reco');
     if (!card.querySelector('.reco-label')) {
       card.insertAdjacentHTML('afterbegin',
-        '<span class="reco-label">Recommandée pour vous ' +
+        '<span class="reco-label">Recommandée ' +
         '<button type="button" class="reco-x" aria-label="Ignorer la recommandation">×</button></span>');
     }
   }

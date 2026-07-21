@@ -13,6 +13,12 @@
 
   var REDUCE = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
+  // Logo/marque : SOURCE UNIQUE (ligature SVG animée). Déclaré EN TÊTE de l'IIFE — avant
+  // le retour anticipé « home » — pour que buildMenu() dispose TOUJOURS de la constante,
+  // même sur la home (où l'injection de header n'a pas lieu). Le logo du menu mobile en
+  // dépend directement, il reste donc indépendant de l'état condensé du header.
+  var LOGO_HTML = '<span class="lig"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path d="M 0 20 C -6 93, 66 52, 60 10"/></svg><span class="l">l</span>a</span>bonne<span class="a">alerte</span><span class="bang"><span class="bar"></span><span class="dot"></span></span><span class="fr">fr</span>';
+
   // 5) Cœur du header rempli si des favoris existent (localStorage lba-likes).
   // Enregistré avant le retour anticipé « home » pour s'appliquer sur toutes les pages.
   function markFavHeart() {
@@ -31,7 +37,13 @@
     var isHome = !!opts.isHome;
     var logged = !!opts.logged;
     var brand = nav.querySelector('.brand');
-    var logoHTML = brand ? brand.innerHTML : 'labonnealerte';
+    // Le logo du menu est INDÉPENDANT de l'état visuel du header : on privilégie la
+    // constante LOGO_HTML (source unique) et on ne retombe sur le DOM que si elle manque.
+    // Ainsi le titre reste présent même si le header est condensé (m-scrolled/m-secondary)
+    // au moment de l'ouverture du menu.
+    var logoHTML = (typeof LOGO_HTML === 'string' && LOGO_HTML)
+      ? LOGO_HTML
+      : (brand && brand.innerHTML.trim() ? brand.innerHTML : 'labonnealerte');
 
     // Spacer de la rangée 1 (équilibre le hamburger → titre centré optiquement).
     if (!nav.querySelector('.m-nav-spacer')) {
@@ -63,7 +75,7 @@
     var frontHTML =
       '<div class="m-menu-inner">' +
         '<div class="m-menu-head">' +
-          '<span class="brand brandmark m-menu-logo" aria-hidden="true">' + logoHTML + '</span>' +
+          '<a href="/" class="brand brandmark m-menu-logo" aria-label="Accueil labonnealerte.fr">' + logoHTML + '</a>' +
           '<button type="button" class="m-menu-close" aria-label="Fermer le menu">✕</button>' +
         '</div>' +
         '<nav class="m-menu-list" aria-label="Navigation principale">' +
@@ -97,7 +109,7 @@
     var backHTML =
       '<div class="m-menu-inner">' +
         '<div class="m-menu-head">' +
-          '<span class="brand brandmark m-menu-logo" aria-hidden="true">' + logoHTML + '</span>' +
+          '<a href="/" class="brand brandmark m-menu-logo" aria-label="Accueil labonnealerte.fr">' + logoHTML + '</a>' +
           '<button type="button" class="m-menu-close m-cat-back" aria-label="Retour au menu">' + IC_BACK + '</button>' +
         '</div>' +
         '<div class="m-menu-cat-title">Catégories</div>' +
@@ -291,8 +303,7 @@
   // Logo/marque : SOURCE UNIQUE (les pages hors home ne le dupliquent plus en dur —
   // elles ne fournissent qu'un <div class="wrap nav"> vide). On crée l'ancre .brand si
   // absente, sinon on NORMALISE son contenu (certaines pages avaient un logo divergent,
-  // sans la ligature SVG animée). Ce logo alimente aussi le menu mobile (buildMenu).
-  var LOGO_HTML = '<span class="lig"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path d="M 0 20 C -6 93, 66 52, 60 10"/></svg><span class="l">l</span>a</span>bonne<span class="a">alerte</span><span class="bang"><span class="bar"></span><span class="dot"></span></span><span class="fr">fr</span>';
+  // sans la ligature SVG animée). LOGO_HTML est déclaré en tête de l'IIFE (voir plus haut).
   var brand = nav.querySelector('.brand');
   if (!brand) {
     brand = elFrom('<a class="brand brandmark" href="/">' + LOGO_HTML + '</a>');

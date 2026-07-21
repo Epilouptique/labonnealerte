@@ -14,7 +14,7 @@
   if (!token) return; // anonyme : pas de personnalisation
 
   var state = { country: 'FR', departement: null, region: null, ville: null, interests: [], displayName: null };
-  var geo = { countries: [], departements: [] };
+  var geo = { countries: [], departements: [], regions: [] };
   var kioskCats = []; // slugs de catégories réellement utilisées par le kiosque
 
   function esc(s) {
@@ -105,22 +105,85 @@
     return html;
   }
 
+  // Options de région : uniquement si France (les autres pays du profil n'ont pas de
+  // subdivisions gérées). Si la région stockée (valeur IPLocate) n'est pas dans le
+  // référentiel, on l'ajoute quand même en tête pour ne jamais l'effacer à l'affichage.
+  function regionOptions() {
+    var list = state.country === 'FR' ? (geo.regions || []) : [];
+    var html = '<option value="">—</option>';
+    var found = false;
+    list.forEach(function (r) {
+      var sel = r.code === state.region ? ' selected' : '';
+      if (sel) found = true;
+      html += '<option value="' + esc(r.code) + '"' + sel + '>' + esc(r.name) + '</option>';
+    });
+    if (state.country === 'FR' && state.region && !found) {
+      html += '<option value="' + esc(state.region) + '" selected>' + esc(state.region) + '</option>';
+    }
+    return html;
+  }
+
+  // Options de département : filtrées à la région choisie (si présente), sinon tous les
+  // départements FR. Vide hors France.
+  function deptOptions() {
+    var list = geo.departements || [];
+    if (state.country !== 'FR') list = [];
+    else if (state.region) list = list.filter(function (d) { return d.region === state.region; });
+    return optionList(list, state.departement, '—');
+  }
+
+  // Reconstruit les selects Région/Département depuis l'état courant + gère leur
+  // (dés)activation et la visibilité des rangées hors France.
+  function refreshGeoSelects() {
+    var reg = document.getElementById('pref-region');
+    var dep = document.getElementById('pref-dept');
+    if (reg) { reg.innerHTML = regionOptions(); reg.disabled = state.country !== 'FR'; }
+    if (dep) { dep.innerHTML = deptOptions(); dep.disabled = state.country !== 'FR'; }
+    var regRow = document.getElementById('pref-region-row');
+    var depRow = document.getElementById('pref-dept-row');
+    if (regRow) regRow.hidden = state.country !== 'FR';
+    if (depRow) depRow.hidden = state.country !== 'FR';
+  }
+
+  // Datalist de villes : aucune base de communes n'est embarquée dans le projet (vigieau
+  // consomme des codes INSEE saisis, pas une liste de noms). On alimente donc à la demande
+  // via /api/communes (relais serveur de geo.api.gouv.fr, même origine → CSP OK), filtré au
+  // département sélectionné (le filtre le plus fin). Dégradation propre : si l'API échoue ou
+  // qu'aucun département n'est choisi, la datalist reste vide et le champ redevient un
+  // simple texte libre.
+  var villeReqDept = null;
+  function fillVilleSuggestions() {
+    var dl = document.getElementById('pref-ville-list');
+    if (!dl) return;
+    var dept = state.country === 'FR' ? state.departement : null;
+    if (!dept) { dl.innerHTML = ''; villeReqDept = null; return; }
+    if (dept === villeReqDept) return; // déjà chargé pour ce département
+    villeReqDept = dept;
+    fetch('/api/communes?departement=' + encodeURIComponent(dept), { headers: { Accept: 'application/json' } })
+      .then(function (r) { return r.ok ? r.json() : { communes: [] }; })
+      .then(function (d) {
+        if (villeReqDept !== dept) return; // une sélection plus récente a pris la main
+        var list = (d && Array.isArray(d.communes)) ? d.communes : [];
+        dl.innerHTML = list.map(function (n) { return '<option value="' + esc(n) + '"></option>'; }).join('');
+      })
+      .catch(function () { /* repli silencieux : champ texte libre */ });
+  }
+
   function chipHTML(slug) {
     var on = state.interests.indexOf(slug) !== -1;
     return '<button type="button" class="pref-chip' + (on ? ' on' : '') +
       '" data-slug="' + esc(slug) + '" aria-pressed="' + (on ? 'true' : 'false') + '">' +
       esc(catLabel(slug)) + '</button>';
   }
-  // Point 5 : ~40 caractères cumulés de libellés visibles par défaut, le reste sous
-  // un bouton « + » (même pattern que la 2e ligne de catégories du kiosque).
+  // Sur PC : exactement 7 centres d'intérêt visibles par défaut, le reste sous un bouton
+  // « + » (même pattern que la 2e ligne de catégories du kiosque). Nombre FIXE (plus de
+  // seuil variable en caractères) pour un rendu stable sur desktop.
+  var PRIMARY_CHIPS = 7;
   function renderChips() {
     var box = document.getElementById('pref-chips');
     if (!box) return;
-    var LIMIT = 40, acc = 0, primary = [], secondary = [];
-    kioskCats.forEach(function (slug) {
-      if (primary.length === 0 || acc <= LIMIT) { primary.push(slug); acc += catLabel(slug).length + 2; }
-      else secondary.push(slug);
-    });
+    var primary = kioskCats.slice(0, PRIMARY_CHIPS);
+    var secondary = kioskCats.slice(PRIMARY_CHIPS);
     var html = primary.map(chipHTML).join('');
     if (secondary.length) {
       html += '<button type="button" class="pref-chip pref-chip-more" id="pref-chips-more-toggle"' +
@@ -128,11 +191,6 @@
         '<div class="pref-chips-more chips-more" id="pref-chips-more">' + secondary.map(chipHTML).join('') + '</div>';
     }
     box.innerHTML = html;
-  }
-
-  function syncDeptVisibility() {
-    var row = document.getElementById('pref-dept-row');
-    if (row) row.hidden = state.country !== 'FR';
   }
 
   function render() {
@@ -143,19 +201,22 @@
       '    <div class="notif-txt"><strong>Pays</strong><span class="notif-sub">Adapte les alertes à votre région</span></div>' +
       '    <select id="pref-country" class="pref-select" aria-label="Pays">' + optionList(geo.countries, state.country, null) + '</select>' +
       '  </div>' +
+      // Région : select lié (les options se filtrent au pays ; choisir une région filtre
+      // les départements et renseigne le pays). Ordre logique Pays → Région → Département.
+      '  <div class="notif-row" id="pref-region-row">' +
+      '    <div class="notif-txt"><strong>Région</strong><span class="notif-sub">Filtre les départements</span></div>' +
+      '    <select id="pref-region" class="pref-select" aria-label="Région">' + regionOptions() + '</select>' +
+      '  </div>' +
       '  <div class="notif-row" id="pref-dept-row">' +
       '    <div class="notif-txt"><strong>Département</strong><span class="notif-sub">Priorise les alertes locales</span></div>' +
-      '    <select id="pref-dept" class="pref-select" aria-label="Département">' + optionList(geo.departements, state.departement, '—') + '</select>' +
+      '    <select id="pref-dept" class="pref-select" aria-label="Département">' + deptOptions() + '</select>' +
       '  </div>' +
-      // Région / Ville : texte libre (pré-remplis automatiquement, éditables). Zone de
-      // transparence : l'utilisateur voit et corrige ce qui a été deviné.
-      '  <div class="notif-row" id="pref-region-row">' +
-      '    <div class="notif-txt"><strong>Région</strong><span class="notif-sub">Détectée automatiquement, à corriger si besoin</span></div>' +
-      '    <input id="pref-region" class="pref-dn-input" type="text" maxlength="80" placeholder="—" value="' + esc(state.region || '') + '">' +
-      '  </div>' +
+      // Ville : reste un champ de saisie (aucune base de communes embarquée — cf. rapport),
+      // assistée par une datalist native remplie à la demande selon le département choisi.
       '  <div class="notif-row" id="pref-ville-row">' +
       '    <div class="notif-txt"><strong>Ville</strong><span class="notif-sub">Détectée automatiquement, à corriger si besoin</span></div>' +
-      '    <input id="pref-ville" class="pref-dn-input" type="text" maxlength="80" placeholder="—" value="' + esc(state.ville || '') + '">' +
+      '    <input id="pref-ville" class="pref-dn-input" type="text" maxlength="80" placeholder="—" list="pref-ville-list" autocomplete="off" value="' + esc(state.ville || '') + '">' +
+      '    <datalist id="pref-ville-list"></datalist>' +
       '  </div>' +
       '  <div class="notif-row pref-interests-row">' +
       '    <div class="notif-txt"><strong>Centres d\'intérêt</strong><span class="notif-sub">Vos thèmes remontent en tête du kiosque</span></div>' +
@@ -176,24 +237,46 @@
       '</div>';
 
     renderChips();
-    syncDeptVisibility();
+    refreshGeoSelects();
+    fillVilleSuggestions();
 
+    // Pays : ne préremplit RIEN en dessous (trop large), mais filtre/vide Région et
+    // Département. Hors France, aucune subdivision gérée → on vide et masque proprement.
     document.getElementById('pref-country').addEventListener('change', function (e) {
       state.country = e.target.value || 'FR';
-      if (state.country !== 'FR') state.departement = null;
-      syncDeptVisibility();
+      if (state.country !== 'FR') { state.region = null; state.departement = null; }
+      refreshGeoSelects();
+      fillVilleSuggestions();
       save();
     });
-    document.getElementById('pref-dept').addEventListener('change', function (e) {
-      state.departement = e.target.value || null;
-      save();
-    });
-    // Région / Ville : sauvegarde à la sortie du champ (change), seulement si modifié.
+    // Région : renseigne le Pays (France) et filtre les départements. Si le département
+    // actuel n'appartient plus à la région choisie, on le vide (pas d'incohérence affichée).
     var regionInput = document.getElementById('pref-region');
     if (regionInput) regionInput.addEventListener('change', function (e) {
-      var v = (e.target.value || '').trim();
-      if (v === (state.region || '')) return;
-      state.region = v || null; save();
+      var v = (e.target.value || '').trim() || null;
+      if (v === state.region) return;
+      state.region = v;
+      if (v) {
+        state.country = 'FR';
+        var dep = state.departement && (geo.departements || []).filter(function (d) { return d.code === state.departement; })[0];
+        if (dep && dep.region !== v) state.departement = null; // dept hors région → vidé
+      }
+      refreshGeoSelects();
+      fillVilleSuggestions();
+      save();
+    });
+    // Département : renseigne automatiquement Région et Pays correspondants (correspondance
+    // directe — un département n'appartient qu'à une région et un pays).
+    document.getElementById('pref-dept').addEventListener('change', function (e) {
+      state.departement = e.target.value || null;
+      if (state.departement) {
+        state.country = 'FR';
+        var dep = (geo.departements || []).filter(function (d) { return d.code === state.departement; })[0];
+        if (dep && dep.region) state.region = dep.region;
+      }
+      refreshGeoSelects();
+      fillVilleSuggestions();
+      save();
     });
     var villeInput = document.getElementById('pref-ville');
     if (villeInput) villeInput.addEventListener('change', function (e) {
@@ -240,14 +323,14 @@
     try {
       if (window.LBACat && LBACat.load) await LBACat.load();
       var results = await Promise.all([
-        fetch('/api/geo', { headers: { Accept: 'application/json' } }).then(function (r) { return r.ok ? r.json() : { countries: [], departements: [] }; }),
+        fetch('/api/geo', { headers: { Accept: 'application/json' } }).then(function (r) { return r.ok ? r.json() : { countries: [], departements: [], regions: [] }; }),
         fetch('/api/my-alerts?token=' + encodeURIComponent(token), { headers: { Accept: 'application/json' } }).then(function (r) { return r.status === 401 ? null : r.json(); }),
         fetch('/api/sources', { headers: { Accept: 'application/json' } }).then(function (r) { return r.ok ? r.json() : []; }),
       ]);
       var g = results[0], me = results[1], srcs = results[2];
       if (me === null) return; // session invalide : on n'affiche rien
 
-      geo = { countries: g.countries || [], departements: g.departements || [] };
+      geo = { countries: g.countries || [], departements: g.departements || [], regions: g.regions || [] };
 
       // Profil courant (France = défaut d'affichage si non renseigné).
       state.country = (me && me.country) || 'FR';

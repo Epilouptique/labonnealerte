@@ -2,9 +2,10 @@ const express = require('express');
 const rateLimit = require('express-rate-limit');
 const { pool } = require('../db');
 const { CATEGORIES } = require('../categories');
-const { COUNTRIES, DEPARTEMENTS } = require('../geo');
+const { COUNTRIES, DEPARTEMENTS_WITH_REGION, REGIONS, isValidDepartement } = require('../geo');
 const { paramsFromQuery } = require('../params');
 const { authenticate } = require('../sessions');
+const { safeFetchJson } = require('../safe-fetch');
 
 const router = express.Router();
 
@@ -52,10 +53,45 @@ router.get('/categories', (req, res) => {
   res.json(CATEGORIES);
 });
 
-// GET /api/geo — référentiel pays + départements (personnalisation, cacheable).
+// GET /api/geo — référentiel pays + départements (chaque dept porte sa région) + régions,
+// pour la personnalisation (selects liés Pays→Région→Département). Cacheable.
 router.get('/geo', (req, res) => {
   res.set('Cache-Control', 'public, max-age=86400');
-  res.json({ countries: COUNTRIES, departements: DEPARTEMENTS });
+  res.json({ countries: COUNTRIES, departements: DEPARTEMENTS_WITH_REGION, regions: REGIONS });
+});
+
+// GET /api/communes?departement=XX — suggestions de villes (noms de communes) pour la
+// datalist de Mon compte. Le projet n'embarque AUCUNE base de communes (vigieau consomme
+// des codes INSEE saisis, pas une liste de noms) → on relaie l'API publique officielle
+// geo.api.gouv.fr, filtrée au département. Même origine côté client (la CSP connect-src
+// reste 'self'). Le département est validé contre le référentiel (pas d'entrée libre vers
+// l'URL distante). Cache mémoire + Cache-Control : le référentiel communal bouge très peu.
+const communesCache = new Map(); // code dept → { at, names }
+const COMMUNES_TTL_MS = 24 * 60 * 60 * 1000;
+router.get('/communes', async (req, res) => {
+  const dep = String(req.query.departement || '').trim();
+  if (!isValidDepartement(dep)) return res.status(400).json({ error: 'Département invalide' });
+  const cached = communesCache.get(dep);
+  const now = Date.now();
+  if (cached && now - cached.at < COMMUNES_TTL_MS) {
+    res.set('Cache-Control', 'public, max-age=86400');
+    return res.json({ departement: dep, communes: cached.names });
+  }
+  try {
+    const url = 'https://geo.api.gouv.fr/communes?codeDepartement=' +
+      encodeURIComponent(dep) + '&fields=nom&format=json&limit=2000';
+    const list = await safeFetchJson(url, { maxBytes: 512 * 1024, timeoutMs: 6000 });
+    const names = (Array.isArray(list) ? list : [])
+      .map((c) => (c && c.nom ? String(c.nom) : null))
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b));
+    communesCache.set(dep, { at: now, names });
+    res.set('Cache-Control', 'public, max-age=86400');
+    return res.json({ departement: dep, communes: names });
+  } catch (err) {
+    // Dégradation propre : le client retombe sur un champ texte libre (cf. rapport).
+    return res.status(502).json({ error: 'Suggestions de villes indisponibles', communes: [] });
+  }
 });
 
 // GET /api/sources — liste des sources avec leur état courant.

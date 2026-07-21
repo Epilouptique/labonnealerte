@@ -55,10 +55,55 @@ const DEPARTEMENTS = [
   { code: '974', name: 'La Réunion' }, { code: '976', name: 'Mayotte' },
 ];
 
+// Régions françaises (13 métropole + 5 DROM). Le nom EST la valeur stockée : la région
+// est enregistrée en texte (subdivision IPLocate à l'auto-remplissage), pas en code — on
+// conserve donc les noms officiels tels qu'IPLocate les renvoie. REGION_DEPTS : région →
+// codes de départements qui la composent (source unique de la liaison dept↔région↔pays).
+const REGION_DEPTS = {
+  'Auvergne-Rhône-Alpes': ['01', '03', '07', '15', '26', '38', '42', '43', '63', '69', '73', '74'],
+  'Bourgogne-Franche-Comté': ['21', '25', '39', '58', '70', '71', '89', '90'],
+  'Bretagne': ['22', '29', '35', '56'],
+  'Centre-Val de Loire': ['18', '28', '36', '37', '41', '45'],
+  'Corse': ['2A', '2B'],
+  'Grand Est': ['08', '10', '51', '52', '54', '55', '57', '67', '68', '88'],
+  'Hauts-de-France': ['02', '59', '60', '62', '80'],
+  'Île-de-France': ['75', '77', '78', '91', '92', '93', '94', '95'],
+  'Normandie': ['14', '27', '50', '61', '76'],
+  'Nouvelle-Aquitaine': ['16', '17', '19', '23', '24', '33', '40', '47', '64', '79', '86', '87'],
+  'Occitanie': ['09', '11', '12', '30', '31', '32', '34', '46', '48', '65', '66', '81', '82'],
+  'Pays de la Loire': ['44', '49', '53', '72', '85'],
+  "Provence-Alpes-Côte d'Azur": ['04', '05', '06', '13', '83', '84'],
+  'Guadeloupe': ['971'],
+  'Martinique': ['972'],
+  'Guyane': ['973'],
+  'La Réunion': ['974'],
+  'Mayotte': ['976'],
+};
+
+// Liste plate des régions (ordre du référentiel ci-dessus) pour alimenter un select.
+const REGIONS = Object.keys(REGION_DEPTS).map((name) => ({ code: name, name }));
+
+// Table inverse : code de département → nom de région (un département n'appartient qu'à
+// une seule région).
+const DEPT_REGION = {};
+Object.keys(REGION_DEPTS).forEach((region) => {
+  REGION_DEPTS[region].forEach((dep) => { DEPT_REGION[dep] = region; });
+});
+
+// DEPARTEMENTS enrichis de leur région (le client construit toute la liaison à partir de
+// ce seul tableau). On n'altère pas l'objet source : on en dérive une copie augmentée.
+const DEPARTEMENTS_WITH_REGION = DEPARTEMENTS.map((d) => ({ ...d, region: DEPT_REGION[d.code] || null }));
+
 const COUNTRY_CODES = new Set(COUNTRIES.map((c) => c.code));
 const DEPARTEMENT_CODES = new Set(DEPARTEMENTS.map((d) => d.code));
+const REGION_NAMES = new Set(REGIONS.map((r) => r.code));
 
 function isValidCountry(code) { return COUNTRY_CODES.has(code); }
 function isValidDepartement(code) { return DEPARTEMENT_CODES.has(code); }
+function isValidRegion(name) { return REGION_NAMES.has(name); }
+function regionFromDept(code) { return DEPT_REGION[code] || null; }
 
-module.exports = { COUNTRIES, DEPARTEMENTS, isValidCountry, isValidDepartement };
+module.exports = {
+  COUNTRIES, DEPARTEMENTS, DEPARTEMENTS_WITH_REGION, REGIONS, REGION_DEPTS, DEPT_REGION,
+  isValidCountry, isValidDepartement, isValidRegion, regionFromDept,
+};

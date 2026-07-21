@@ -1351,7 +1351,7 @@ body[data-mode="connected"] #stats { display: none; }
      hamburger à gauche + barre de recherche. Le logo (accessible depuis le menu)
      et le spacer sont masqués pour tenir sur une ligne sans retour. */
   body.m-secondary header .nav { flex-wrap: nowrap; row-gap: 0; }
-  body.m-secondary.m-kiosk .brand,
+  body.m-secondary.m-kiosk header .brand,
   body.m-secondary.m-kiosk .m-nav-spacer { display: none; }
   body.m-secondary.m-kiosk header .nav > .search {
     order: 2; flex: 1 1 auto; margin-left: 10px;
@@ -1413,7 +1413,7 @@ body[data-mode="connected"] #stats { display: none; }
   }
   /* Titre + catégories : repliés à taille nulle (largeur ET hauteur) pour libérer la
      rangée ; le hamburger n'est PAS masqué. */
-  body.m-kiosk.m-scrolled .brand,
+  body.m-kiosk.m-scrolled header .brand,
   body.m-kiosk.m-scrolled .m-nav-spacer,
   body.m-kiosk.m-scrolled header .nav .toolbar {
     max-height: 0; max-width: 0; opacity: 0; margin: 0; padding: 0;
