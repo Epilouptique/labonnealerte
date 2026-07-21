@@ -3157,3 +3157,28 @@ SELECT 'fete-bretagne', 'Fête de la Bretagne', 'Gouel Breizh, mi-mai',
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'fete-bretagne');
 INSERT INTO source_states (source_id) SELECT 'fete-bretagne'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'fete-bretagne');
+
+-- ================================================================
+-- Vague VILLE / COMMUNE (display_order 420-421). Champ paramètre type 'commune' :
+-- nom de ville saisi/pré-rempli → résolu en CODE INSEE à la souscription (lib/commune-insee,
+-- via la route toggle-param), valeur canonique = INSEE. Sources jusqu'au niveau village.
+-- Init sans fausse alerte rétroactive : 1er passage = référence mémorisée, pas d'alerte.
+-- ================================================================
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
+SELECT 'eau-potable-commune', 'Eau potable (commune)', 'Contrôle sanitaire de votre commune',
+  'Soyez alerté si un contrôle sanitaire déclare l''eau du robinet de votre commune NON CONFORME aux limites de qualité (bactériologique ou physico-chimique). Données officielles Hub''Eau / ARS (contrôle sanitaire SISE-Eaux), jusqu''au plus petit village. Seul un nouveau contrôle non conforme déclenche l''alerte (pas l''historique).',
+  'internal', 'official', false, ARRAY['sante', 'environnement', 'eau'], 420, '[{"key":"commune","label":"Commune","type":"commune","placeholder":"Votre commune","multiple":true,"required":true,"default":null,"hint":"Le nom de votre commune (ou une autre). Alerte si un contrôle sanitaire déclare l’eau du robinet non conforme."}]'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'eau-potable-commune');
+UPDATE sources SET params_schema = '[{"key":"commune","label":"Commune","type":"commune","placeholder":"Votre commune","multiple":true,"required":true,"default":null,"hint":"Le nom de votre commune (ou une autre). Alerte si un contrôle sanitaire déclare l’eau du robinet non conforme."}]'::jsonb WHERE id = 'eau-potable-commune';
+INSERT INTO source_states (source_id) SELECT 'eau-potable-commune'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'eau-potable-commune');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
+SELECT 'catnat-commune', 'Catastrophe naturelle (commune)', 'Nouvel arrêté CatNat pour votre commune',
+  'Soyez alerté à la publication d''un NOUVEL arrêté de catastrophe naturelle (inondation, sécheresse, mouvement de terrain…) reconnu pour votre commune. Un arrêté CatNat ouvre un délai pour déclarer les dommages à votre assurance. Données officielles Géorisques (BRGM). Seul un nouvel arrêté après votre abonnement déclenche (pas l''historique).',
+  'internal', 'official', false, ARRAY['risques-naturels', 'assurance', 'inondations'], 421, '[{"key":"commune","label":"Commune","type":"commune","placeholder":"Votre commune","multiple":true,"required":true,"default":null,"hint":"Le nom de votre commune (ou une autre). Alerte à la publication d’un nouvel arrêté de catastrophe naturelle."}]'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'catnat-commune');
+UPDATE sources SET params_schema = '[{"key":"commune","label":"Commune","type":"commune","placeholder":"Votre commune","multiple":true,"required":true,"default":null,"hint":"Le nom de votre commune (ou une autre). Alerte à la publication d’un nouvel arrêté de catastrophe naturelle."}]'::jsonb WHERE id = 'catnat-commune';
+INSERT INTO source_states (source_id) SELECT 'catnat-commune'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'catnat-commune');

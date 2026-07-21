@@ -12,6 +12,7 @@ const { authenticate, deleteSession } = require('../sessions');
 const { isValidCountry, isValidDepartement } = require('../geo');
 const { VALID_SLUGS } = require('../categories');
 const { validateParams, resolveLabel } = require('../params');
+const { resolveCommuneInsee, isInsee } = require('../sources/lib/commune-insee');
 const { trackDomain } = require('../doomname');
 const { applyAutofill, deriveDisplayNameFromEmail, clientIp } = require('../profile-autofill');
 
@@ -446,7 +447,29 @@ apiRouter.post('/my-alerts/toggle-param', async (req, res) => {
     if (src.rows.length === 0 || src.rows[0].params_schema == null) {
       return res.status(404).json({ error: 'Source paramétrée inconnue' });
     }
-    const check = validateParams(src.rows[0].params_schema, params);
+    const schema = src.rows[0].params_schema;
+
+    // Vague VILLE — champ type 'commune' : la valeur reçue est un NOM de ville (saisi ou
+    // pré-rempli depuis le profil). On la résout en CODE INSEE (valeur canonique) AVANT
+    // validation, en s'appuyant sur le département du profil pour lever les homonymes.
+    // Résolution UNE SEULE FOIS ici (souscription), jamais au poll. Un code INSEE déjà
+    // saisi passe tel quel. Commune introuvable → refus propre (pas de fausse souscription).
+    let rawParams = params;
+    const communeField = Array.isArray(schema) ? schema.find((d) => d && d.type === 'commune') : null;
+    if (communeField && params && params[communeField.key] != null && !isInsee(params[communeField.key])) {
+      let profileDept = null;
+      try {
+        const p = await pool.query('SELECT departement FROM subscribers WHERE id = $1', [auth.id]);
+        profileDept = p.rows[0] ? p.rows[0].departement : null;
+      } catch (e) { /* dept absent → résolution sans désambiguïsation */ }
+      const resolved = await resolveCommuneInsee(params[communeField.key], profileDept);
+      if (!resolved) {
+        return res.status(400).json({ error: 'Commune introuvable — vérifiez l’orthographe ou précisez le département.' });
+      }
+      rawParams = Object.assign({}, params, { [communeField.key]: resolved.insee });
+    }
+
+    const check = validateParams(schema, rawParams);
     if (!check.ok) return res.status(400).json({ error: check.error });
     const canonical = check.params;
 

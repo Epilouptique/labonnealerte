@@ -152,7 +152,8 @@
   // pré-remplissage profil. Les autres (carburant, releases, vigieau…) gardent l'activation
   // immédiate au choix/saisie.
   var GEO_KEYS = { departement: 1, region: 1, pays: 1, ville: 1 };
-  function isGeoSchema(schema) { return !!(schema && GEO_KEYS[schema.key]); }
+  // Le type 'commune' (vague ville) est géo : switch cliquable + pré-remplissage profil.
+  function isGeoSchema(schema) { return !!(schema && (GEO_KEYS[schema.key] || schema.type === 'commune')); }
 
   function paramFace(s, mode) {
     var schema = s.params_schema[0];
@@ -164,6 +165,9 @@
     var def = null;
     if (isGeo) {
       def = (window.LBADefaults && window.LBADefaults[schema.key]) || null;
+      // Champ commune : pré-rempli avec le NOM de ville du profil (résolu en INSEE côté
+      // serveur à la souscription). LBADefaults n'a pas de clé 'commune' → repli sur 'ville'.
+      if (def == null && schema.type === 'commune') def = (window.LBADefaults && window.LBADefaults.ville) || null;
       // Déjà suivie ? on ne pré-remplit pas (le picker sert à en ajouter une AUTRE).
       if (def != null && instances.some(function (inst) {
         return inst.params && String(inst.params[schema.key]) === String(def);

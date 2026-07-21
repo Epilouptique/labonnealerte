@@ -7,7 +7,7 @@ const GROUPS = {
   'shopping': ['high-tech', 'smartphones', 'composants-pc', 'gpu', 'consoles', 'sneakers', 'mode', 'beaute', 'electromenager', 'meubles', 'jouets', 'equipement-sportif'],
   'billetterie-sorties': ['billetterie', 'concerts', 'spectacles', 'festivals', 'cinema', 'theatre', 'expositions', 'musees', 'matchs', 'evenements-sportifs'],
   'voyages': ['voyages', 'vols', 'erreurs-de-prix', 'billets-train', 'hotels', 'campings', 'locations-vacances', 'croisieres', 'ferries', 'road-trip', 'visas', 'delais-passeport'],
-  'meteo-risques': ['meteo', 'vigilance-meteo', 'orages', 'pluie-inondation', 'inondations', 'crues', 'neige', 'verglas', 'avalanches', 'canicule', 'grand-froid', 'vent-violent', 'tempetes', 'submersion', 'littoral', 'secheresse', 'feux-de-foret', 'surete-nucleaire', 'radioactivite'],
+  'meteo-risques': ['meteo', 'vigilance-meteo', 'orages', 'pluie-inondation', 'inondations', 'crues', 'neige', 'verglas', 'avalanches', 'canicule', 'grand-froid', 'vent-violent', 'tempetes', 'submersion', 'littoral', 'secheresse', 'risques-naturels', 'feux-de-foret', 'surete-nucleaire', 'radioactivite'],
   'environnement-nature': ['environnement', 'nature', 'qualite-air', 'pollution', 'pollens', 'allergies', 'uv', 'seismes', 'volcans', 'marees', 'grandes-marees', 'astronomie', 'aurores-boreales', 'eclipses', 'etoiles-filantes'],
   'energie': ['energie', 'electricite', 'coupures-electricite', 'tension-reseau', 'gaz', 'prix-carburant', 'fioul', 'bois-pellets', 'eau', 'coupures-eau'],
   'transports': ['transports', 'trains', 'greves', 'trafic-routier', 'bouchons', 'autoroutes', 'fermetures-routes', 'cols-montagne', 'viabilite-hivernale', 'transports-en-commun', 'metro', 'aerien', 'retards-vols', 'covoiturage', 'bornes-recharge'],
@@ -15,7 +15,7 @@ const GROUPS = {
   //     réaffectées à « tech » par la migration Lot 1 dans init.sql).
   'tech-dev': ['tech', 'dev', 'numerique', 'innovation', 'domaines', 'noms-de-domaine', 'certificats-ssl', 'uptime', 'pannes-services', 'status-cloud', 'releases', 'versions-logiciels', 'mises-a-jour', 'npm-packages', 'changements-api', 'fin-de-support', 'hackathons', 'frameworks', 'mises-a-jour-os', 'hardware'],
   'securite-cyber': ['securite', 'cybersecurite', 'cve', 'vulnerabilites', 'failles', 'fuites-de-donnees', 'phishing', 'arnaques', 'rappels-securite', 'alertes-fraude'],
-  'administration': ['administration', 'impots', 'echeances-fiscales', 'declarations', 'aides', 'subventions', 'allocations', 'caf', 'retraite', 'social', 'permis-de-conduire', 'carte-grise', 'elections', 'journal-officiel', 'reglementation', 'consommation', 'vie-pratique', 'seniors'],
+  'administration': ['administration', 'impots', 'echeances-fiscales', 'declarations', 'aides', 'subventions', 'allocations', 'caf', 'retraite', 'social', 'permis-de-conduire', 'carte-grise', 'elections', 'journal-officiel', 'reglementation', 'consommation', 'assurance', 'vie-pratique', 'seniors'],
   'pro-marches': ['marches-publics', 'appels-offres', 'appels-a-projets', 'financements', 'creation-entreprise', 'entrepreneuriat', 'franchises', 'salons-pro', 'networking'],
   'emploi-formation': ['emploi', 'offres-emploi', 'concours', 'fonction-publique', 'stages', 'alternance', 'formations', 'certifications', 'examens', 'resultats-examens', 'parcoursup', 'bourses'],
   'finance': ['finance', 'economie', 'epargne', 'bourse', 'actions', 'crypto', 'bitcoin', 'taux-interet', 'taux-immobilier', 'livret-a', 'inflation', 'chomage', 'devises', 'or-metaux', 'dividendes'],

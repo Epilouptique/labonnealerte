@@ -1,6 +1,12 @@
 // OpenAlert v2 — helpers de paramètres partagés (routes + poller).
 // Schéma = tableau plat de descripteurs { key, label, type, values, multiple, required }.
 // v2 : un abonnement porte un objet plat, ex { "departement": "05" }.
+//
+// Type 'commune' (vague ville) : la valeur CANONIQUE stockée est un CODE INSEE. Le nom de
+// ville saisi/pré-rempli est résolu en INSEE À LA SOUSCRIPTION (route, via
+// lib/commune-insee) AVANT validateParams — ici on ne valide donc qu'un code INSEE.
+
+const { isInsee, nameForInsee } = require('./sources/lib/commune-insee');
 
 // Valide un objet params brut contre le schéma. Retourne { ok, params } canonique
 // (clés ⊂ schéma, valeurs contrôlées) ou { ok:false, error }.
@@ -19,6 +25,11 @@ function validateParams(schema, raw) {
       const allowed = Array.isArray(desc.values) ? desc.values.map((x) => String(x.value)) : [];
       if (!allowed.includes(String(v))) return { ok: false, error: `valeur non autorisée pour ${desc.key}` };
       out[desc.key] = String(v);
+    } else if (desc.type === 'commune') {
+      // Valeur canonique = code INSEE (la résolution nom→INSEE a lieu dans la route).
+      const s = String(v).trim().toUpperCase();
+      if (!isInsee(s)) return { ok: false, error: `code INSEE attendu pour ${desc.key}` };
+      out[desc.key] = s;
     } else if (desc.type === 'number') {
       const n = Number(v);
       if (Number.isNaN(n)) return { ok: false, error: `nombre attendu pour ${desc.key}` };
@@ -54,6 +65,9 @@ function resolveLabel(schema, params) {
     if (desc.type === 'enum' && Array.isArray(desc.values)) {
       const found = desc.values.find((x) => String(x.value) === String(v));
       if (found) label = found.label;
+    } else if (desc.type === 'commune') {
+      // Affiche le nom de commune si connu (cache INSEE→nom), sinon le code INSEE.
+      label = nameForInsee(v) || String(v);
     }
     parts.push(label);
   }
@@ -71,7 +85,7 @@ function paramsFromQuery(schema, query) {
   return res.ok ? res.params : null;
 }
 
-const PARAM_TYPES = ['enum', 'string', 'number'];
+const PARAM_TYPES = ['enum', 'string', 'number', 'commune'];
 
 // Valide un SCHÉMA de paramètres déclaré (manifeste externe ou interne).
 // v2 : schéma PLAT à UN SEUL paramètre (§7). Retourne { ok, error, schema }.
