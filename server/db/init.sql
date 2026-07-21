@@ -3182,3 +3182,27 @@ WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'catnat-commune');
 UPDATE sources SET params_schema = '[{"key":"commune","label":"Commune","type":"commune","placeholder":"Votre commune","multiple":true,"required":true,"default":null,"hint":"Le nom de votre commune (ou une autre). Alerte à la publication d’un nouvel arrêté de catastrophe naturelle."}]'::jsonb WHERE id = 'catnat-commune';
 INSERT INTO source_states (source_id) SELECT 'catnat-commune'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'catnat-commune');
+
+-- ================================================================
+-- Vague « villes » — traditions & courses (display_order 422-423). Sources PARAMÉTRÉES ENUM
+-- (l'abonné choisit ce qu'il suit). Dates vérifiées sur source officielle le 21/07/2026.
+-- TODO datés & Ostensions Limousines (2030) documentés en tête des modules .js.
+-- ================================================================
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
+SELECT 'traditions-locales', 'Traditions & fêtes locales', 'La tradition de votre choix',
+  'Choisissez les grandes fêtes et traditions locales que vous voulez suivre (férias, carnavals, pardons, foires aux vins, vendanges…) et soyez prévenu à l''approche de chacune. Dates officielles vérifiées.',
+  'internal', 'official', false, ARRAY['culture', 'traditions', 'evenements-locaux'], 422, '[{"key":"tradition","label":"Tradition","type":"enum","values":[{"value":"feria-beziers","label":"Féria de Béziers"},{"value":"feria-vendanges-nimes","label":"Féria des Vendanges de Nîmes"},{"value":"carnaval-nice","label":"Carnaval de Nice"},{"value":"fete-citron-menton","label":"Fête du Citron de Menton"},{"value":"pardon-sainte-anne-auray","label":"Grand Pardon de Sainte-Anne-d''Auray"},{"value":"remparts-dinan","label":"Fête des Remparts de Dinan"},{"value":"foire-vins-colmar","label":"Foire aux vins de Colmar"},{"value":"mirabelle-metz","label":"Fête de la Mirabelle de Metz"},{"value":"trois-glorieuses-beaune","label":"Trois Glorieuses de Beaune"},{"value":"vendanges-montmartre","label":"Fête des Vendanges de Montmartre"},{"value":"foire-marseille","label":"Foire Internationale de Marseille"},{"value":"marathon-medoc","label":"Marathon du Médoc"},{"value":"nuits-sonores-lyon","label":"Nuits Sonores à Lyon"}],"multiple":true,"required":true,"default":null}]'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'traditions-locales');
+UPDATE sources SET params_schema = '[{"key":"tradition","label":"Tradition","type":"enum","values":[{"value":"feria-beziers","label":"Féria de Béziers"},{"value":"feria-vendanges-nimes","label":"Féria des Vendanges de Nîmes"},{"value":"carnaval-nice","label":"Carnaval de Nice"},{"value":"fete-citron-menton","label":"Fête du Citron de Menton"},{"value":"pardon-sainte-anne-auray","label":"Grand Pardon de Sainte-Anne-d''Auray"},{"value":"remparts-dinan","label":"Fête des Remparts de Dinan"},{"value":"foire-vins-colmar","label":"Foire aux vins de Colmar"},{"value":"mirabelle-metz","label":"Fête de la Mirabelle de Metz"},{"value":"trois-glorieuses-beaune","label":"Trois Glorieuses de Beaune"},{"value":"vendanges-montmartre","label":"Fête des Vendanges de Montmartre"},{"value":"foire-marseille","label":"Foire Internationale de Marseille"},{"value":"marathon-medoc","label":"Marathon du Médoc"},{"value":"nuits-sonores-lyon","label":"Nuits Sonores à Lyon"}],"multiple":true,"required":true,"default":null}]'::jsonb WHERE id = 'traditions-locales';
+INSERT INTO source_states (source_id) SELECT 'traditions-locales'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'traditions-locales');
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
+SELECT 'marathons-villes', 'Marathons des grandes villes', 'La course de votre choix',
+  'Choisissez les grands marathons et courses urbaines à suivre (Paris, Lyon…) et soyez prévenu à l''approche de la course. Dates officielles vérifiées.',
+  'internal', 'official', false, ARRAY['sport', 'running'], 423, '[{"key":"course","label":"Course","type":"enum","values":[{"value":"marathon-paris","label":"Marathon de Paris"},{"value":"semi-paris","label":"Semi-marathon de Paris"},{"value":"run-in-lyon","label":"Run in Lyon (marathon)"},{"value":"20km-paris","label":"20 km de Paris"}],"multiple":true,"required":true,"default":null}]'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'marathons-villes');
+UPDATE sources SET params_schema = '[{"key":"course","label":"Course","type":"enum","values":[{"value":"marathon-paris","label":"Marathon de Paris"},{"value":"semi-paris","label":"Semi-marathon de Paris"},{"value":"run-in-lyon","label":"Run in Lyon (marathon)"},{"value":"20km-paris","label":"20 km de Paris"}],"multiple":true,"required":true,"default":null}]'::jsonb WHERE id = 'marathons-villes';
+INSERT INTO source_states (source_id) SELECT 'marathons-villes'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'marathons-villes');
