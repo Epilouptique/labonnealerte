@@ -7,7 +7,7 @@ const GROUPS = {
   'shopping': ['high-tech', 'smartphones', 'composants-pc', 'gpu', 'consoles', 'sneakers', 'mode', 'beaute', 'electromenager', 'meubles', 'jouets', 'equipement-sportif'],
   'billetterie-sorties': ['billetterie', 'concerts', 'spectacles', 'festivals', 'cinema', 'theatre', 'expositions', 'musees', 'matchs', 'evenements-sportifs'],
   'voyages': ['voyages', 'vols', 'erreurs-de-prix', 'billets-train', 'hotels', 'campings', 'locations-vacances', 'croisieres', 'ferries', 'road-trip', 'visas', 'delais-passeport'],
-  'meteo-risques': ['meteo', 'vigilance-meteo', 'orages', 'pluie-inondation', 'inondations', 'crues', 'neige', 'verglas', 'avalanches', 'canicule', 'grand-froid', 'vent-violent', 'tempetes', 'submersion', 'secheresse', 'feux-de-foret', 'surete-nucleaire', 'radioactivite'],
+  'meteo-risques': ['meteo', 'vigilance-meteo', 'orages', 'pluie-inondation', 'inondations', 'crues', 'neige', 'verglas', 'avalanches', 'canicule', 'grand-froid', 'vent-violent', 'tempetes', 'submersion', 'littoral', 'secheresse', 'feux-de-foret', 'surete-nucleaire', 'radioactivite'],
   'environnement-nature': ['environnement', 'nature', 'qualite-air', 'pollution', 'pollens', 'allergies', 'uv', 'seismes', 'volcans', 'marees', 'grandes-marees', 'astronomie', 'aurores-boreales', 'eclipses', 'etoiles-filantes'],
   'energie': ['energie', 'electricite', 'coupures-electricite', 'tension-reseau', 'gaz', 'prix-carburant', 'fioul', 'bois-pellets', 'eau', 'coupures-eau'],
   'transports': ['transports', 'trains', 'greves', 'trafic-routier', 'bouchons', 'autoroutes', 'fermetures-routes', 'cols-montagne', 'viabilite-hivernale', 'transports-en-commun', 'metro', 'aerien', 'retards-vols', 'covoiturage', 'bornes-recharge'],
@@ -21,7 +21,7 @@ const GROUPS = {
   'finance': ['finance', 'economie', 'epargne', 'bourse', 'actions', 'crypto', 'bitcoin', 'taux-interet', 'taux-immobilier', 'livret-a', 'inflation', 'chomage', 'devises', 'or-metaux', 'dividendes'],
   'sante': ['sante', 'medicaments', 'penuries-medicaments', 'rappels-produits', 'rappels-alimentaires', 'vaccins', 'epidemies', 'grippe', 'dons-du-sang', 'pharmacies-de-garde'],
   'immobilier': ['immobilier', 'logement', 'annonces-immobilieres', 'location', 'achat-immobilier', 'encheres-immobilieres', 'logement-social', 'permis-de-construire', 'dpe', 'aides-travaux', 'demenagement'],
-  'culture-medias': ['culture', 'livres', 'sorties-livres', 'bd', 'manga', 'musique', 'sorties-albums', 'vinyles', 'streaming', 'films', 'series', 'podcasts', 'jeux-de-societe', 'patrimoine', 'memoire'],
+  'culture-medias': ['culture', 'livres', 'sorties-livres', 'bd', 'manga', 'musique', 'sorties-albums', 'vinyles', 'streaming', 'films', 'series', 'podcasts', 'jeux-de-societe', 'patrimoine', 'memoire', 'identite-regionale'],
   'gaming': ['jeux-video', 'sorties-jeux', 'precommandes-jeux', 'dlc', 'patchs-jeux', 'e-sport', 'tournois', 'twitch', 'free-to-play', 'retrogaming'],
   'sport': ['sport', 'football', 'rugby', 'tennis', 'cyclisme', 'ski', 'randonnee', 'trail', 'natation', 'resultats-sportifs', 'transferts', 'inscriptions-courses'],
   'vie-locale': ['vie-locale', 'fetes', 'local', 'jeunesse', 'evenements-locaux', 'marches-locaux', 'brocantes', 'vide-greniers', 'travaux-voirie', 'coupures-circulation', 'collecte-dechets', 'dechetteries', 'piscines', 'bibliotheques', 'ecoles', 'education', 'vacances-scolaires', 'cantines', 'mairie'],
@@ -82,6 +82,7 @@ const ACCENTS = {
   beaute: 'beauté', electromenager: 'électroménager', equipement: 'équipement', hotels: 'hôtels',
   croisieres: 'croisières', tempetes: 'tempêtes', foret: 'forêt', metro: 'métro',
   surete: 'sûreté', nucleaire: 'nucléaire', radioactivite: 'radioactivité',
+  identite: 'identité', regionale: 'régionale',
 };
 
 function toLabel(slug) {
