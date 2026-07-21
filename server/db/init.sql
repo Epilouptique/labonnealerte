@@ -3071,3 +3071,18 @@ WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'domaine-securite');
 UPDATE sources SET params_schema = '[{"key":"domaine","label":"Domaine à vérifier","type":"string","placeholder":"annad.fr","pattern":"^[a-z0-9-]+(\\.[a-z0-9-]+)+$","lowercase":true,"multiple":true,"required":true,"default":null,"hint":"Le nom de domaine seul, sans https:// (exemple : annad.fr). Alerte si le domaine est signalé dans la base malware/phishing publique URLhaus."}]'::jsonb WHERE id = 'domaine-securite';
 INSERT INTO source_states (source_id) SELECT 'domaine-securite'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'domaine-securite');
+
+-- ── Hausse de tarif opérateur (FAI) — PHASE 1 : 4 offres à URL stable. display_order 412.
+-- Convention « Bison Futé » : le contenu n'est jamais interprété, seul un hash du TEXTE
+-- extrait est comparé d'un cycle à l'autre. L'alerte dit « un changement a été détecté »,
+-- jamais un montant. requires_confirmation = FALSE → alerte immédiate (impulsion one-shot),
+-- le hash de référence étant mis à jour au moment du changement. Poll hebdomadaire (module).
+-- Enum `offre` extensible aux 4 combos de PHASE 2 sans migration lourde (ajout de valeurs).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
+SELECT 'hausse-tarif-operateur', 'Grille tarifaire opérateur', 'Un changement dans la grille de votre offre ?',
+  'Surveillez la grille tarifaire d''un opérateur télécom (Bouygues Box, Freebox, Free Mobile, SFR RED Mobile). Vous êtes prévenu qu''un changement a été détecté dans le document officiel — sans montant ni pourcentage (à vérifier vous-même sur le lien). Vérification hebdomadaire par comparaison de signature du document.',
+  'internal', 'official', false, ARRAY['consommation', 'vie-pratique'], 412, '[{"key":"offre","label":"Offre","type":"enum","values":[{"value":"bbox","label":"Bouygues — Internet/Box"},{"value":"freebox","label":"Free — Internet/Box"},{"value":"free-mobile","label":"Free Mobile"},{"value":"sfr-red-mobile","label":"SFR RED Mobile"}],"multiple":true,"required":true,"default":null,"hint":"Choisissez l’offre à surveiller. Vous êtes prévenu qu’un changement a été détecté dans la grille tarifaire — sans montant, à vérifier vous-même sur le document officiel."}]'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'hausse-tarif-operateur');
+UPDATE sources SET params_schema = '[{"key":"offre","label":"Offre","type":"enum","values":[{"value":"bbox","label":"Bouygues — Internet/Box"},{"value":"freebox","label":"Free — Internet/Box"},{"value":"free-mobile","label":"Free Mobile"},{"value":"sfr-red-mobile","label":"SFR RED Mobile"}],"multiple":true,"required":true,"default":null,"hint":"Choisissez l’offre à surveiller. Vous êtes prévenu qu’un changement a été détecté dans la grille tarifaire — sans montant, à vérifier vous-même sur le document officiel."}]'::jsonb WHERE id = 'hausse-tarif-operateur';
+INSERT INTO source_states (source_id) SELECT 'hausse-tarif-operateur'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'hausse-tarif-operateur');

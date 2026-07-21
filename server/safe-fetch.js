@@ -63,7 +63,7 @@ async function safeFetchText(rawUrl, opts = {}) {
     res = await fetch(url.href, {
       signal: controller.signal,
       redirect: 'error', // pas de rebond SSRF
-      headers: { Accept: accept },
+      headers: Object.assign({ Accept: accept }, opts.headers || {}),
     });
   } catch (err) {
     if (err.name === 'AbortError') throw pubErr(`Délai dépassé (>${Math.round(timeoutMs / 1000)}s)`);
@@ -79,6 +79,61 @@ async function safeFetchText(rawUrl, opts = {}) {
   const text = await res.text();
   if (Buffer.byteLength(text, 'utf8') > maxBytes) throw pubErr('Réponse trop volumineuse (> 100 Ko)');
   return text;
+}
+
+// User-Agent « navigateur » explicite : certains CDN (ex. bouyguestelecom.fr,
+// constaté dans l'exploration FAI) coupent la connexion sur un UA vide/robot.
+const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36';
+
+// Récupère le CORPS BINAIRE (Buffer) d'une URL distante avec les mêmes protections
+// anti-SSRF que safeFetchText (IP privées interdites, pas de suivi de redirection,
+// timeout). Utile pour un PDF, dont on extraira le texte ailleurs. opts.headers
+// permet d'ajouter des en-têtes (ex. User-Agent navigateur). opts.maxBytes plafonne
+// la taille. ⚠️ Le corps est lu intégralement en mémoire avant le contrôle de taille :
+// à réserver à des URLs de confiance (ici, URLs FIXES codées en dur, pas d'entrée
+// utilisateur libre). Peut throw pubErr.
+const DEFAULT_MAX_BYTES_BIN = 10 * 1024 * 1024; // 10 Mo (une grille tarifaire PDF ~1-2 Mo)
+
+async function safeFetchBuffer(rawUrl, opts = {}) {
+  const timeoutMs = opts.timeoutMs || DEFAULT_TIMEOUT_MS;
+  const maxBytes = opts.maxBytes || DEFAULT_MAX_BYTES_BIN;
+  const accept = opts.accept || 'application/pdf, application/octet-stream, */*';
+
+  let url;
+  try { url = new URL(rawUrl); } catch { throw pubErr('URL invalide'); }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    throw pubErr('Seuls les protocoles http et https sont autorisés');
+  }
+
+  let addresses;
+  try { addresses = await dns.lookup(url.hostname, { all: true }); }
+  catch { throw pubErr('Nom de domaine introuvable (DNS)'); }
+  if (addresses.length === 0 || addresses.some((a) => isPrivateIP(a.address))) {
+    throw pubErr('Cible non autorisée (adresse privée ou locale)');
+  }
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let res;
+  try {
+    res = await fetch(url.href, {
+      signal: controller.signal,
+      redirect: 'error', // pas de rebond SSRF
+      headers: Object.assign({ Accept: accept }, opts.headers || {}),
+    });
+  } catch (err) {
+    if (err.name === 'AbortError') throw pubErr(`Délai dépassé (>${Math.round(timeoutMs / 1000)}s)`);
+    throw pubErr('Impossible de joindre l\'URL');
+  } finally {
+    clearTimeout(timer);
+  }
+
+  if (!res.ok) throw pubErr(`Réponse HTTP ${res.status}`);
+  const declared = Number(res.headers.get('content-length'));
+  if (declared && declared > maxBytes) throw pubErr('Réponse trop volumineuse');
+  const buf = Buffer.from(await res.arrayBuffer());
+  if (buf.length > maxBytes) throw pubErr('Réponse trop volumineuse');
+  return buf;
 }
 
 // Récupère et parse un JSON distant (mêmes protections). Peut throw pubErr.
@@ -167,4 +222,4 @@ async function safeProbe(rawUrl, opts = {}) {
   }
 }
 
-module.exports = { safeFetchJson, safeFetchText, safeProbe, isPrivateIP, pubErr };
+module.exports = { safeFetchJson, safeFetchText, safeFetchBuffer, safeProbe, isPrivateIP, pubErr, BROWSER_UA };
