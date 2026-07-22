@@ -15,7 +15,7 @@ const GROUPS = {
   //     réaffectées à « tech » par la migration Lot 1 dans init.sql).
   'tech-dev': ['tech', 'dev', 'numerique', 'veille', 'innovation', 'domaines', 'noms-de-domaine', 'certificats-ssl', 'uptime', 'pannes-services', 'status-cloud', 'releases', 'versions-logiciels', 'mises-a-jour', 'npm-packages', 'changements-api', 'fin-de-support', 'hackathons', 'frameworks', 'mises-a-jour-os', 'hardware'],
   'securite-cyber': ['securite', 'cybersecurite', 'cve', 'vulnerabilites', 'failles', 'fuites-de-donnees', 'phishing', 'arnaques', 'rappels-securite', 'alertes-fraude'],
-  'administration': ['administration', 'impots', 'echeances-fiscales', 'declarations', 'aides', 'subventions', 'allocations', 'caf', 'retraite', 'social', 'permis-de-conduire', 'carte-grise', 'elections', 'journal-officiel', 'reglementation', 'consommation', 'assurance', 'vie-pratique', 'seniors'],
+  'administration': ['administration', 'impots', 'echeances-fiscales', 'declarations', 'aides', 'subventions', 'allocations', 'caf', 'retraite', 'social', 'permis-de-conduire', 'carte-grise', 'elections', 'journal-officiel', 'reglementation', 'juridique', 'consommation', 'assurance', 'vie-pratique', 'seniors'],
   'pro-marches': ['marches-publics', 'appels-offres', 'appels-a-projets', 'financements', 'creation-entreprise', 'entrepreneuriat', 'franchises', 'salons-pro', 'networking'],
   'emploi-formation': ['emploi', 'offres-emploi', 'concours', 'fonction-publique', 'stages', 'alternance', 'formations', 'certifications', 'examens', 'resultats-examens', 'parcoursup', 'bourses'],
   'finance': ['finance', 'economie', 'epargne', 'bourse', 'actions', 'crypto', 'bitcoin', 'taux-interet', 'taux-immobilier', 'livret-a', 'inflation', 'chomage', 'devises', 'or-metaux', 'dividendes'],

@@ -3304,3 +3304,18 @@ WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'veille-twitch');
 UPDATE sources SET params_schema = '[{"key":"chaine","label":"Chaîne Twitch","type":"string","placeholder":"zerator","pattern":"^[A-Za-z0-9_]{3,25}$","lowercase":true,"multiple":true,"required":true,"default":null,"hint":"Le nom de la chaîne Twitch (l''identifiant, PAS l''URL). Ex. pour twitch.tv/zerator, saisissez « zerator ». Alerte quand la chaîne passe en direct."}]'::jsonb WHERE id = 'veille-twitch';
 INSERT INTO source_states (source_id) SELECT 'veille-twitch'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'veille-twitch');
+
+-- ================================================================
+-- Veille juridique Légifrance (PISTE, OAuth2). display_order 432. UN SEUL appel global
+-- (lot du jour du Journal Officiel via lastNJo+jorfCont) + filtrage local par mot-clé.
+-- Anti-rétroactif par combo, dédoublonnage par CID. No-op sans LEGIFRANCE_CLIENT_ID/SECRET.
+-- ================================================================
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
+SELECT 'veille-legifrance', 'Veille juridique', 'Un nouveau texte au Journal Officiel',
+  'Suivez un mot-clé juridique : vous êtes prévenu à la publication d''un nouveau texte au Journal Officiel (loi, décret, arrêté) qui le mentionne. Veille juridique personnalisée. Données open data Légifrance, lien vers le texte officiel.',
+  'internal', 'official', false, ARRAY['juridique', 'journal-officiel', 'veille'], 432, '[{"key":"motcle","label":"Mot-clé juridique","type":"string","placeholder":"éolien, gendarmerie, apprentissage…","lowercase":false,"multiple":true,"required":true,"default":null,"hint":"Un mot-clé recherché dans les nouveaux textes du Journal Officiel (lois, décrets, arrêtés). Alerte à la publication d''un texte correspondant."}]'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'veille-legifrance');
+UPDATE sources SET params_schema = '[{"key":"motcle","label":"Mot-clé juridique","type":"string","placeholder":"éolien, gendarmerie, apprentissage…","lowercase":false,"multiple":true,"required":true,"default":null,"hint":"Un mot-clé recherché dans les nouveaux textes du Journal Officiel (lois, décrets, arrêtés). Alerte à la publication d''un texte correspondant."}]'::jsonb WHERE id = 'veille-legifrance';
+INSERT INTO source_states (source_id) SELECT 'veille-legifrance'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'veille-legifrance');
