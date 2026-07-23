@@ -104,7 +104,7 @@ const paramsSchema = [
 ];
 
 function inactive(params, url) {
-  return { params, state: 'inactive', since: null, until: null, message: null, url: url || 'https://www.labonnealerte.fr' };
+  return { params, state: 'inactive', since: null, until: null, message: null, url: url || 'https://labonnealerte.fr' };
 }
 
 // "12 au 16 août" / "5 septembre" à partir d'une fenêtre [y,m,d1,y2,m2,d2].

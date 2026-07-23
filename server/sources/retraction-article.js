@@ -23,7 +23,7 @@ const PUBLIC_URL = 'https://retractionwatch.com/';
 const TIMEOUT_MS = 12_000;
 const MAX_TITLE = 160;
 // Courtoisie Crossref « polite pool » : un User-Agent identifiant est recommandé.
-const UA = 'LaBonneAlerte/1.0 (https://www.labonnealerte.fr; mailto:contact@labonnealerte.fr)';
+const UA = 'LaBonneAlerte/1.0 (https://labonnealerte.fr; mailto:contact@labonnealerte.fr)';
 
 // null = pas encore amorcé (anti-rétroactif) ; sinon Set des DOI déjà vus.
 let seen = null;

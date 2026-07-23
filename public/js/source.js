@@ -34,7 +34,7 @@
   // /source/<id>/statut
   var m = window.location.pathname.match(/^\/source\/([^/]+)\/statut/);
   var ID = m ? decodeURIComponent(m[1]) : null;
-  var SHARE_URL = 'https://www.labonnealerte.fr/source/' + (ID || '') + '/statut';
+  var SHARE_URL = 'https://labonnealerte.fr/source/' + (ID || '') + '/statut';
 
   // Sources paramétrées : valeur courante de la combinaison (query string prioritaire).
   var paramSchema = null, currentDept = null;

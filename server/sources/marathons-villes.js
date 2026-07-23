@@ -36,7 +36,7 @@ const paramsSchema = [
 ];
 
 function inactive(params, url) {
-  return { params, state: 'inactive', since: null, until: null, message: null, url: url || 'https://www.labonnealerte.fr' };
+  return { params, state: 'inactive', since: null, until: null, message: null, url: url || 'https://labonnealerte.fr' };
 }
 
 async function checkWithParams(paramsList) {

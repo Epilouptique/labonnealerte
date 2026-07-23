@@ -39,7 +39,7 @@ const paramsSchema = [
 const cache = new Map();
 
 function inactive() {
-  return { state: 'inactive', since: null, until: null, message: null, url: 'https://www.labonnealerte.fr' };
+  return { state: 'inactive', since: null, until: null, message: null, url: 'https://labonnealerte.fr' };
 }
 
 async function fetchFlux(url) {

@@ -4,7 +4,7 @@
 
 Le kiosque français d'alertes utiles : des alertes prêtes à l'emploi, activables en un clic, gratuites et open source. On surveille les sources qui comptent (promos, météo, énergie, domaines…) et on prévient par email uniquement quand ça devient intéressant.
 
-→ <https://www.labonnealerte.fr>
+→ <https://labonnealerte.fr>
 
 ## Le concept
 
@@ -41,7 +41,7 @@ Chaque source porte un **badge de confiance** — *vérifié* (source officielle
 ```
 
 - Spécification complète : **[OPENALERT.md](OPENALERT.md)**
-- Validateur en ligne + soumission : **[/proposer](https://www.labonnealerte.fr/proposer)**
+- Validateur en ligne + soumission : **[/proposer](https://labonnealerte.fr/proposer)**
 
 ## Stack technique
 
@@ -98,7 +98,7 @@ Les **sources sont indépendantes** : une clé manquante ne casse que la source 
 | Variable | Rôle | Où l'obtenir |
 |----------|------|--------------|
 | `DATABASE_URL` | Connexion PostgreSQL | Votre serveur PostgreSQL (ou l'add-on Railway) |
-| `BASE_URL` | URL publique de base (callbacks OAuth) | `http://localhost:3000` en dev, `https://www.labonnealerte.fr` en prod |
+| `BASE_URL` | URL publique de base (callbacks OAuth) | `http://localhost:3000` en dev, `https://labonnealerte.fr` en prod |
 | `PORT` | Port du serveur (défaut 3000) | — |
 | `RESEND_API_KEY` | Envoi des emails (confirmation, alertes, lien magique) | Tableau de bord [Resend](https://resend.com) |
 | `METEOFRANCE_API_KEY` | Source Vigilance météo | Portail [portail-api.meteofrance.fr](https://portail-api.meteofrance.fr) (API « DPVigilance ») |

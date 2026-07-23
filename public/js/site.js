@@ -90,7 +90,7 @@
     var id = card.getAttribute('data-source-id');
     var h3 = card.querySelector('h3');
     var name = h3 ? h3.textContent : 'La Bonne Alerte';
-    var url = 'https://www.labonnealerte.fr/source/' + id + '/statut';
+    var url = 'https://labonnealerte.fr/source/' + id + '/statut';
     var faceGrid = card.querySelector('.share-face-grid');
     if (faceGrid && window.LBAShare && !faceGrid.dataset.filled) {
       faceGrid.innerHTML = LBAShare.optionsHTML(name, url);

@@ -192,7 +192,7 @@
     var share = document.getElementById('deck-share');
     if (share) {
       share.addEventListener('click', function () {
-        var url = 'https://www.labonnealerte.fr/deck/' + token;
+        var url = 'https://labonnealerte.fr/deck/' + token;
         var name = (DECK && DECK.deck ? DECK.deck.name : 'La Bonne Alerte');
         if (window.LBAShare && LBAShare.openModal) LBAShare.openModal(name, url);
       });

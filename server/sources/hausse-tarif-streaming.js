@@ -60,7 +60,7 @@ const cache = new Map();
 
 function inactive(service) {
   const s = SERVICES[service];
-  return { state: 'inactive', since: null, until: null, message: null, url: s ? s.url : 'https://www.labonnealerte.fr' };
+  return { state: 'inactive', since: null, until: null, message: null, url: s ? s.url : 'https://labonnealerte.fr' };
 }
 
 async function hashOf(url) {

@@ -136,7 +136,7 @@ const paramsSchema = [
 const cache = new Map();
 
 function inactive(offre) {
-  const link = (OFFRES[offre] && OFFRES[offre].link) || 'https://www.labonnealerte.fr';
+  const link = (OFFRES[offre] && OFFRES[offre].link) || 'https://labonnealerte.fr';
   return { state: 'inactive', since: null, until: null, message: null, url: link };
 }
 

@@ -568,7 +568,7 @@
   // --- Partage --------------------------------------------------------------
 
   function shareFullUrl(token) {
-    return 'https://www.labonnealerte.fr/deck/' + token;
+    return 'https://labonnealerte.fr/deck/' + token;
   }
 
   // Partage UNIFIÉ : même grande carte modale que /collection/:slug et /deck/:token

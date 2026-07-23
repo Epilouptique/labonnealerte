@@ -159,7 +159,7 @@
     var share = document.getElementById('coll-share');
     if (share) {
       share.addEventListener('click', function () {
-        var url = 'https://www.labonnealerte.fr/collection/' + slug;
+        var url = 'https://labonnealerte.fr/collection/' + slug;
         var name = (COLL && COLL.collection ? COLL.collection.name : 'La Bonne Alerte');
         if (window.LBAShare && LBAShare.openModal) LBAShare.openModal(name, url);
       });

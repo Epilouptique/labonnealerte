@@ -130,7 +130,7 @@ async function notifySourceSubscribers(sourceId, result = {}) {
     name,
     message: result.message || null,
     url: result.url || null,
-    statusUrl: `https://www.labonnealerte.fr/source/${sourceId}/statut`,
+    statusUrl: `https://labonnealerte.fr/source/${sourceId}/statut`,
   });
 }
 
@@ -374,7 +374,7 @@ async function notifyParamSubscribers(sourceId, params, result = {}) {
     name: resolved,
     message: result.message || null,
     url: result.url || null,
-    statusUrl: `https://www.labonnealerte.fr/source/${sourceId}/statut${qs ? '?' + qs : ''}`,
+    statusUrl: `https://labonnealerte.fr/source/${sourceId}/statut${qs ? '?' + qs : ''}`,
   });
 }
 
@@ -490,7 +490,7 @@ async function flushSubscriber(subscriberId) {
         await sendToSubscriber(subscriberId, {
           name: 'La Bonne Alerte',
           message: `${pushItems.length} alertes pendant votre veille`,
-          url: 'https://www.labonnealerte.fr/connexion',
+          url: 'https://labonnealerte.fr/connexion',
         });
       }
     } catch (err) { console.error(`[poller] flush push #${subscriberId} :`, err.message); }

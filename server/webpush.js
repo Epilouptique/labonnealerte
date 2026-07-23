@@ -47,7 +47,7 @@ async function sendToSource(sourceId, info = {}) {
   const payload = JSON.stringify({
     title: info.name || 'La Bonne Alerte',
     body: info.message || 'Une alerte que vous suivez vient de se déclencher.',
-    url: info.url || info.statusUrl || 'https://www.labonnealerte.fr',
+    url: info.url || info.statusUrl || 'https://labonnealerte.fr',
   });
 
   let sent = 0;
@@ -105,7 +105,7 @@ async function sendToSourceParams(sourceId, params, info = {}) {
   const payload = JSON.stringify({
     title: info.name || 'La Bonne Alerte',
     body: info.message || 'Une alerte que vous suivez vient de se déclencher.',
-    url: info.url || info.statusUrl || 'https://www.labonnealerte.fr',
+    url: info.url || info.statusUrl || 'https://labonnealerte.fr',
   });
 
   let sent = 0;
@@ -159,7 +159,7 @@ async function sendToSubscriber(subscriberId, info = {}) {
   const payload = JSON.stringify({
     title: info.name || 'La Bonne Alerte',
     body: info.message || 'Une alerte que vous suivez vient de se déclencher.',
-    url: info.url || info.statusUrl || 'https://www.labonnealerte.fr',
+    url: info.url || info.statusUrl || 'https://labonnealerte.fr',
   });
 
   let sent = 0;

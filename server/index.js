@@ -213,7 +213,7 @@ app.get('/deck/:token', async (req, res) => {
     const title = `${emoji}${d.name} — un deck · La Bonne Alerte`;
     // Description GÉNÉRIQUE (pas la description libre de l'utilisateur).
     const desc = 'Un deck d\'alertes partagé sur La Bonne Alerte — adoptez-le en un clic (copie privée).';
-    const url = `https://www.labonnealerte.fr/deck/${encodeURIComponent(req.params.token)}`;
+    const url = `https://labonnealerte.fr/deck/${encodeURIComponent(req.params.token)}`;
 
     let html = fs.readFileSync(path.join(__dirname, '..', 'public', 'deck.html'), 'utf8');
     html = html
@@ -256,7 +256,7 @@ app.get('/collection/:slug', async (req, res) => {
     const emoji = c.emoji ? c.emoji + ' ' : '';
     const title = `${emoji}${c.name} — une collection · La Bonne Alerte`;
     const desc = (c.description || `La collection « ${c.name} » : un pack d'alertes prêt à adopter en un clic.`).slice(0, 180);
-    const url = `https://www.labonnealerte.fr/collection/${encodeURIComponent(slug)}`;
+    const url = `https://labonnealerte.fr/collection/${encodeURIComponent(slug)}`;
 
     let html = fs.readFileSync(path.join(__dirname, '..', 'public', 'collection.html'), 'utf8');
     html = html
@@ -299,7 +299,7 @@ app.get('/source/:id/statut', async (req, res) => {
     const s = rows[0];
     const title = `${s.name} — statut & historique · La Bonne Alerte`;
     const desc = (s.subtitle || s.description || `Statut de surveillance de « ${s.name} ».`).slice(0, 180);
-    const url = `https://www.labonnealerte.fr/source/${encodeURIComponent(id)}/statut`;
+    const url = `https://labonnealerte.fr/source/${encodeURIComponent(id)}/statut`;
 
     let html = fs.readFileSync(path.join(__dirname, '..', 'public', 'source.html'), 'utf8');
     html = html

@@ -44,7 +44,7 @@ const paramsSchema = [
 const cache = new Map();
 
 function inactive(url) {
-  return { state: 'inactive', since: null, until: null, message: null, url: URL_RE.test(url) ? url : 'https://www.labonnealerte.fr' };
+  return { state: 'inactive', since: null, until: null, message: null, url: URL_RE.test(url) ? url : 'https://labonnealerte.fr' };
 }
 
 function norm(t) { return String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); }

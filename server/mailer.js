@@ -8,9 +8,9 @@ const resend = new Resend((process.env.RESEND_API_KEY || '').trim());
 const FROM = 'noreply@alert.labonnealerte.fr';
 
 const SITE_URL = 'https://labonnealerte.fr';
-const PUBLIC_SITE = 'https://www.labonnealerte.fr';
+const PUBLIC_SITE = 'https://labonnealerte.fr';
 const PROMO_URL = 'https://www.leboncoin.fr/service/bons-plans';
-const MYALERTS_URL = 'https://www.labonnealerte.fr/connexion';
+const MYALERTS_URL = 'https://labonnealerte.fr/connexion';
 const ACCENT = '#a567e3';
 
 function monthKey() {
