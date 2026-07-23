@@ -61,7 +61,7 @@ async function checkWithParams(paramsList) {
       state: 'active',
       since: new Date(),
       until: null,
-      message: `🤧 Risque d'allergie aux pollens ÉLEVÉ dans le ${nom}${taxon} (indice ${info.level}/6) — personnes allergiques, adaptez traitement et sorties`,
+      message: `🤧 Risque d'allergie aux pollens ÉLEVÉ dans le ${nom}${taxon} (indice ${info.level}/6) — personnes allergiques, adaptez traitement et sorties. Source : Atmo France / AASQA.`,
       url: PUBLIC_URL,
     };
   });

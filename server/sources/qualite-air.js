@@ -58,7 +58,7 @@ async function checkWithParams(paramsList) {
       state: 'active',
       since: new Date(),
       until: null,
-      message: `😷 Qualité de l'air ${LABEL[q] || 'mauvaise'} dans le ${nom} (indice ATMO ${q}/6) — limitez les activités physiques intenses en extérieur, personnes sensibles prudentes`,
+      message: `😷 Qualité de l'air ${LABEL[q] || 'mauvaise'} dans le ${nom} (indice ATMO ${q}/6) — limitez les activités physiques intenses en extérieur, personnes sensibles prudentes. Source : Atmo France / AASQA.`,
       url: PUBLIC_URL,
     };
   });
