@@ -7,7 +7,7 @@ const GROUPS = {
   'shopping': ['high-tech', 'smartphones', 'composants-pc', 'gpu', 'consoles', 'sneakers', 'mode', 'beaute', 'electromenager', 'meubles', 'jouets', 'equipement-sportif'],
   'billetterie-sorties': ['billetterie', 'concerts', 'spectacles', 'festivals', 'cinema', 'theatre', 'expositions', 'musees', 'matchs', 'evenements-sportifs'],
   'voyages': ['voyages', 'vols', 'erreurs-de-prix', 'billets-train', 'hotels', 'campings', 'locations-vacances', 'croisieres', 'ferries', 'road-trip', 'visas', 'delais-passeport'],
-  'meteo-risques': ['meteo', 'vigilance-meteo', 'orages', 'pluie-inondation', 'inondations', 'crues', 'neige', 'verglas', 'avalanches', 'canicule', 'grand-froid', 'vent-violent', 'tempetes', 'submersion', 'littoral', 'secheresse', 'risques-naturels', 'feux-de-foret', 'surete-nucleaire', 'radioactivite'],
+  'meteo-risques': ['meteo', 'vigilance-meteo', 'orages', 'pluie-inondation', 'inondations', 'crues', 'neige', 'verglas', 'avalanches', 'canicule', 'grand-froid', 'vent-violent', 'tempetes', 'submersion', 'littoral', 'secheresse', 'risques', 'risques-naturels', 'feux-de-foret', 'surete-nucleaire', 'radioactivite'],
   'environnement-nature': ['environnement', 'nature', 'qualite-air', 'pollution', 'pollens', 'allergies', 'uv', 'seismes', 'volcans', 'marees', 'grandes-marees', 'astronomie', 'aurores-boreales', 'eclipses', 'etoiles-filantes'],
   'energie': ['energie', 'electricite', 'coupures-electricite', 'tension-reseau', 'gaz', 'prix-carburant', 'fioul', 'bois-pellets', 'eau', 'coupures-eau'],
   'transports': ['transports', 'trains', 'greves', 'trafic-routier', 'bouchons', 'autoroutes', 'fermetures-routes', 'cols-montagne', 'viabilite-hivernale', 'transports-en-commun', 'metro', 'aerien', 'retards-vols', 'covoiturage', 'bornes-recharge'],
@@ -29,7 +29,7 @@ const GROUPS = {
   'agriculture-jardin': ['agriculture', 'meteo-agricole', 'gel-cultures', 'vendanges', 'jardinage', 'semis', 'champignons', 'chasse', 'peche', 'apiculture'],
   'auto-moto': ['automobile', 'rappels-vehicules', 'controle-technique', 'prix-occasion', 'nouveautes-auto', 'moto', 'zfe', 'vignette-critair', 'radars', 'permis-points'],
   'animaux': ['animaux', 'adoption-animaux', 'animaux-perdus', 'veterinaire', 'aquariophilie', 'ornithologie'],
-  'espace-science': ['espace', 'lancements-spatiaux', 'iss', 'science', 'decouvertes', 'conferences-science'],
+  'espace-science': ['espace', 'lancements-spatiaux', 'iss', 'science', 'decouvertes', 'conferences-science', 'recherche', 'physique', 'integrite-scientifique'],
   'solidarite': ['solidarite', 'civisme', 'dons', 'benevolat', 'associations', 'petitions', 'collectes'],
   'francophonie-international': ['quebec', 'belgique', 'suisse', 'outre-mer', 'expatries', 'monde'],
   'autre': ['autre', 'humour', 'insolite'],
@@ -82,7 +82,7 @@ const ACCENTS = {
   beaute: 'beauté', electromenager: 'électroménager', equipement: 'équipement', hotels: 'hôtels',
   croisieres: 'croisières', tempetes: 'tempêtes', foret: 'forêt', metro: 'métro',
   surete: 'sûreté', nucleaire: 'nucléaire', radioactivite: 'radioactivité',
-  identite: 'identité', regionale: 'régionale',
+  identite: 'identité', regionale: 'régionale', integrite: 'intégrité',
 };
 
 function toLabel(slug) {

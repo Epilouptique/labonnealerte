@@ -3347,3 +3347,58 @@ WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'hausse-tarif-streaming');
 UPDATE sources SET params_schema = '[{"key":"service","label":"Service de streaming","type":"enum","values":[{"value":"netflix","label":"Netflix"},{"value":"deezer","label":"Deezer"}],"multiple":true,"required":true,"default":null,"hint":"Vous êtes prévenu quand la page des tarifs de ce service change (indice possible d''évolution de prix). Aucun montant n''est interprété ni annoncé."}]'::jsonb WHERE id = 'hausse-tarif-streaming';
 INSERT INTO source_states (source_id) SELECT 'hausse-tarif-streaming'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'hausse-tarif-streaming');
+
+-- ================================================================
+-- VAGUE FINALE « SCIENCE » — 5 sources « état imprévisible » (display_order 435-439).
+-- Nouveaux slugs : recherche, physique, risques, integrite-scientifique (voir categories.js).
+-- ================================================================
+
+-- 435. veille-arxiv (PARAMÉTRÉE, mot-clé) — nouveau preprint arXiv. Throttle ~1 req/3s, dédoublonnage par id arXiv, anti-rétroactif. Message : preprints (pas relus par les pairs).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
+SELECT 'veille-arxiv', 'Veille arXiv', 'Un nouveau preprint pour votre mot-clé',
+  'Suivez un mot-clé de recherche : vous êtes prévenu à la publication d''un nouveau preprint sur arXiv qui le mentionne. Attention : les preprints ne sont pas encore relus par les pairs. Veille scientifique.',
+  'internal', 'official', false, ARRAY['science', 'recherche', 'veille'], 435, '[{"key":"motcle","label":"Mot-clé de recherche","type":"string","placeholder":"exoplanet, graphene, transformer…","lowercase":false,"multiple":true,"required":true,"default":null,"hint":"Un mot-clé (de préférence en anglais). Alerte à la publication d''un nouveau preprint arXiv correspondant. Ce sont des preprints, pas encore relus par les pairs."}]'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'veille-arxiv');
+UPDATE sources SET params_schema = '[{"key":"motcle","label":"Mot-clé de recherche","type":"string","placeholder":"exoplanet, graphene, transformer…","lowercase":false,"multiple":true,"required":true,"default":null,"hint":"Un mot-clé (de préférence en anglais). Alerte à la publication d''un nouveau preprint arXiv correspondant. Ce sont des preprints, pas encore relus par les pairs."}]'::jsonb WHERE id = 'veille-arxiv';
+INSERT INTO source_states (source_id) SELECT 'veille-arxiv'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'veille-arxiv');
+
+-- 436. eruption-volcanique (BROADCAST) — GVP Weekly Volcanic Activity Report, entrées « New Eruptive Activity » uniquement, cadence hebdomadaire.
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'eruption-volcanique', 'Éruption volcanique', 'Une nouvelle éruption signalée',
+  'Vous êtes prévenu quand une nouvelle activité éruptive est signalée dans le rapport hebdomadaire du Smithsonian / USGS (Global Volcanism Program). Cadence hebdomadaire (rapport du mercredi), pas du temps réel.',
+  'internal', 'official', false, ARRAY['science', 'nature', 'risques'], 436
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'eruption-volcanique');
+INSERT INTO source_states (source_id) SELECT 'eruption-volcanique'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'eruption-volcanique');
+
+-- 437. exoplanete-habitable (BROADCAST) — NASA Exoplanet Archive TAP, sous-ensemble petit+zone tempérée, dédoublonnage par pl_name.
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'exoplanete-habitable', 'Exoplanète habitable', 'Une nouvelle planète potentiellement habitable',
+  'Vous êtes prévenu quand une nouvelle exoplanète potentiellement habitable (petite, en zone tempérée) est confirmée par la NASA Exoplanet Archive. Taille et zone compatibles avec de l''eau liquide — ce n''est pas une preuve de vie.',
+  'internal', 'official', false, ARRAY['science', 'espace', 'astronomie'], 437
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'exoplanete-habitable');
+INSERT INTO source_states (source_id) SELECT 'exoplanete-habitable'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'exoplanete-habitable');
+
+-- 438. retraction-article (BROADCAST) — Retraction Watch via Crossref, dédoublonnage par DOI.
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'retraction-article', 'Rétractation scientifique', 'Une nouvelle rétractation d''article',
+  'Vous êtes prévenu à la publication d''une nouvelle rétractation d''article scientifique (base Retraction Watch, exposée via Crossref). Intégrité scientifique : quand un article publié est officiellement retiré.',
+  'internal', 'official', false, ARRAY['science', 'integrite-scientifique', 'veille'], 438
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'retraction-article');
+INSERT INTO source_states (source_id) SELECT 'retraction-article'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'retraction-article');
+
+-- 439. ondes-gravitationnelles (BROADCAST) — GraceDB, Production + SIGNIF_LOCKED + ADVOK, correction si ADVNO, dédoublonnage par superevent_id.
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'ondes-gravitationnelles', 'Onde gravitationnelle', 'Une détection LIGO/Virgo/KAGRA',
+  'Vous êtes prévenu quand une onde gravitationnelle (fusion de trous noirs ou d''étoiles à neutrons) est détectée et confirmée par le réseau LIGO/Virgo/KAGRA. Événement rare, vulgarisé sobrement, avec correction si une détection est ensuite rétractée.',
+  'internal', 'official', false, ARRAY['science', 'espace', 'physique'], 439
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'ondes-gravitationnelles');
+INSERT INTO source_states (source_id) SELECT 'ondes-gravitationnelles'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'ondes-gravitationnelles');
+
+-- Extension code-only grands-anniversaires (vague science) : couverture étendue à 2028.
+UPDATE sources SET description = 'La veille et le jour J des grands anniversaires à chiffre rond (30, 50, 100, 150 ans) de la culture et de la science, curés à la main pour 2026-2028, plus les anniversaires de 1re parution en France de mangas cultes (Naruto, Dragon Ball, One Piece…). Mémoire culturelle et scientifique, jamais un calendrier des tragédies.'
+WHERE id = 'grands-anniversaires';

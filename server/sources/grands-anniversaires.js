@@ -63,6 +63,22 @@ const ENTRIES = [
   { y: 2027, m: 11, d: 18, emoji: '🎮',
     msg: 'Il y a 40 ans sortait le premier « Final Fantasy » sur Famicom, au Japon (18 décembre 1987).',
     url: 'https://fr.wikipedia.org/wiki/Final_Fantasy_(jeu_vid%C3%A9o)' },
+  // — Vague science (dates vérifiées en direct le 23/07/2026, source Wikipédia par entrée) —
+  // ⚠️ Théorème des quatre couleurs (50 ans, 21 juin 1976→2026) et Dolly (30 ans, 5 juillet
+  // 1996→2026) : VÉRIFIÉS, mais leur anniversaire rond TOMBE EN 2026 AVANT la date d'ajout
+  // (23/07/2026) → déjà passés, ils n'auraient jamais pu s'activer, et aucun autre multiple rond
+  // ne tombe dans la fenêtre 2026-2028. Non insérés (même traitement que Mary Cassatt ci-dessus).
+  //   { y:2026, m:5, d:21, '🔬', '…théorème des quatre couleurs…', en.wikipedia.org/wiki/Four_color_theorem }
+  //   { y:2026, m:6, d:5,  '🐑', '…Dolly, premier mammifère cloné…', en.wikipedia.org/wiki/Dolly_(sheep) }
+  { y: 2027, m: 8, d: 5, emoji: '🛰️',
+    msg: 'Il y a 50 ans, la sonde Voyager 1 était lancée ; elle explore aujourd\'hui l\'espace interstellaire (5 septembre 1977).',
+    url: 'https://en.wikipedia.org/wiki/Voyager_1' },
+  { y: 2028, m: 6, d: 25, emoji: '👶',
+    msg: 'Il y a 50 ans naissait Louise Brown, premier bébé né par fécondation in vitro (25 juillet 1978).',
+    url: 'https://en.wikipedia.org/wiki/Louise_Brown' },
+  { y: 2028, m: 8, d: 28, emoji: '🧫',
+    msg: 'Il y a 100 ans, Alexander Fleming découvrait la pénicilline, premier antibiotique (28 septembre 1928).',
+    url: 'https://en.wikipedia.org/wiki/Alexander_Fleming' },
 ];
 
 // Anniversaires manga/anime RÉCURRENTS (1re parution/diffusion en France) : date fixe

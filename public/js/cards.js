@@ -204,9 +204,6 @@
     var picker =
       '<div class="param-form"' + (instances.length ? ' hidden' : '') + '>' +
         controls +
-        // Switch masqué d'emblée si déjà abonné (évite le doublon avec l'interrupteur du bas
-        // quand on rouvre le picker via « + ajouter »).
-        followSwitch(isGeo, instances.length > 0) +
       '</div>';
     // Parcours anonyme : email (réutilise .sub-form), les params sont joints au submit.
     var anon = (mode !== 'connected')
@@ -237,7 +234,12 @@
     // F1) instances + « + ajouter » + picker (contrôle + switch S'abonner) groupés dans
     // une rangée inline (flux des chips, retour à la ligne naturel).
     var row = '<div class="param-row">' + chips + addBtn + picker + '</div>';
-    return row + anon + status;
+    // Switch « S'abonner » SUR SA PROPRE LIGNE en bas de carte (même place que le toggle
+    // des cartes simples), plus dans le picker. Masqué d'emblée si déjà abonné (évite le
+    // doublon avec l'interrupteur pause/reprise du bas quand on rouvre le picker via
+    // « + ajouter »).
+    var follow = followSwitch(isGeo, on);
+    return row + anon + follow + status;
   }
 
   function frontFace(s, mode, isLinked) {
