@@ -2587,10 +2587,10 @@ INSERT INTO source_states (source_id) SELECT 'courses-mythiques'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'courses-mythiques');
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
 SELECT 'iss-passages', 'Passage de l''ISS', 'La Station spatiale au-dessus de votre ville',
-  'Expérimental : soyez prévenu quand la Station spatiale internationale sera visible à l''œil nu au-dessus de votre ville dans les prochaines heures (le soir, ciel dégagé). Choisissez parmi les grandes villes françaises.',
-  'internal', 'official', false, ARRAY['iss', 'espace'], 365, '[{"key":"ville","label":"Ville","type":"enum","values":[{"value":"paris","label":"Paris"},{"value":"marseille","label":"Marseille"},{"value":"lyon","label":"Lyon"},{"value":"toulouse","label":"Toulouse"},{"value":"nice","label":"Nice"},{"value":"nantes","label":"Nantes"},{"value":"montpellier","label":"Montpellier"},{"value":"strasbourg","label":"Strasbourg"},{"value":"bordeaux","label":"Bordeaux"},{"value":"lille","label":"Lille"},{"value":"rennes","label":"Rennes"},{"value":"reims","label":"Reims"},{"value":"toulon","label":"Toulon"},{"value":"grenoble","label":"Grenoble"},{"value":"dijon","label":"Dijon"},{"value":"gap","label":"Gap"}],"multiple":true,"required":true,"default":null}]'::jsonb
+  'Expérimental : soyez prévenu quand la Station spatiale internationale sera visible à l''œil nu au-dessus de votre commune dans les prochaines heures (le soir, ciel dégagé). Fonctionne pour n''importe quelle commune française.',
+  'internal', 'official', false, ARRAY['iss', 'espace'], 365, '[{"key":"ville","label":"Commune","type":"commune-coords","placeholder":"Votre commune","multiple":true,"required":true,"default":null,"hint":"Le nom de votre commune (ou une autre). Alerte quand la Station spatiale internationale sera visible à l''œil nu au-dessus."}]'::jsonb
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'iss-passages');
-UPDATE sources SET params_schema = '[{"key":"ville","label":"Ville","type":"enum","values":[{"value":"paris","label":"Paris"},{"value":"marseille","label":"Marseille"},{"value":"lyon","label":"Lyon"},{"value":"toulouse","label":"Toulouse"},{"value":"nice","label":"Nice"},{"value":"nantes","label":"Nantes"},{"value":"montpellier","label":"Montpellier"},{"value":"strasbourg","label":"Strasbourg"},{"value":"bordeaux","label":"Bordeaux"},{"value":"lille","label":"Lille"},{"value":"rennes","label":"Rennes"},{"value":"reims","label":"Reims"},{"value":"toulon","label":"Toulon"},{"value":"grenoble","label":"Grenoble"},{"value":"dijon","label":"Dijon"},{"value":"gap","label":"Gap"}],"multiple":true,"required":true,"default":null}]'::jsonb WHERE id = 'iss-passages';
+UPDATE sources SET params_schema = '[{"key":"ville","label":"Commune","type":"commune-coords","placeholder":"Votre commune","multiple":true,"required":true,"default":null,"hint":"Le nom de votre commune (ou une autre). Alerte quand la Station spatiale internationale sera visible à l''œil nu au-dessus."}]'::jsonb WHERE id = 'iss-passages';
 
 
 -- ================================================================
@@ -3319,3 +3319,31 @@ WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'veille-legifrance');
 UPDATE sources SET params_schema = '[{"key":"motcle","label":"Mot-clé juridique","type":"string","placeholder":"éolien, gendarmerie, apprentissage…","lowercase":false,"multiple":true,"required":true,"default":null,"hint":"Un mot-clé recherché dans les nouveaux textes du Journal Officiel (lois, décrets, arrêtés). Alerte à la publication d''un texte correspondant."}]'::jsonb WHERE id = 'veille-legifrance';
 INSERT INTO source_states (source_id) SELECT 'veille-legifrance'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'veille-legifrance');
+
+-- ================================================================
+-- Veille artiste Deezer (API publique SANS clé). display_order 433. Remplace le concept
+-- Spotify abandonné. Résolution nom→artistId (cache permanent), nouveauté par id d'album,
+-- anti-rétroactif au 1er cycle, mutualisé par artiste. Message factuel, lien Deezer.
+-- ================================================================
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
+SELECT 'veille-artiste-deezer', 'Nouvel album', 'La sortie du prochain album de votre artiste',
+  'Suivez un artiste ou un groupe : vous êtes prévenu à la sortie d''un nouvel album sur Deezer. Détection par catalogue Deezer (données ouvertes), message factuel avec lien vers l''album.',
+  'internal', 'official', false, ARRAY['musique', 'culture'], 433, '[{"key":"artiste","label":"Artiste","type":"string","placeholder":"Daft Punk, Aya Nakamura…","lowercase":false,"multiple":true,"required":true,"default":null,"hint":"Le nom d''un artiste ou groupe. Alerte à la sortie d''un nouvel album sur Deezer."}]'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'veille-artiste-deezer');
+UPDATE sources SET params_schema = '[{"key":"artiste","label":"Artiste","type":"string","placeholder":"Daft Punk, Aya Nakamura…","lowercase":false,"multiple":true,"required":true,"default":null,"hint":"Le nom d''un artiste ou groupe. Alerte à la sortie d''un nouvel album sur Deezer."}]'::jsonb WHERE id = 'veille-artiste-deezer';
+INSERT INTO source_states (source_id) SELECT 'veille-artiste-deezer'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'veille-artiste-deezer');
+
+-- ================================================================
+-- Hausse tarif streaming — PHASE 1 : Netflix + Deezer. display_order 434. Hash-diff de la page
+-- tarifs (lib/hash-diff-html), référence au 1er cycle sans alerte, message factuel (jamais de
+-- montant). enum extensible sans migration lourde (phase 2 headless : Spotify/Disney+/… en TODO).
+-- ================================================================
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
+SELECT 'hausse-tarif-streaming', 'Tarif streaming', 'Un changement sur la page des tarifs',
+  'Suivez un service de streaming (Netflix, Deezer) : vous êtes prévenu quand sa page de tarifs change, indice possible d''une évolution de prix. Aucun montant n''est interprété ni annoncé — juste « changement détecté ».',
+  'internal', 'official', false, ARRAY['streaming', 'consommation'], 434, '[{"key":"service","label":"Service de streaming","type":"enum","values":[{"value":"netflix","label":"Netflix"},{"value":"deezer","label":"Deezer"}],"multiple":true,"required":true,"default":null,"hint":"Vous êtes prévenu quand la page des tarifs de ce service change (indice possible d''évolution de prix). Aucun montant n''est interprété ni annoncé."}]'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'hausse-tarif-streaming');
+UPDATE sources SET params_schema = '[{"key":"service","label":"Service de streaming","type":"enum","values":[{"value":"netflix","label":"Netflix"},{"value":"deezer","label":"Deezer"}],"multiple":true,"required":true,"default":null,"hint":"Vous êtes prévenu quand la page des tarifs de ce service change (indice possible d''évolution de prix). Aucun montant n''est interprété ni annoncé."}]'::jsonb WHERE id = 'hausse-tarif-streaming';
+INSERT INTO source_states (source_id) SELECT 'hausse-tarif-streaming'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'hausse-tarif-streaming');

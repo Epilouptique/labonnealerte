@@ -1,7 +1,12 @@
 // Source PARAMÉTRÉE (OpenAlert v2) — EXPÉRIMENTALE : prochain passage VISIBLE à
-// l'œil nu de la Station spatiale internationale (ISS) au-dessus de la VILLE au
-// choix (table interne de coordonnées, comme prefectures.js). Tentative simplifiée
-// du backlog « ISS » (type geo v2.1) sans attendre le type geo : un enum de villes.
+// l'œil nu de la Station spatiale internationale (ISS) au-dessus de la COMMUNE au
+// choix (n'importe quelle commune française, plus un enum fermé de 16 villes).
+//
+// Champ `ville` de type 'commune-coords' : l'abonné saisit/pré-remplit un NOM de commune,
+// résolu en coordonnées { lat, lon, nom } à la SOUSCRIPTION (lib/commune-insee →
+// resolveCommuneCoords, via la route). La valeur stockée est ENCODÉE "lat|lon|nom" ; le poll
+// ne géocode jamais. Mutualisation par lat/lon ARRONDIS (2 décimales ~1,1 km, l'ISS n'exige pas
+// une précision extrême) → deux communes voisines partagent un seul appel API.
 //
 // ⚠️ SOURCE FRAGILE (à surveiller — cf. meteo-suisse / pannes-hydro-quebec) :
 // l'API `iss-api.fly.dev` est un service COMMUNAUTAIRE (hébergé fly.dev, sans SLA).
@@ -18,6 +23,7 @@
 // Actif si un passage VISIBLE de qualité est prévu dans les 12 h. Message 🛰️.
 
 const fetchFn = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
+const { decodeCoords } = require('./lib/commune-insee');
 
 const API = (lat, lon) =>
   `https://iss-api.fly.dev/iss-pass?lat=${lat}&lon=${lon}&visible_only=true&days_ahead=1&n=10`;
@@ -29,7 +35,9 @@ const MIN_ELEVATION = 20; // ° au zénith : écarte les passages rasants peu vi
 const MIN_VISIBLE_SEC = 60; // au moins 1 min de visibilité
 const MAX_COMBOS = Math.max(1, parseInt(process.env.EXTERNAL_MAX_COMBOS || '20', 10) || 20);
 
-// Table interne (lat, lon) : 15 plus grandes villes françaises + Gap (chez l'éditeur).
+// Table interne (lat, lon) — CONSERVÉE pour RÉTROCOMPATIBILITÉ : les abonnements créés avant
+// le passage au champ 'commune-coords' portent une clé d'enum ('paris'…), pas des coordonnées
+// encodées. On les résout encore via cette table (aucun abonnement perdu silencieusement).
 const VILLES = {
   paris: { nom: 'Paris', lat: 48.8566, lon: 2.3522 },
   marseille: { nom: 'Marseille', lat: 43.2965, lon: 5.3698 },
@@ -52,17 +60,32 @@ const VILLES = {
 const paramsSchema = [
   {
     key: 'ville',
-    label: 'Ville',
-    type: 'enum',
-    values: Object.keys(VILLES).map((k) => ({ value: k, label: VILLES[k].nom })),
+    label: 'Commune',
+    type: 'commune-coords',
+    placeholder: 'Votre commune',
     multiple: true,
     required: true,
     default: null,
+    hint: 'Le nom de votre commune (ou une autre). Alerte quand la Station spatiale internationale sera visible à l\'œil nu au-dessus.',
   },
 ];
 
-// Cache par ville : clé → { at, result } (result sans params).
+// Cache par coordonnées ARRONDIES : clé "lat|lon" → { at, result } (result sans params).
 const cache = new Map();
+
+// Arrondi de mutualisation : 2 décimales (~1,1 km) — deux communes proches → 1 seul appel.
+function coordKey(lat, lon) { return `${lat.toFixed(2)}|${lon.toFixed(2)}`; }
+
+// Résout la valeur d'un combo en { lat, lon, nom } : d'abord coordonnées encodées (nouveau
+// format), sinon clé d'enum héritée (RÉTROCOMPAT), sinon null.
+function resolveCombo(value) {
+  const v = String(value == null ? '' : value).trim();
+  const dec = decodeCoords(v);
+  if (dec) return dec;
+  const legacy = VILLES[v.toLowerCase()];
+  if (legacy) return { lat: legacy.lat, lon: legacy.lon, nom: legacy.nom };
+  return null;
+}
 
 function inactive() {
   return { state: 'inactive', since: null, until: null, message: null, url: PUBLIC_URL };
@@ -85,20 +108,19 @@ function jourParis(d) {
   }).format(d);
 }
 
-async function fetchVille(ville) {
-  const v = VILLES[ville];
+async function fetchVille(lat, lon, nom) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   let res;
   try {
-    res = await fetchFn(API(v.lat, v.lon), { headers: { Accept: 'application/json' }, signal: controller.signal });
+    res = await fetchFn(API(lat, lon), { headers: { Accept: 'application/json' }, signal: controller.signal });
   } catch (err) {
-    if (err.name === 'AbortError') throw new Error(`Timeout ISS API (${ville})`);
-    throw new Error(`Appel ISS API échoué (${ville}) : ${err.message}`);
+    if (err.name === 'AbortError') throw new Error(`Timeout ISS API (${nom})`);
+    throw new Error(`Appel ISS API échoué (${nom}) : ${err.message}`);
   } finally {
     clearTimeout(timer);
   }
-  if (!res.ok) throw new Error(`Réponse HTTP inattendue ISS API (${ville}) : ${res.status}`);
+  if (!res.ok) throw new Error(`Réponse HTTP inattendue ISS API (${nom}) : ${res.status}`);
   const payload = await res.json();
   const passes = payload && Array.isArray(payload.passes) ? payload.passes : [];
 
@@ -118,7 +140,6 @@ async function fetchVille(ville) {
   if (!best) return inactive();
 
   const start = new Date(best.visible_start);
-  const nom = v.nom;
   const quand = jourParis(start) === jourParis(new Date()) ? 'ce soir' : 'demain soir';
   const minutes = Math.max(1, Math.round(Number(best.visible_duration_sec) / 60));
   const dir = (best.rise && best.rise.compass && best.set && best.set.compass)
@@ -135,25 +156,27 @@ async function fetchVille(ville) {
 async function checkWithParams(paramsList) {
   let combos = Array.isArray(paramsList) ? paramsList : [];
   if (combos.length > MAX_COMBOS) {
-    console.warn(`[iss-passages] ${combos.length} villes — plafonné à ${MAX_COMBOS} ce cycle.`);
+    console.warn(`[iss-passages] ${combos.length} communes — plafonné à ${MAX_COMBOS} ce cycle.`);
     combos = combos.slice(0, MAX_COMBOS);
   }
   const now = Date.now();
   const out = [];
   for (const params of combos) {
-    const ville = String((params && params.ville) || '');
-    if (!VILLES[ville]) { out.push(Object.assign({ params }, inactive())); continue; }
-    const cached = cache.get(ville);
+    const geo = resolveCombo(params && params.ville);
+    if (!geo) { out.push(Object.assign({ params }, inactive())); continue; }
+    // Mutualisation : clé par coordonnées ARRONDIES → deux communes voisines = 1 appel.
+    const key = coordKey(geo.lat, geo.lon);
+    const cached = cache.get(key);
     if (cached && now - cached.at < CACHE_TTL_MS) {
       out.push(Object.assign({ params }, cached.result));
       continue;
     }
     try {
-      const result = await fetchVille(ville);
-      cache.set(ville, { at: Date.now(), result });
+      const result = await fetchVille(geo.lat, geo.lon, geo.nom);
+      cache.set(key, { at: Date.now(), result });
       out.push(Object.assign({ params }, result));
     } catch (err) {
-      console.warn(`[iss-passages] ${ville} : ${err.message}`);
+      console.warn(`[iss-passages] ${geo.nom} : ${err.message}`);
       out.push(Object.assign({ params }, cached ? cached.result : inactive()));
     }
   }

@@ -84,4 +84,82 @@ async function resolveCommuneInsee(nomVille, departement) {
   return result;
 }
 
-module.exports = { resolveCommuneInsee, isInsee, rememberName, nameForInsee };
+// ─── Variante COORDONNÉES (vague ISS) ────────────────────────────────────────
+// Sœur de resolveCommuneInsee : résout un nom de commune (+ département optionnel pour lever
+// les homonymes) en { nom, lat, lon }, via le champ `centre` (GeoJSON Point) de geo.api.gouv.fr.
+// Appelée UNE FOIS À LA SOUSCRIPTION ; la valeur canonique stockée dans les params est ENCODÉE
+// (encodeCoords) — le poll n'appelle jamais l'API de géocodage.
+
+const coordsCache = new Map(); // `${normNom}|${dep}` → { nom, lat, lon } | null
+
+/**
+ * @returns {Promise<{ nom:string, lat:number, lon:number, ambiguous:boolean } | null>}
+ */
+async function resolveCommuneCoords(nomVille, departement) {
+  const raw = String(nomVille == null ? '' : nomVille).trim();
+  if (!raw) return null;
+
+  const dep = String(departement == null ? '' : departement).trim();
+  const cacheKey = norm(raw) + '|' + dep;
+  if (coordsCache.has(cacheKey)) return coordsCache.get(cacheKey);
+
+  let list = [];
+  try {
+    const url = GEO_URL + '?nom=' + encodeURIComponent(raw)
+      + (dep ? '&codeDepartement=' + encodeURIComponent(dep) : '')
+      + '&fields=nom,code,centre,population&boost=population&limit=15';
+    const data = await safeFetchJson(url, { maxBytes: 512 * 1024, timeoutMs: 6000 });
+    list = Array.isArray(data) ? data : [];
+  } catch (err) {
+    return null; // réseau/SSRF → non résolu (l'appelant refuse la souscription proprement)
+  }
+  if (!list.length) { coordsCache.set(cacheKey, null); return null; }
+
+  const wanted = norm(raw);
+  const exact = list.filter((c) => norm(c.nom) === wanted);
+  const pool = exact.length ? exact : list;
+  // Ne garde que les entrées portant un centre exploitable (Point [lon, lat]).
+  const withCentre = pool.filter((c) => c && c.centre && Array.isArray(c.centre.coordinates)
+    && c.centre.coordinates.length === 2);
+  if (!withCentre.length) { coordsCache.set(cacheKey, null); return null; }
+
+  const best = withCentre[0]; // geo.api trie par population (boost=population)
+  const lon = Number(best.centre.coordinates[0]);
+  const lat = Number(best.centre.coordinates[1]);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) { coordsCache.set(cacheKey, null); return null; }
+
+  const result = { nom: best.nom || raw, lat, lon, ambiguous: withCentre.length > 1 };
+  if (best.code) rememberName(best.code, result.nom);
+  coordsCache.set(cacheKey, result);
+  return result;
+}
+
+// ─── Encodage canonique des coordonnées dans UN champ (modèle v2 « une valeur par clé ») ──
+// Format : "lat|lon|nom" (4 décimales ~11 m, largement suffisant pour l'ISS). Le « | » ne peut
+// apparaître ni dans un nombre ni dans un nom de commune → séparateur sûr.
+function encodeCoords(c) {
+  if (!c || !Number.isFinite(Number(c.lat)) || !Number.isFinite(Number(c.lon))) return null;
+  const nom = String(c.nom || '').replace(/\|/g, ' ').trim();
+  if (!nom) return null;
+  return `${Number(c.lat).toFixed(4)}|${Number(c.lon).toFixed(4)}|${nom}`;
+}
+
+// "48.8566|2.3522|Paris" → { lat, lon, nom } | null. Valide bornes lat/lon.
+function decodeCoords(str) {
+  const parts = String(str == null ? '' : str).split('|');
+  if (parts.length < 3) return null;
+  const lat = Number(parts[0]);
+  const lon = Number(parts[1]);
+  const nom = parts.slice(2).join('|').trim();
+  if (!Number.isFinite(lat) || lat < -90 || lat > 90) return null;
+  if (!Number.isFinite(lon) || lon < -180 || lon > 180) return null;
+  if (!nom) return null;
+  return { lat, lon, nom };
+}
+
+function isEncodedCoords(str) { return decodeCoords(str) != null; }
+
+module.exports = {
+  resolveCommuneInsee, isInsee, rememberName, nameForInsee,
+  resolveCommuneCoords, encodeCoords, decodeCoords, isEncodedCoords,
+};

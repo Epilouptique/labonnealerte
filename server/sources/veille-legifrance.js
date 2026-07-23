@@ -55,6 +55,22 @@ function inactive() {
 }
 function norm(s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); }
 
+// dateParution du JO est un timestamp epoch EN MILLISECONDES (structure réelle observée
+// le 23/07/2026), pas une chaîne ISO. On formate en JJ/MM/AAAA. Robuste aussi à une éventuelle
+// chaîne ISO (fallback : renvoyée telle quelle). Renvoie '' si non exploitable.
+function formatDateParution(v) {
+  if (v == null || v === '') return '';
+  const n = typeof v === 'number' ? v : (/^\d{10,}$/.test(String(v).trim()) ? Number(String(v).trim()) : NaN);
+  if (Number.isFinite(n)) {
+    const ms = n < 1e12 ? n * 1000 : n; // tolère un epoch en secondes
+    const d = new Date(ms);
+    if (!Number.isNaN(d.getTime())) {
+      return `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()}`;
+    }
+  }
+  return String(v).trim(); // déjà une chaîne lisible (ISO ou autre)
+}
+
 async function apiPost(path, body, token) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
@@ -87,6 +103,9 @@ async function fetchLotDuJour(token) {
   const jo = await apiPost('/consult/lastNJo', { nbElement: NB_JO }, token);
   const conts = []; scanByIdPrefix(jo, 'JORFCONT', conts, new Set());
   const contIds = [...new Set(conts.map((c) => c.id))].slice(0, NB_JO);
+  // dateParution (epoch ms) porté par le CONTAINER, pas par chaque texte → on l'indexe par CID de JO
+  // pour la propager aux textes (affichage). Anti-rétroactif/dédoublonnage restent par CID de texte.
+  const contDate = new Map(conts.map((c) => [c.id, c.dateParution]));
 
   const byCid = new Map();
   for (const cid of contIds) {
@@ -94,14 +113,19 @@ async function fetchLotDuJour(token) {
     try { cont = await apiPost('/consult/jorfCont', { id: cid }, token); }
     catch (err) { console.warn(`[veille-legifrance] jorfCont ${cid} : ${err.message}`); continue; }
     const nodes = []; scanByIdPrefix(cont, 'JORFTEXT', nodes, new Set());
+    // dateParution éventuellement re-fournie dans la réponse jorfCont ; sinon celle de lastNJo.
+    const contsInResp = []; scanByIdPrefix(cont, 'JORFCONT', contsInResp, new Set());
+    const dateRaw = (contsInResp.find((c) => c.id === cid) || {}).dateParution ?? contDate.get(cid);
     for (const t of nodes) {
       const c = t.id || t.cid;
       if (!byCid.has(c)) {
+        // Le texte peut porter sa propre date (datePubli) ; sinon on retombe sur la dateParution du JO.
+        const texteDate = t.datePubli || t.date;
         byCid.set(c, {
           cid: c,
           titre: String(t.titre || t.title || '').trim(),
           nature: String(t.nature || '').trim(),
-          date: String(t.datePubli || t.datePubli || t.date || '').trim(),
+          date: formatDateParution(texteDate != null && texteDate !== '' ? texteDate : dateRaw),
           nor: String(t.nor || '').trim(),
         });
       }
@@ -169,3 +193,5 @@ async function checkWithParams(paramsList) {
 }
 
 module.exports = { id: 'veille-legifrance', paramsSchema, checkWithParams };
+// Exposé pour tests locaux (traversée récursive, matching, dates). Sans effet en prod.
+module.exports._internals = { scanByIdPrefix, matches, norm, formatDateParution };

@@ -218,8 +218,11 @@
       if (act === 'categories') { e.preventDefault(); fillCats(); flipTo(true); return; }
       if (act === 'auth') {
         e.preventDefault(); closeMenu();
+        // Connecté sur la home : bascule le panneau. Connecté hors home : redirige vers le
+        // dashboard AVEC l'indicateur #mon-compte (la home l'ouvre au chargement). Anonyme :
+        // page de connexion.
         if (logged && isHome && window.LBAAccount && window.LBAAccount.toggle) window.LBAAccount.toggle();
-        else window.location.href = logged ? '/' : '/connexion';
+        else window.location.href = logged ? '/#mon-compte' : '/connexion';
         return;
       }
       if (act === 'search') {
@@ -232,8 +235,10 @@
       }
       if (act === 'account') {
         e.preventDefault(); closeMenu();
+        // Hors home : redirige vers le dashboard AVEC #mon-compte pour que la carte
+        // « Mon compte » s'ouvre au chargement (le panneau n'existe que sur la home).
         if (isHome && window.LBAAccount && window.LBAAccount.toggle) window.LBAAccount.toggle();
-        else window.location.href = '/';
+        else window.location.href = '/#mon-compte';
         return;
       }
       if (act === 'logout') {

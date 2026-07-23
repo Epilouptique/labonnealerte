@@ -116,12 +116,16 @@
         // « Mon compte » ouvre le panneau (défini par site.js sur la home).
         // La déconnexion vit désormais dans ce panneau.
         link.textContent = 'Mon compte';
-        link.setAttribute('href', '#');
+        // Hors home, le panneau n'existe pas : l'ancre pointe vers /#mon-compte (la home
+        // ouvre la carte au chargement). Sur la home, l'onclick bascule le panneau en place.
+        link.setAttribute('href', '/#mon-compte');
         link.onclick = function (e) {
-          e.preventDefault();
           // « Mon compte » bascule le panneau (ouvre s'il est fermé, ferme s'il est ouvert).
-          if (window.LBAAccount && window.LBAAccount.toggle) window.LBAAccount.toggle();
-          else logout(); // repli si le panneau n'existe pas (autres pages)
+          if (window.LBAAccount && window.LBAAccount.toggle) {
+            e.preventDefault();
+            window.LBAAccount.toggle();
+          }
+          // Sinon (autres pages) : navigation par défaut vers /#mon-compte (pas de logout !).
         };
       }
     } else {

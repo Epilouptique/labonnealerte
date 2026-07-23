@@ -138,10 +138,15 @@
   //    n'active rien ; l'abonnement part automatiquement à la saisie/au choix d'une valeur
   //    (site.js), puis l'interrupteur pause/reprise prend le relais. Le switch non-géo est
   //    donc un repère visuel cohérent, pas une action sur du vide.
-  function followSwitch(isGeo) {
+  //  · hidden : quand la carte est DÉJÀ abonnée (≥1 instance), le switch du picker est
+  //    masqué → on ne le voit pas réapparaître inline à côté des chips lors d'un
+  //    « + ajouter » (il ferait doublon avec l'interrupteur pause/reprise du bas). Dans ce
+  //    cas, l'ajout d'une instance supplémentaire passe par l'activation automatique au
+  //    change/saisie (site.js), sûre car on choisit forcément une NOUVELLE valeur.
+  function followSwitch(isGeo, hidden) {
     var cls = isGeo ? 'param-follow-cb param-follow-geo' : 'param-follow-cb param-follow-auto';
     var dis = isGeo ? '' : ' disabled';
-    return '<label class="switch-row param-follow-row">' +
+    return '<label class="switch-row param-follow-row"' + (hidden ? ' hidden' : '') + '>' +
         '<span class="switch"><input type="checkbox" class="' + cls + '"' + dis + ' aria-label="S\'abonner">' +
           '<span class="track"></span><span class="thumb"></span></span>' +
         '<span class="switch-label">S\'abonner</span>' +
@@ -199,7 +204,9 @@
     var picker =
       '<div class="param-form"' + (instances.length ? ' hidden' : '') + '>' +
         controls +
-        followSwitch(isGeo) +
+        // Switch masqué d'emblée si déjà abonné (évite le doublon avec l'interrupteur du bas
+        // quand on rouvre le picker via « + ajouter »).
+        followSwitch(isGeo, instances.length > 0) +
       '</div>';
     // Parcours anonyme : email (réutilise .sub-form), les params sont joints au submit.
     var anon = (mode !== 'connected')

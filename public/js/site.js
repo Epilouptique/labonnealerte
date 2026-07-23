@@ -656,6 +656,12 @@
       card.dataset.subscribed = '1';
       setParamStatus(card, true);
       ensureMuteSwitch(card); // interrupteur pause/reprise disponible tout de suite
+      // Doublon corrigé : une fois abonné, l'interrupteur pause/reprise du bas est LE
+      // contrôle d'abonnement. On masque le switch « S'abonner » du picker pour qu'il ne
+      // réapparaisse pas inline à côté des chips lors d'un « + ajouter ». L'ajout d'une
+      // instance supplémentaire passera par l'activation automatique au change/saisie.
+      var followRow = card.querySelector('.param-follow-row');
+      if (followRow) { followRow.hidden = true; var fcb = followRow.querySelector('.param-follow-cb'); if (fcb) fcb.checked = false; }
       togglePicker(card, false);
       // C5) Réinitialise TOUS les contrôles du picker pour un éventuel ajout suivant.
       var ctrls0 = card.querySelectorAll('.param-form .param-select, .param-form .param-input');
@@ -686,6 +692,11 @@
         // suffit pour les géo).
         var mute = card.querySelector('.param-mute-row'); if (mute) mute.remove();
         var add = card.querySelector('.param-add'); if (add) add.remove();
+        // Désabonnement TOTAL : on rétablit l'état « premier abonnement » → le switch
+        // « S'abonner » du picker redevient visible (il avait été masqué à l'abonnement),
+        // seul moyen de re-souscrire une valeur géo pré-remplie sans la re-sélectionner.
+        var followRow = card.querySelector('.param-follow-row');
+        if (followRow) { followRow.hidden = false; var fcb = followRow.querySelector('.param-follow-cb'); if (fcb) fcb.checked = false; }
         // Le picker (contrôle + switch S'abonner) redevient l'état « non abonné » pour
         // les deux familles → plus de libellé « Non abonné » séparé à recréer.
         togglePicker(card, true);
@@ -747,10 +758,16 @@
   // .param-follow-auto, disabled). Le discriminant ne peut PLUS être la simple présence
   // de .param-follow-cb, désormais rendu sur toutes les cartes.
   function isGeoCard(card) { return !!card.querySelector('.param-follow-geo'); }
+  // Le change/saisie auto est bloqué pour une carte géo TANT QUE le switch « S'abonner »
+  // est actif (1er abonnement, valeur souvent pré-remplie → confirmation explicite requise).
+  // Une fois abonnée (interrupteur pause/reprise du bas présent, switch masqué), l'ajout
+  // d'une instance supplémentaire se fait au change/saisie comme les non-géo : on choisit
+  // forcément une NOUVELLE valeur, aucun risque d'activation accidentelle par pré-remplissage.
+  function autoBlocked(card) { return isGeoCard(card) && !card.querySelector('.param-mute-row'); }
   document.addEventListener('change', function (e) {
     var sel = e.target.closest('.param-select');
     if (!sel || !sel.value) return; // ignore le placeholder « Choisir… »
-    var card = sel.closest('.card'); if (!card || isGeoCard(card)) return;
+    var card = sel.closest('.card'); if (!card || autoBlocked(card)) return;
     if (document.body.getAttribute('data-mode') === 'connected') followParamConnected(card);
     else followParamAnon(card);
   });
@@ -758,7 +775,7 @@
   document.addEventListener('input', function (e) {
     var inp = e.target.closest('.param-input');
     if (!inp) return;
-    var card = inp.closest('.card'); if (!card || isGeoCard(card)) return;
+    var card = inp.closest('.card'); if (!card || autoBlocked(card)) return;
     var prev = paramInputTimers.get(inp); if (prev) clearTimeout(prev);
     paramInputTimers.set(inp, setTimeout(function () {
       if (!(inp.value || '').trim()) return;
@@ -1526,6 +1543,13 @@
     bindMineLinks();
     bindBrandTop();
     if (mode === 'connected') bindAccount();
+    // Point 4 : arrivée depuis une autre page via « Mon compte » (lien /#mon-compte) →
+    // ouvre la carte « Mon compte » au chargement, puis nettoie le hash (pas de ré-ouverture
+    // au rechargement ni au partage du lien). Ignoré si non connecté (le panneau n'existe pas).
+    if (mode === 'connected' && location.hash === '#mon-compte') {
+      openAccount();
+      if (window.history && history.replaceState) history.replaceState(null, '', location.pathname + location.search);
+    }
 
     loadStats();
     loadCollections();

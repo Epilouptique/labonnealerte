@@ -1287,6 +1287,11 @@ body[data-mode="connected"] #stats { display: none; }
 /* Switch « S'abonner » d'une carte paramétrée : à droite du contrôle dans le picker,
    passe à la ligne sur carte étroite. Réutilise .switch/.switch-row existants. */
 .param-follow-row { flex: 0 0 auto; }
+/* .switch-row impose display:flex (règle auteur) qui l'emporte sur l'attribut UA [hidden].
+   On rétablit explicitement le masquage : le switch « S'abonner » du picker est caché dès
+   qu'une instance est suivie (l'interrupteur pause/reprise du bas prend le relais), pour ne
+   pas faire doublon à la réouverture via « + ajouter ». */
+.param-follow-row[hidden] { display: none !important; }
 /* Non-géo : switch DISABLED tant que non abonné (l'activation se fait à la saisie) →
    grisé et non cliquable, repère visuel cohérent sans être une action sur du vide. */
 .param-follow-row .switch input:disabled { cursor: default; }

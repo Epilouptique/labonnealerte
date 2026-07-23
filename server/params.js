@@ -6,7 +6,7 @@
 // ville saisi/pré-rempli est résolu en INSEE À LA SOUSCRIPTION (route, via
 // lib/commune-insee) AVANT validateParams — ici on ne valide donc qu'un code INSEE.
 
-const { isInsee, nameForInsee } = require('./sources/lib/commune-insee');
+const { isInsee, nameForInsee, isEncodedCoords, decodeCoords } = require('./sources/lib/commune-insee');
 
 // Valide un objet params brut contre le schéma. Retourne { ok, params } canonique
 // (clés ⊂ schéma, valeurs contrôlées) ou { ok:false, error }.
@@ -29,6 +29,11 @@ function validateParams(schema, raw) {
       // Valeur canonique = code INSEE (la résolution nom→INSEE a lieu dans la route).
       const s = String(v).trim().toUpperCase();
       if (!isInsee(s)) return { ok: false, error: `code INSEE attendu pour ${desc.key}` };
+      out[desc.key] = s;
+    } else if (desc.type === 'commune-coords') {
+      // Valeur canonique = "lat|lon|nom" (la résolution nom→coords a lieu dans la route).
+      const s = String(v).trim();
+      if (!isEncodedCoords(s)) return { ok: false, error: `coordonnées attendues pour ${desc.key}` };
       out[desc.key] = s;
     } else if (desc.type === 'number') {
       const n = Number(v);
@@ -68,6 +73,9 @@ function resolveLabel(schema, params) {
     } else if (desc.type === 'commune') {
       // Affiche le nom de commune si connu (cache INSEE→nom), sinon le code INSEE.
       label = nameForInsee(v) || String(v);
+    } else if (desc.type === 'commune-coords') {
+      const d = decodeCoords(v);
+      label = d ? d.nom : String(v);
     }
     parts.push(label);
   }
@@ -85,7 +93,7 @@ function paramsFromQuery(schema, query) {
   return res.ok ? res.params : null;
 }
 
-const PARAM_TYPES = ['enum', 'string', 'number', 'commune'];
+const PARAM_TYPES = ['enum', 'string', 'number', 'commune', 'commune-coords'];
 
 // Valide un SCHÉMA de paramètres déclaré (manifeste externe ou interne).
 // v2 : schéma PLAT à UN SEUL paramètre (§7). Retourne { ok, error, schema }.

@@ -12,7 +12,7 @@ const { authenticate, deleteSession } = require('../sessions');
 const { isValidCountry, isValidDepartement } = require('../geo');
 const { VALID_SLUGS } = require('../categories');
 const { validateParams, resolveLabel } = require('../params');
-const { resolveCommuneInsee, isInsee } = require('../sources/lib/commune-insee');
+const { resolveCommuneInsee, isInsee, resolveCommuneCoords, encodeCoords, isEncodedCoords } = require('../sources/lib/commune-insee');
 const { trackDomain } = require('../doomname');
 const { applyAutofill, deriveDisplayNameFromEmail, clientIp } = require('../profile-autofill');
 
@@ -467,6 +467,24 @@ apiRouter.post('/my-alerts/toggle-param', async (req, res) => {
         return res.status(400).json({ error: 'Commune introuvable — vérifiez l’orthographe ou précisez le département.' });
       }
       rawParams = Object.assign({}, params, { [communeField.key]: resolved.insee });
+    }
+
+    // Vague ISS — champ type 'commune-coords' : la valeur reçue est un NOM de ville (saisi ou
+    // pré-rempli depuis le profil). On la résout en coordonnées ENCODÉES "lat|lon|nom" (valeur
+    // canonique) UNE SEULE FOIS ici, jamais au poll. Une valeur déjà encodée passe telle quelle.
+    const coordsField = Array.isArray(schema) ? schema.find((d) => d && d.type === 'commune-coords') : null;
+    if (coordsField && rawParams && rawParams[coordsField.key] != null && !isEncodedCoords(rawParams[coordsField.key])) {
+      let profileDept = null;
+      try {
+        const p = await pool.query('SELECT departement FROM subscribers WHERE id = $1', [auth.id]);
+        profileDept = p.rows[0] ? p.rows[0].departement : null;
+      } catch (e) { /* dept absent → résolution sans désambiguïsation */ }
+      const geo = await resolveCommuneCoords(rawParams[coordsField.key], profileDept);
+      const encoded = geo && encodeCoords(geo);
+      if (!encoded) {
+        return res.status(400).json({ error: 'Commune introuvable — vérifiez l’orthographe ou précisez le département.' });
+      }
+      rawParams = Object.assign({}, rawParams, { [coordsField.key]: encoded });
     }
 
     const check = validateParams(schema, rawParams);
