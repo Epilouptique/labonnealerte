@@ -140,6 +140,8 @@ module.exports = {
   id: source.id,
   paramsSchema,
   checkWithParams: source.checkWithParams,
+  loadRef: source.loadRef,
+  dumpRef: source.dumpRef,
   lookup,
   _lookup: lookup,
   _deptFromInsee: deptFromInsee,

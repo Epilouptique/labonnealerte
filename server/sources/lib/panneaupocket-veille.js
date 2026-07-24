@@ -22,8 +22,12 @@ const { validPanneauUrl, fetchPanneaux } = require('./panneaupocket-parser');
 const TTL_MS = 2 * 60 * 60 * 1000;   // 2h (info périssable — ex. arrosage publié pour le soir même)
 const RETRY_MS = 60 * 60 * 1000;     // réessai 1h après un échec
 const MAX_FETCH = Math.max(1, parseInt(process.env.EXTERNAL_MAX_COMBOS || '20', 10) || 20);
+const REF_SOFT_BYTES = 64 * 1024;    // plafond métier de persistance (au-delà : non persisté)
 
 const always = () => true;
+
+// Sérialise une Map<id→hash> en tableau de paires (JSON-stable, ordre d'insertion).
+function refsToArray(map) { return Array.from(map || []); }
 
 // Compare la référence précédente aux panneaux courants → { events, newRefs }.
 // newRefs = TOUS les panneaux (mémorisation complète). events = uniquement les alertables
@@ -72,8 +76,41 @@ function createParamSource(opts) {
   const buildMessage = opts.buildMessage || defaultBuildMessage;
   const alertable = opts.alertable || always;
   const cache = new Map(); // url → { refs, at, ttl, result }
+  const snapshot = new Map(); // url → JSON persisté (dirty-check, découplé du cache)
 
   const inactive = (url) => ({ state: 'inactive', since: null, until: null, message: null, url });
+
+  // Persistance opt-in (cf. poller.js) — scope = URL de la combinaison.
+  // loadRef : hydrate la référence AVANT le check (at:0 → force un fetch frais au cycle
+  // suivant → un panneau apparu pendant l'arrêt est détecté). data null → amorçage classique.
+  function loadRef(params, data) {
+    const urlObj = validPanneauUrl(String((params && params.url) || ''));
+    if (!urlObj || !Array.isArray(data)) return; // null/corrompu → amorçage mémoire
+    const url = urlObj.href;
+    const refs = new Map(data);
+    const existing = cache.get(url);
+    cache.set(url, { refs, at: 0, ttl: TTL_MS, result: existing ? existing.result : inactive(url) });
+    snapshot.set(url, JSON.stringify(refsToArray(refs)));
+  }
+
+  // dumpRef : renvoie la référence sérialisable si elle a changé depuis le dernier
+  // load/dump, sinon undefined (aucune écriture). Au-delà de 64 Ko : non persistée.
+  function dumpRef(params) {
+    const urlObj = validPanneauUrl(String((params && params.url) || ''));
+    if (!urlObj) return undefined;
+    const url = urlObj.href;
+    const entry = cache.get(url);
+    if (!entry || !entry.refs) return undefined;
+    const arr = refsToArray(entry.refs);
+    const json = JSON.stringify(arr);
+    if (Buffer.byteLength(json, 'utf8') > REF_SOFT_BYTES) {
+      console.warn(`[${id}] ${url} : ref > 64 Ko, non persistée.`);
+      return undefined;
+    }
+    if (json === snapshot.get(url)) return undefined; // inchangé
+    snapshot.set(url, json);
+    return arr;
+  }
 
   async function checkWithParams(paramsList) {
     const combos = Array.isArray(paramsList) ? paramsList : [];
@@ -111,7 +148,7 @@ function createParamSource(opts) {
     return out;
   }
 
-  return { id, paramsSchema, checkWithParams, _buildMessage: buildMessage };
+  return { id, paramsSchema, checkWithParams, loadRef, dumpRef, _buildMessage: buildMessage };
 }
 
 // ── FABRIQUE BROADCAST (v1) : une URL /ville/ fixe, état global unique ───────
@@ -124,6 +161,26 @@ function createBroadcastSource(opts) {
 
   const inactive = () => ({ state: 'inactive', since: null, until: null, message: null, url });
   let state = { refs: null, at: 0, ttl: 0, result: inactive() };
+  let snapshotJson = null; // JSON persisté (dirty-check)
+
+  // Persistance opt-in (cf. poller.js) — scope global (broadcast). data null → amorçage.
+  function loadRef(_params, data) {
+    if (!Array.isArray(data)) return;
+    state = { refs: new Map(data), at: 0, ttl: TTL_MS, result: state.result };
+    snapshotJson = JSON.stringify(refsToArray(state.refs));
+  }
+  function dumpRef() {
+    if (!state.refs) return undefined;
+    const arr = refsToArray(state.refs);
+    const json = JSON.stringify(arr);
+    if (Buffer.byteLength(json, 'utf8') > REF_SOFT_BYTES) {
+      console.warn(`[${id}] ref > 64 Ko, non persistée.`);
+      return undefined;
+    }
+    if (json === snapshotJson) return undefined; // inchangé
+    snapshotJson = json;
+    return arr;
+  }
 
   async function check() {
     const now = Date.now();
@@ -146,7 +203,7 @@ function createBroadcastSource(opts) {
     }
   }
 
-  return { id, check };
+  return { id, check, loadRef, dumpRef };
 }
 
 module.exports = { createParamSource, createBroadcastSource, defaultBuildMessage, diffPanneaux, TTL_MS, RETRY_MS };

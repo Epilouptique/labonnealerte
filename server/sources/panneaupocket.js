@@ -32,6 +32,8 @@ module.exports = {
   id: source.id,
   paramsSchema,
   checkWithParams: source.checkWithParams,
+  loadRef: source.loadRef,
+  dumpRef: source.dumpRef,
   _parsePanneaux: parsePanneaux,
   _validPanneauUrl: validPanneauUrl,
   _buildMessage: source._buildMessage,

@@ -242,7 +242,7 @@ Twitch, Légifrance) ; Twitch exige en plus l'en-tête `Client-Id` sur chaque ap
 | **Météo-France — Vigilance** (métropole + outre-mer) | Clé API | `METEOFRANCE_VIGILANCE_API_KEY`, `METEOFRANCE_VIGILANCE_URL`, `..._OM_URL` | ✅ Fonctionnel si clé présente ; sinon source silencieuse. |
 | **Météo-France — Feux de forêt** | Clé API | `METEOFRANCE_FORETS_API_KEY`, `..._URL` | ✅ Fonctionnel si clé présente. |
 | **Météo-France — Avalanches (BRA)** | Clé API | `METEOFRANCE_DPBRA_API_KEY` | ✅ Fonctionnel si clé présente. |
-| **Météo-France — Cyclones outre-mer** | Clé API | `METEOFRANCE_API_KEY` | ✅ Fonctionnel si clé présente (`cyclones-outremer`). |
+| **Météo-France — Cyclones outre-mer** | Clé API | `METEOFRANCE_API_KEY` | ⏸ Dormante — endpoint `METEOFRANCE_VIGILANCE_OM_URL` non renseigné, enabled=false ; clé métropole présente mais couverture OM non vérifiée (aucun appel possible sans endpoint) (`cyclones-outremer`). |
 | **SNCF** (perturbations) | Clé API | `SNCF_API_KEY` | ✅ Fonctionnel si clé présente. |
 | **URLhaus** (abuse.ch) | **Clé Auth requise** | `URLHAUS_AUTH_KEY` | ✅ Fonctionnel (abuse.ch impose désormais une clé d'authentification) ; sans clé → source silencieuse. |
 | **Atmo France** (WFS) | Aucune | — | ✅ Fonctionnel, sans clé (qualité air + pollens). |

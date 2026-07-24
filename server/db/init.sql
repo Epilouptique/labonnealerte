@@ -56,6 +56,11 @@ CREATE TABLE IF NOT EXISTS source_states (
   checked_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Persistance des références anti-rétroactives (opt-in par source via loadRef/dumpRef,
+-- cf. poller.js). NULL = pas de référence persistée → amorçage classique. Voir garde-fous
+-- (dégradation silencieuse si la colonne manque, plafond de taille) dans poller.js.
+ALTER TABLE source_states ADD COLUMN IF NOT EXISTS ref JSONB NULL;
+
 CREATE TABLE IF NOT EXISTS subscribers (
   id SERIAL PRIMARY KEY,
   email VARCHAR(255) UNIQUE NOT NULL,
@@ -182,6 +187,9 @@ CREATE TABLE IF NOT EXISTS source_param_states (
   checked_at TIMESTAMPTZ DEFAULT NOW(),
   PRIMARY KEY (source_id, params)
 );
+
+-- Persistance des références anti-rétroactives par combinaison (opt-in, cf. poller.js).
+ALTER TABLE source_param_states ADD COLUMN IF NOT EXISTS ref JSONB NULL;
 
 -- Historique par combinaison (les événements broadcast gardent params NULL).
 ALTER TABLE source_events ADD COLUMN IF NOT EXISTS params JSONB NULL;

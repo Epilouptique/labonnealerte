@@ -59,4 +59,4 @@ function buildMessage(events) {
 
 const source = createBroadcastSource({ id: 'arrosage-canal-gap', url: VILLE_URL, buildMessage, alertable: isThematic });
 
-module.exports = { id: source.id, check: source.check, _isThematic: isThematic, _buildMessage: buildMessage };
+module.exports = { id: source.id, check: source.check, loadRef: source.loadRef, dumpRef: source.dumpRef, _isThematic: isThematic, _buildMessage: buildMessage };

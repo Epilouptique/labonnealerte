@@ -278,8 +278,85 @@ async function applyResult(store, label, result, requiresConfirmation) {
   }
 }
 
-// ── Chemin BROADCAST (v1, inchangé) ─────────────────────────────────────────
+// ── Persistance opt-in des références anti-rétroactives ──────────────────────
+// Contrat FACULTATIF d'une source (broadcast OU paramétrée). Si le module exporte
+// LES DEUX fonctions, le poller charge sa référence depuis la base AVANT le check et
+// la re-sauve APRÈS, comblant le trou du redéploiement (un item apparu pendant l'arrêt
+// est détecté au retour, jamais inventé) :
+//   loadRef(params?, data) : hydrate la référence en mémoire (params absent = broadcast ;
+//                            data = objet JSONB relu, ou null = amorçage classique).
+//   dumpRef(params?)       : renvoie la structure sérialisable courante, ou `undefined`
+//                            si INCHANGÉE depuis le dernier load/dump (→ aucune écriture).
+// GARDE-FOUS (obligatoires) : toute erreur DB (colonne absente, timeout, JSON invalide)
+// est avalée → log discret + comportement mémoire-seule (amorçage). On n'écrit jamais
+// une référence > 256 Ko (ceinture ; le plafond métier 64 Ko est appliqué côté dumpRef).
+// Rien de tout ceci ne touche decideTransition/applyResult (machine à états inchangée).
+const REF_MAX_BYTES = 256 * 1024;
+
+function sourceHasRef(source) {
+  return source && typeof source.loadRef === 'function' && typeof source.dumpRef === 'function';
+}
+
+// Lit la colonne ref (JSONB → objet JS) ; null si absente/erreur (dégradation silencieuse).
+async function loadPersistedRef(table, sourceId, params) {
+  try {
+    const q = params
+      ? `SELECT ref FROM ${table} WHERE source_id = $1 AND params = $2::jsonb`
+      : `SELECT ref FROM ${table} WHERE source_id = $1`;
+    const args = params ? [sourceId, JSON.stringify(params)] : [sourceId];
+    const { rows } = await pool.query(q, args);
+    return rows[0] ? rows[0].ref : null;
+  } catch (err) {
+    console.warn(`[poller] ${sourceId} : lecture ref ignorée (${err.message}).`);
+    return null;
+  }
+}
+
+// Upsert de la colonne ref, INDÉPENDANT des transitions d'état (la ligne est créée
+// dès l'amorçage, même en still-inactive). N'écrit que si la référence a changé et
+// reste sous le plafond. Ne touche QUE la colonne ref (les autres colonnes gardent
+// leur défaut à l'INSERT, ou sont préservées au CONFLICT).
+async function savePersistedRef(table, sourceId, params, ref, prevJson) {
+  if (ref === undefined) return; // module : référence inchangée
+  let json;
+  try { json = JSON.stringify(ref); } catch { return; }
+  if (json == null) return;
+  if (Buffer.byteLength(json, 'utf8') > REF_MAX_BYTES) {
+    console.warn(`[poller] ${sourceId} : ref > 256 Ko, non écrite.`);
+    return;
+  }
+  if (json === prevJson) return; // pas de changement → pas d'écriture
+  try {
+    if (params) {
+      await pool.query(
+        `INSERT INTO source_param_states (source_id, params, ref) VALUES ($1, $2::jsonb, $3::jsonb)
+         ON CONFLICT (source_id, params) DO UPDATE SET ref = EXCLUDED.ref`,
+        [sourceId, JSON.stringify(params), json]
+      );
+    } else {
+      await pool.query(
+        `INSERT INTO source_states (source_id, ref) VALUES ($1, $2::jsonb)
+         ON CONFLICT (source_id) DO UPDATE SET ref = EXCLUDED.ref`,
+        [sourceId, json]
+      );
+    }
+  } catch (err) {
+    console.warn(`[poller] ${sourceId} : écriture ref ignorée (${err.message}).`);
+  }
+}
+
+// ── Chemin BROADCAST (v1 ; +persistance opt-in de la référence) ──────────────
 async function processSource(source, requiresConfirmation = true) {
+  // Hydratation AVANT le check (une seule fois) si la source gère une référence.
+  let prevRefJson = null;
+  const withRef = sourceHasRef(source);
+  if (withRef) {
+    const stored = await loadPersistedRef('source_states', source.id, null);
+    prevRefJson = stored != null ? JSON.stringify(stored) : null;
+    try { source.loadRef(undefined, stored); }
+    catch (err) { console.warn(`[poller] ${source.id} : loadRef ignoré (${err.message}).`); }
+  }
+
   let result;
   try {
     result = await source.check();
@@ -300,6 +377,14 @@ async function processSource(source, requiresConfirmation = true) {
     notify: (res) => notifySourceSubscribers(source.id, res),
   };
   await applyResult(store, source.id, result, requiresConfirmation);
+
+  // Persistance de la référence APRÈS le check (upsert conditionnel, indépendant de l'état).
+  if (withRef) {
+    let ref;
+    try { ref = source.dumpRef(undefined); }
+    catch (err) { console.warn(`[poller] ${source.id} : dumpRef ignoré (${err.message}).`); ref = undefined; }
+    await savePersistedRef('source_states', source.id, null, ref, prevRefJson);
+  }
 }
 
 // ── Chemin PARAMÉTRÉ (v2) — état par combinaison, mêmes transitions ──────────
@@ -397,6 +482,27 @@ async function processParamSource(source, requiresConfirmation = true) {
     return;
   }
 
+  // Persistance opt-in : hydratation AVANT le check (une seule requête pour toutes les
+  // combos, une seule fois par cycle). prevRefJson mémorise le snapshot chargé par combo.
+  const withRef = sourceHasRef(source);
+  const prevRefJson = new Map(); // JSON.stringify(params) → json chargé (ou null)
+  if (withRef) {
+    let refByKey = new Map();
+    try {
+      const { rows } = await pool.query('SELECT params, ref FROM source_param_states WHERE source_id = $1', [source.id]);
+      refByKey = new Map(rows.map((r) => [JSON.stringify(r.params), r.ref]));
+    } catch (err) {
+      console.warn(`[poller] ${source.id} : lecture refs ignorée (${err.message}).`);
+    }
+    for (const params of combos) {
+      const key = JSON.stringify(params);
+      const stored = refByKey.has(key) ? refByKey.get(key) : null;
+      prevRefJson.set(key, stored != null ? JSON.stringify(stored) : null);
+      try { source.loadRef(params, stored); }
+      catch (err) { console.warn(`[poller] ${source.id} ${key} : loadRef ignoré (${err.message}).`); }
+    }
+  }
+
   let results;
   try {
     results = await source.checkWithParams(combos);
@@ -423,6 +529,13 @@ async function processParamSource(source, requiresConfirmation = true) {
       await applyResult(store, label, res, requiresConfirmation);
     } catch (err) {
       console.error(`[poller] ${label} : erreur transition :`, err.message);
+    }
+    // Persistance de la référence APRÈS applyResult (upsert conditionnel, indépendant de l'état).
+    if (withRef) {
+      let ref;
+      try { ref = source.dumpRef(params); }
+      catch (err) { console.warn(`[poller] ${label} : dumpRef ignoré (${err.message}).`); ref = undefined; }
+      await savePersistedRef('source_param_states', source.id, params, ref, prevRefJson.get(JSON.stringify(params)));
     }
   }
 }

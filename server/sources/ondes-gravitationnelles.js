@@ -102,5 +102,50 @@ async function check(injected) {
   };
 }
 
-module.exports = { id: 'ondes-gravitationnelles', check,
+// ── PERSISTANCE opt-in (cf. poller.js) — 3 Sets globaux, CAP GLISSANT FIFO ────
+// Cap 1000 ids par Set : au-delà, on ne garde que les 1000 plus récents (ordre d'insertion).
+// MODE DE DÉFAILLANCE ASSUMÉ : si un superevent_id sorti du cap réapparaissait dans le flux
+// GraceDB (re-publication amont — extrêmement improbable, les ids sont définitifs), il serait
+// vu comme « nouveau » → UNE alerte en trop, JAMAIS un silence. Risque faible, assumé.
+const REF_CAP = 1000;
+const REF_SOFT_BYTES = 64 * 1024;
+let refSnapshotJson = null;
+
+function trimSet(set) {
+  if (set.size <= REF_CAP) return;
+  const keep = [...set].slice(-REF_CAP);
+  set.clear();
+  keep.forEach((v) => set.add(v));
+}
+function serializeRef() {
+  return { seenConfirmed: [...seenConfirmed], alerted: [...alerted], corrected: [...corrected] };
+}
+
+// Hydrate les 3 Sets AVANT le check (data null/invalide → amorçage classique).
+function loadRef(_params, data) {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return;
+  const fill = (set, arr) => { set.clear(); if (Array.isArray(arr)) arr.forEach((v) => set.add(v)); };
+  fill(seenConfirmed, data.seenConfirmed);
+  fill(alerted, data.alerted);
+  fill(corrected, data.corrected);
+  primed = true; // on possède une référence → plus d'amorçage
+  refSnapshotJson = JSON.stringify(serializeRef());
+}
+
+// Renvoie la référence sérialisable si elle a changé, sinon undefined. Cap appliqué AVANT.
+function dumpRef() {
+  if (!primed) return undefined; // rien à persister avant l'amorçage
+  trimSet(seenConfirmed); trimSet(alerted); trimSet(corrected);
+  const obj = serializeRef();
+  const json = JSON.stringify(obj);
+  if (Buffer.byteLength(json, 'utf8') > REF_SOFT_BYTES) {
+    console.warn('[ondes-gravitationnelles] ref > 64 Ko, non persistée.');
+    return undefined;
+  }
+  if (json === refSnapshotJson) return undefined; // inchangé
+  refSnapshotJson = json;
+  return obj;
+}
+
+module.exports = { id: 'ondes-gravitationnelles', check, loadRef, dumpRef,
   _test: { seenConfirmed, alerted, corrected } };
