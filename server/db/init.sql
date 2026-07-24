@@ -3415,6 +3415,12 @@ SELECT 'panneaupocket', 'PanneauPocket', 'Les panneaux de votre collectivité',
   'internal', 'official', false, ARRAY['vie-locale', 'local', 'mairie'], 440, '[{"key":"url","label":"URL de la page PanneauPocket","type":"string","placeholder":"https://app.panneaupocket.com/ville/398423648-asa-du-canal-de-gap-05000","pattern":"^https://app\\.panneaupocket\\.com/ville/[^\\s]{1,200}$","lowercase":false,"multiple":true,"required":true,"default":null,"hint":"Copiez l''adresse de la page de votre collectivité sur app.panneaupocket.com (mairie, syndicat des eaux, ASA…). Vous êtes prévenu à chaque nouveau panneau ou mise à jour (coupure d''eau, arrosage, travaux…)."}]'::jsonb
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'panneaupocket');
 UPDATE sources SET params_schema = '[{"key":"url","label":"URL de la page PanneauPocket","type":"string","placeholder":"https://app.panneaupocket.com/ville/398423648-asa-du-canal-de-gap-05000","pattern":"^https://app\\.panneaupocket\\.com/ville/[^\\s]{1,200}$","lowercase":false,"multiple":true,"required":true,"default":null,"hint":"Copiez l''adresse de la page de votre collectivité sur app.panneaupocket.com (mairie, syndicat des eaux, ASA…). Vous êtes prévenu à chaque nouveau panneau ou mise à jour (coupure d''eau, arrosage, travaux…)."}]'::jsonb WHERE id = 'panneaupocket';
+-- Texte de présentation (l'INSERT ci-dessus est ignoré si la source existe déjà → cet UPDATE force la mise à jour sur base peuplée).
+UPDATE sources SET
+  name = 'PanneauPocket',
+  subtitle = 'Les panneaux de votre collectivité',
+  description = 'Recevez les alertes et infos de votre mairie, syndicat des eaux ou collectivité publiées sur PanneauPocket (coupures d''eau, arrosage, travaux…). Copiez l''adresse de la page de votre collectivité sur app.panneaupocket.com à suivre.'
+WHERE id = 'panneaupocket';
 INSERT INTO source_states (source_id) SELECT 'panneaupocket'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'panneaupocket');
 
@@ -3431,3 +3437,18 @@ SELECT 'arrosage-canal-gap', 'Arrosage — Canal de Gap', 'Tours d''eau et coupu
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'arrosage-canal-gap');
 INSERT INTO source_states (source_id) SELECT 'arrosage-canal-gap'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'arrosage-canal-gap');
+
+-- ================================================================
+-- Ma collectivité (display_order 442). Source PARAMÉTRÉE, champ dynamic-enum : l'utilisateur
+-- saisit sa VILLE, choisit son entité (mairie, ASA, syndicat…) via lookup(q) → /public-api/city.
+-- La valeur stockée est l'URL /ville/ (même format que panneaupocket) → même moteur de veille.
+-- Anti-rétroactif : 1er cycle = amorçage sans alerte. Détail : ma-collectivite.js.
+-- ================================================================
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
+SELECT 'ma-collectivite', 'Ma collectivité', 'Les infos de votre mairie ou collectivité',
+  'Les alertes et infos de votre mairie ou collectivité (coupures, travaux, événements...) — choisissez votre ville.',
+  'internal', 'official', false, ARRAY['vie-locale'], 442, '[{"key":"url","label":"Votre ville","type":"dynamic-enum","lookup":"ma-collectivite","placeholder":"Ex. Gap, Annecy, Bayonne…","pattern":"^https://app\\.panneaupocket\\.com/ville/[^\\s]{1,200}$","lowercase":false,"multiple":true,"required":true,"default":null,"hint":"Saisissez votre commune, puis choisissez votre collectivité (mairie, syndicat des eaux, ASA…) dans la liste."}]'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'ma-collectivite');
+UPDATE sources SET params_schema = '[{"key":"url","label":"Votre ville","type":"dynamic-enum","lookup":"ma-collectivite","placeholder":"Ex. Gap, Annecy, Bayonne…","pattern":"^https://app\\.panneaupocket\\.com/ville/[^\\s]{1,200}$","lowercase":false,"multiple":true,"required":true,"default":null,"hint":"Saisissez votre commune, puis choisissez votre collectivité (mairie, syndicat des eaux, ASA…) dans la liste."}]'::jsonb WHERE id = 'ma-collectivite';
+INSERT INTO source_states (source_id) SELECT 'ma-collectivite'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'ma-collectivite');

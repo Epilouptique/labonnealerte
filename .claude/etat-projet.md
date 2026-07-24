@@ -140,7 +140,8 @@ doublon composant .sup-btn (redéfini inline dans soutenir.html alors que prése
 .page h1 maison (Inter) vs token .page-title (Baloo 2 centré) sur pages éditoriales ; token
 --danger manquant (#dc2626 répété ~10× en dur) ; .sup-block radius 20px (≠24px) ; bloc .page
 copié-collé dans 3 fichiers à factoriser ; offline.html hors design-system ; fond-constellations
-« - Copie.svg » résiduel à supprimer.
+« - Copie.svg » résiduel à supprimer ; .dyn-search/.dyn-select/.dyn-status (champ dynamic-enum)
+sans style dédié — héritent des styles param ; empilement + zone d'état à traiter au lot visuel.
 
 ## Géoloc IP & département (RÉSOLU via Cloudflare + IPLocate — historique figé)
 Parcours complet (ne pas rejouer les impasses) :

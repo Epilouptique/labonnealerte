@@ -109,6 +109,21 @@
   // Contrôle de saisie générique selon le type du paramètre : enum → select,
   // string/number → input (avec placeholder/pattern éventuels).
   function paramControl(schema, def) {
+    if (schema.type === 'dynamic-enum') {
+      // Champ générique : input de recherche (.dyn-search, NON collecté) + select peuplé à la
+      // volée (.param-select, porte data-key → collecté par readParam) + zone d'état aria-live.
+      // Aucun code spécifique à une source : le peuplement passe par /api/param-lookup/<slug>.
+      var ph = schema.placeholder ? ' placeholder="' + esc(schema.placeholder) + '"' : '';
+      return '<div class="dyn-enum">' +
+        '<input type="text" class="dyn-search"' + ph +
+          ' aria-label="' + esc(schema.label) + '" autocomplete="off" autocapitalize="off" spellcheck="false">' +
+        '<select class="param-select dyn-select" data-key="' + esc(schema.key) + '"' +
+          ' aria-label="' + esc(schema.label) + '" disabled>' +
+          '<option value="" disabled selected>Saisissez d\'abord votre ville…</option>' +
+        '</select>' +
+        '<div class="dyn-status" role="status" aria-live="polite"></div>' +
+      '</div>';
+    }
     if (schema.type === 'enum') {
       // Pré-remplissage : si le profil fournit une valeur VALIDE du schéma, on la
       // pré-sélectionne. Pré-sélectionner via l'attribut `selected` NE déclenche AUCUN

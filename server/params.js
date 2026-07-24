@@ -41,7 +41,9 @@ function validateParams(schema, raw) {
       if (typeof desc.min === 'number' && n < desc.min) return { ok: false, error: `${desc.key} < min` };
       if (typeof desc.max === 'number' && n > desc.max) return { ok: false, error: `${desc.key} > max` };
       out[desc.key] = n;
-    } else { // string
+    } else { // string ET dynamic-enum (valeur libre : la liste d'options est côté front/lookup ;
+      // ici on valide le FORMAT via pattern — pour dynamic-enum, ce pattern est le contrat
+      // validPanneauUrl exprimé en regex, donc toute valeur hors /ville/ est rejetée).
       let s = String(v).trim().slice(0, 120);
       if (desc.lowercase) s = s.toLowerCase();
       // `pattern` n'est honoré que pour les schémas internes de confiance (init.sql) :
@@ -93,7 +95,7 @@ function paramsFromQuery(schema, query) {
   return res.ok ? res.params : null;
 }
 
-const PARAM_TYPES = ['enum', 'string', 'number', 'commune', 'commune-coords'];
+const PARAM_TYPES = ['enum', 'string', 'number', 'commune', 'commune-coords', 'dynamic-enum'];
 
 // Valide un SCHÉMA de paramètres déclaré (manifeste externe ou interne).
 // v2 : schéma PLAT à UN SEUL paramètre (§7). Retourne { ok, error, schema }.

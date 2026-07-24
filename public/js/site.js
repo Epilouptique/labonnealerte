@@ -784,6 +784,59 @@
       else followParamAnon(card);
     }, 700));
   });
+  // Champ 'dynamic-enum' : recherche debouncée → /api/param-lookup/<source> → peuple le select
+  // frère. Générique (aucun code spécifique à une source). La sélection d'une option déclenche
+  // le `change` existant sur .param-select → auto-abonnement (carte non-géo).
+  var dynSearchTimers = new WeakMap();
+  function setDynStatus(wrap, msg) { var s = wrap.querySelector('.dyn-status'); if (s) s.textContent = msg || ''; }
+  function resetDynSelect(select, text) {
+    select.innerHTML = '';
+    var ph = document.createElement('option');
+    ph.value = ''; ph.disabled = true; ph.selected = true; ph.textContent = text;
+    select.appendChild(ph);
+    select.disabled = true;
+  }
+  async function runDynLookup(input) {
+    var wrap = input.closest('.dyn-enum'); if (!wrap) return;
+    var card = input.closest('.card'); if (!card) return;
+    var select = wrap.querySelector('.param-select'); if (!select) return;
+    var q = (input.value || '').trim();
+    if (q.length < 2) { resetDynSelect(select, 'Saisissez d\'abord votre ville…'); setDynStatus(wrap, ''); return; }
+    setDynStatus(wrap, 'Recherche…');
+    try {
+      var res = await fetch('/api/param-lookup/' + encodeURIComponent(card.getAttribute('data-source-id')) +
+        '?q=' + encodeURIComponent(q));
+      if (!res.ok) throw new Error('http');
+      var data = await res.json();
+      var options = (data && data.options) || [];
+      if (!options.length) {
+        resetDynSelect(select, 'Aucun résultat');
+        setDynStatus(wrap, 'Aucune collectivité trouvée pour cette ville.');
+        return;
+      }
+      // Peuplement par DOM API (label/value viennent du serveur → jamais d'injection HTML).
+      select.innerHTML = '';
+      var ph = document.createElement('option');
+      ph.value = ''; ph.disabled = true; ph.selected = true; ph.textContent = 'Choisir votre collectivité…';
+      select.appendChild(ph);
+      for (var i = 0; i < options.length; i++) {
+        var op = document.createElement('option');
+        op.value = options[i].value; op.textContent = options[i].label;
+        select.appendChild(op);
+      }
+      select.disabled = false;
+      setDynStatus(wrap, options.length + (options.length > 1 ? ' collectivités trouvées.' : ' collectivité trouvée.'));
+    } catch (e) {
+      resetDynSelect(select, 'Recherche indisponible');
+      setDynStatus(wrap, 'Recherche indisponible, réessayez plus tard.');
+    }
+  }
+  document.addEventListener('input', function (e) {
+    var input = e.target.closest('.dyn-search'); if (!input) return;
+    var prev = dynSearchTimers.get(input); if (prev) clearTimeout(prev);
+    dynSearchTimers.set(input, setTimeout(function () { runDynLookup(input); }, 350));
+  });
+
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Enter' && e.target.matches('.sub-form input')) {
       e.preventDefault();

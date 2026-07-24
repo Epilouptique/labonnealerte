@@ -5,6 +5,7 @@
 
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
 const crypto = require('crypto');
 const { pool } = require('../db');
 const { sendMagicLink } = require('../mailer');
@@ -56,6 +57,72 @@ setInterval(() => {
     else hits.set(ip, recent);
   }
 }, RATE_WINDOW_MS).unref();
+
+/* ------------------------------------------------------------------ */
+/* Recherche d'options paramétrées (champ 'dynamic-enum').            */
+/* Modules source exposant lookup(q) — chargés comme le-point.js.     */
+/* ------------------------------------------------------------------ */
+function loadLookupSources() {
+  const dir = path.join(__dirname, '..', 'sources');
+  const map = new Map();
+  for (const f of fs.readdirSync(dir)) {
+    if (!f.endsWith('.js')) continue;
+    try {
+      const m = require(path.join(dir, f));
+      if (m && m.id && typeof m.lookup === 'function') map.set(m.id, m);
+    } catch (e) { /* module non chargeable : ignoré */ }
+  }
+  return map;
+}
+const LOOKUP_SOURCES = loadLookupSources();
+
+// Throttle dédié (plus permissif que /request : le champ interroge à la frappe malgré le
+// débounce front). 30 requêtes / minute / IP.
+const LOOKUP_RATE_MAX = 30;
+const lookupHits = new Map();
+function lookupRate(req, res, next) {
+  const ip = req.ip || req.connection?.remoteAddress || 'unknown';
+  const now = Date.now();
+  const recent = (lookupHits.get(ip) || []).filter((t) => now - t < RATE_WINDOW_MS);
+  if (recent.length >= LOOKUP_RATE_MAX) return res.status(429).json({ error: 'Trop de recherches, réessayez dans une minute.' });
+  recent.push(now);
+  lookupHits.set(ip, recent);
+  next();
+}
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, arr] of lookupHits) {
+    const recent = arr.filter((t) => now - t < RATE_WINDOW_MS);
+    if (recent.length === 0) lookupHits.delete(ip);
+    else lookupHits.set(ip, recent);
+  }
+}, RATE_WINDOW_MS).unref();
+
+// GET /api/param-lookup/:source?q=… → { options:[{label,value}] }. Ne répond que si la source
+// existe, est enabled et déclare un lookup(q). q borné (≤60 car. ; lettres accentuées, espaces,
+// tiret, apostrophe — noms de communes réels type « L'Argentière », « Saint-… »). Jamais de 500.
+apiRouter.get('/param-lookup/:source', lookupRate, async (req, res) => {
+  const mod = LOOKUP_SOURCES.get(String(req.params.source || ''));
+  if (!mod) return res.status(404).json({ error: 'Recherche indisponible' });
+  try {
+    const src = await pool.query(
+      "SELECT 1 FROM sources WHERE id = $1 AND enabled = true AND type <> 'linked'",
+      [req.params.source]
+    );
+    if (src.rows.length === 0) return res.status(404).json({ error: 'Recherche indisponible' });
+  } catch (e) { return res.status(404).json({ error: 'Recherche indisponible' }); }
+
+  const q = String(req.query.q || '').trim().slice(0, 60);
+  if (q.length < 2 || !/^[\p{L}\p{M}\s'’-]+$/u.test(q)) return res.json({ options: [] });
+
+  try {
+    const options = await mod.lookup(q);
+    return res.json({ options: Array.isArray(options) ? options.slice(0, 50) : [] });
+  } catch (err) {
+    console.warn(`[param-lookup] ${req.params.source} "${q}" : ${err.message}`);
+    return res.json({ options: [] }); // dégradation silencieuse, jamais de 500
+  }
+});
 
 
 /* ------------------------------------------------------------------ */
