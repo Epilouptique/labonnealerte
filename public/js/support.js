@@ -20,7 +20,13 @@
         a.href = url;
         a.target = '_blank';
         a.rel = 'noopener';
-        a.textContent = btn.getAttribute('data-label') || btn.textContent.trim();
+        // Conserve l'icône inline (ex. café Ko-fi) si le bouton en porte une.
+        var icon = btn.querySelector('svg');
+        if (icon) a.appendChild(icon.cloneNode(true));
+        var label = document.createElement('span');
+        label.className = 'sup-label';
+        label.textContent = btn.getAttribute('data-label') || btn.textContent.trim();
+        a.appendChild(label);
         btn.replaceWith(a);
       });
     });

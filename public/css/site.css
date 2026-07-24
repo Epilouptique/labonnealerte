@@ -1220,6 +1220,20 @@ body[data-mode="connected"] #stats { display: none; }
 .sup-btn[disabled] { opacity: .5; cursor: default; background: var(--line); color: var(--muted); border: none; }
 .sup-btn .soon { font-size: 12px; color: var(--muted); font-weight: 600; margin-left: 4px; }
 
+/* Icône café du bouton Ko-fi : SVG inline (currentColor → hérite la couleur du
+   bouton), vapeur animée en CSS pur, sans dépendance externe ni widget tiers. */
+.sup-coffee { flex: none; }
+.sup-coffee .steam { transform-origin: center; animation: sup-steam 2.4s ease-in-out infinite; }
+.sup-coffee .steam-2 { animation-delay: .4s; }
+.sup-coffee .steam-3 { animation-delay: .8s; }
+@keyframes sup-steam {
+  0%, 100% { opacity: .35; transform: translateY(1px); }
+  50%      { opacity: 1;   transform: translateY(-1.5px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sup-coffee .steam { animation: none; opacity: .8; }
+}
+
 @media (max-width: 620px) {
   .card-front.acct-front, .card-back.acct-back, .acct-support-face { padding: 24px 20px; }
   /* Anti-débordement du panneau compte sur mobile : aucun élément ne doit pousser
