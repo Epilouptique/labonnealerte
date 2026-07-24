@@ -3411,9 +3411,23 @@ WHERE id = 'grands-anniversaires';
 -- ================================================================
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
 SELECT 'panneaupocket', 'PanneauPocket', 'Les panneaux de votre collectivité',
-  'Recevez les alertes et infos de votre mairie, syndicat des eaux ou collectivité publiées sur PanneauPocket (coupures d''eau, arrosage, travaux…). Copiez l''adresse de la page de votre collectivité sur app.panneaupocket.com : vous êtes prévenu à chaque nouveau panneau ou mise à jour. Aucune alerte rétroactive : seuls les panneaux publiés ou modifiés après votre abonnement comptent. Attribution « via PanneauPocket » dans chaque alerte.',
+  'Recevez les alertes et infos de votre mairie, syndicat des eaux ou collectivité publiées sur PanneauPocket (coupures d''eau, arrosage, travaux…). Copiez l''adresse de la page de votre collectivité sur app.panneaupocket.com à suivre.',
   'internal', 'official', false, ARRAY['vie-locale', 'local', 'mairie'], 440, '[{"key":"url","label":"URL de la page PanneauPocket","type":"string","placeholder":"https://app.panneaupocket.com/ville/398423648-asa-du-canal-de-gap-05000","pattern":"^https://app\\.panneaupocket\\.com/ville/[^\\s]{1,200}$","lowercase":false,"multiple":true,"required":true,"default":null,"hint":"Copiez l''adresse de la page de votre collectivité sur app.panneaupocket.com (mairie, syndicat des eaux, ASA…). Vous êtes prévenu à chaque nouveau panneau ou mise à jour (coupure d''eau, arrosage, travaux…)."}]'::jsonb
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'panneaupocket');
 UPDATE sources SET params_schema = '[{"key":"url","label":"URL de la page PanneauPocket","type":"string","placeholder":"https://app.panneaupocket.com/ville/398423648-asa-du-canal-de-gap-05000","pattern":"^https://app\\.panneaupocket\\.com/ville/[^\\s]{1,200}$","lowercase":false,"multiple":true,"required":true,"default":null,"hint":"Copiez l''adresse de la page de votre collectivité sur app.panneaupocket.com (mairie, syndicat des eaux, ASA…). Vous êtes prévenu à chaque nouveau panneau ou mise à jour (coupure d''eau, arrosage, travaux…)."}]'::jsonb WHERE id = 'panneaupocket';
 INSERT INTO source_states (source_id) SELECT 'panneaupocket'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'panneaupocket');
+
+-- ================================================================
+-- Arrosage — Canal de Gap (display_order 441). Carte THÉMATIQUE broadcast par-dessus le moteur
+-- PanneauPocket (URL ASA du Canal de Gap en dur). Filtre eau d'irrigation (arrosage, tours
+-- d'eau, restrictions, coupures…) : les autres panneaux de l'ASA sont ignorés. Anti-rétroactif :
+-- 1er cycle = amorçage sans alerte. Détail : arrosage-canal-gap.js.
+-- ================================================================
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
+SELECT 'arrosage-canal-gap', 'Arrosage — Canal de Gap', 'Tours d''eau et coupures d''irrigation',
+  'Autorisations d''arrosage, tours d''eau et coupures du réseau d''irrigation de l''ASA du Canal de Gap (Gap et communes desservies). Alertes issues des panneaux publiés par l''ASA sur PanneauPocket, filtrées sur l''eau d''irrigation. Aucune alerte rétroactive : seuls les panneaux publiés ou modifiés après votre abonnement comptent.',
+  'internal', 'official', false, ARRAY['vie-locale', 'eau'], 441
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'arrosage-canal-gap');
+INSERT INTO source_states (source_id) SELECT 'arrosage-canal-gap'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'arrosage-canal-gap');
