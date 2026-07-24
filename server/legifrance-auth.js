@@ -3,12 +3,19 @@
 // renouvelé 5 min avant expiration, jamais ré-authentifié par appel.
 //
 // Identifiants dans le CORPS (grant_type/client_id/client_secret/scope), comme Twitch/France
-// Travail. Endpoint token PISTE vérifié VIVANT le 22/07/2026 (400 invalid_client sur faux creds).
+// Travail. ✅ FONCTIONNEL : flux OAuth2 testé de bout en bout en PRODUCTION le 23/07/2026 (token
+// réel obtenu, puis appel réel /consult/lastNJo avec réponse JORF réelle).
 //
-// ⚠️ PIÈGE CGU (FAQ officielle Légifrance) : même avec des identifiants VALIDES, les appels à
-// l'API échouent si les CGU n'ont pas été acceptées pour l'ENVIRONNEMENT utilisé (Sandbox vs
-// Production). Ici on cible la PRODUCTION (api.piste.gouv.fr). Si un appel réel échoue de façon
-// inattendue (401/403), vérifier D'ABORD l'acceptation des CGU côté portail PISTE.
+// ⚠️ PIÈGE D'ERGONOMIE PISTE (cause réelle du blocage initial) : la page Authentification du
+// portail PISTE a DEUX sections distinctes, chacune avec un bouton « Consulter le client secret » :
+//   • « API Keys »          → NE PAS utiliser pour ce flux OAuth2.
+//   • « Identifiants Oauth » → LES BONS identifiants (client_id/client_secret) à mettre dans
+//                              LEGIFRANCE_CLIENT_ID / LEGIFRANCE_CLIENT_SECRET.
+// Utiliser ceux de « Identifiants Oauth », puis redéployer pour recharger l'environnement.
+//
+// ⚠️ PIÈGE CGU (FAQ Légifrance) : à garder en tête si un appel échoue un jour de façon inattendue
+// (401/403) alors que le token est valide — vérifier l'acceptation des CGU de l'ENVIRONNEMENT
+// (Production, api.piste.gouv.fr) sur le portail. N'a PAS été la cause ici (c'était les identifiants).
 //
 // Sans identifiants ou en cas de 400/401/403 → throw (l'appelant dégrade en inactive).
 

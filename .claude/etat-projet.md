@@ -1,12 +1,14 @@
-# LaBonneAlerte — État du projet (21 juillet 2026, fin de fil "vagues & v2 (suite)")
+# LaBonneAlerte — État du projet (24 juillet 2026, fin de fil "apex, dons, emails & UX")
 
-Ce document fait foi pour tout nouveau fil. Il remplace toute version antérieure d'etat-projet.md (fichiers du projet Claude Chat ET .claude/ côté VS Code — synchroniser les deux).
+Ce document fait foi pour tout nouveau fil. Il remplace toute version antérieure d'etat-projet.md (fichiers du projet Claude Chat ET .claude/ côté VS Code — synchroniser les deux ; pas de synchro automatique, remplacer la copie Claude Chat à la main).
 
 ## Le projet en une phrase
 
-labonnealerte.fr — le kiosque francophone d'alertes utiles : ~178 sources actives prêtes à l'emploi, activables en un clic, gratuites, open source, anti-spam par ADN. Standard ouvert OpenAlert v2 paramétrée (champ params). Public : francophonie entière (métropole, outre-mer, Québec, Belgique/Suisse, diasporas, expatriés). Édité par Hugo Vial-Jaime (Dahu Concept, Gap). Projet frère : DoomName (doomname.com), même compte Railway, première source externe paramétrée du kiosque.
+labonnealerte.fr (URL canonique = apex ; www redirige en 301) — le kiosque francophone d'alertes utiles : ~240 sources actives prêtes à l'emploi, activables en un clic, gratuites, open source, anti-spam par ADN. Standard ouvert OpenAlert v2 paramétrée (champ params). Public : francophonie entière (métropole, outre-mer, Québec, Belgique/Suisse, diasporas, expatriés). Édité par Hugo Vial-Jaime (Dahu Concept, Gap). Projet frère : DoomName (doomname.com), même compte Railway, première source externe paramétrée du kiosque.
 
-## État du produit (~178 sources actives en prod)
+## État du produit (~240 sources actives en prod ; 241 enabled dont 1 orphelin spotify à purger — voir Dette)
+
+> Inventaire détaillé et à jour du cycle "vagues" (juillet) : **rapports/synthese-etat-alertes-2026-07-23.md** (source de vérité des sources, familles + écartées + clés API). Les sections thématiques ci-dessous décrivent le socle historique ; le bloc VAGUES 2026 (fin de section) résume les ~56 ajouts.
 
 RISQUES & MÉTÉO : vigilance-meteo (param 101 dépts, LA fusion pilote), vigicrues-departement (param 85 dépts ~252 tronçons), vigieau (param commune INSEE — restrictions d'usage), risque-secheresse (param dépt — arrêté préfectoral, API VigiEau/RegLeau, Propluvia est MORT ; distinction avec vigieau inscrite dans les 2 descriptions), seismes-france + seismes-departement (param ~80 km) + seisme-mondial-majeur (USGS M≥7.5), indice-uv (param 101, Open-Meteo mutualisé), epidemies-france (Sentinelles), tempete-solaire (NOAA G≥4/R≥3), asteroide-frole-terre (JPL ≤1 LD + h≤24), essai-sirenes (1er mercredi midi), meteo-quebec/belgique/suisse/europe (params ; europe = 8 pays expat MeteoAlarm), pannes-hydro-quebec. DORMANTES (clés) : risque-avalanche (MF DPBRA), meteo-forets (MF), cyclones-outremer (6 territoires — licence vd@meteo.fr ou portail OM).
 
@@ -28,11 +30,20 @@ PÉPITES VIRALES : fete-des-prenoms (param prénom, 326 prénoms + 48 variantes,
 
 ⚠️ FRAGILES (API non officielles → surveillance Robot 1) : meteo-suisse, pannes-hydro-quebec, iss-passages.
 
-ÉCARTÉES documentées (= liste de courses si un flux apparaît) : alerte-enlèvement (RSS officiel 404, diffusion médias/FR-Alert only), grèves, ZFE (légalement instable — seuls Paris/Lyon certains), séries (agrégateurs only), OMS/USPPI, INES nucléaire, Téléray, Reddit (OAuth requis), don-du-sang (ni bulk ni INSEE — API Carto EFS searchnearpoint lat/lon non contractuelle = seule voie), moustique-tigre, foire-aux-vins, nuit-des-chercheurs 2026 (pas de financement UE), MaPrimeRénov (ouvertures réactives au budget, pas de calendrier), sargasses, conseils-voyageurs, stations 05, nappes, baignade, jackpot, taux-immobilier, delais-titres, statuts opérateurs télécom, saisons-astronomiques (doublon fetes-laiques).
+ÉCARTÉES documentées (= liste de courses si un flux apparaît) : alerte-enlèvement (RSS officiel 404, diffusion médias/FR-Alert only), grèves, ZFE (légalement instable — seuls Paris/Lyon certains), séries (agrégateurs only), OMS/USPPI, INES nucléaire, Téléray, Reddit (OAuth requis), don-du-sang (ni bulk ni INSEE — API Carto EFS searchnearpoint lat/lon non contractuelle = seule voie), moustique-tigre, foire-aux-vins, nuit-des-chercheurs 2026 (pas de financement UE), MaPrimeRénov (ouvertures réactives au budget, pas de calendrier), sargasses, conseils-voyageurs, stations 05, nappes, baignade, jackpot, taux-immobilier, delais-titres, statuts opérateurs télécom, saisons-astronomiques (doublon fetes-laiques). NOUVEAU (cycle vagues) : veille-artiste-spotify (Developer Mode Spotify durci fév. 2026 → remplacée par Deezer ; fichier supprimé, LIGNE DB ORPHELINE À PURGER), sfr-box (doublon SHA-256 sfr-red-mobile), WHO DON (RSS 404), Marie Curie / Four Colors / Dolly (pas de jalon rond dans la fenêtre), streaming phase 2 Spotify/Disney+/… (SPA anti-bot → headless requis).
+
+VAGUES 2026 (21-24 juil, ~56 sources ajoutées/refondues, display_order ≥ 384 — détail exhaustif : rapports/synthese-etat-alertes-2026-07-23.md). Familles :
+- GÉO fine : qualite-air + pollens (Atmo France, attribution visible), vagues-submersion, veille-hydrometrie (station+seuil), ours-pyrenees (P dépt) ; COMMUNE (résolveur nom→INSEE/coords) : eau-potable-commune, catnat-commune, traditions-locales, marathons-villes, iss-passages (commune libre via coords, ex-enum 16 villes).
+- VEILLE D'ÉTAT IMPRÉVISIBLE (cœur de cible, anti-rétroactif systématique) : veille-page, veille-stock, veille-entreprise, veille-boamp (marchés publics), crypto-seuil (paire+seuil), veille-emploi (France Travail), veille-twitch (Helix), veille-legifrance (JO), veille-arxiv, domaine-disponibilite, domaine-securite (URLhaus), hausse-tarif-operateur (hash-diff PDF FAI), hausse-tarif-streaming (Netflix/Deezer).
+- SCIENCE : eruption-volcanique (GVP), exoplanete-habitable (NASA TAP), retraction-article (Crossref/Retraction Watch), ondes-gravitationnelles (GraceDB, + mécanisme de CORRECTION/rétractation), fete-science maj, grands-anniversaires +3 jalons.
+- CONSO/CULTURE/ADMIN/OM : IPC alim, immo ancien, actus service-public, UFC-Que Choisir, ANSM, veille-artiste-deezer (remplace Spotify), grands-concerts, fashion-week, conventions-manga, actualisation/recensement/CFE/bourses/Crous/Parcoursup/CAF, commémorations + soldes + tours cyclistes outre-mer.
 
 ## OpenAlert v2 (acquis, chantier terminé)
 
 params enum|string|number, un param plat, multiple ; rétrocompatible (sans params = broadcast v1). DB : subscriptions.params + index unique d'expression, source_param_states (état par combinaison — SEULES LES COMBINAISONS SOUSCRITES sont calculées, rien d'autre n'existe en base), sources.params_schema, subscriptions.muted (pause sans désabonnement, filtré aux destinataires only). Poller : checkWithParams(combinaisons souscrites), transitions factorisées (decideTransition pure), libellés résolus partout, épisodes since≥24h. UI générique pilotée par params_schema (chips + « + ajouter » cyclique — exclusion mutuelle param-add/param-form corrigée par .param-add[hidden]). Pages statut : onglets d'instances + sélecteur + ?param=X. Fusions à zéro perte (pattern : migration idempotente + report d'état/since + enabled=false réversible + 301). Polling externe (safe-fetch SSRF, EXTERNAL_MAX_COMBOS=20, allSettled, round-robin). DoomName externe paramétrée (www.doomname.com/alert.json — apex doomname.com cassé côté Railway Domains, www suffit).
+
+Acquis d'architecture cycle vagues (réutilisables) : (1) FRONT MULTI-CHAMPS — cards.js/site.js rendent un contrôle par descripteur params_schema (fields.map) et collectent tout au submit, rétrocompatible 1-champ ; débloque seuil+cible (crypto-seuil, veille-hydrometrie). Types : enum|string|number|commune|commune-coords. (2) RÉSOLVEUR COMMUNE — server/sources/lib/commune-insee.js : nom→INSEE (désambiguïsation dépt) et nom→{lat,lon}, résolu À LA SOUSCRIPTION (jamais au poll) via geo.api.gouv.fr, caches mémoire permanents ; branché dans routes/myalerts.js (toggle-param). (3) PATTERN VEILLE D'ÉTAT IMPRÉVISIBLE + anti-rétroactif : id stable par item, 1er cycle = amorçage SANS alerte, seul un id jamais-vu déclenche, échec → inactive (jamais de faux positif). (4) OAUTH2 client_credentials factorisé (rte/francetravail/twitch/legifrance-auth.js — token cache mémoire, renew -5min ; corps vs en-tête). (5) HASH-DIFF lib/hash-diff-html.js + hash-diff-pdf.js (denoise puis hash, on ne lit jamais le contenu). (6) ATTRIBUTION licence VISIBLE dans le message de notif (Atmo France/AASQA), pas qu'en commentaire.
+DETTE : le cache anti-rétroactif est en MÉMOIRE → perdu au redéploiement sur toutes les veilles d'état (un item apparu pendant l'arrêt peut être manqué, jamais inventé). Amélioration possible : persister la référence en base.
 
 ## Fonctionnalités produit
 
@@ -43,11 +54,13 @@ params enum|string|number, un param plat, multiple ; rétrocompatible (sans para
 - Likes + Favoris : table favorites + /favoris + sync montante localStorage→serveur + cœur header. Limite : sync descendante multi-appareils absente.
 - « Les plus populaires » (ex-Sélection, top-12 likes public, slug interne 'selection' conservé) + « Nouveautés ».
 - Collections : 7 packs officiels (étagère carrousel infini + fondu bords, adoption 1 clic idempotente, params résolus profil>pack>à compléter, sources dormantes auto-incluses à l'activation) + Decks utilisateurs (10 max, 24 motifs SVG + 11 teintes — UN SEUL CSS partagé toutes pages, partage lien non-listé token 128 bits révocable, fork-copie avec attribution figée, pseudo public display_name unique « Mon pseudo », signalements 3 IP → suspension auto, remontée Robot 1). « Ma collection » (abonnements) ≠ « Mes decks » (compositions). Avatar initiale.
+- Soutien financier (EN PROD, actif) : dons PayPal + Ko-fi. Archi = endpoint GET /api/support-links (lit PAYPAL_DONATE_URL / KOFI_URL côté serveur, ne renvoie l'URL que si posée ET https://) + public/js/support.js (rendu conditionnel : bouton actif <a target=_blank rel=noopener> si variable posée, sinon <button disabled> « bientôt » ; activation INDÉPENDANTE par service). Posées sur Railway : paypal.me/labonnealerteFR + ko-fi.com/labonnealerte. 3 emplacements synchronisés (soutenir.html + index.html ×2, data-label). Libellés : « Me soutenir avec PayPal » / « ☕ M'offrir un café » (icône café SVG inline, vapeur animée CSS pure dans site.css .sup-coffee, prefers-reduced-motion respecté). Widget externe Ko-fi REFUSÉ (dépendance tierce + rupture de charte). Mention « arrivent bientôt » retirée des textes.
 - Le Point (/le-point) : « en ce moment » (broadcast actifs + agrégats paramétrés des combinaisons souscrites — assumé dans le libellé) + « à venir » 10 j (contrat upcoming() de calendar-factory, 72 sources ; paramétrées exclues — CHANTIER VALIDÉ EN ATTENTE : upcoming() toutes-combinaisons pour jours-feries + fetes-nationales). Cache 2 min, état calme assumé, pending exclus. Vitrine de lancement désignée.
 
 ## Audit & dette (audit-architecture.md à la racine, aucun 🔴 sécurité)
 
 Lot 1 FAIT (index subscriptions(source_id) + partiel source_param_states actifs + import mort retiré — candidats favorites/deferred/reports écartés car déjà couverts). Lots 2-5 restants : migration npm/pypi sur release-factory, belgique/suisse sur lib/meteoalarm, découpe site.js (~1800 l.)/site.css (~2000 l.)/init.sql (~2500 l.), enum dépt dédupliqué, rate-limit /auth/*, 11 globals LBA*. À préserver : factories, contrat v2, idempotence, anti-spam.
+DB vs CODE (vérifié 24/07) : migrate.js LANCÉ depuis le 23 — les 7 sources en attente (Deezer→ondes grav.) sont en base et enabled. RESTE : la ligne DB veille-artiste-spotify subsiste (enabled, fichier supprimé, absente d'init.sql) — migrate.js n'efface pas → DELETE manuel à faire (base 241 enabled = 240 réelles + 1 orphelin). Compteurs actuels : 268 lignes sources, 241 enabled, 58 paramétrées (57 hors orphelin).
 
 ## Corrections UX récentes & accessibilité
 
@@ -62,6 +75,8 @@ Pages de chargement : PAS de page unique — états locaux par page (.grid-loadi
 ## Plateforme & infra
 
 Express/PostgreSQL/Railway, poller */30 (runCycle ÉCRIT et notifie — JAMAIS depuis un agent), checked_at chaque passage, factories (vigilance/statuspage/calendar+upcoming/vacances/release/meteoalarm/insee-bdm), briques lib/ (feed-parser, prefectures, safe-fetch, ugc), geoip-lite local. Comptes : magic link + OAuth Google/GitHub (PAS d'autre fournisseur — décision actée ; Apple seulement si app iOS un jour), sessions 90j, suppression cascade. Notifs : Resend + push VAPID (PWA installable).
+URL CANONIQUE = APEX (basculé ce fil) : labonnealerte.fr officielle, www redirige en 301 via Cloudflare Redirect Rule (query string PRÉSERVÉE — indispensable aux liens magiques ?token=). Toutes les refs en dur basculées (og:url server-rendered deck/collection/source, liens de partage JS, mailer PUBLIC_SITE+MYALERTS_URL, poller/webpush fallback, sources url par défaut, README, .env.example). BASE_URL Railway = apex ; consoles OAuth Google/GitHub mises à jour (redirect_uri apex, anciennes URI www retirées). DNS : enregistrement @ Cloudflare = CNAME Railway (connexion auto Railway), plus de A OVH 213.186.33.5. Sessions token en localStorage per-origin (lba-token) → les connectés sur www repassent par un magic link après bascule (désagrément mineur, session serveur 90j intacte).
+EMAILS — identité expéditeur (mailer.js) : domaine d'envoi TECHNIQUE reste alert.labonnealerte.fr (reco Resend : isoler la réputation d'envoi sur un sous-domaine dédié — NE PAS basculer vers le domaine racine). Compensation cohérence : From = 'LaBonneAlerte <noreply@alert.labonnealerte.fr>' (constante FROM partagée) + tous les sujets préfixés « LaBonneAlerte · » (helper subject() partagé, 4 types : confirmation, lien magique, alerte, digest veille) ; suffixes redondants « à La Bonne Alerte » retirés des transactionnels (sujets < ~40 car., anti-troncature mobile).
 
 ## Robots (headless, robots/PLANIFICATEUR.md, développés)
 
@@ -84,10 +99,13 @@ R1 maintenance QUOTIDIEN 4h (checked_at/events/TODO/fragiles via scripts *-reado
 
 1. Chantier upcoming() public (toutes-combinaisons jours-feries + fetes-nationales) + passes à clés. (Points UX menu mobile scroll + partage mes-decks : CLOS.)
 2. ONBOARDING première visite (dernier volet densité : 3 questions dans le hero → grille personnalisée avant connexion → packs suggérés — cadrage fait, jamais lancé).
-3. LANCEMENT (chantier jamais ouvert — discussion stratégique à avoir : README, dons /soutenir à activer, RGPD final, /le-point en vitrine, canaux : communautés dev pour OpenAlert, locales pour vigilances, activer Robot 3). Le produit est prêt pour des yeux extérieurs.
+3. LANCEMENT (chantier jamais ouvert — discussion stratégique à avoir : README, ~~dons /soutenir à activer~~ FAIT (PayPal+Ko-fi en prod), RGPD final, /le-point en vitrine, canaux : communautés dev pour OpenAlert, locales pour vigilances, activer Robot 3). Le produit est prêt pour des yeux extérieurs.
 4. Lots 2-5 audit au fil de l'eau.
 5. V3 « veilles citoyennes » (3 familles : datées d'abord — rappel-personnalise en préfigure la mécanique ; maintenues ; surveillées — veille-rss idem ; badge community, espace séparé, pré-modération + charte, compte obligatoire, display_name posé).
 6. App native Android (Expo, FCM), PWA en pont. Apple Sign-In si iOS.
+
+## Prochain fil
+(a) Fonctionnement et apparence des CARTES et surtout des DECKS (comportement + visuel — relire d'abord identite-visuelle-reference.md). Puis (b) DÉBRIEFING STRATÉGIQUE : étapes à venir, opportunités, liste de changements mineurs à trancher. Nettoyages à ne pas oublier : purge de la ligne DB orpheline veille-artiste-spotify (DELETE, migrate.js ne supprime pas), retrait du middleware diag IP dormant (LOG_CLIENT_IP), backlog visuel.
 
 ## Règle absolue — Header & menu (source unique)
 Il existe UN SEUL header mobile normal et UN SEUL header PC normal, injectés par un composant/script
@@ -107,6 +125,21 @@ ligne catégories, KPI, condensation scroll m-scrolled) — dette assumée, 1re 
 alignée à la main ; connexion.html et offline.html sont volontairement sans header.
 Header mobile hors-home = body.m-secondary (hamburger + recherche). Pour ajouter une
 page : charger theme.js + session.js + header.js, ne mettre qu'une ancre de header.
+
+## Règle absolue — Identité visuelle (source unique, même statut que le header)
+rapports/identite-visuelle-reference.md = document de référence du visuel (audit complet :
+tokens couleur, radius, typo, composants, motion, assets + erreurs classées par priorité).
+Doit être TENU À JOUR et RELU avant toute création/modification de page ou d'élément visuel,
+et sert de base pour ouvrir les fils de discussion sur le visuel. But : mettre fin aux
+corrections graphiques manuelles récurrentes après chaque création. Règle d'or : aucune couleur
+en dur (toujours un token var()), radius 24px cartes / 999px pilules, titres via .page-title
+(Baloo 2), prefers-reduced-motion partout.
+BACKLOG VISUEL (chantiers ouverts identifiés par l'audit, à traiter dans un futur lot dédié) :
+doublon composant .sup-btn (redéfini inline dans soutenir.html alors que présent dans site.css) ;
+.page h1 maison (Inter) vs token .page-title (Baloo 2 centré) sur pages éditoriales ; token
+--danger manquant (#dc2626 répété ~10× en dur) ; .sup-block radius 20px (≠24px) ; bloc .page
+copié-collé dans 3 fichiers à factoriser ; offline.html hors design-system ; fond-constellations
+« - Copie.svg » résiduel à supprimer.
 
 ## Géoloc IP & département (RÉSOLU via Cloudflare + IPLocate — historique figé)
 Parcours complet (ne pas rejouer les impasses) :
