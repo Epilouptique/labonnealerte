@@ -5,7 +5,7 @@ const resend = new Resend((process.env.RESEND_API_KEY || '').trim());
 
 // Domaine alert.labonnealerte.fr vérifié sur Resend : on envoie depuis
 // une adresse de ce sous-domaine.
-const FROM = 'noreply@alert.labonnealerte.fr';
+const FROM = 'LaBonneAlerte <noreply@alert.labonnealerte.fr>';
 
 const SITE_URL = 'https://labonnealerte.fr';
 const PUBLIC_SITE = 'https://labonnealerte.fr';
