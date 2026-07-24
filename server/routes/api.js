@@ -9,6 +9,21 @@ const { safeFetchJson } = require('../safe-fetch');
 
 const router = express.Router();
 
+// Liens de soutien financier (dons). Exposés au front pour activer les boutons
+// PayPal / Ko-fi UNIQUEMENT si la variable d'environnement correspondante est
+// posée côté serveur — activation indépendante de chacun, sans redéploiement de
+// code. Valeur absente ou non-https → null : le bouton reste « bientôt ».
+router.get('/support-links', (req, res) => {
+  const clean = (v) => {
+    const s = (v || '').trim();
+    return /^https:\/\//i.test(s) ? s : null;
+  };
+  res.status(200).json({
+    paypal: clean(process.env.PAYPAL_DONATE_URL),
+    kofi: clean(process.env.KOFI_URL),
+  });
+});
+
 // A1) Limiteur dédié aux votes « j'aime » : 20 actions/minute/IP (POST + DELETE
 // partagent le compteur). Suffisant pour aimer plusieurs cartes d'affilée, bloque
 // le spam scripté. S'ajoute au limiteur global /api (120/min/IP). Anti-abus v1 =
