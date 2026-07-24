@@ -3402,3 +3402,18 @@ WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'ondes-gravitati
 -- Extension code-only grands-anniversaires (vague science) : couverture étendue à 2028.
 UPDATE sources SET description = 'La veille et le jour J des grands anniversaires à chiffre rond (30, 50, 100, 150 ans) de la culture et de la science, curés à la main pour 2026-2028, plus les anniversaires de 1re parution en France de mangas cultes (Naruto, Dragon Ball, One Piece…). Mémoire culturelle et scientifique, jamais un calendrier des tragédies.'
 WHERE id = 'grands-anniversaires';
+
+-- ================================================================
+-- PanneauPocket (display_order 440). Source PARAMÉTRÉE. L'abonné saisit l'URL de la page
+-- de sa collectivité sur app.panneaupocket.com (mairie, syndicat des eaux, ASA…). Alerte
+-- à chaque nouveau panneau ou mise à jour. Anti-SSRF via safe-fetch (URL utilisateur,
+-- hôte validé). Anti-rétroactif : 1er cycle = amorçage sans alerte. Détail : panneaupocket.js.
+-- ================================================================
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
+SELECT 'panneaupocket', 'PanneauPocket', 'Les panneaux de votre collectivité',
+  'Recevez les alertes et infos de votre mairie, syndicat des eaux ou collectivité publiées sur PanneauPocket (coupures d''eau, arrosage, travaux…). Copiez l''adresse de la page de votre collectivité sur app.panneaupocket.com : vous êtes prévenu à chaque nouveau panneau ou mise à jour. Aucune alerte rétroactive : seuls les panneaux publiés ou modifiés après votre abonnement comptent. Attribution « via PanneauPocket » dans chaque alerte.',
+  'internal', 'official', false, ARRAY['vie-locale', 'local', 'mairie'], 440, '[{"key":"url","label":"URL de la page PanneauPocket","type":"string","placeholder":"https://app.panneaupocket.com/ville/398423648-asa-du-canal-de-gap-05000","pattern":"^https://app\\.panneaupocket\\.com/ville/[^\\s]{1,200}$","lowercase":false,"multiple":true,"required":true,"default":null,"hint":"Copiez l''adresse de la page de votre collectivité sur app.panneaupocket.com (mairie, syndicat des eaux, ASA…). Vous êtes prévenu à chaque nouveau panneau ou mise à jour (coupure d''eau, arrosage, travaux…)."}]'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'panneaupocket');
+UPDATE sources SET params_schema = '[{"key":"url","label":"URL de la page PanneauPocket","type":"string","placeholder":"https://app.panneaupocket.com/ville/398423648-asa-du-canal-de-gap-05000","pattern":"^https://app\\.panneaupocket\\.com/ville/[^\\s]{1,200}$","lowercase":false,"multiple":true,"required":true,"default":null,"hint":"Copiez l''adresse de la page de votre collectivité sur app.panneaupocket.com (mairie, syndicat des eaux, ASA…). Vous êtes prévenu à chaque nouveau panneau ou mise à jour (coupure d''eau, arrosage, travaux…)."}]'::jsonb WHERE id = 'panneaupocket';
+INSERT INTO source_states (source_id) SELECT 'panneaupocket'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'panneaupocket');
