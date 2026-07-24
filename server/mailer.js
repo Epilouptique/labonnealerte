@@ -13,6 +13,10 @@ const PROMO_URL = 'https://www.leboncoin.fr/service/bons-plans';
 const MYALERTS_URL = 'https://labonnealerte.fr/connexion';
 const ACCENT = '#a567e3';
 
+// Préfixe de marque commun à TOUS les sujets d'emails : garantit la reconnaissance
+// de l'émetteur même si le nom d'affichage du From est tronqué (mobile).
+const subject = (s) => `LaBonneAlerte · ${s}`;
+
 function monthKey() {
   const d = new Date();
   return String(d.getFullYear()) + String(d.getMonth() + 1).padStart(2, '0');
@@ -50,7 +54,7 @@ async function sendConfirmation(email, token) {
   return resend.emails.send({
     from: FROM,
     to: email,
-    subject: 'Confirme ton inscription à La Bonne Alerte',
+    subject: subject('Confirme ton inscription'),
     text:
       `Merci de t'être inscrit à La Bonne Alerte !\n\n` +
       `Confirme ton adresse en cliquant sur ce lien :\n${confirmUrl}\n\n` +
@@ -132,7 +136,7 @@ async function sendMagicLink(email, token) {
   return resend.emails.send({
     from: FROM,
     to: email,
-    subject: 'Ton lien de connexion à La Bonne Alerte',
+    subject: subject('Ton lien de connexion'),
     text:
       `Bonjour,\n\n` +
       `Voici ton lien de connexion pour gérer tes alertes :\n${magicUrl}\n\n` +
@@ -227,7 +231,7 @@ async function sendPromoAlert(recipients, info = {}) {
   for (const r of recipients) {
     const email = typeof r === 'string' ? r : r.email;
     const token = typeof r === 'string' ? null : r.token;
-    const payload = { from: FROM, to: email, subject: `🔔 ${name}`, text, html };
+    const payload = { from: FROM, to: email, subject: subject(`🔔 ${name}`), text, html };
     // Désinscription native (Gmail « Se désinscrire ») + délivrabilité.
     if (token) {
       const unsubUrl = `${SITE_URL}/unsubscribe/${token}`;
@@ -303,7 +307,7 @@ async function sendDeferredDigest(recipient, items = []) {
   });
   const text = `${heading}\n\n${intro}\n\n${textLines.join('\n')}\n\n—\nGérer ma collection : ${MYALERTS_URL}`;
 
-  const payload = { from: FROM, to: email, subject: heading, text, html };
+  const payload = { from: FROM, to: email, subject: subject(heading), text, html };
   if (token) {
     const unsubUrl = `${SITE_URL}/unsubscribe/${token}`;
     payload.headers = {
