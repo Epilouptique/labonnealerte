@@ -1835,7 +1835,7 @@ SELECT 'cyclones-outremer', 'Cyclones outre-mer', 'Le territoire de votre choix'
   'internal', 'official', false, ARRAY['vigilance-meteo', 'outre-mer'], 165, '[{"key":"territoire","label":"Territoire","type":"enum","values":[{"value":"guadeloupe","label":"Guadeloupe"},{"value":"martinique","label":"Martinique"},{"value":"guyane","label":"Guyane"},{"value":"la-reunion","label":"La Réunion"},{"value":"mayotte","label":"Mayotte"},{"value":"iles-du-nord","label":"Îles du Nord (St-Martin / St-Barthélemy)"}],"multiple":true,"required":true,"default":null}]'::jsonb
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'cyclones-outremer');
 UPDATE sources SET params_schema = '[{"key":"territoire","label":"Territoire","type":"enum","values":[{"value":"guadeloupe","label":"Guadeloupe"},{"value":"martinique","label":"Martinique"},{"value":"guyane","label":"Guyane"},{"value":"la-reunion","label":"La Réunion"},{"value":"mayotte","label":"Mayotte"},{"value":"iles-du-nord","label":"Îles du Nord (St-Martin / St-Barthélemy)"}],"multiple":true,"required":true,"default":null}]'::jsonb WHERE id = 'cyclones-outremer';
-UPDATE sources SET enabled = false WHERE id = 'cyclones-outremer';
+UPDATE sources SET enabled = true WHERE id = 'cyclones-outremer';
 
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
 SELECT 'feries-quebec', 'Jours fériés Québec', 'Les fériés québécois',

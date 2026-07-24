@@ -3,3 +3,5 @@ node_modules
 .DS_Store
 .claude/rapports/
 server/db/diagnostics/
+# Échantillons de flux (ex. vigilance_om_test.zip) — jamais versionnés
+*.zip

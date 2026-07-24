@@ -16,6 +16,8 @@
 // qui fait JSON.parse échouerait sur cette ligne).
 require('dotenv').config({ quiet: true });
 const { Pool } = require('pg');
+const fs = require('fs');
+const path = require('path');
 
 // Même configuration de connexion que server/db.js (Railway impose le SSL,
 // certificat auto-signé côté proxy → rejectUnauthorized: false).
@@ -124,6 +126,91 @@ const Q_SUSPENDED_DECKS = `
   HAVING COUNT(DISTINCT dr.ip_hash) >= 3
    ORDER BY last_report_at DESC`;
 
+// 7. schema_check — COHÉRENCE SCHÉMA ATTENDU vs RÉEL (ajout post-incident : une
+//    migration ref non appliquée avait été détectée tardivement). On confronte
+//    les colonnes ATTENDUES par le code aux colonnes RÉELLEMENT présentes en base
+//    (information_schema.columns). Un écart = migration probablement non appliquée
+//    → le robot RAPPORTE seulement (jamais d'ALTER, jamais de migrate.js).
+//
+//    Dérivation de la liste attendue (méthode robuste, s'auto-étend à chaque
+//    migration) : on parse server/db/init.sql pour tous les
+//    « ALTER TABLE <t> ADD COLUMN IF NOT EXISTS <c> » — c'est exactement le canal
+//    des migrations idempotentes du projet. On y ajoute un NOYAU codé en dur (les
+//    colonnes dont l'absence casserait le poller v2), avec un type attendu vérifié.
+//    NOYAU à étendre à chaque migration sensible.
+const SCHEMA_CORE = [
+  { table: 'source_states',       column: 'ref',           type: 'jsonb' },
+  { table: 'source_param_states', column: 'ref',           type: 'jsonb' },
+  { table: 'subscriptions',       column: 'params',        type: 'jsonb' },
+  { table: 'subscriptions',       column: 'muted',         type: 'boolean' },
+  { table: 'sources',             column: 'params_schema', type: 'jsonb' },
+];
+
+// Parse init.sql → paires {table, column} de toutes les colonnes ajoutées par
+// migration (ADD COLUMN IF NOT EXISTS). Best-effort : si le fichier est illisible
+// on retombe sur le seul NOYAU (aucune exception propagée).
+function expectedColumnsFromInitSql() {
+  const expected = new Map(); // "table.column" → {table, column, type|null}
+  for (const c of SCHEMA_CORE) expected.set(`${c.table}.${c.column}`, c);
+  try {
+    const sqlPath = path.join(__dirname, '..', 'server', 'db', 'init.sql');
+    const sql = fs.readFileSync(sqlPath, 'utf8');
+    const re = /ALTER\s+TABLE\s+(\w+)\s+ADD\s+COLUMN\s+IF\s+NOT\s+EXISTS\s+(\w+)/gi;
+    let m;
+    while ((m = re.exec(sql)) !== null) {
+      const key = `${m[1]}.${m[2]}`;
+      if (!expected.has(key)) expected.set(key, { table: m[1], column: m[2], type: null });
+    }
+  } catch (_) {
+    // init.sql illisible → NOYAU seul (déjà en place).
+  }
+  return Array.from(expected.values());
+}
+
+// Requête bornée à la liste attendue (SELECT sur information_schema uniquement).
+const Q_SCHEMA = `
+  SELECT table_name, column_name, data_type
+    FROM information_schema.columns
+   WHERE table_schema = 'public'`;
+
+// 8. panneaupocket_vitality — VITALITÉ des cartes broadcast (dont la famille
+//    PanneauPocket curée, vague L). ⚠️ La colonne ref ne stocke QUE des couples
+//    [panneauId, hash] : AUCUNE date de publication de panneau n'existe en base.
+//    La « date du panneau le plus récent » n'est donc PAS dérivable ici. Le meilleur
+//    proxy en base est last_activated_at (dernier panneau NOUVEAU/MODIFIÉ *alertable*
+//    ayant déclenché un événement). Limite : une entité qui publie des panneaux
+//    non-alertables (hors filtre thématique) ou seulement cosmétiques reste vivante
+//    sans produire d'événement — donc ce proxy SOUS-ESTIME la vitalité. Le robot
+//    croise cette liste avec le jeu de cartes curées (require de panneaupocket-veille
+//    dans server/sources/*.js) et NE PROPOSE JAMAIS de désactivation automatique.
+//    Émis pour toutes les sources enabled non-linked ; l'agent filtre au jeu curé.
+const Q_PP_VITALITY = `
+  SELECT s.id, s.name, s.type,
+         ss.state, ss.checked_at,
+         CASE WHEN ss.ref IS NULL THEN NULL
+              ELSE jsonb_array_length(ss.ref) END           AS ref_panneau_count,
+         (SELECT MAX(e.created_at) FROM source_events e
+           WHERE e.source_id = s.id AND e.event = 'activated') AS last_activated_at
+    FROM sources s
+    LEFT JOIN source_states ss ON ss.source_id = s.id
+   WHERE s.enabled = true
+     AND s.type <> 'linked'
+   ORDER BY s.id ASC`;
+
+// 9. orphan_param_states — lignes source_param_states (combos paramétrés) dont
+//    plus AUCUN abonnement ne porte le couple (source_id, params) : reliquat d'un
+//    désabonnement. On COMPTE et on liste (échantillon) ; la purge est une décision
+//    humaine (jamais de DELETE par le robot). Un abonnement muted compte comme
+//    toujours abonné (params conservés) → n'est pas orphelin.
+const Q_ORPHAN_PARAM_STATES = `
+  SELECT sps.source_id, sps.params, sps.state, sps.checked_at
+    FROM source_param_states sps
+   WHERE NOT EXISTS (
+     SELECT 1 FROM subscriptions sub
+      WHERE sub.source_id = sps.source_id
+        AND sub.params IS NOT DISTINCT FROM sps.params)
+   ORDER BY sps.source_id ASC, sps.checked_at ASC`;
+
 // 6. meta — nombre de sources enabled, nombre de combinaisons paramétrées.
 const Q_META = `
   SELECT
@@ -151,6 +238,9 @@ async function main() {
     display_order_collisions: [],
     category_slugs: [],
     suspended_decks: [],
+    schema_check: null,
+    panneaupocket_vitality: [],
+    orphan_param_states: { count: 0, sample: [] },
   };
 
   const [failing, stale, never, collisions, slugs, meta] = await Promise.all([
@@ -177,6 +267,58 @@ async function main() {
     out.suspended_decks = suspended.rows;
   } catch (e) {
     out.suspended_decks = [];
+  }
+
+  // Contrôle schéma (le POINT de ce script quand une migration manque) : on
+  // confronte les colonnes attendues au réel. Try/catch isolé — si même
+  // information_schema échoue, on le dit sans faire échouer le reste.
+  try {
+    const expected = expectedColumnsFromInitSql();
+    const actual = await pool.query(Q_SCHEMA);
+    const seen = new Map(); // "table.column" → data_type
+    for (const r of actual.rows) seen.set(`${r.table_name}.${r.column_name}`, r.data_type);
+    const missing = [];
+    const type_mismatch = [];
+    for (const c of expected) {
+      const key = `${c.table}.${c.column}`;
+      if (!seen.has(key)) {
+        missing.push({ table: c.table, column: c.column, expected_type: c.type });
+      } else if (c.type && seen.get(key) !== c.type) {
+        type_mismatch.push({ table: c.table, column: c.column, expected: c.type, actual: seen.get(key) });
+      }
+    }
+    out.schema_check = {
+      ok: missing.length === 0 && type_mismatch.length === 0,
+      expected_columns: expected.length,
+      missing,
+      type_mismatch,
+      hint:
+        (missing.length || type_mismatch.length)
+          ? "MIGRATION PROBABLEMENT NON APPLIQUEE : executer `node server/db/migrate.js` " +
+            "dans le shell Railway. RAPPORT SEULEMENT — jamais d'ALTER par le robot."
+          : null,
+    };
+  } catch (e) {
+    out.schema_check = { ok: null, error: e.message,
+      hint: "Controle schema impossible (information_schema inaccessible)." };
+  }
+
+  // Vitalité PanneauPocket curée (Vague L) — try/catch : la colonne ss.ref peut
+  // manquer sur une base pas encore migrée (justement le cas que schema_check
+  // signale). On dégrade proprement plutôt que de faire échouer tout le script.
+  try {
+    const pp = await pool.query(Q_PP_VITALITY);
+    out.panneaupocket_vitality = pp.rows;
+  } catch (e) {
+    out.panneaupocket_vitality = [];
+  }
+
+  // Combos paramétrés orphelins (désabonnements) : compte + échantillon (50).
+  try {
+    const orphan = await pool.query(Q_ORPHAN_PARAM_STATES);
+    out.orphan_param_states = { count: orphan.rows.length, sample: orphan.rows.slice(0, 50) };
+  } catch (e) {
+    out.orphan_param_states = { count: 0, sample: [] };
   }
 
   process.stdout.write(JSON.stringify(out, null, 2) + '\n');

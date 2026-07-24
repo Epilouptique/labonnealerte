@@ -29,7 +29,12 @@ modifier, tout consigner dans le rapport**.
   `runCycle()` écrit des états ET **envoie de vraies notifications (email + push)
   à de vrais abonnés en pleine nuit**. C'est la faute la plus grave possible ici.
 - Aucun appel réseau sortant vers les API des sources, aucun `curl`/`fetch` de
-  test. Tu lis du code et le JSON du script, rien d'autre.
+  test. Tu lis du code et le JSON du script, rien d'autre. **En particulier, tu
+  n'interroges JAMAIS PanneauPocket** (le contrôle de vitalité des cartes se fait
+  uniquement sur l'état déjà en base — cf. tâche f).
+- **Aucune migration.** Tu n'exécutes jamais `node server/db/migrate.js` ni aucun
+  `ALTER`/`CREATE`/DDL. Si le contrôle schéma (tâche e) révèle un écart, tu le
+  **signales** dans le rapport et proposes la commande à Hugo — tu ne la lances pas.
 
 Si une tâche semble exiger l'un de ces gestes interdits : **ne le fais pas**,
 écris dans le rapport ce que tu aurais voulu vérifier et pourquoi tu t'es abstenu.
@@ -88,15 +93,71 @@ leurs groupes. Un slug présent en base mais absent de la taxonomie = **orphelin
 (la carte s'affichera avec le slug brut au lieu d'un libellé) → à signaler.
 L'inverse (slug défini mais non utilisé) est normal, ne le signale pas.
 
+### e) Contrôle de cohérence schéma (attendu vs réel)
+Section `schema_check` du JSON. Le script a confronté les colonnes **attendues** par
+le code (dérivées des `ALTER … ADD COLUMN IF NOT EXISTS` de `server/db/init.sql`,
+plus un noyau typé : `source_states.ref`, `source_param_states.ref`,
+`subscriptions.params`, `subscriptions.muted`, `sources.params_schema`) aux colonnes
+**réellement présentes** en base.
+
+- `schema_check.ok === true` (aucun `missing`, aucun `type_mismatch`) → **RAS**, ne
+  rien dire ou une ligne « schéma cohérent ».
+- **`missing` non vide, ou `type_mismatch` non vide, ou `ok === null`** (contrôle
+  impossible) → c'est le signal le plus important du run. **Écris une section ⚠️ EN
+  TÊTE du rapport** (avant le résumé), littéralement :
+  **« ⚠️ MIGRATION PROBABLEMENT NON APPLIQUÉE : <détail des colonnes manquantes /
+  types inattendus> → exécuter `node server/db/migrate.js` dans le shell Railway. »**
+  RAPPORT SEULEMENT : tu ne lances **jamais** de migration ni d'`ALTER` (cf. interdits).
+
+### f) Vitalité des cartes PanneauPocket curées (Vague L)
+Ces cartes (famille curée bâtie sur `lib/panneaupocket-veille.js`) vivent au rythme
+d'une entité tierce qui peut cesser de publier. **Identifie le jeu curé toi-même**,
+dynamiquement : recense les fichiers `server/sources/*.js` qui `require`
+`./lib/panneaupocket-veille` **et** sont des cartes broadcast (`makeCurated(…)` ou
+`createBroadcastSource(…)` — exclure les paramétrées `panneaupocket` et
+`ma-collectivite`). L'`id` passé à `makeCurated` = l'`id` de la source en base.
+
+Croise ce jeu avec la section `panneaupocket_vitality` du JSON (émise pour toutes les
+sources enabled non-linked ; filtre au jeu curé). ⚠️ **Limite de méthode à énoncer
+telle quelle dans le rapport** : la base ne stocke **aucune date de publication de
+panneau** (la colonne `ref` ne contient que des couples `[panneauId, hash]`). La
+« date du panneau le plus récent » n'est donc **pas** dérivable sans requêter
+PanneauPocket — ce qui est interdit la nuit. Le seul proxy en base est
+`last_activated_at` (dernier panneau nouveau/modifié *alertable*), qui **sous-estime**
+la vitalité (panneaux hors filtre thématique ou cosmétiques → aucun événement).
+
+- Carte curée sans `last_activated_at`, ou `last_activated_at` > **90 jours** → ligne
+  « **candidate à désactivation (décision humaine)** », en rappelant que le proxy
+  sous-estime (à confirmer par un humain via l'appli PanneauPocket). **Jamais** de
+  désactivation automatique, **jamais** de modification de `enabled`.
+- Si tu juges le proxy insuffisant, **dis-le et propose** une meilleure mesure (ex.
+  persister la date du dernier panneau dans `ref`), sans l'implémenter.
+
+### g) States orphelins & stabilité des ids `?panneau=`
+- **Combos orphelins** : section `orphan_param_states` (`count` + `sample`). Ce sont
+  des lignes `source_param_states` dont plus aucun abonnement ne porte le couple
+  `(source_id, params)` — reliquat de désabonnements. **Rapporte le compte** (et
+  quelques exemples si utile). La purge est une **décision humaine** : jamais de
+  `DELETE` par toi.
+- **Stabilité des ids `?panneau=`** (surveillance consignée en tête de
+  `server/sources/ma-collectivite.js`) : rappelle en une ligne le point de vigilance
+  — si PanneauPocket régénère les ids de panneau à l'édition, une simple modif
+  apparaîtrait comme « nouveau ». Tu ne peux pas le mesurer sans fetch réseau
+  (interdit) ; signale-le comme point de vigilance ouvert, sans alarme.
+
 ### d) Rédiger le rapport
 Écris **`rapports/veille/rapport-veille-<date>.md`** (où `<date>` est la date du
 jour au format `YYYY-MM-DD`). Structure imposée :
 
+0. **⚠️ Bandeau schéma EN TÊTE (avant tout le reste), si et seulement si**
+   `schema_check` signale un `missing`/`type_mismatch`/`ok:null` (cf. tâche e).
+   C'est la première chose que Hugo doit voir. Absent si le schéma est cohérent.
 1. **Résumé en tête, 5 lignes maximum** : soit `RAS` (rien à signaler), soit les
    N points saillants, classés par importance.
-2. **Sections par sujet** : Sources en échec / États figés (avec caveat) /
-   Jamais actives / Collisions d'ordre / TODO calendaires ≤ 60 j / Slugs
-   orphelins. Chaque section factuelle et brève.
+2. **Sections par sujet** : Cohérence schéma / Sources en échec / États figés
+   (avec caveat) / Jamais actives / Collisions d'ordre / TODO calendaires ≤ 60 j /
+   Slugs orphelins / Vitalité PanneauPocket curée / Combos orphelins & ids
+   `?panneau=`. Chaque section factuelle et brève ; omets celles en RAS.
 3. **Si et seulement si pertinent** : UN brouillon de prompt correctif, dans un
    bloc clairement titré :
    `## BROUILLON — à valider par Hugo avant toute exécution`
