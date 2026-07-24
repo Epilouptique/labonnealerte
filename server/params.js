@@ -61,6 +61,36 @@ function validateParams(schema, raw) {
   return { ok: true, params: out };
 }
 
+// Petits mots (minuscule) et sigles (majuscule) pour la dérivation de libellé dynamic-enum.
+const DYN_SMALL_WORDS = new Set(['de', 'du', 'des', 'la', 'le', 'les', 'd', 'et', 'en', 'sur', 'aux', 'a', 'au', 'l', 'sous']);
+const DYN_ACRONYMS = new Set(['asa', 'sivom', 'sivu', 'sdis', 'cc', 'ca', 'cu', 'epci', 'cciv', 'sie', 'siaep']);
+
+// dynamic-enum (ex. ma-collectivite) : la valeur canonique STOCKÉE est une URL PanneauPocket
+// /ville/<id>-<slug>-<cp>. On en DÉRIVE un libellé lisible (jamais l'URL brute) — même esprit
+// que commune→nom : valeur canonique en entrée, libellé humain en sortie, SANS stockage.
+// Ex. …/ville/398423648-asa-du-canal-de-gap-05000 → « ASA du Canal de Gap (05000) ».
+function labelFromDynamicValue(raw) {
+  const s = String(raw || '').trim();
+  let slug = s;
+  try { slug = (new URL(s).pathname.split('/').filter(Boolean).pop()) || ''; }
+  catch (e) { /* pas une URL : on retombe sur la valeur telle quelle */ }
+  if (!slug) return s;
+  slug = slug.replace(/^\d+-/, '');            // retire l'id numérique de tête
+  let cp = '';
+  const m = slug.match(/-(\d{5})$/);           // code postal en fin de slug → entre parenthèses
+  if (m) { cp = m[1]; slug = slug.slice(0, -m[0].length); }
+  const words = slug.split('-').filter(Boolean).map((w, i) => {
+    const low = w.toLowerCase();
+    if (DYN_ACRONYMS.has(low)) return w.toUpperCase();
+    if (i > 0 && DYN_SMALL_WORDS.has(low)) return low;
+    return low.charAt(0).toUpperCase() + low.slice(1);
+  });
+  let label = words.join(' ').trim();
+  if (!label) return cp || s;
+  if (cp) label += ' (' + cp + ')';
+  return label;
+}
+
 // « Hautes-Alpes » à partir de { departement:'05' } et du schéma enum.
 function resolveLabel(schema, params) {
   if (!Array.isArray(schema) || !params) return '';
@@ -78,6 +108,9 @@ function resolveLabel(schema, params) {
     } else if (desc.type === 'commune-coords') {
       const d = decodeCoords(v);
       label = d ? d.nom : String(v);
+    } else if (desc.type === 'dynamic-enum') {
+      // Libellé lisible dérivé de l'URL canonique (jamais l'URL brute dans les chips/statut/emails).
+      label = labelFromDynamicValue(v);
     }
     parts.push(label);
   }

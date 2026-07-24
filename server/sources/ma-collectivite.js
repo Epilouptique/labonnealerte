@@ -13,10 +13,13 @@
 //   un habitant peut dépendre d'une ASA au CP voisin) — c'est l'utilisateur qui choisit.
 //
 // ── BACKLOG LOCAL ────────────────────────────────────────────────────────────
-//   TODO v1.1 : désambiguïsation département du lookup — accepter « Saint-Denis 93 » /
-//   « Saint-Denis (93) » et passer le dépt à geo.api (même pattern que le résolveur commune) ;
-//   alternative future : biaiser par le dépt du profil si authentifié. Limite actuelle : lookup
-//   résout au plus peuplé, un homonyme moins peuplé est inatteignable.
+//   TODO v1.1 : désambiguïsation département du lookup.
+//     • FAIT : biais par le dépt du PROFIL si authentifié — la route param-lookup transmet
+//       ?dept=<dépt profil> (validé), passé ici à geo.api via codeDepartement. Un homonyme du
+//       département de l'abonné est désormais résolu correctement (ex. Saint-Denis 974 vs 93).
+//     • BACKLOG : saisie MANUELLE « Saint-Denis 93 » / « Saint-Denis (93) » dans le champ (parser
+//       le dépt depuis la requête, comme le résolveur commune). Sans dépt profil ni suffixe,
+//       lookup résout au plus peuplé → un homonyme moins peuplé reste inatteignable.
 //
 //   SURVEILLANCE 1er run : stabilité des ids ?panneau= à l'édition d'un panneau (si régénérés,
 //   une modif apparaît comme « nouveau » — basculer la dédup sur un id interne le cas échéant).
@@ -83,15 +86,20 @@ async function fetchDeptEntities(dept) {
 }
 
 // q = nom de commune → options [{ label:"name — zipCode", value:url }].
-async function lookup(q) {
+// dept (optionnel) = code de département du profil, déjà validé par la route : biaise la
+// résolution geo.api (codeDepartement) pour lever les homonymes (« Saint-Denis » 93 vs 974).
+async function lookup(q, profileDept) {
   const raw = String(q || '').trim();
   if (raw.length < 2) return [];
+  const d = /^(?:2[AB]|\d{2,3})$/.test(String(profileDept || '')) ? String(profileDept).toUpperCase() : null;
 
   // 1) Commune via geo.api.gouv.fr : nom + code INSEE + codes postaux (le plus peuplé d'abord).
+  //    Si un dépt profil est fourni, on filtre dessus (désambiguïsation) — sinon national.
   let commune = null;
   try {
     const url = GEO_URL + '?nom=' + encodeURIComponent(raw)
-      + '&fields=nom,code,codesPostaux,population&boost=population&limit=10';
+      + '&fields=nom,code,codesPostaux,population&boost=population&limit=10'
+      + (d ? '&codeDepartement=' + encodeURIComponent(d) : '');
     const list = await safeFetchJson(url, { maxBytes: 512 * 1024, timeoutMs: 6000 });
     if (Array.isArray(list) && list.length) {
       const wanted = norm(raw);

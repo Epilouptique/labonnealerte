@@ -666,6 +666,16 @@
       // C5) Réinitialise TOUS les contrôles du picker pour un éventuel ajout suivant.
       var ctrls0 = card.querySelectorAll('.param-form .param-select, .param-form .param-input');
       for (var ci = 0; ci < ctrls0.length; ci++) ctrls0[ci].value = '';
+      // Combobox dynamic-enum : vider aussi le champ de recherche VISIBLE, fermer la liste
+      // et remettre l'état de recherche (l'input caché .dyn-value a déjà été vidé ci-dessus).
+      var dynW = card.querySelectorAll('.param-form .dyn-enum');
+      for (var dwi = 0; dwi < dynW.length; dwi++) {
+        var dS = dynW[dwi].querySelector('.dyn-search');
+        if (dS) { dS.value = ''; dS.setAttribute('aria-expanded', 'false'); dS.removeAttribute('aria-activedescendant'); }
+        dynW[dwi].removeAttribute('data-selected');
+        var dStat = dynW[dwi].querySelector('.dyn-status'); if (dStat) dStat.textContent = '';
+        var dLb = dynW[dwi].querySelector('.dyn-listbox'); if (dLb) { dLb.hidden = true; dLb.innerHTML = ''; }
+      }
       celebrate(card);
       refreshMineDependent();
       // Carte recommandée adoptée : l'étiquette part, une nouvelle reco est calculée.
@@ -725,7 +735,8 @@
       e.preventDefault();
       // Ouvre le picker (et masque « + ajouter » — point 7).
       togglePicker(card, true);
-      var ctrl = card.querySelector('.param-select, .param-input');
+      // Combobox dynamic-enum : focus sur le champ VISIBLE (.dyn-search), pas l'input caché.
+      var ctrl = card.querySelector('.dyn-search, .param-select, .param-input');
       if (ctrl) ctrl.focus();
     }
   });
@@ -784,57 +795,123 @@
       else followParamAnon(card);
     }, 700));
   });
-  // Champ 'dynamic-enum' : recherche debouncée → /api/param-lookup/<source> → peuple le select
-  // frère. Générique (aucun code spécifique à une source). La sélection d'une option déclenche
-  // le `change` existant sur .param-select → auto-abonnement (carte non-géo).
+  // Champ 'dynamic-enum' : COMBOBOX autocomplete (un seul champ visuel). Recherche debouncée →
+  // /api/param-lookup/<source> → liste ARIA de propositions. Générique (aucun code spécifique à
+  // une source). La SÉLECTION d'une option affiche le libellé, pose l'URL dans l'input caché
+  // (.dyn-value) et déclenche l'abonnement (carte non-géo) comme l'ancien change du select.
   var dynSearchTimers = new WeakMap();
+  function dynWrap(el) { return el.closest('.dyn-enum'); }
   function setDynStatus(wrap, msg) { var s = wrap.querySelector('.dyn-status'); if (s) s.textContent = msg || ''; }
-  function resetDynSelect(select, text) {
-    select.innerHTML = '';
-    var ph = document.createElement('option');
-    ph.value = ''; ph.disabled = true; ph.selected = true; ph.textContent = text;
-    select.appendChild(ph);
-    select.disabled = true;
+  function dynListbox(wrap) { return wrap.querySelector('.dyn-listbox'); }
+  function dynSearch(wrap) { return wrap.querySelector('.dyn-search'); }
+  function dynOptions(wrap) { return Array.prototype.slice.call(wrap.querySelectorAll('.dyn-option')); }
+  function closeDynList(wrap) {
+    var lb = dynListbox(wrap); if (lb) { lb.hidden = true; lb.innerHTML = ''; }
+    var input = dynSearch(wrap);
+    if (input) { input.setAttribute('aria-expanded', 'false'); input.removeAttribute('aria-activedescendant'); }
+  }
+  function setActiveOption(wrap, opt) {
+    var input = dynSearch(wrap);
+    dynOptions(wrap).forEach(function (o) { o.classList.remove('active'); o.setAttribute('aria-selected', 'false'); });
+    if (opt && input) {
+      opt.classList.add('active'); opt.setAttribute('aria-selected', 'true');
+      input.setAttribute('aria-activedescendant', opt.id);
+      if (opt.scrollIntoView) opt.scrollIntoView({ block: 'nearest' });
+    } else if (input) { input.removeAttribute('aria-activedescendant'); }
+  }
+  // Commit d'une sélection : le champ affiche le libellé, l'input caché reçoit l'URL, puis
+  // auto-abonnement (sauf carte géo, où l'abonnement passe par le switch S'abonner).
+  function selectDynOption(wrap, opt) {
+    var input = dynSearch(wrap); var hidden = wrap.querySelector('.dyn-value');
+    if (!input || !hidden || !opt) return;
+    hidden.value = opt.getAttribute('data-value') || '';
+    input.value = opt.getAttribute('data-label') || input.value;
+    wrap.setAttribute('data-selected', '1');
+    closeDynList(wrap);
+    setDynStatus(wrap, 'Sélection : ' + input.value);
+    var card = input.closest('.card'); if (!card || autoBlocked(card)) return;
+    if (document.body.getAttribute('data-mode') === 'connected') followParamConnected(card);
+    else followParamAnon(card);
   }
   async function runDynLookup(input) {
-    var wrap = input.closest('.dyn-enum'); if (!wrap) return;
+    var wrap = dynWrap(input); if (!wrap) return;
     var card = input.closest('.card'); if (!card) return;
-    var select = wrap.querySelector('.param-select'); if (!select) return;
+    var lb = dynListbox(wrap); if (!lb) return;
     var q = (input.value || '').trim();
-    if (q.length < 2) { resetDynSelect(select, 'Saisissez d\'abord votre ville…'); setDynStatus(wrap, ''); return; }
+    if (q.length < 2) { closeDynList(wrap); setDynStatus(wrap, ''); return; }
     setDynStatus(wrap, 'Recherche…');
     try {
-      var res = await fetch('/api/param-lookup/' + encodeURIComponent(card.getAttribute('data-source-id')) +
-        '?q=' + encodeURIComponent(q));
+      // Désambiguïsation (B bonus) : on transmet le département du profil s'il existe (biais
+      // générique, non spécifique PanneauPocket) ; le serveur ne l'utilise que s'il est valide.
+      var dept = (window.LBADefaults && window.LBADefaults.departement) || '';
+      var url = '/api/param-lookup/' + encodeURIComponent(card.getAttribute('data-source-id')) +
+        '?q=' + encodeURIComponent(q) + (dept ? '&dept=' + encodeURIComponent(dept) : '');
+      var res = await fetch(url);
       if (!res.ok) throw new Error('http');
       var data = await res.json();
       var options = (data && data.options) || [];
-      if (!options.length) {
-        resetDynSelect(select, 'Aucun résultat');
-        setDynStatus(wrap, 'Aucune collectivité trouvée pour cette ville.');
-        return;
-      }
+      if (!options.length) { closeDynList(wrap); setDynStatus(wrap, 'Aucune collectivité trouvée pour cette ville.'); return; }
       // Peuplement par DOM API (label/value viennent du serveur → jamais d'injection HTML).
-      select.innerHTML = '';
-      var ph = document.createElement('option');
-      ph.value = ''; ph.disabled = true; ph.selected = true; ph.textContent = 'Choisir votre collectivité…';
-      select.appendChild(ph);
+      lb.innerHTML = '';
       for (var i = 0; i < options.length; i++) {
-        var op = document.createElement('option');
-        op.value = options[i].value; op.textContent = options[i].label;
-        select.appendChild(op);
+        var li = document.createElement('li');
+        li.className = 'dyn-option'; li.setAttribute('role', 'option'); li.setAttribute('aria-selected', 'false');
+        li.id = lb.id + '-opt-' + i;
+        li.setAttribute('data-value', options[i].value);
+        li.setAttribute('data-label', options[i].label);
+        li.textContent = options[i].label;
+        lb.appendChild(li);
       }
-      select.disabled = false;
-      setDynStatus(wrap, options.length + (options.length > 1 ? ' collectivités trouvées.' : ' collectivité trouvée.'));
+      lb.hidden = false; input.setAttribute('aria-expanded', 'true'); setActiveOption(wrap, null);
+      setDynStatus(wrap, options.length + (options.length > 1 ? ' collectivités trouvées, flèches pour choisir.' : ' collectivité trouvée.'));
     } catch (e) {
-      resetDynSelect(select, 'Recherche indisponible');
+      closeDynList(wrap);
       setDynStatus(wrap, 'Recherche indisponible, réessayez plus tard.');
     }
   }
+  // Frappe : recherche debouncée ET invalidation de toute sélection antérieure (le libellé
+  // affiché n'est plus garanti → l'URL soumise doit être re-choisie).
   document.addEventListener('input', function (e) {
     var input = e.target.closest('.dyn-search'); if (!input) return;
+    var wrap = dynWrap(input);
+    if (wrap && wrap.getAttribute('data-selected')) {
+      wrap.removeAttribute('data-selected');
+      var hidden = wrap.querySelector('.dyn-value'); if (hidden) hidden.value = '';
+    }
     var prev = dynSearchTimers.get(input); if (prev) clearTimeout(prev);
     dynSearchTimers.set(input, setTimeout(function () { runDynLookup(input); }, 350));
+  });
+  // Navigation clavier ARIA : flèches (parcours), Entrée (sélection), Échap (fermeture).
+  document.addEventListener('keydown', function (e) {
+    var input = e.target.closest('.dyn-search'); if (!input) return;
+    var wrap = dynWrap(input); if (!wrap) return;
+    var opts = dynOptions(wrap);
+    var current = wrap.querySelector('.dyn-option.active');
+    var idx = current ? opts.indexOf(current) : -1;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (input.getAttribute('aria-expanded') !== 'true') { runDynLookup(input); return; }
+      if (opts.length) setActiveOption(wrap, opts[Math.min(idx + 1, opts.length - 1)]);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (opts.length) setActiveOption(wrap, opts[Math.max(idx - 1, 0)]);
+    } else if (e.key === 'Enter') {
+      if (current) { e.preventDefault(); e.stopImmediatePropagation(); selectDynOption(wrap, current); }
+    } else if (e.key === 'Escape') {
+      if (input.getAttribute('aria-expanded') === 'true') { e.preventDefault(); e.stopImmediatePropagation(); closeDynList(wrap); }
+    }
+  });
+  // Clic sur une proposition = sélection.
+  document.addEventListener('click', function (e) {
+    var opt = e.target.closest('.dyn-option'); if (!opt) return;
+    var wrap = dynWrap(opt); if (!wrap) return;
+    e.preventDefault(); selectDynOption(wrap, opt);
+  });
+  // Clic hors d'un combobox ouvert → fermeture de sa liste.
+  document.addEventListener('click', function (e) {
+    if (e.target.closest('.dyn-enum')) return;
+    var open = document.querySelectorAll('.dyn-search[aria-expanded="true"]');
+    for (var i = 0; i < open.length; i++) closeDynList(dynWrap(open[i]));
   });
 
   document.addEventListener('keydown', function (e) {
@@ -1565,6 +1642,14 @@
     if (extras) extras.insertAdjacentHTML('beforebegin', html);
     // Mémorise l'ordre source de chaque carte (pour restaurer sa position après reco).
     g.querySelectorAll('.card[data-cats]').forEach(function (c, i) { c.dataset.order = i; });
+
+    // B) Pré-remplissage profil des combobox dynamic-enum : la ville du profil amorce la
+    // RECHERCHE (propositions affichées), sans jamais pré-sélectionner d'entité. Déclenché via
+    // un 'input' synthétique → la délégation debouncée lance le lookup (aucun appel inter-scope).
+    g.querySelectorAll('.dyn-search[data-dyn-prefill]').forEach(function (inp) {
+      inp.removeAttribute('data-dyn-prefill');
+      if ((inp.value || '').trim().length >= 2) inp.dispatchEvent(new Event('input', { bubbles: true }));
+    });
 
     // Connecté : Proposer masquée ; la source recommandée est HABILLÉE (jamais
     // dupliquée) et déplacée en dernière position — une source = une seule carte.

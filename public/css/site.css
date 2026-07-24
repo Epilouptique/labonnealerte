@@ -1275,6 +1275,26 @@ body[data-mode="connected"] #stats { display: none; }
 }
 .param-select { cursor: pointer; }
 .param-input:focus { outline: none; border-color: var(--amber); }
+/* Combobox autocomplete (champ dynamic-enum : ma-collectivite…). Un seul champ visuel
+   (.dyn-search) + liste ARIA de propositions (.dyn-listbox) en surimpression. Tokens/rayons
+   du design-system : surface, focus violet, rayon contrôle 10px / panneau 12px. */
+.dyn-enum { position: relative; flex: 1 1 200px; min-width: 180px; }
+.dyn-search {
+  width: 100%; box-sizing: border-box; font: inherit; font-size: 13.5px; color: var(--ink);
+  background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px;
+}
+.dyn-search:focus { outline: none; border-color: var(--amber); }
+.dyn-listbox {
+  position: absolute; z-index: 30; left: 0; right: 0; top: calc(100% + 4px);
+  margin: 0; padding: 4px; list-style: none; max-height: 240px; overflow-y: auto;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow);
+}
+.dyn-listbox[hidden] { display: none; }
+.dyn-option {
+  padding: 9px 11px; border-radius: 8px; font-size: 13.5px; color: var(--ink); cursor: pointer;
+}
+.dyn-option:hover, .dyn-option.active { background: var(--amber-soft); }
+.dyn-status { font-size: 12px; color: var(--muted); margin-top: 4px; }
 .param-follow { flex: none; padding: 11px 16px; }
 .param-subform { display: none; } /* révélé en JS (parcours anonyme) */
 .param-chips { display: flex; flex-wrap: wrap; gap: 6px; }

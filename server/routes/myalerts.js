@@ -115,8 +115,13 @@ apiRouter.get('/param-lookup/:source', lookupRate, async (req, res) => {
   const q = String(req.query.q || '').trim().slice(0, 60);
   if (q.length < 2 || !/^[\p{L}\p{M}\s'’-]+$/u.test(q)) return res.json({ options: [] });
 
+  // dept optionnel (désambiguïsation homonymes) : transmis à lookup UNIQUEMENT s'il est un
+  // code de département valide, sinon ignoré. Le module lookup(q, dept) décide de l'usage.
+  const deptRaw = String(req.query.dept || '').trim().toUpperCase();
+  const dept = deptRaw && isValidDepartement(deptRaw) ? deptRaw : null;
+
   try {
-    const options = await mod.lookup(q);
+    const options = await mod.lookup(q, dept);
     return res.json({ options: Array.isArray(options) ? options.slice(0, 50) : [] });
   } catch (err) {
     console.warn(`[param-lookup] ${req.params.source} "${q}" : ${err.message}`);

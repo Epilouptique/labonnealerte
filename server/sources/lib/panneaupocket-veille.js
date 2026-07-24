@@ -206,4 +206,74 @@ function createBroadcastSource(opts) {
   return { id, check, loadRef, dumpRef };
 }
 
-module.exports = { createParamSource, createBroadcastSource, defaultBuildMessage, diffPanneaux, TTL_MS, RETRY_MS };
+// ── FABRIQUE « CARTE CURÉE » (vague L — PanneauPocket curé) ──────────────────
+// Sucre au-dessus de createBroadcastSource pour les cartes thématiques pré-remplies
+// dédiées à UNE entité PanneauPocket (un syndicat des eaux, une gendarmerie, une
+// comcom…). Un fichier server/sources/<slug>.js = un appel makeCurated de ~8 lignes.
+//   opts : { id, url, label, emoji='📣', detailsUrl?, filter?='eau'|null, keywords?:string[] }
+//   • filter='eau'  → mots-clés eau (preset ci-dessous) ; keywords → liste explicite ;
+//     filter/keywords absents → tout panneau alerte (entité mono-thème).
+//
+// ⚠️ GARDE-FOU D'AVENIR (dépendance à un tiers) : ces cartes vivent au rythme de la
+// vitalité de l'entité PanneauPocket ciblée. Une entité peut cesser de publier. Contrôle
+// à prévoir côté Robot 1 : carte sans panneau depuis 90 j → candidate à désactivation
+// (RAPPORT uniquement, jamais de désactivation automatique). Cf. etat-projet.md.
+function normalizeFilter(s) {
+  return String(s || '')
+    .toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/['’]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+// Presets de filtre thématique réutilisables (mots-clés DÉJÀ normalisés).
+const FILTER_PRESETS = {
+  // Eau : coupure, restriction, usage, sécheresse, qualité de l'eau, fuite, réseau, remise en eau.
+  eau: ['coupure', 'restriction', 'usage', 'secheresse', 'qualite de l eau', 'fuite', 'reseau', 'remise en eau'],
+};
+
+function keywordAlertable(keywords) {
+  return (item) => {
+    const hay = normalizeFilter(`${item.title} ${item.text}`);
+    return keywords.some((k) => hay.includes(k));
+  };
+}
+
+function makeCurated(opts) {
+  const { id, url, label } = opts;
+  const emoji = opts.emoji || '📣';
+  const detailsUrl = opts.detailsUrl || null;
+  const keywords = (opts.filter && FILTER_PRESETS[opts.filter]) ? FILTER_PRESETS[opts.filter]
+    : Array.isArray(opts.keywords) ? opts.keywords : null;
+  const alertable = keywords ? keywordAlertable(keywords) : undefined;
+
+  // Message : même forme que arrosage-canal-gap (nom fixe de l'entité + attribution
+  // « via PanneauPocket », lien direct au panneau, page nue si plusieurs).
+  function buildMessage(events, city, urlObj) {
+    const base = `${urlObj.origin}${urlObj.pathname}`;
+    const link = (pid) => `${base}?panneau=${pid}`;
+    const who = label || city || '';
+    const suffix = detailsUrl ? `Détails : ${detailsUrl} (via PanneauPocket)` : '(via PanneauPocket)';
+    const tag = (e) => (e.cancelled ? `« ${e.title} » (annulé)` : `« ${e.title} »`);
+    if (events.length === 1) {
+      const e = events[0];
+      const verbe = e.kind === 'new' ? 'Nouveau panneau' : 'Panneau mis à jour';
+      return `${emoji} ${verbe} — ${who} : ${tag(e)}. ${link(e.id)}. ${suffix}`;
+    }
+    const nNew = events.filter((e) => e.kind === 'new').length;
+    const nUpd = events.length - nNew;
+    const parts = [];
+    if (nNew) parts.push(`${nNew} nouveau${nNew > 1 ? 'x' : ''}`);
+    if (nUpd) parts.push(`${nUpd} mis à jour`);
+    const titres = events.slice(0, 3).map(tag).join(', ') + (events.length > 3 ? '…' : '');
+    return `${emoji} ${events.length} panneaux — ${who} (${parts.join(', ')}) : ${titres}. ${base}. ${suffix}`;
+  }
+
+  const source = createBroadcastSource({ id, url, buildMessage, alertable });
+  // _alertable / _buildMessage exposés pour les tests (vérification du filtre).
+  return { id: source.id, check: source.check, loadRef: source.loadRef, dumpRef: source.dumpRef,
+    _alertable: alertable || (() => true), _buildMessage: buildMessage };
+}
+
+module.exports = {
+  createParamSource, createBroadcastSource, makeCurated,
+  defaultBuildMessage, diffPanneaux, FILTER_PRESETS, TTL_MS, RETRY_MS,
+};

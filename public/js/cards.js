@@ -104,23 +104,37 @@
   // Source paramétrée (OpenAlert v2) : schéma plat à au moins un paramètre.
   function isParam(s) { return Array.isArray(s.params_schema) && s.params_schema.length > 0; }
 
+  // Séquence d'ids uniques pour les listbox des combobox dynamic-enum (aria-controls).
+  var dynSeq = 0;
+
   // Bloc d'abonnement paramétré : instances suivies (mode connecté) + sélecteur
   // générique construit depuis le schéma enum. Aucun code spécifique vigilance.
   // Contrôle de saisie générique selon le type du paramètre : enum → select,
   // string/number → input (avec placeholder/pattern éventuels).
   function paramControl(schema, def) {
     if (schema.type === 'dynamic-enum') {
-      // Champ générique : input de recherche (.dyn-search, NON collecté) + select peuplé à la
-      // volée (.param-select, porte data-key → collecté par readParam) + zone d'état aria-live.
-      // Aucun code spécifique à une source : le peuplement passe par /api/param-lookup/<slug>.
+      // COMBOBOX autocomplete générique (un seul champ visuel). Aucun code spécifique à une
+      // source : la recherche passe par /api/param-lookup/<slug> (câblage dans site.js).
+      //  · .dyn-search  = champ visible (role=combobox), NON collecté. Affiche le libellé après
+      //                   sélection ; le modifier invalide la sélection (retour en recherche).
+      //  · .dyn-value   = input caché (.param-input, porte data-key) → SEULE valeur soumise =
+      //                   l'URL de l'option choisie (contrat serveur inchangé). pattern honoré
+      //                   par readParam (validation de format côté client).
+      //  · .dyn-listbox = liste ARIA des propositions ; .dyn-status = zone aria-live.
+      // Pré-remplissage profil (B) : `def` = ville du profil → amorce la RECHERCHE (jamais une
+      // pré-sélection), marquée data-dyn-prefill pour déclenchement au montage (site.js).
       var ph = schema.placeholder ? ' placeholder="' + esc(schema.placeholder) + '"' : '';
+      var pat = schema.pattern ? ' pattern="' + esc(schema.pattern) + '"' : '';
+      var lbId = 'dynlb-' + esc(schema.key) + '-' + (dynSeq++);
+      var pre = (def != null && String(def)) ? String(def) : '';
+      var preAttr = pre ? ' value="' + esc(pre) + '" data-dyn-prefill="1"' : '';
       return '<div class="dyn-enum">' +
-        '<input type="text" class="dyn-search"' + ph +
-          ' aria-label="' + esc(schema.label) + '" autocomplete="off" autocapitalize="off" spellcheck="false">' +
-        '<select class="param-select dyn-select" data-key="' + esc(schema.key) + '"' +
-          ' aria-label="' + esc(schema.label) + '" disabled>' +
-          '<option value="" disabled selected>Saisissez d\'abord votre ville…</option>' +
-        '</select>' +
+        '<input type="text" class="dyn-search" role="combobox" aria-expanded="false"' +
+          ' aria-controls="' + lbId + '" aria-autocomplete="list" aria-haspopup="listbox"' +
+          preAttr + ph + ' aria-label="' + esc(schema.label) + '"' +
+          ' autocomplete="off" autocapitalize="off" spellcheck="false">' +
+        '<input type="hidden" class="param-input dyn-value" data-key="' + esc(schema.key) + '"' + pat + '>' +
+        '<ul class="dyn-listbox" id="' + lbId + '" role="listbox" aria-label="' + esc(schema.label) + '" hidden></ul>' +
         '<div class="dyn-status" role="status" aria-live="polite"></div>' +
       '</div>';
     }
@@ -186,6 +200,13 @@
     // Valeur pré-remplie PAR CHAMP : pré-remplissage géo depuis le profil (window.LBADefaults) ;
     // valeur par défaut éventuelle pour les champs libres (string/number non-enum).
     function defFor(field) {
+      // dynamic-enum (B) : la ville du profil amorce la RECHERCHE (jamais une pré-sélection
+      // d'entité). Uniquement au 1er abonnement (picker visible) ; en anon, LBADefaults.ville
+      // est null → champ vide (comportement actuel préservé).
+      if (field.type === 'dynamic-enum') {
+        if (instances.length) return null;
+        return (window.LBADefaults && window.LBADefaults.ville) || null;
+      }
       if (isGeoSchema(field)) {
         var d = (window.LBADefaults && window.LBADefaults[field.key]) || null;
         // Champ commune : pré-rempli avec le NOM de ville du profil (résolu en INSEE au serveur).

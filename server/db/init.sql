@@ -3440,9 +3440,13 @@ WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'panneaupocket')
 -- ================================================================
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
 SELECT 'arrosage-canal-gap', 'Arrosage — Canal de Gap', 'Tours d''eau et coupures d''irrigation',
-  'Autorisations d''arrosage, tours d''eau et coupures du réseau d''irrigation de l''ASA du Canal de Gap (Gap et communes desservies). Alertes issues des panneaux publiés par l''ASA sur PanneauPocket, filtrées sur l''eau d''irrigation. Aucune alerte rétroactive : seuls les panneaux publiés ou modifiés après votre abonnement comptent.',
+  'Autorisations d''arrosage, tours d''eau et coupures du réseau d''irrigation de l''ASA du Canal de Gap (Gap et communes desservies). Alertes issues des panneaux publiés par l''ASA sur PanneauPocket, filtrées sur l''eau d''irrigation.',
   'internal', 'official', false, ARRAY['vie-locale', 'eau'], 441
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'arrosage-canal-gap');
+-- Correction description (retrait de la phrase anti-rétroactivité) sur base déjà peuplée : UPDATE idempotent.
+UPDATE sources SET description =
+  'Autorisations d''arrosage, tours d''eau et coupures du réseau d''irrigation de l''ASA du Canal de Gap (Gap et communes desservies). Alertes issues des panneaux publiés par l''ASA sur PanneauPocket, filtrées sur l''eau d''irrigation.'
+WHERE id = 'arrosage-canal-gap';
 INSERT INTO source_states (source_id) SELECT 'arrosage-canal-gap'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'arrosage-canal-gap');
 
@@ -3460,3 +3464,138 @@ WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'ma-collectivite');
 UPDATE sources SET params_schema = '[{"key":"url","label":"Votre ville","type":"dynamic-enum","lookup":"ma-collectivite","placeholder":"Ex. Gap, Annecy, Bayonne…","pattern":"^https://app\\.panneaupocket\\.com/ville/[^\\s]{1,200}$","lowercase":false,"multiple":true,"required":true,"default":null,"hint":"Saisissez votre commune, puis choisissez votre collectivité (mairie, syndicat des eaux, ASA…) dans la liste."}]'::jsonb WHERE id = 'ma-collectivite';
 INSERT INTO source_states (source_id) SELECT 'ma-collectivite'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'ma-collectivite');
+
+-- ================================================================
+-- VAGUE L « PanneauPocket curé » (display_order 443-460). 18 cartes THÉMATIQUES broadcast v1,
+-- chacune dédiée à UNE entité PanneauPocket (URL en dur), sur le modèle de arrosage-canal-gap (441).
+-- Filtre « eau » pour les cartes eau à page multi-thème ; mono-thème (filtre null) sinon.
+-- Anti-rétroactif : 1er cycle = amorçage sans alerte (moteur commun panneaupocket-veille.js).
+-- ⚠️ Cartes dependantes de la vitalite d un tiers : controle Robot 1 (sans panneau > 90 j -> rapport).
+-- Descriptions grand public (aucune mention anti-rétroactivité/hash/polling). Détail : <slug>.js.
+-- ================================================================
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, enabled)
+SELECT 'eau-regie-metz', 'Coupures d’eau — Régie de Metz', 'Coupures, travaux et sécheresse',
+  'Coupures d’eau, travaux sur le réseau et alertes sécheresse de la Régie de l’Eau de l’Eurométropole de Metz. Alertes issues des panneaux publiés par la régie sur PanneauPocket, filtrées sur l’eau.',
+  'internal', 'official', false, ARRAY['vie-locale', 'eau'], 443, true
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'eau-regie-metz');
+INSERT INTO source_states (source_id) SELECT 'eau-regie-metz'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'eau-regie-metz');
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, enabled)
+SELECT 'eau-provence-verte', 'Coupures d’eau — Provence Verte', 'Travaux et coupures du réseau',
+  'Travaux, coupures d’eau et démarchages frauduleux signalés par la Régie des Eaux de la Provence Verte (Brignoles et communes desservies). Alertes issues des panneaux publiés par la régie sur PanneauPocket, filtrées sur l’eau.',
+  'internal', 'official', false, ARRAY['vie-locale', 'eau'], 444, true
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'eau-provence-verte');
+INSERT INTO source_states (source_id) SELECT 'eau-provence-verte'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'eau-provence-verte');
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, enabled)
+SELECT 'eau-isle-dronne', 'Coupures d’eau — SIAEPA Isle & Dronne', 'Coupures et fuites du réseau',
+  'Coupures et réparations de fuites sur le réseau d’eau potable du SIAEPA des Vallées de l’Isle et de la Dronne. Alertes issues des panneaux publiés par le syndicat sur PanneauPocket.',
+  'internal', 'official', false, ARRAY['vie-locale', 'eau'], 445, true
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'eau-isle-dronne');
+INSERT INTO source_states (source_id) SELECT 'eau-isle-dronne'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'eau-isle-dronne');
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, enabled)
+SELECT 'eau-charles-chaigneau', 'Restrictions d’eau — SIAEP Charles Chaigneau', 'Limitations d’usage de l’eau',
+  'Limitations et restrictions d’usage de l’eau du SIAEP Charles Chaigneau (secteur de Tannay). Alertes issues des panneaux publiés par le syndicat sur PanneauPocket, filtrées sur l’eau.',
+  'internal', 'official', false, ARRAY['vie-locale', 'eau'], 446, true
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'eau-charles-chaigneau');
+INSERT INTO source_states (source_id) SELECT 'eau-charles-chaigneau'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'eau-charles-chaigneau');
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, enabled)
+SELECT 'eau-puisaye-forterre', 'Coupures d’eau — Puisaye-Forterre', 'Coupures et restrictions d’usage',
+  'Coupures et restrictions d’usage de l’eau (VigiEau) de la Régie des Eaux Puisaye-Forterre. Alertes issues des panneaux publiés par la régie sur PanneauPocket, filtrées sur l’eau.',
+  'internal', 'official', false, ARRAY['vie-locale', 'eau'], 447, true
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'eau-puisaye-forterre');
+INSERT INTO source_states (source_id) SELECT 'eau-puisaye-forterre'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'eau-puisaye-forterre');
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, enabled)
+SELECT 'eau-coteaux-lizon', 'Restrictions d’eau — Coteaux du Lizon', 'Restrictions et coupures d’eau',
+  'Restrictions et coupures d’eau sur la commune des Coteaux du Lizon. Alertes issues des panneaux publiés par la commune sur PanneauPocket, filtrées sur l’eau.',
+  'internal', 'official', false, ARRAY['vie-locale', 'eau'], 448, true
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'eau-coteaux-lizon');
+INSERT INTO source_states (source_id) SELECT 'eau-coteaux-lizon'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'eau-coteaux-lizon');
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, enabled)
+SELECT 'dechets-saulieu', 'Déchets — Pays de Saulieu', 'Déchèteries, collectes, incivilités',
+  'Horaires des déchèteries, collectes, dépôts sauvages et incivilités du service déchets de la CC de Saulieu. Alertes issues des panneaux publiés sur PanneauPocket.',
+  'internal', 'official', false, ARRAY['vie-locale'], 449, true
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'dechets-saulieu');
+INSERT INTO source_states (source_id) SELECT 'dechets-saulieu'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'dechets-saulieu');
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, enabled)
+SELECT 'dechets-la-saucelle', 'Déchets — La Saucelle', 'Collecte et déchèteries',
+  'Collecte des ordures, déchèteries et démarchages signalés sur le secteur de La Saucelle. Alertes issues des panneaux publiés sur PanneauPocket.',
+  'internal', 'official', false, ARRAY['vie-locale'], 450, true
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'dechets-la-saucelle');
+INSERT INTO source_states (source_id) SELECT 'dechets-la-saucelle'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'dechets-la-saucelle');
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, enabled)
+SELECT 'dechets-campagne-caux', 'Déchets — Campagne de Caux', 'Déchèterie et collectes',
+  'Horaires et fermetures de la déchèterie et des collectes de la CC Campagne de Caux. Alertes issues des panneaux publiés sur PanneauPocket.',
+  'internal', 'official', false, ARRAY['vie-locale'], 451, true
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'dechets-campagne-caux');
+INSERT INTO source_states (source_id) SELECT 'dechets-campagne-caux'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'dechets-campagne-caux');
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, enabled)
+SELECT 'securite-gendarmerie-albi', 'Alertes gendarmerie — Albi', 'Arnaques et prévention',
+  'Démarchages frauduleux, arnaques et opérations tranquillité vacances de la brigade de proximité d’Albi. Alertes issues des panneaux publiés par la gendarmerie sur PanneauPocket.',
+  'internal', 'official', false, ARRAY['vie-locale', 'securite'], 452, true
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'securite-gendarmerie-albi');
+INSERT INTO source_states (source_id) SELECT 'securite-gendarmerie-albi'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'securite-gendarmerie-albi');
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, enabled)
+SELECT 'securite-gendarmerie-bayeux', 'Alertes gendarmerie — Bayeux', 'Cambriolages et démarchages',
+  'Cambriolages, vols à la roulotte et démarchages frauduleux signalés par la gendarmerie de Bayeux. Alertes issues des panneaux publiés sur PanneauPocket.',
+  'internal', 'official', false, ARRAY['vie-locale', 'securite'], 453, true
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'securite-gendarmerie-bayeux');
+INSERT INTO source_states (source_id) SELECT 'securite-gendarmerie-bayeux'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'securite-gendarmerie-bayeux');
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, enabled)
+SELECT 'securite-gendarmerie-essarts', 'Alertes gendarmerie — Essarts-en-Bocage', 'Prévention et sécurité',
+  'Alertes de prévention et de sécurité de la communauté de brigades d’Essarts-en-Bocage. Alertes issues des panneaux publiés par la gendarmerie sur PanneauPocket.',
+  'internal', 'official', false, ARRAY['vie-locale', 'securite'], 454, true
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'securite-gendarmerie-essarts');
+INSERT INTO source_states (source_id) SELECT 'securite-gendarmerie-essarts'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'securite-gendarmerie-essarts');
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, enabled)
+SELECT 'local-chablis', 'Infos locales — Chablis', 'La comcom Chablis Villages et Terroirs',
+  'Infos et alertes de la communauté de communes Chablis Villages et Terroirs (France Services, collectes, événements, recrutements…). Panneaux publiés sur PanneauPocket.',
+  'internal', 'official', false, ARRAY['vie-locale'], 455, true
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'local-chablis');
+INSERT INTO source_states (source_id) SELECT 'local-chablis'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'local-chablis');
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, enabled)
+SELECT 'local-agly-fenouilledes', 'Infos locales — Agly-Fenouillèdes', 'La comcom Agly-Fenouillèdes',
+  'Infos et alertes de la communauté de communes Agly-Fenouillèdes (déchets, eau, animations, permanences…). Panneaux publiés sur PanneauPocket.',
+  'internal', 'official', false, ARRAY['vie-locale'], 456, true
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'local-agly-fenouilledes');
+INSERT INTO source_states (source_id) SELECT 'local-agly-fenouilledes'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'local-agly-fenouilledes');
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, enabled)
+SELECT 'local-buech-devoluy', 'Infos locales — Buëch-Dévoluy', 'La comcom Buëch-Dévoluy',
+  'Infos et alertes de la communauté de communes Buëch-Dévoluy (navettes stations, déchets, France Services, événements…). Panneaux publiés sur PanneauPocket.',
+  'internal', 'official', false, ARRAY['vie-locale'], 457, true
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'local-buech-devoluy');
+INSERT INTO source_states (source_id) SELECT 'local-buech-devoluy'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'local-buech-devoluy');
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, enabled)
+SELECT 'local-chabris-bazelle', 'Infos locales — Pays de Bazelle', 'La comcom Chabris — Pays de Bazelle',
+  'Infos et alertes de la communauté de communes Chabris — Pays de Bazelle (piscine, déchèterie, tourisme, services…). Panneaux publiés sur PanneauPocket.',
+  'internal', 'official', false, ARRAY['vie-locale'], 458, true
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'local-chabris-bazelle');
+INSERT INTO source_states (source_id) SELECT 'local-chabris-bazelle'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'local-chabris-bazelle');
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, enabled)
+SELECT 'agenda-luc-en-diois', 'Agenda — Luc-en-Diois', 'Événements et manifestations',
+  'Marchés, expositions, concerts et animations de Luc-en-Diois. Panneaux publiés par la commune sur PanneauPocket.',
+  'internal', 'official', false, ARRAY['vie-locale', 'evenements-locaux'], 459, true
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'agenda-luc-en-diois');
+INSERT INTO source_states (source_id) SELECT 'agenda-luc-en-diois'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'agenda-luc-en-diois');
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, enabled)
+SELECT 'cantine-a2m2v', 'Menus cantine — SIVOM A2M2V', 'Menus et infos scolaires',
+  'Menus de la cantine et infos scolaires du SIVOM A2M2V. Panneaux publiés sur PanneauPocket.',
+  'internal', 'official', false, ARRAY['vie-locale'], 460, true
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'cantine-a2m2v');
+INSERT INTO source_states (source_id) SELECT 'cantine-a2m2v'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'cantine-a2m2v');

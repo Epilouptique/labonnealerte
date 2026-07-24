@@ -2,11 +2,20 @@
 // La config annuelle transcrit le parcours OFFICIEL (letour.fr) en liste
 // (département, date(s) de passage). ZÉRO API. Fenêtre : J-2 → jour de passage.
 //
-// ÉTAT AU 18/07/2026 : le Tour 2026 s'achève le 26 juillet, mais les données de passage
-// PAR DÉPARTEMENT ne sont pas disponibles de façon fiable côté officiel (letour.fr donne
-// villes de départ/arrivée + régions, pas la liste des départements traversés par étape).
-// Donc CONFIG VIDE pour l'instant (aucune date inventée).
-// ⚠️ TODO octobre 2026 : à l'annonce du parcours 2027, transcrire (département → dates).
+// PROCESSUS ANNUEL (obligatoire, type Bison Futé) : recharger le parcours à CHAQUE
+// annonce officielle — octobre N-1 pour l'édition N — par TRANSCRIPTION depuis
+// letour.fr / ASO d'une source CONSULTÉE. JAMAIS de parcours reconstruit de mémoire.
+// En l'absence de source officielle consultable, ne rien remplir (config vide assumée).
+//
+// ÉTAT AU 25/07/2026 (revérifié) : le Tour 2026 (Grand Départ Barcelone 4 juil., arrivée
+// Paris 26 juil. ; Gap = départ de l'étape 19 le 24 juil., PAS le Grand Départ) s'achève
+// dans deux jours. Les données de passage PAR DÉPARTEMENT restent NON publiées de façon
+// exploitable (letour.fr donne villes départ/arrivée + régions, pas la liste des dépts
+// traversés par étape ; letour.fr n'est en outre pas récupérable depuis l'outillage de ce
+// poste). Seuls seraient sûrs les dépts des VILLES étapes — valeur nulle à J-2 de la fin.
+// Donc CONFIG TOUJOURS VIDE (aucune date inventée). Édition 2026 non rechargée : sans objet.
+// ⚠️ TODO octobre 2026 : à l'annonce du parcours 2027, transcrire (département → dates)
+//    depuis letour.fr. Voir « TODO calendaires datés » dans .claude/etat-projet.md.
 const { DEPARTEMENTS } = require('../geo');
 const { PREF } = require('./lib/prefectures');
 
