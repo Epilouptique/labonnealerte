@@ -1690,13 +1690,80 @@
     }
 
     loadStats();
-    loadCollections();
+    loadDecksIntoGrid(); // iteration 2 : tuiles-deck injectees dans la grille (plus d'etagere)
     if (mode === 'connected') loadHistory(token);
   }
 
-  /* ---------------- Étagère « Collections » (packs officiels) ---------------- */
-  // En tête du kiosque : une rangée de « paquets de cartes » cliquables. Non
-  // bloquant, masqué si l'API ne renvoie rien. Réutilise likes_count (total ❤).
+  /* ---------------- Tuiles-deck dans la grille (iteration 2) ---------------- */
+  // Les decks (collections officielles) deviennent des tuiles PLEINE TAILLE melangees
+  // aux cartes d'alerte dans #grid, via LBADeckStack (pile de 3 vraies cartes + ruban).
+  // Aperçu = 3 dernieres cartes (ids du champ preview) resolues depuis le catalogue deja
+  // charge (sourcesData). Pas de regroupement ni de position privilegiee ; logique de
+  // categorie/reco specifique aux decks = evolution future.
+  async function loadDecksIntoGrid() {
+    var g = document.getElementById('grid');
+    if (!g || !window.LBADeckStack || !window.LBACards) return;
+    var data;
+    try {
+      var r = await fetch('/api/collections', { headers: { Accept: 'application/json' } });
+      if (!r.ok) return;
+      data = await r.json();
+    } catch (e) { return; }
+    var list = (data && data.collections) || [];
+    if (!list.length) return;
+    var index = LBADeckStack.indexSources(sourcesData || []);
+    var tiles = list.map(function (c) {
+      var cards = LBADeckStack.resolveCards(c.preview || [], index);
+      var meta = (c.total_likes > 0)
+        ? '<span class="ds-ribbon-likes">❤ ' + esc(LBACards.formatCount(c.total_likes)) + '</span>' : '';
+      var stack = LBADeckStack.html({
+        name: c.name, tint: c.tint, emoji: c.emoji, count: c.card_count || 0,
+        cards: cards, meta: meta, mode: 'anon'
+      });
+      // La tuile est un <div> (PAS un <a>) : les vraies cartes contiennent des <button>
+      // (like/partage/i), interdits dans un <a> (le parseur casserait la structure). La
+      // navigation se fait au clic via data-href (cartes internes en pointer-events:none).
+      return '<div class="deck-card" data-deck-tile role="link" tabindex="0" ' +
+        'data-href="/collection/' + encodeURIComponent(c.id) + '">' + stack + '</div>';
+    });
+    // Insertion à intervalles réguliers parmi les cartes VISIBLES (hors pagination cachée).
+    var visible = g.querySelectorAll('.card[data-cats]:not(.hidden-more)');
+    var extras = document.getElementById('static-extras');
+    var step = Math.max(2, Math.floor(visible.length / (tiles.length + 1)));
+    tiles.forEach(function (tileHTML, i) {
+      var ref = visible[(i + 1) * step];
+      if (ref) ref.insertAdjacentHTML('beforebegin', tileHTML);
+      else if (extras) extras.insertAdjacentHTML('beforebegin', tileHTML);
+      else g.insertAdjacentHTML('beforeend', tileHTML);
+    });
+    // Navigation de la tuile (div role=link) : clic n'importe où → page du deck.
+    g.querySelectorAll('.deck-card[data-href]').forEach(function (t) {
+      if (t.dataset.bound) return; t.dataset.bound = '1';
+      t.addEventListener('click', function () { window.location.href = t.getAttribute('data-href'); });
+      t.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { window.location.href = t.getAttribute('data-href'); }
+      });
+    });
+    updateShelfVisibility();
+  }
+
+  // Les tuiles-deck ne s'affichent que sur « Toutes » (comme l'ancienne étagère) : sur un
+  // filtre de catégorie, elles sont masquées (elles ne portent pas de catégorie). Conserve
+  // le nom historique car selectChip l'appelle déjà.
+  function updateShelfVisibility() {
+    var g = document.getElementById('grid');
+    if (!g) return;
+    g.querySelectorAll('.deck-card[data-deck-tile]').forEach(function (t) {
+      t.style.display = (cat === 'all') ? '' : 'none';
+    });
+  }
+
+  /* ====================================================================================
+     ETAGERE CARROUSEL DECK — DESACTIVEE le 2026-07-25 (chantier deck-stack, iteration 2).
+     Code conserve (commente, isole) pour reactivation eventuelle sans reecriture : rendu
+     carrousel infini en tete de kiosque. Remplace par loadDecksIntoGrid() ci-dessus + le
+     bloc HTML #collections-shelf commente dans index.html. A re-tester plus tard.
+     ------------------------------------------------------------------------------------
   async function loadCollections() {
     var shelf = document.getElementById('collections-shelf');
     var row = document.getElementById('shelf-row');
@@ -1789,6 +1856,7 @@
       requestAnimationFrame(step);
     }
   }
+  ==================================================================================== */
 
   /* ---------------- D) Titre du dashboard animé (connecté uniquement) ---------------- */
   // Le H1 change selon le mode/filtre actif, avec un effet « lettres qui se

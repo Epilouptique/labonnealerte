@@ -44,13 +44,20 @@
 </section>
 
 <main class="wrap" id="alertes">
-  <!-- Collections : packs de cartes éditorialisés, en tête du kiosque. Rempli par
-       site.js (GET /api/collections) ; masqué tant qu'aucune collection n'est chargée.
-       Ne remplace pas « La sélection » (chip) : c'est une étagère de découverte en plus. -->
+  <!-- ETAGERE CARROUSEL DECK — DESACTIVEE le 2026-07-25 (voir discussion chantier
+       deck-stack, iteration 2 : les decks deviennent des tuiles pleine taille MELANGEES
+       dans la grille du kiosque, plus une etagere separee). Bloc conserve tel quel pour
+       pouvoir le reactiver sans reecrire ; le JS associe (loadCollections /
+       updateShelfVisibility / setupShelfAutoScroll) est de meme commente dans site.js.
+       A re-tester plus tard.
   <section class="collections-shelf" id="collections-shelf" hidden>
     <div class="section-label">Les decks <span class="section-hint">— des packs prêts à adopter en un clic</span></div>
     <div class="shelf-row" id="shelf-row" role="list"></div>
   </section>
+  -->
+  <!-- Nouveau : les tuiles-deck (LBADeckStack) sont injectees DANS #grid par site.js
+       (loadDecksIntoGrid), melangees aux cartes d'alerte. -->
+  <div id="deck-tiles-src" hidden></div>
 
   <!-- B) « Le kiosque » + la barre d'outils groupés : le label de section se pin
        dans la marge à la hauteur de CE bloc (et non du haut du main), pour ne plus
