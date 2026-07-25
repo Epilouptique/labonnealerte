@@ -44,6 +44,14 @@
     var val = (input.value || '').trim();
     // Valeur inchangée : ne pas re-solliciter le serveur (quota 3/mois).
     if (val === (state.displayName || '')) { if (msg) { msg.classList.remove('show', 'err'); } return; }
+    // Pseudo obligatoire : on refuse le vide (ou les espaces seuls) côté client, avec un
+    // message clair, et on restaure le pseudo précédent. Le serveur refuse aussi (min 3),
+    // donc le pseudo par défaut auto-rempli n'est jamais écrasé par une chaîne vide.
+    if (!val) {
+      if (msg) { msg.textContent = 'Le pseudo ne peut pas être vide.'; msg.classList.remove('show'); void msg.offsetWidth; msg.classList.add('show', 'err'); }
+      input.value = state.displayName || '';
+      return;
+    }
     if (msg) { msg.classList.remove('err'); msg.classList.add('show'); msg.textContent = '…'; }
     try {
       var res = await fetch('/api/my-alerts/display-name', {
