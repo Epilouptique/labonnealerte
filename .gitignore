@@ -9,3 +9,4 @@ server/db/diagnostics/
 captures-decks-review/
 # Captures du chantier « format carte a jouer » (locales, non versionnées)
 captures-cards-format/
+captures-decks-ribbon/
