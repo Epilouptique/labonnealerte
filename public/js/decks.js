@@ -97,16 +97,13 @@
     var badge = d.visibility && d.visibility !== 'private'
       ? '<span class="deck-badge deck-badge-shared">Partagé</span>'
       : '<span class="deck-badge">Privé</span>';
-    var n = d.card_count || 0;
-    return '' +
-      '<button type="button" class="pack deck-tile ' + tintCls(d.tint) + '" data-deck="' + esc(d.id) + '">' +
-        '<span class="pack-stack" aria-hidden="true"></span>' +
-        '<span class="deck-motif-bg" aria-hidden="true">' + motifSvg(d.emoji || DEFAULT_EMOJI) + '</span>' +
-        '<span class="pack-body">' +
-          '<span class="pack-name">' + esc(d.name) + '</span>' +
-          '<span class="pack-meta">' + n + (n > 1 ? ' cartes' : ' carte') + badge + '</span>' +
-        '</span>' +
-      '</button>';
+    // Visuel partagé « pile + ruban » (LBADeckStack) ; le badge Privé/Partagé va dans
+    // le sous-titre du ruban. Aperçu = 3 dernières cartes (champ preview de l'API).
+    var stack = window.LBADeckStack ? LBADeckStack.html({
+      name: d.name, tint: d.tint, emoji: d.emoji || DEFAULT_EMOJI,
+      count: d.card_count || 0, preview: d.preview, size: 'tile', meta: badge
+    }) : '';
+    return '<button type="button" class="pack deck-tile" data-deck="' + esc(d.id) + '">' + stack + '</button>';
   }
 
   function renderList() {
@@ -242,12 +239,7 @@
             '<textarea id="deck-desc" maxlength="200" rows="3">' + esc(desc) + '</textarea>' +
             '<div class="deck-hint" id="deck-desc-hint"></div>' +
           '</div>' +
-          '<div class="deck-preview-wrap"><div class="deck-preview ' + tintCls(tint) + '" id="deck-preview">' +
-            '<span class="deck-motif-bg" aria-hidden="true" id="deck-preview-motif">' + motifSvg(emoji) + '</span>' +
-            '<span class="deck-preview-body">' +
-              '<span class="deck-preview-name" id="deck-preview-name">' + (esc(name) || 'Votre deck') + '</span>' +
-            '</span>' +
-          '</div></div>' +
+          '<div class="deck-preview-wrap"><div id="deck-preview">' + previewStack() + '</div></div>' +
         '</div>' +
         '<label>Motif (icône)</label>' +
         emojiPickerHTML(emoji) +
@@ -280,6 +272,7 @@
           var id = btn.getAttribute('data-source');
           seed = seed.filter(function (it) { return it.source.id !== id; });
           renderSeedGrid();
+          if (typeof updatePreview === 'function') updatePreview();
           var c = document.getElementById('deck-seed-count');
           if (c) c.textContent = seed.length;
         });
@@ -300,14 +293,23 @@
       var o = tintPicker.querySelector('.deck-tint-opt.on');
       return o ? parseInt(o.getAttribute('data-tint'), 10) : 1;
     }
-    // Aperçu live : motif, teinte, nom — mis à jour à chaque changement.
+    // Aperçu live « pile + ruban » (LBADeckStack) : nom, teinte, motif, cartes-graines.
+    // previewStack() lit les contrôles s'ils existent, sinon les valeurs initiales
+    // (il est aussi appelé au 1er rendu, avant que nameEl/picker soient assignés).
+    function previewStack() {
+      var nm = (typeof nameEl !== 'undefined' && nameEl) ? (nameEl.value || '').trim() : name;
+      var tn = (typeof tintPicker !== 'undefined' && tintPicker) ? currentTint() : tint;
+      var em = (typeof picker !== 'undefined' && picker) ? currentEmoji() : emoji;
+      // 3 dernières cartes ajoutées (récent d'abord) parmi les cartes-graines.
+      var names = seed.map(function (it) { return it.source && it.source.name; })
+        .filter(Boolean).slice(-3).reverse();
+      return window.LBADeckStack ? LBADeckStack.html({
+        name: nm || 'Votre deck', tint: tn, emoji: em, count: seed.length, preview: names, size: 'preview'
+      }) : '';
+    }
     function updatePreview() {
       var prev = document.getElementById('deck-preview');
-      var motifEl = document.getElementById('deck-preview-motif');
-      var nameOut = document.getElementById('deck-preview-name');
-      if (nameOut) nameOut.textContent = (nameEl.value || '').trim() || 'Votre deck';
-      if (motifEl) motifEl.innerHTML = motifSvg(currentEmoji());
-      if (prev) prev.className = 'deck-preview ' + tintCls(currentTint());
+      if (prev) prev.innerHTML = previewStack();
     }
 
     function hint() {
@@ -407,13 +409,20 @@
     curDeck = deck;
     deckSources = (sources || []).slice();
     var shared = deck.visibility && deck.visibility !== 'private';
+    // Visuel de synthèse « pile + ruban » (remplace l'ancienne vignette .deck-thumb-lg) :
+    // 3 dernières cartes ajoutées (récent d'abord) parmi les cartes du deck.
+    var headNames = deckSources.map(function (s) { return s.name; }).filter(Boolean).slice(-3).reverse();
+    var headStack = window.LBADeckStack ? LBADeckStack.html({
+      name: '', tint: deck.tint, emoji: deck.emoji || DEFAULT_EMOJI,
+      count: deckSources.length, preview: headNames, size: 'detail'
+    }) : '';
     var forked = deck.forked_from_name
       ? '<p class="deck-forked">Inspiré de « ' + esc(deck.forked_from_name) + ' »</p>' : '';
 
     viewEl.innerHTML = '' +
       '<button type="button" class="deck-back" id="deck-detail-back">← Tous mes decks</button>' +
       '<div class="coll-head-top">' +
-        deckThumb(deck.emoji || DEFAULT_EMOJI, deck.tint, true) +
+        headStack +
         '<h1>' + esc(deck.name) + '</h1>' +
       '</div>' +
       (deck.description ? '<p class="src-desc">' + esc(deck.description) + '</p>' : '') +

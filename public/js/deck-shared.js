@@ -58,9 +58,12 @@
     // E5) motif+teinte à la place de l'emoji.
     var em = document.getElementById('deck-emoji');
     if (em) {
-      var motif = (window.LBADeckMotifs && (LBADeckMotifs[d.emoji] || LBADeckMotifs['📦'])) || '';
-      em.innerHTML = '<span class="deck-thumb deck-thumb-lg tint-' + ((d.tint >= 1 && d.tint <= 11) ? d.tint : 1) +
-        '"><span class="deck-motif-bg" aria-hidden="true">' + motif + '</span></span>';
+      // Visuel de synthèse « pile + ruban » (remplace l'ancienne vignette .deck-thumb-lg).
+      // Le <h1> porte le nom → ruban sans nom (name:''). Aperçu = 3 dernières cartes.
+      var names = sources.map(function (s) { return s.name; }).filter(Boolean).slice(-3).reverse();
+      em.innerHTML = window.LBADeckStack ? LBADeckStack.html({
+        name: '', tint: d.tint, emoji: d.emoji, count: sources.length, preview: names, size: 'detail'
+      }) : '';
     }
     document.getElementById('deck-name').textContent = d.name || '';
     document.getElementById('deck-desc').textContent = d.description || '';

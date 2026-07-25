@@ -1710,19 +1710,16 @@
     var list = (data && data.collections) || [];
     if (!list.length) return;
     row.innerHTML = list.map(function (c) {
-      var likes = (c.total_likes > 0)
-        ? '<span class="pack-likes">❤ ' + esc(LBACards.formatCount(c.total_likes)) + '</span>' : '';
-      var n = c.card_count || 0;
-      // E5) fond teinté + motif (SVG de la bibliothèque, plus d'emoji affiché).
-      var tintCls = 'tint-' + ((c.tint >= 1 && c.tint <= 11) ? c.tint : 1);
-      var motif = (window.LBADeckMotifs && (LBADeckMotifs[c.emoji] || LBADeckMotifs['📦'])) || '';
-      return '<a class="pack ' + tintCls + '" role="listitem" href="/collection/' + encodeURIComponent(c.id) + '">' +
-        '<span class="pack-stack" aria-hidden="true"></span>' +
-        '<span class="deck-motif-bg" aria-hidden="true">' + motif + '</span>' +
-        '<span class="pack-body">' +
-        '<span class="pack-name">' + esc(c.name) + '</span>' +
-        '<span class="pack-meta">' + n + (n > 1 ? ' cartes' : ' carte') + likes + '</span>' +
-        '</span></a>';
+      // Visuel « pile de cartes + ruban » partagé (LBADeckStack) ; les ❤ vont dans le
+      // sous-titre du ruban. Aperçu = 3 dernières cartes (champ preview de l'API).
+      var meta = (c.total_likes > 0)
+        ? '<span class="ds-ribbon-likes">❤ ' + esc(LBACards.formatCount(c.total_likes)) + '</span>' : '';
+      var stack = window.LBADeckStack ? LBADeckStack.html({
+        name: c.name, tint: c.tint, emoji: c.emoji, count: c.card_count || 0,
+        preview: c.preview, size: 'shelf', meta: meta
+      }) : '';
+      return '<a class="pack" role="listitem" href="/collection/' + encodeURIComponent(c.id) + '">' +
+        stack + '</a>';
     }).join('');
     shelf.hidden = false;
     updateShelfVisibility();   // E4 : respecte le filtre courant (cat)
