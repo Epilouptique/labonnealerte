@@ -313,7 +313,11 @@
         // C1) Rangée du dessous : titre + badge.
         topRow(s) +
         (s.subtitle ? '<div class="card-subtitle">' + esc(s.subtitle) + '</div>' : '') +
-        '<p>' + esc(s.description || '') + '</p>' +
+        // Description : le texte est encapsule dans .card-desc pour que la
+        // troncature -webkit-line-clamp s'applique reellement. Sur .p directement,
+        // le clamp est inerte (le <p>, enfant flex du recto, est « blockifie » en
+        // flow-root par le moteur) ; sur un enfant non-flex, il fonctionne.
+        '<p><span class="card-desc">' + esc(s.description || '') + '</span></p>' +
         count +
         action +
       '</div>';

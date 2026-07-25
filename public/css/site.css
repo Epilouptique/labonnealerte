@@ -209,9 +209,17 @@ html[data-theme="dark"] .search { border: 1px solid color-mix(in srgb, var(--mut
    à ~644px et écrasait les autres — visible seulement au filtre car cette carte est
    paginée en vue « Toutes ». `minmax(0,1fr)` force des colonnes égales, le contenu
    pouvant rétrécir/déborder proprement (voir aussi `.card { min-width:0 }`). */
-.grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; padding-top: 2rem; padding-bottom: 26px; grid-auto-rows: auto; align-content: start; }
-@media (max-width: 900px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 620px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+/* Format « carte a jouer » : la grille est ADAPTATIVE (le nombre de colonnes se
+   recalcule selon la largeur), plutot que 3 colonnes fixes. Largeur de carte cible
+   ~250px sur desktop → 4 colonnes sur .wrap (1240px), 2-3 en tablette. La carte
+   garde son ratio 5/7 (voir .card-face). minmax(0,...) preserve le garde-fou « vie
+   locale » (colonnes qui ne gonflent pas au min-content d'un <select> long). */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(250px, 100%), 1fr)); gap: 18px; padding-top: 2rem; padding-bottom: 26px; grid-auto-rows: auto; align-content: start; }
+/* Mobile : 2 cartes par rangee (format « carte a jouer » narrow, ratio conserve).
+   minmax(0,1fr) → les cartes se partagent la largeur sans jamais deborder, meme
+   sur les tres petits ecrans (~320px). Le recto etant plus etroit, la description
+   est limitee a 3 lignes (voir .grid .card-front > p). */
+@media (max-width: 620px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; } }
 .card {
   background: var(--surface); border: none; border-radius: 24px;
   padding: 22px; box-shadow: none;
@@ -254,7 +262,14 @@ html[data-theme="dark"] .search { border: 1px solid color-mix(in srgb, var(--mut
   border: 2px solid transparent;
   min-width: 0; /* Bug « vie locale » : le contenu (select à libellés longs) peut rétrécir. */
 }
-.card-front { position: relative; min-height: 285px;}              /* en flux : définit la hauteur */
+.card-front { position: relative; }
+/* Format « carte a jouer » : la face recto porte le ratio 5/7 (equivalent simplifie
+   du 2.5:3.5 des vraies cartes Magic/Pokemon). C'est le recto (en flux dans
+   .card-inner) qui definit la hauteur ; le verso, en position:absolute inset:0,
+   epouse cette hauteur → le flip 3D reste identique, juste recalibre.
+   Scope .grid : le seul .card.flip HORS grille est la carte « Mon compte »
+   (.acct-front, hauteur libre 460px) — elle ne doit PAS prendre ce ratio. */
+.grid .card-front { aspect-ratio: 5 / 7; }
 /* Verso : fond légèrement teinté (subtil), position absolue par-dessus le recto. */
 .card-back {
   position: absolute; inset: 0; transform: rotateY(180deg); gap: 14px;
@@ -298,6 +313,26 @@ html[data-theme="dark"] .search { border: 1px solid color-mix(in srgb, var(--mut
 .card-back .card-top { padding-right: 30px; }  /* réserve pour ↩ */
 .card h3 { font-size: 16.5px; font-weight: 700; letter-spacing: -0.01em; }
 .card p { font-size: 13.5px; color: var(--muted); flex: 1; }
+/* Troncature de la description dans le nouveau ratio : nombre de lignes fixe
+   (-webkit-line-clamp) + fondu par masque vers le bas (plutot qu'une coupe nette
+   avec « … »). Le clamp porte sur .card-desc (enfant du <p>, PAS un enfant flex) :
+   sur le <p> lui-meme il serait inerte. flex:1 sur le <p> absorbe l'espace restant
+   du recto ; min-height:0 l'autorise a se comprimer. Le texte complet reste
+   accessible au verso (bouton « i »). */
+/* overflow:hidden sur le <p> (pas seulement sur .card-desc) : quand la carte est
+   tres chargee (titre + sous-titre longs sur une carte etroite), le <p> est
+   comprime par flex ; sans ce clip, les 3 lignes de .card-desc deborderaient sur
+   le bloc d'abonnement en dessous. Le clip garde le ratio et empeche tout
+   chevauchement ; le texte complet reste au verso. */
+.grid .card-front > p { min-height: 0; overflow: hidden; }
+.grid .card-front > p > .card-desc {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, #000 74%, transparent);
+          mask-image: linear-gradient(to bottom, #000 74%, transparent);
+}
+/* Cartes plus etroites (mobile) : moins de lignes pour respecter le ratio. */
+@media (max-width: 620px) { .grid .card-front > p > .card-desc { -webkit-line-clamp: 3; } }
 .badge {
   font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700;
   text-transform: uppercase; letter-spacing: .08em; border-radius: 8px; padding: 4px 10px;
@@ -1419,21 +1454,15 @@ body[data-mode="connected"] #stats { display: none; }
   /* « Le kiosque » masqué. */
   body.m-kiosk main#alertes > .section-label { display: none; }
 
-  /* C1) Cartes compactes par défaut : la description (.card p) et l'état (.state)
-     sont repliés (max-height:0) et se déploient FLUIDEMENT au tap (.revealed) —
-     pas de saut. Le min-height fixe du recto est abaissé sur mobile pour que la
-     carte se réduise vraiment. */
-  body.m-kiosk .grid .card .card-front { min-height: 0; }
+  /* Format « carte a jouer » sur mobile : le recto garde son ratio 5/7 (voir
+     .grid .card-front), donc la carte NE se replie plus au tap. La description et
+     l'etat restent affiches en permanence (description tronquee/fondue via
+     -webkit-line-clamp) pour remplir la carte. L'ancien repli max-height:0 +
+     .revealed devient sans objet ; le texte complet reste au verso (bouton « i »).
+     Le handler .revealed (mobile-header.js) subsiste mais est inerte ici. */
   body.m-kiosk .grid .card .card-front > p,
   body.m-kiosk .grid .card .card-front > .state {
-    overflow: hidden; max-height: 0; opacity: 0; margin-top: 0;
-    transition: max-height .3s ease, opacity .25s ease, margin-top .3s ease;
-  }
-  body.m-kiosk .grid .card.revealed .card-front > p { max-height: 220px; opacity: 1; }
-  body.m-kiosk .grid .card.revealed .card-front > .state { max-height: 48px; opacity: 1; }
-  @media (prefers-reduced-motion: reduce) {
-    body.m-kiosk .grid .card .card-front > p,
-    body.m-kiosk .grid .card .card-front > .state { transition: none; }
+    max-height: none; opacity: 1;
   }
 
   /* E2) Header condensé au scroll : le titre et les catégories disparaissent, mais
@@ -2031,6 +2060,14 @@ body.m-menu-open { overflow: hidden; }
    NB mobile : .state est replié (tap pour révéler) → c'est le titre qui remonte
    dans la bande des icônes ; sa réserve (padding-right:136px) reste donc utile. */
 .card-front > .state:first-of-type { padding-right: 130px; margin-bottom: 6px; min-height: 20px; }
+/* Format « carte a jouer » etroit (mobile, 2 colonnes) : la carte est trop etroite
+   pour aligner l'etat ET les 3-4 icones sur la meme rangee (« Rien a signaler »
+   chevauchait les icones). L'etat passe SOUS la bande d'icones (pleine largeur),
+   les icones gardent leur coin haut-droit. Aucune refonte du contenu, juste un
+   repositionnement pour le format resserre. */
+@media (max-width: 620px) {
+  .grid .card-front > .state:first-of-type { padding-right: 0; margin-top: 30px; min-height: 0; }
+}
 
 /* C4) Statut d'abonnement des cartes paramétrées : en bas, détaché du sélecteur. */
 .param-status { margin-top: 10px; }
