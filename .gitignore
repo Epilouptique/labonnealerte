@@ -5,3 +5,5 @@ node_modules
 server/db/diagnostics/
 # Échantillons de flux (ex. vigilance_om_test.zip) — jamais versionnés
 *.zip
+# Captures de travail pour la revue UX des decks (livrées en local, non versionnées)
+captures-decks-review/
