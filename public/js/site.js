@@ -87,10 +87,22 @@
     e.preventDefault(); e.stopPropagation();
     var card = sb.closest('.card');
     if (!card) return;
-    var id = card.getAttribute('data-source-id');
-    var h3 = card.querySelector('h3');
-    var name = h3 ? h3.textContent : 'La Bonne Alerte';
-    var url = 'https://labonnealerte.fr/source/' + id + '/statut';
+    // Carte de devant d'une tuile-deck : on partage LE DECK (URL /collection/:slug + nom du
+    // ruban), pas la source d'apercu. Meme retournement, meme liste de partages (LBAShare).
+    var deckCard = card.closest('.deck-card');
+    var name, url;
+    if (deckCard) {
+      var dslug = decodeURIComponent((deckCard.getAttribute('data-href') || '').replace('/collection/', ''));
+      var dn = deckCard.querySelector('.ds-ribbon-name');
+      name = dn ? dn.textContent : 'Un deck';
+      url = 'https://labonnealerte.fr/collection/' + dslug;
+      deckCard.classList.add('ds-sharing'); // masque ruban + cartes du fond pendant le partage
+    } else {
+      var id = card.getAttribute('data-source-id');
+      var h3 = card.querySelector('h3');
+      name = h3 ? h3.textContent : 'La Bonne Alerte';
+      url = 'https://labonnealerte.fr/source/' + id + '/statut';
+    }
     var faceGrid = card.querySelector('.share-face-grid');
     if (faceGrid && window.LBAShare && !faceGrid.dataset.filled) {
       faceGrid.innerHTML = LBAShare.optionsHTML(name, url);
@@ -109,6 +121,14 @@
   function likesSave(a) { try { localStorage.setItem('lba-likes', JSON.stringify(a)); } catch (e) {} }
   function likeAdd(id) { var s = likesSet(); if (s.indexOf(id) === -1) { s.push(id); likesSave(s); } }
   function likeRemove(id) { var s = likesSet(); var i = s.indexOf(id); if (i !== -1) { s.splice(i, 1); likesSave(s); } }
+
+  // Favoris de DECK (le cœur de la carte de devant d'une tuile-deck) : stockes a part
+  // (lba-deck-favorites, ids de collection), car un deck n'est pas une source. La page
+  // /favoris les affiche en tuiles-deck (voir favoris.js).
+  function deckFavSet() { try { var a = JSON.parse(localStorage.getItem('lba-deck-favorites') || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
+  function deckFavSave(a) { try { localStorage.setItem('lba-deck-favorites', JSON.stringify(a)); } catch (e) {} }
+  function isDeckFav(id) { return deckFavSet().indexOf(id) !== -1; }
+  function deckFavToggle(id) { var s = deckFavSet(); var i = s.indexOf(id); if (i === -1) s.push(id); else s.splice(i, 1); deckFavSave(s); return i === -1; }
   function isLiked(id) { return likesSet().indexOf(id) !== -1; }
 
   // D) Remontée one-shot des favoris locaux vers le serveur (une fois par session
@@ -150,6 +170,15 @@
     if (!btn) return;
     e.preventDefault(); e.stopPropagation();
     var card = btn.closest('.card'); if (!card) return;
+    // Carte de devant d'une tuile-deck : le cœur ajoute/retire LE DECK des favoris (local),
+    // pas la source d'apercu. Bascule visuelle immediate.
+    var deckCard = card.closest('.deck-card');
+    if (deckCard) {
+      var dslug = decodeURIComponent((deckCard.getAttribute('data-href') || '').replace('/collection/', ''));
+      if (!dslug) return;
+      setLikeUI(btn, deckFavToggle(dslug));
+      return;
+    }
     var id = card.getAttribute('data-source-id'); if (!id) return;
     if (btn.disabled) return;
     var liked = btn.classList.contains('liked');
@@ -397,8 +426,13 @@
         var wasShare = c2.classList.contains('face-share');
         var wasDeck = c2.classList.contains('face-deck'); // F3
         c2.classList.remove('flipped');
+        // Tuile-deck : reaffiche le ruban + les cartes du fond apres la rotation de retour.
+        var dc = c2.closest('.deck-card');
         // Garde la face active cachant l'info pendant la rotation de retour (anti-flicker).
-        if (wasShare || wasDeck) setTimeout(function () { c2.classList.remove('face-share', 'face-deck'); }, REDUCE ? 0 : 520);
+        if (wasShare || wasDeck) setTimeout(function () {
+          c2.classList.remove('face-share', 'face-deck');
+          if (dc) dc.classList.remove('ds-sharing');
+        }, REDUCE ? 0 : 520);
       }
       return;
     }
@@ -1742,9 +1776,15 @@
     // Navigation de la tuile (div role=link) : clic n'importe où → page du deck.
     g.querySelectorAll('.deck-card[data-href]').forEach(function (t) {
       if (t.dataset.bound) return; t.dataset.bound = '1';
-      t.addEventListener('click', function () { window.location.href = t.getAttribute('data-href'); });
+      t.addEventListener('click', function (e) {
+        // Un clic sur un controle actif de la carte de devant (switch, cœur, partager,
+        // retour, face de partage) NE navigue PAS : il laisse bulle jusqu'aux handlers
+        // delegues (abonnement / favori / partage). Le reste de la tuile navigue.
+        if (e.target.closest('.ds-i0 .switch-row, .ds-i0 .card-like, .ds-i0 .card-share, .ds-i0 .flip-back, .ds-i0 .card-share-face')) return;
+        window.location.href = t.getAttribute('data-href');
+      });
       t.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter') { window.location.href = t.getAttribute('data-href'); }
+        if (e.key === 'Enter' && e.target === t) { window.location.href = t.getAttribute('data-href'); }
       });
     });
     // Les tuiles-deck rejoignent la collection `cards` du kiosque → elles suivent EXACTEMENT
@@ -1773,9 +1813,10 @@
       var row = cb.closest('.switch-row');
       var label = row ? row.querySelector('.switch-label') : null;
       var slug = decodeURIComponent((tile.getAttribute('data-href') || '').replace('/collection/', ''));
+      // Cœur : reflete l'etat « favori » du deck (localStorage) au montage.
+      var like = front.querySelector('.like-btn');
+      if (like && isDeckFav(slug)) setLikeUI(like, true);
       function paint(on) { if (label) { label.textContent = on ? 'Abonné' : 'Non abonné'; label.classList.toggle('on', on); } }
-      // Le clic sur le switch reste dans le switch (ne declenche pas la navigation de la tuile).
-      if (row) row.addEventListener('click', function (e) { e.stopPropagation(); });
       cb.addEventListener('change', function (e) {
         e.stopPropagation();
         var token = LBASession.get();
@@ -1783,14 +1824,14 @@
         if (!slug) { cb.checked = false; return; }
         var want = cb.checked;
         cb.disabled = true; paint(want); // optimiste
+        // Confettis IMMEDIATS a l'abonnement (comme l'optimisme du switch), sans attendre
+        // la reponse reseau (sinon effet retarde).
+        if (want && window.LBACards && LBACards.celebrateBurst) LBACards.celebrateBurst(cb.closest('.switch'));
         fetch('/api/collections/' + encodeURIComponent(slug) + '/adopt', {
           method: want ? 'POST' : 'DELETE',
           headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
           body: JSON.stringify({ token: token })
         }).then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.json(); })
-          .then(function () {
-            if (want && window.LBACards && LBACards.celebrateBurst) LBACards.celebrateBurst(cb.closest('.switch'));
-          })
           .catch(function () { cb.checked = !want; paint(cb.checked); }) // rollback
           .finally(function () { cb.disabled = false; });
       });

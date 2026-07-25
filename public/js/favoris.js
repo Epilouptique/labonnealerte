@@ -21,6 +21,58 @@
     try { var a = JSON.parse(localStorage.getItem('lba-likes') || '[]'); return Array.isArray(a) ? a : []; }
     catch (e) { return []; }
   }
+  // Favoris de DECK (poses via le cœur d'une tuile-deck du kiosque, cf. site.js).
+  function deckFavIds() {
+    try { var a = JSON.parse(localStorage.getItem('lba-deck-favorites') || '[]'); return Array.isArray(a) ? a : []; }
+    catch (e) { return []; }
+  }
+  function deckFavSave(a) { try { localStorage.setItem('lba-deck-favorites', JSON.stringify(a)); } catch (e) {} }
+
+  // Affiche les decks favoris en tuiles (LBADeckStack), en tete de la grille des favoris.
+  // Sur cette page le cœur SERT a RETIRER le deck des favoris ; le clic ailleurs navigue
+  // vers la page du deck. (Le switch/partage restent des actions du kiosque.)
+  async function renderDeckFavorites() {
+    var ids = deckFavIds();
+    if (!ids.length || !window.LBADeckStack || !window.LBACards) return;
+    try {
+      var res = await Promise.all([
+        fetch('/api/collections', { headers: { Accept: 'application/json' } }).then(function (r) { return r.ok ? r.json() : { collections: [] }; }),
+        fetch('/api/sources', { headers: { Accept: 'application/json' } }).then(function (r) { return r.ok ? r.json() : []; })
+      ]);
+      var list = ((res[0] && res[0].collections) || []).filter(function (c) { return ids.indexOf(c.id) !== -1; });
+      if (!list.length) return;
+      var index = LBADeckStack.indexSources(res[1] || []);
+      var html = list.map(function (c) {
+        var cards = LBADeckStack.resolveCards(c.preview || [], index);
+        var stack = LBADeckStack.html({ name: c.name, tint: c.tint, emoji: c.emoji, count: c.card_count || 0, cards: cards, mode: 'anon' });
+        return '<div class="deck-card" data-deck-tile role="link" tabindex="0" data-href="/collection/' + encodeURIComponent(c.id) + '">' + stack + '</div>';
+      }).join('');
+      gridEl.insertAdjacentHTML('afterbegin', html);
+      if (emptyEl) emptyEl.hidden = true;
+      // Cœurs des tuiles-deck : marques comme favoris (remplis).
+      gridEl.querySelectorAll('.deck-card[data-deck-tile] .ds-i0 .like-btn').forEach(function (b) {
+        b.classList.add('liked'); b.setAttribute('aria-pressed', 'true');
+      });
+    } catch (e) { /* non bloquant */ }
+  }
+
+  // Handler local : cœur d'une tuile-deck = retire des favoris ; clic ailleurs = navigation.
+  if (gridEl) gridEl.addEventListener('click', function (e) {
+    var tile = e.target.closest('.deck-card[data-deck-tile]');
+    if (!tile) return;
+    if (e.target.closest('.ds-i0 .card-like')) {
+      e.preventDefault(); e.stopPropagation();
+      var slug = decodeURIComponent((tile.getAttribute('data-href') || '').replace('/collection/', ''));
+      deckFavSave(deckFavIds().filter(function (x) { return x !== slug; }));
+      tile.remove();
+      var hasAny = gridEl.querySelector('.card, .deck-card');
+      if (!hasAny && emptyEl) emptyEl.hidden = false;
+      return;
+    }
+    // Les autres controles (switch, partage) sont des actions du kiosque : inertes ici.
+    if (e.target.closest('.ds-i0 .switch-row, .ds-i0 .card-share, .ds-i0 .flip-back, .ds-i0 .card-share-face')) return;
+    window.location.href = tile.getAttribute('data-href');
+  });
 
   function markLikes() {
     gridEl.querySelectorAll('.card .like-btn').forEach(function (btn) {
@@ -94,6 +146,7 @@
       if (loadingEl) loadingEl.hidden = true;
       if (viewEl) viewEl.hidden = false;
       renderCards(Array.isArray(sources) ? sources : []);
+      await renderDeckFavorites();
     } catch (e) {
       if (loadingEl) loadingEl.hidden = true;
       if (errorEl) errorEl.hidden = false;
@@ -114,6 +167,7 @@
       if (loadingEl) loadingEl.hidden = true;
       if (viewEl) viewEl.hidden = false;
       renderCards(sources);
+      await renderDeckFavorites();
     } catch (e) {
       if (loadingEl) loadingEl.hidden = true;
       if (errorEl) errorEl.hidden = false;

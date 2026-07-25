@@ -2272,11 +2272,28 @@ html[data-theme="dark"] .tint-11 .deck-motif-bg::after { background: color-mix(i
    reste visible mais grise (desactive). */
 .deck-card .ds-face { pointer-events: none; }
 .deck-card .ds-face .switch-row { opacity: .5; }
-/* Exception : le switch de la carte de DEVANT est ACTIF (abonne/desabonne tout le deck,
-   voir bindDeckSwitches) → on lui rend les evenements pointeur et son opacite pleine. */
+/* Exceptions sur la carte de DEVANT : elements ACTIFS (switch = abonne tout le deck,
+   cœur = favori deck, partager = retourne le deck) → on leur rend les evenements pointeur
+   et l'opacite pleine. Les autres cartes de la pile restent inertes. */
 .deck-card .ds-i0 .switch-row { pointer-events: auto; opacity: 1; }
 .deck-card .ds-i0 .switch-row .switch input:disabled ~ .track,
 .deck-card .ds-i0 .switch-row .switch input:disabled ~ .thumb { opacity: 1; }
+/* Le switch n'est pas un lien : curseur normal (fleche), pas la main de la tuile-lien. */
+.deck-card .ds-i0 .switch-row, .deck-card .ds-i0 .switch-row * { cursor: default; }
+/* Cœur, partager, retour (face partage) et la face de partage elle-meme : cliquables. */
+.deck-card .ds-i0 .card-like,
+.deck-card .ds-i0 .card-share,
+.deck-card .ds-i0 .flip-back,
+.deck-card .ds-i0 .card-share-face { pointer-events: auto; }
+/* Le compteur de likes de la source n'a pas de sens pour un favori de deck → masque. */
+.deck-card .ds-i0 .like-n { display: none; }
+/* Survol du deck : ombre portee sur la carte de devant, comme .card.flip:hover. */
+.deck-card:hover .ds-i0 .card-front { box-shadow: var(--shadow); }
+/* Pendant le partage (retournement de la carte de devant) : on masque le ruban et les
+   cartes du fond pour un retournement propre facon carte. */
+.deck-card.ds-sharing .ds-ribbon,
+.deck-card.ds-sharing .ds-i1,
+.deck-card.ds-sharing .ds-i2 { opacity: 0; pointer-events: none; }
 /* Eventail VISIBLE : les cartes du fond sont decalees de --ds-fan de chaque cote + une
    legere rotation, reduites, et debordent donc de part et d'autre de la carte de devant
    (elle-meme reduite) — le ruban pleine largeur englobe l'ensemble. */
