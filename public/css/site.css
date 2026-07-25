@@ -2311,6 +2311,25 @@ html[data-theme="dark"] .tint-11 .deck-motif-bg::after { background: color-mix(i
    en clair / fonce en sombre, contraste OK). */
 .tint-10 .ds-ribbon { color: #fff; }
 .tint-10 .ds-ribbon-meta { color: color-mix(in srgb, #fff 72%, transparent); }
+/* tint-11 (arc-en-ciel) : le ruban adopte le MEME degrade que .pack.tint-11 /
+   .deck-thumb.tint-11 / .deck-preview.tint-11 (repris a l'identique — degrade documente,
+   seule exception hex de la charte) au lieu du fond uni --deck-bg. Ombres de repli et
+   variables (--_g, --ds-ribbon-shadow) conservees. Texte --ink lisible (degrade pastel en
+   clair, sombre en sombre), pas de surcharge de couleur necessaire. */
+.tint-11 .ds-ribbon {
+  background:
+    radial-gradient(100% 50% at right, var(--ds-ribbon-shadow) 98%, transparent 101%) 0 var(--_g),
+    radial-gradient(100% 50% at left, var(--ds-ribbon-shadow) 98%, transparent 101%) 100% var(--_g),
+    linear-gradient(120deg, #f6c6c6 0%, #f7dcb0 22%, #f3f0a8 42%, #bfe6bf 62%, #b9d4f0 80%, #d8c2ee 100%)
+      0 0 / calc(100% - var(--r)) 100% no-repeat;
+}
+html[data-theme="dark"] .tint-11 .ds-ribbon {
+  background:
+    radial-gradient(100% 50% at right, var(--ds-ribbon-shadow) 98%, transparent 101%) 0 var(--_g),
+    radial-gradient(100% 50% at left, var(--ds-ribbon-shadow) 98%, transparent 101%) 100% var(--_g),
+    linear-gradient(120deg, #6b3f4a 0%, #6b563a 22%, #5f5f38 42%, #3f5f45 62%, #3a4f6b 80%, #4f3f6b 100%)
+      0 0 / calc(100% - var(--r)) 100% no-repeat;
+}
 
 /* En-tete de detail : la pile pleine taille remplace la vignette .deck-thumb-lg. On la
    borne a une largeur de carte pour ne pas ecraser le titre a cote. */
