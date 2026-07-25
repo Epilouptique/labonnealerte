@@ -3691,3 +3691,115 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_points_ledger_unique
 -- Lecture du journal d'un compte (usage futur : detail du ledger, hors phase 1).
 CREATE INDEX IF NOT EXISTS idx_points_ledger_subscriber
   ON points_ledger (subscriber_id, created_at DESC);
+
+-- ---------------------------------------------------------------------------
+-- Phase 2 : rang prive + badge Top 20 (PAS de classement public, PAS de liste
+-- d'utilisateurs). Opt-out EXPLICITE : true = exclu du calcul de rang, dans les
+-- DEUX sens (ni son rang calcule, ni compte dans le rang des autres). Le rang se
+-- calcule a la volee (RANK() filtre optout=false ET display_name non nul, cf.
+-- server/points.js), aucune colonne de rang denormalisee a maintenir.
+-- ---------------------------------------------------------------------------
+ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS leaderboard_optout BOOLEAN NOT NULL DEFAULT false;
+
+-- Classement par solde parmi les participants (optout=false, pseudo non nul).
+-- Sert getTop20Ids() (cache 2 min) et le rang perso. Partiel : n'indexe que les
+-- participants exposables, l'invariant du calcul de rang.
+CREATE INDEX IF NOT EXISTS idx_subscribers_leaderboard
+  ON subscribers (points_balance DESC)
+  WHERE leaderboard_optout = false AND display_name IS NOT NULL;
+
+-- ===========================================================================
+-- Phase 3 : boutique de skins cosmetiques (SQUELETTE technique). AUCUN visuel
+-- definitif : asset_ref = simple token CSS placeholder (ex. 'skin-aurore'),
+-- remplacable par les vrais assets SANS migration. Skins achetables en POINTS
+-- uniquement (jamais d'argent reel), statutaires/ludiques.
+--   type 'dashboard' -> classe posee sur la grille du dashboard du proprietaire
+--                       (PRIVE : visible de lui seul sur ses cartes source).
+--   type 'deck'      -> override par deck, PUBLIC (visible de tous sur la tuile
+--                       kiosque + le detail du deck partage).
+-- ===========================================================================
+
+-- Catalogue. id = slug lisible (coherent avec sources/collections en VARCHAR).
+CREATE TABLE IF NOT EXISTS skins (
+  id VARCHAR(64) PRIMARY KEY,
+  type TEXT NOT NULL CHECK (type IN ('dashboard', 'deck')),
+  name VARCHAR(120) NOT NULL,
+  cost INTEGER NOT NULL CHECK (cost >= 0),   -- prix en points
+  asset_ref TEXT NOT NULL,                    -- placeholder : token/classe CSS (ex. 'skin-aurore')
+  active BOOLEAN NOT NULL DEFAULT true,       -- false = retire du catalogue (n'est plus achetable)
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Possession. Un compte possede un skin une fois (PK composite). L'achat (INSERT
+-- ici + decrement du solde) se fait dans UNE transaction cote serveur (routes/skins.js).
+CREATE TABLE IF NOT EXISTS user_skins (
+  subscriber_id INTEGER NOT NULL REFERENCES subscribers(id) ON DELETE CASCADE,
+  skin_id VARCHAR(64) NOT NULL REFERENCES skins(id) ON DELETE CASCADE,
+  acquired_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (subscriber_id, skin_id)
+);
+CREATE INDEX IF NOT EXISTS idx_user_skins_subscriber ON user_skins (subscriber_id);
+
+-- Equipement. NULL = aucun skin (defaut / heritage). ON DELETE SET NULL : retirer
+-- un skin du catalogue ne casse jamais une ligne qui le reference encore.
+ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS equipped_dashboard_skin_id VARCHAR(64)
+  REFERENCES skins(id) ON DELETE SET NULL;
+-- Override par deck : NULL = herite du skin dashboard du proprietaire.
+ALTER TABLE collections ADD COLUMN IF NOT EXISTS equipped_skin_id VARCHAR(64)
+  REFERENCES skins(id) ON DELETE SET NULL;
+
+-- Seed des 4 skins placeholder de depart (couts varies). Idempotent : ON CONFLICT
+-- rafraichit les metadonnees mais preserve active/created_at. Les vrais visuels
+-- remplaceront le STYLE de asset_ref cote CSS, sans retoucher ces lignes.
+INSERT INTO skins (id, type, name, cost, asset_ref) VALUES
+  ('aurore',       'dashboard', 'Aurore pastel', 30,  'skin-aurore'),
+  ('nuit-etoilee', 'dashboard', 'Nuit etoilee',  60,  'skin-nuit-etoilee'),
+  ('menthe',       'deck',      'Givre menthe',  30,  'skin-menthe'),
+  ('or-royal',     'deck',      'Or royal',      100, 'skin-or-royal')
+ON CONFLICT (id) DO UPDATE SET
+  type = EXCLUDED.type, name = EXCLUDED.name, cost = EXCLUDED.cost, asset_ref = EXCLUDED.asset_ref;
+
+-- ================================================================
+-- DESCRIPTIONS : courte (<=120, affichee sur la carte) + longue (<=300, popup « i » +
+-- page /source/:id). Idempotent. La colonne `description` DEVIENT la description COURTE
+-- (bornee <=120) ; `description_long` (nouvelle, nullable) porte le texte detaille.
+-- ORDRE IMPERATIF : (1) copier le texte integral actuel dans description_long AVANT de
+-- tronquer ; (2) tronquer description a 117 + « … » (coupe sur un espace, jamais en plein
+-- mot) ; (3) poser les CHECK (DO block : Postgres n'a pas d'ADD CONSTRAINT IF NOT EXISTS).
+-- Le seed des sources est insert-only (WHERE NOT EXISTS) -> re-migrer ne reinjecte pas de
+-- texte long : troncature + CHECK tiennent dans le temps.
+-- CONVENTION (des le CHECK pose) : toute NOUVELLE source seedee doit avoir description
+-- <=120 (sinon son INSERT viole le CHECK avant la troncature de fin). Le texte integral
+-- d'origine reste dans les INSERT ci-dessus (git) : reference pour la reecriture.
+-- 9 sources depassaient 300 -> leur description_long est tronquee a 297+… en securite,
+-- A REECRIRE (Hugo) : risque-secheresse, catnat-commune, rappel-conso, veille-page,
+-- eau-potable-commune, grands-anniversaires, crypto-seuil, hausse-tarif-operateur,
+-- arts-visuels-evenements.
+-- ================================================================
+ALTER TABLE sources ADD COLUMN IF NOT EXISTS description_long TEXT;
+
+-- (1) Copie du texte integral vers description_long (une seule fois : guard IS NULL), pour
+--     les sources dont la description depasse 120. Bornee a 300 (297+… si >300).
+UPDATE sources
+   SET description_long = CASE
+         WHEN char_length(description) > 300
+           THEN regexp_replace(left(description, 297), '\s\S*$', '') || '…'
+         ELSE description
+       END
+ WHERE description_long IS NULL AND char_length(description) > 120;
+
+-- (2) Troncature de securite de la description courte a 117 + « … » (coupe sur un espace).
+UPDATE sources
+   SET description = regexp_replace(left(description, 117), '\s\S*$', '') || '…'
+ WHERE char_length(description) > 120;
+
+-- (3) CHECK idempotents (pg_constraint : pas d'ADD CONSTRAINT IF NOT EXISTS natif).
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'sources_description_short_len') THEN
+    ALTER TABLE sources ADD CONSTRAINT sources_description_short_len CHECK (char_length(description) <= 120);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'sources_description_long_len') THEN
+    ALTER TABLE sources ADD CONSTRAINT sources_description_long_len
+      CHECK (description_long IS NULL OR char_length(description_long) <= 300);
+  END IF;
+END $$;
