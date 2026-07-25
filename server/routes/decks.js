@@ -10,6 +10,7 @@ const { authenticate } = require('../sessions');
 const { validateParams } = require('../params');
 const { resolveInstances, recomputeDeckCategories } = require('./collections'); // réutilise phase 1
 const ugc = require('../ugc');
+const { award } = require('../points');
 
 const router = express.Router();
 const MAX_DECKS = 15;
@@ -170,6 +171,9 @@ router.post('/decks', async (req, res) => {
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 100)`,
       [id, name.value, desc.value || null, emoji, tint, auth.id, visibility, shareToken]
     );
+    // Point fixe pour la creation d'un deck (une fois par deck, pas de check de vitalite).
+    // Le fork (copie privee) n'en donne pas : ce n'est pas un acte de creation publique.
+    await award(auth.id, 'DECK_CREATED', id);
     return res.status(200).json({ deck: { id, name: name.value, description: desc.value || null, emoji, tint, visibility, share_token: shareToken, card_count: 0 } });
   } catch (err) {
     console.error('[decks] Erreur POST /decks :', err.message);
@@ -440,7 +444,7 @@ router.post('/decks/:id/adopt', async (req, res) => {
              ON CONFLICT (subscriber_id, source_id, COALESCE(params, '{}'::jsonb)) DO NOTHING RETURNING subscriber_id`,
             [auth.id, it.source_id]
           );
-          if (r.rowCount > 0) added++; else already++;
+          if (r.rowCount > 0) { added++; await award(auth.id, 'ALERT_SUBSCRIBED', it.source_id); } else already++;
         } else {
           const check = validateParams(it.params_schema, inst);
           if (!check.ok) { needsParams.push({ source_id: it.source_id, name: it.name }); continue; }
@@ -449,7 +453,7 @@ router.post('/decks/:id/adopt', async (req, res) => {
              ON CONFLICT (subscriber_id, source_id, COALESCE(params, '{}'::jsonb)) DO NOTHING RETURNING subscriber_id`,
             [auth.id, it.source_id, JSON.stringify(check.params)]
           );
-          if (r.rowCount > 0) added++; else already++;
+          if (r.rowCount > 0) { added++; await award(auth.id, 'ALERT_SUBSCRIBED', it.source_id); } else already++;
         }
       }
     }

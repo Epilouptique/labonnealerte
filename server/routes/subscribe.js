@@ -5,6 +5,7 @@ const { pool } = require('../db');
 const { sendConfirmation } = require('../mailer');
 const { validateParams } = require('../params');
 const { trackDomain } = require('../doomname');
+const { award } = require('../points');
 
 // apiRouter : endpoints JSON destinés aux machines (monté sous /api).
 // pagesRouter : pages HTML destinées aux humains, liens cliqués depuis un email
@@ -135,6 +136,11 @@ apiRouter.post('/subscribe', subscribeLimiter, async (req, res) => {
     if (link.rows.length === 0) {
       return res.status(409).json({ error: 'Déjà inscrit à cette source' });
     }
+
+    // Abonnement neuf : points a l'abonne (une fois par source a vie). Credite meme
+    // un compte non confirme/sans session : inoffensif, le solde l'attend a la 1re
+    // connexion. Effet secondaire non bloquant.
+    await award(subscriber.id, 'ALERT_SUBSCRIBED', sourceId);
 
     // DoomName : enregistre le domaine pour surveillance (best-effort, non bloquant).
     if (sourceId === 'doomname' && canonicalParams && canonicalParams.domaine) {

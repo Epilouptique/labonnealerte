@@ -3652,3 +3652,42 @@ UPDATE collections c
   FROM (SELECT id FROM collections) base
   LEFT JOIN top3 t ON t.cid = base.id
  WHERE c.id = base.id;
+
+-- ============================================================================
+-- Points cosmetiques (phase 1) : ledger append-only + solde denormalise.
+-- Statutaire/ludique uniquement, JAMAIS convertible ni achetable avec de l'argent
+-- reel. Le solde ne servira qu'a debloquer des skins visuels (phase ulterieure).
+-- 4 evenements cables cote serveur (routes/points.js award()) :
+--   ALERT_SUBSCRIBED       (5)  ref_id = source_id            — une fois/source a vie
+--   DECK_ADOPTED           (10) ref_id = deck_id              — une fois/(user, deck)
+--   DECK_CREATED           (25) ref_id = deck_id              — une fois/deck cree (hors fork)
+--   DECK_ADOPTED_BY_OTHERS (50) ref_id = 'deck_id:adopter_id' — une fois/(deck, adoptant)
+-- Ecriture defensive : l'echec d'un award ne bloque jamais l'action metier.
+-- Pas de classement/boutique/parrainage ici (fils separes) : schema volontairement
+-- minimal, juste assez ouvert (ref_id nullable) pour ces extensions.
+-- ============================================================================
+
+-- Solde denormalise, incremente dans la meme requete que l'INSERT ledger (cf. award()).
+ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS points_balance INTEGER NOT NULL DEFAULT 0;
+
+-- Journal append-only : jamais d'UPDATE en place, jamais de DELETE (sauf moderation
+-- exceptionnelle). Chaque ligne = un gain de points date et trace vers sa cible.
+CREATE TABLE IF NOT EXISTS points_ledger (
+  id BIGSERIAL PRIMARY KEY,
+  subscriber_id INTEGER NOT NULL REFERENCES subscribers(id) ON DELETE CASCADE,
+  event_type TEXT NOT NULL,
+  amount INTEGER NOT NULL,
+  ref_id TEXT,                       -- cible : source_id | deck_id | 'deck_id:adopter_id' ; NULL tolere
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Anti double-comptage "une fois par cible". Un event deja compte -> ON CONFLICT
+-- DO NOTHING dans award(). ref_id NULL reste DISTINCT (semantique UNIQUE de Postgres :
+-- plusieurs NULL autorises) -> garde la porte ouverte a un futur event global sans
+-- cible. Aucun de nos 4 events actuels n'a de ref_id NULL.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_points_ledger_unique
+  ON points_ledger (subscriber_id, event_type, ref_id);
+
+-- Lecture du journal d'un compte (usage futur : detail du ledger, hors phase 1).
+CREATE INDEX IF NOT EXISTS idx_points_ledger_subscriber
+  ON points_ledger (subscriber_id, created_at DESC);

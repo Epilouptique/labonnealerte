@@ -14,6 +14,7 @@ const express = require('express');
 const { pool } = require('../db');
 const { authenticate } = require('../sessions');
 const { validateParams } = require('../params');
+const { award } = require('../points');
 
 const router = express.Router();
 
@@ -152,14 +153,16 @@ router.post('/collections/:slug/adopt', async (req, res) => {
     if (!auth) return res.status(401).json({ error: 'Session invalide ou expirée' });
 
     // Adoptable = pack officiel OU deck perso PUBLIC (visible du kiosque).
+    // On recupere owner_subscriber_id pour crediter l'auteur (DECK_ADOPTED_BY_OTHERS).
     const exists = await pool.query(
-      `SELECT 1 FROM collections
+      `SELECT owner_subscriber_id FROM collections
         WHERE id = $1 AND (
               (visibility = 'official' AND owner_subscriber_id IS NULL)
            OR (visibility = 'public' AND owner_subscriber_id IS NOT NULL AND share_token IS NOT NULL))`,
       [req.params.slug]
     );
     if (exists.rows.length === 0) return res.status(404).json({ error: 'Collection inconnue' });
+    const ownerId = exists.rows[0].owner_subscriber_id; // NULL pour un pack officiel
 
     const prof = await pool.query('SELECT departement FROM subscribers WHERE id = $1', [auth.id]);
     const profileDept = (prof.rows[0] && prof.rows[0].departement) || null;
@@ -191,7 +194,7 @@ router.post('/collections/:slug/adopt', async (req, res) => {
              RETURNING subscriber_id`,
             [auth.id, it.source_id]
           );
-          if (r.rowCount > 0) added++; else already++;
+          if (r.rowCount > 0) { added++; await award(auth.id, 'ALERT_SUBSCRIBED', it.source_id); } else already++;
         } else {
           // Instance paramétrée : validée contre le schéma déclaré (défensif).
           const check = validateParams(it.params_schema, inst);
@@ -203,17 +206,28 @@ router.post('/collections/:slug/adopt', async (req, res) => {
              RETURNING subscriber_id`,
             [auth.id, it.source_id, JSON.stringify(check.params)]
           );
-          if (r.rowCount > 0) added++; else already++;
+          if (r.rowCount > 0) { added++; await award(auth.id, 'ALERT_SUBSCRIBED', it.source_id); } else already++;
         }
       }
     }
 
     // Suivi d'adoption (popularite du deck). Idempotent : un compte compte une fois.
-    await pool.query(
+    // RETURNING pour ne crediter les points QUE sur une adoption fraiche (pas de
+    // re-credit si le compte re-adopte apres desabonnement).
+    const adopt = await pool.query(
       `INSERT INTO collection_adoptions (subscriber_id, collection_id)
-       VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+       VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING subscriber_id`,
       [auth.id, req.params.slug]
     );
+    if (adopt.rowCount > 0) {
+      // Points a l'adoptant pour avoir adopte ce deck (une fois par (user, deck)).
+      await award(auth.id, 'DECK_ADOPTED', req.params.slug);
+      // Grand score a l'AUTEUR du deck (deck perso uniquement) quand un TIERS l'adopte.
+      // Auto-adoption exclue (ownerId === auth.id) : pas de points a soi-meme.
+      if (ownerId && ownerId !== auth.id) {
+        await award(ownerId, 'DECK_ADOPTED_BY_OTHERS', `${req.params.slug}:${auth.id}`);
+      }
+    }
 
     return res.status(200).json({ added, already, needs_params: needsParams, total: added + already });
   } catch (err) {

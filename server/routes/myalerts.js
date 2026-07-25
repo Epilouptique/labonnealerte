@@ -16,6 +16,7 @@ const { validateParams, resolveLabel } = require('../params');
 const { resolveCommuneInsee, isInsee, resolveCommuneCoords, encodeCoords, isEncodedCoords } = require('../sources/lib/commune-insee');
 const { trackDomain } = require('../doomname');
 const { applyAutofill, deriveDisplayNameFromEmail, clientIp } = require('../profile-autofill');
+const { award } = require('../points');
 
 // État « le pire » d'un ensemble d'instances (pour l'affichage de la carte).
 const STATE_RANK = { active: 3, pending: 2, inactive: 1 };
@@ -230,7 +231,7 @@ apiRouter.get('/my-alerts', async (req, res) => {
     // Préférences : email activé, appareils push, et personnalisation d'affichage.
     const prefs = await pool.query(
       `SELECT s.email_enabled, s.country, s.departement, s.region, s.ville, s.interests, s.display_name,
-              s.quiet_start, s.quiet_end, s.quiet_disabled,
+              s.points_balance, s.quiet_start, s.quiet_end, s.quiet_disabled,
               (SELECT COUNT(*)::int FROM push_subscriptions p WHERE p.subscriber_id = s.id) AS push_endpoints_count
          FROM subscribers s WHERE s.id = $1`,
       [auth.id]
@@ -269,6 +270,8 @@ apiRouter.get('/my-alerts', async (req, res) => {
       ville: pr.ville || null,
       interests: pr.interests || [],
       display_name: pr.display_name || null,
+      // Solde de points cosmetiques (phase 1) : juste le nombre, pas de detail du ledger.
+      points_balance: pr.points_balance || 0,
       // Heures de veille (défaut 23/8 appliqué en code si NULL).
       quiet_start: pr.quiet_start == null ? 23 : pr.quiet_start,
       quiet_end: pr.quiet_end == null ? 8 : pr.quiet_end,
@@ -478,12 +481,15 @@ apiRouter.post('/my-alerts/toggle', async (req, res) => {
     }
 
     if (subscribed) {
-      await pool.query(
+      const ins = await pool.query(
         // Broadcast (params NULL) : ON CONFLICT cible l'index d'expression v2.
         `INSERT INTO subscriptions (subscriber_id, source_id)
-         VALUES ($1, $2) ON CONFLICT (subscriber_id, source_id, COALESCE(params, '{}'::jsonb)) DO NOTHING`,
+         VALUES ($1, $2) ON CONFLICT (subscriber_id, source_id, COALESCE(params, '{}'::jsonb)) DO NOTHING
+         RETURNING subscriber_id`,
         [auth.id, source_id]
       );
+      // Abonnement neuf : points (une fois par source a vie), non bloquant.
+      if (ins.rowCount > 0) await award(auth.id, 'ALERT_SUBSCRIBED', source_id);
     } else {
       await pool.query(
         'DELETE FROM subscriptions WHERE subscriber_id = $1 AND source_id = $2',
@@ -564,12 +570,15 @@ apiRouter.post('/my-alerts/toggle-param', async (req, res) => {
     const canonical = check.params;
 
     if (subscribed) {
-      await pool.query(
+      const ins = await pool.query(
         `INSERT INTO subscriptions (subscriber_id, source_id, params)
          VALUES ($1, $2, $3::jsonb)
-         ON CONFLICT (subscriber_id, source_id, COALESCE(params, '{}'::jsonb)) DO NOTHING`,
+         ON CONFLICT (subscriber_id, source_id, COALESCE(params, '{}'::jsonb)) DO NOTHING
+         RETURNING subscriber_id`,
         [auth.id, source_id, JSON.stringify(canonical)]
       );
+      // Abonnement neuf : points (une fois par source a vie, tous params confondus), non bloquant.
+      if (ins.rowCount > 0) await award(auth.id, 'ALERT_SUBSCRIBED', source_id);
       // DoomName : enregistre le domaine pour surveillance (best-effort, non bloquant ;
       // le poller réessaie à chaque cycle si l'appel échoue).
       if (source_id === 'doomname' && canonical.domaine) trackDomain(canonical.domaine);

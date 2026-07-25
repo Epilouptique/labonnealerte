@@ -13,7 +13,7 @@
   var token = S.get();
   if (!token) return; // anonyme : pas de personnalisation
 
-  var state = { country: 'FR', departement: null, region: null, ville: null, interests: [], displayName: null };
+  var state = { country: 'FR', departement: null, region: null, ville: null, interests: [], displayName: null, points: 0 };
   var geo = { countries: [], departements: [], regions: [] };
   var kioskCats = []; // slugs de catégories réellement utilisées par le kiosque
 
@@ -242,6 +242,15 @@
       '      <input id="pref-dn" class="pref-dn-input" type="text" maxlength="25" placeholder="ex. Hugo des Alpes" value="' + esc(state.displayName || '') + '">' +
       '    </div>' +
       '  </div>' +
+      '</div>' +
+      // Points cosmetiques (phase 1) : affichage minimal, juste le solde (pas de detail
+      // du ledger). Purement statutaire/ludique, jamais convertible en argent.
+      '<div class="acct-subhead">Mes points</div>' +
+      '<div class="notif-card">' +
+      '  <div class="notif-row">' +
+      '    <div class="notif-txt"><strong>Solde</strong><span class="notif-sub">Points gagnes en creant et adoptant des decks</span></div>' +
+      '    <div class="pref-points" aria-label="Solde de points">' + esc(String(state.points || 0)) + '</div>' +
+      '  </div>' +
       '</div>';
 
     renderChips();
@@ -347,6 +356,7 @@
       state.ville = (me && me.ville) || null;
       state.interests = (me && me.interests) || [];
       state.displayName = (me && me.display_name) || null;
+      state.points = (me && me.points_balance) || 0;
 
       // Centres d'intérêt proposés = catégories réellement présentes dans le kiosque,
       // restreintes à la taxonomie connue (libellés fiables, acceptées côté serveur).

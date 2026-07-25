@@ -2086,6 +2086,8 @@ body.m-menu-open { overflow: hidden; }
 }
 .pref-dn-input:focus { outline: none; border-color: var(--amber); }
 .pref-dn-save { flex: none; white-space: nowrap; }
+/* Solde de points (phase 1) : affichage minimal, chiffre seul aligne a droite. */
+.pref-points { flex: none; font-size: 20px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
 @media (max-width: 600px) { .pref-dn-input-row { width: 100%; } }
 
 /* ===================== C1) Recto : état en haut-gauche, icônes en haut-droite ===================== */
