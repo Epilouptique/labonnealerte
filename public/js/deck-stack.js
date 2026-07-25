@@ -63,9 +63,9 @@
     if (opts.meta) meta += ' ' + opts.meta;
     // Nom optionnel : sur les pages de detail, le <h1> porte deja le nom (name:'').
     var nameHtml = opts.name ? '<span class="ds-ribbon-name">' + esc(opts.name) + '</span>' : '';
+    // Ruban en forme de vague : la forme/les plis viennent du background CSS (.ds-ribbon),
+    // plus de triangles .ds-fold en markup.
     var ribbon = '<span class="ds-ribbon">' +
-        '<span class="ds-fold ds-fold-l" aria-hidden="true"></span>' +
-        '<span class="ds-fold ds-fold-r" aria-hidden="true"></span>' +
         nameHtml +
         '<span class="ds-ribbon-meta">' + meta + '</span>' +
       '</span>';

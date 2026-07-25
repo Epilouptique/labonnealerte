@@ -2276,21 +2276,35 @@ html[data-theme="dark"] .tint-11 .deck-motif-bg::after { background: color-mix(i
 .ds-empty { aspect-ratio: 5 / 7; background: var(--deck-bg); border-radius: 24px; box-shadow: var(--shadow); overflow: hidden; }
 .ds-empty .deck-motif-bg { border-radius: inherit; }
 
-/* Ruban teinte, centre sur la pile, legerement plus large (effet enveloppant). */
+/* Ruban en forme de VAGUE (patron Hugo) : bords arrondis + encoche laterale qui epouse
+   le paquet, plutot qu'un rectangle a coins inclines. Centre sur la pile (positionnement
+   deja valide), contenu dans la tuile (overflow:hidden → aucun debordement).
+   - Fond = teinte du deck via var(--deck-bg) (11 teintes .tint-1..11, tint-10/11 inclus) —
+     jamais de couleur en dur (le #8FBE00 du patron est remplace).
+   - Ombres de repli = ombre neutre semi-transparente (--ds-ribbon-shadow, meme teinte que
+     --shadow) a la place du #0005 du patron.
+   - padding haut = bande de l'encoche (2r) ; padding bas = 2e ligne de texte (compteur). */
 .ds-ribbon {
-  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
-  width: calc(100% + 12px); z-index: 4;
-  background: var(--deck-bg); color: var(--ink);
-  padding: 10px 14px; border-radius: 6px; text-align: center;
-  box-shadow: 0 3px 12px rgba(30, 20, 50, .26);
+  --r: 9px;
+  --ds-ribbon-shadow: rgba(30, 20, 50, .33);
+  position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); z-index: 4;
+  text-align: center; line-height: 1.25; color: var(--ink);
+  padding: calc(2 * var(--r)) 14px 9px;
+  border-radius: var(--r);
+  --_g: 0 / var(--r) calc(2 * var(--r)) no-repeat;
+  background:
+    radial-gradient(100% 50% at right, var(--ds-ribbon-shadow) 98%, transparent 101%) 0 var(--_g),
+    radial-gradient(100% 50% at left, var(--ds-ribbon-shadow) 98%, transparent 101%) 100% var(--_g),
+    conic-gradient(at var(--r) calc(2 * var(--r)), transparent 25%, var(--deck-bg) 0) 0 0 / calc(100% - var(--r)) 100%;
 }
-/* Plis lateraux : petits triangles plus sombres sous les bords → le ruban « s'enroule »
-   derriere la pile (volume/pli). */
-.ds-fold { position: absolute; top: 100%; width: 15px; height: 11px; background: color-mix(in srgb, var(--deck-bg) 74%, #000); }
-.ds-fold-l { left: 4px; clip-path: polygon(0 0, 100% 0, 100% 100%); }
-.ds-fold-r { right: 4px; clip-path: polygon(0 0, 100% 0, 0 100%); }
 .ds-ribbon-name { display: block; font-weight: 700; font-size: 1rem; line-height: 1.15; letter-spacing: -.01em; overflow-wrap: anywhere; }
 .ds-ribbon-meta { display: block; font-size: .8rem; margin-top: 2px; color: color-mix(in srgb, var(--ink) 60%, transparent); }
+/* tint-10 (ardoise) : le fond du ruban est SOMBRE dans les deux themes (--deck-bg fixe) →
+   le texte --ink (fonce en clair) devient illisible. On force un texte clair (#fff = meme
+   convention que le texte sur bouton accent). Les autres teintes restent en --ink (fond pale
+   en clair / fonce en sombre, contraste OK). */
+.tint-10 .ds-ribbon { color: #fff; }
+.tint-10 .ds-ribbon-meta { color: color-mix(in srgb, #fff 72%, transparent); }
 
 /* En-tete de detail : la pile pleine taille remplace la vignette .deck-thumb-lg. On la
    borne a une largeur de carte pour ne pas ecraser le titre a cote. */
