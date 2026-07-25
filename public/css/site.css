@@ -1310,6 +1310,15 @@ body[data-mode="connected"] #stats { display: none; }
 }
 .param-select { cursor: pointer; }
 .param-input:focus { outline: none; border-color: var(--amber); }
+/* Format « carte a jouer » : dans une carte (ratio 5/7, 2 colonnes sur mobile ~360px),
+   aucun controle de parametre ne doit depasser la largeur de la carte, sinon il
+   empiete sur la carte voisine. On leve le plancher min-width (130/180px, plus large
+   qu'une carte etroite) et on borne chaque controle a 100%. box-sizing:border-box est
+   deja pose globalement (reset). Scope .card : la page de statut (.param-statut-label)
+   garde ses propres largeurs. */
+.card .param-form { min-width: 0; max-width: 100%; }
+.card .param-select, .card .param-input { min-width: 0; max-width: 100%; }
+.card .dyn-enum { min-width: 0; max-width: 100%; }
 /* Combobox autocomplete (champ dynamic-enum : ma-collectivite…). Un seul champ visuel
    (.dyn-search) + liste ARIA de propositions (.dyn-listbox) en surimpression. Tokens/rayons
    du design-system : surface, focus violet, rayon contrôle 10px / panneau 12px. */
