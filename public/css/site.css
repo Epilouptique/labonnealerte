@@ -2272,6 +2272,11 @@ html[data-theme="dark"] .tint-11 .deck-motif-bg::after { background: color-mix(i
    reste visible mais grise (desactive). */
 .deck-card .ds-face { pointer-events: none; }
 .deck-card .ds-face .switch-row { opacity: .5; }
+/* Exception : le switch de la carte de DEVANT est ACTIF (abonne/desabonne tout le deck,
+   voir bindDeckSwitches) → on lui rend les evenements pointeur et son opacite pleine. */
+.deck-card .ds-i0 .switch-row { pointer-events: auto; opacity: 1; }
+.deck-card .ds-i0 .switch-row .switch input:disabled ~ .track,
+.deck-card .ds-i0 .switch-row .switch input:disabled ~ .thumb { opacity: 1; }
 /* Eventail VISIBLE : les cartes du fond sont decalees de --ds-fan de chaque cote + une
    legere rotation, reduites, et debordent donc de part et d'autre de la carte de devant
    (elle-meme reduite) — le ruban pleine largeur englobe l'ensemble. */

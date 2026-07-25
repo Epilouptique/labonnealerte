@@ -172,5 +172,33 @@ router.post('/collections/:slug/adopt', async (req, res) => {
   }
 });
 
+// DELETE /api/collections/:slug/adopt — desabonne (auth) de TOUTES les sources du pack.
+// Inverse de POST /adopt : supprime les abonnements de l'utilisateur aux sources de la
+// collection (toutes leurs instances/params). Idempotent (0 supprime si deja desabonne).
+router.delete('/collections/:slug/adopt', async (req, res) => {
+  const { token } = req.body || {};
+  try {
+    const auth = await authenticate(token);
+    if (!auth) return res.status(401).json({ error: 'Session invalide ou expirée' });
+
+    const exists = await pool.query(
+      `SELECT 1 FROM collections WHERE id = $1 AND visibility = 'official' AND owner_subscriber_id IS NULL`,
+      [req.params.slug]
+    );
+    if (exists.rows.length === 0) return res.status(404).json({ error: 'Collection inconnue' });
+
+    const r = await pool.query(
+      `DELETE FROM subscriptions
+        WHERE subscriber_id = $1
+          AND source_id IN (SELECT source_id FROM collection_items WHERE collection_id = $2)`,
+      [auth.id, req.params.slug]
+    );
+    return res.status(200).json({ removed: r.rowCount });
+  } catch (err) {
+    console.error('[collections] Erreur DELETE /adopt :', err.message);
+    return res.status(503).json({ error: 'Service indisponible' });
+  }
+});
+
 module.exports = router;
 module.exports.resolveInstances = resolveInstances; // exposé pour tests

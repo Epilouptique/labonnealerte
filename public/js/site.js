@@ -504,6 +504,7 @@
   document.addEventListener('change', function (e) {
     var input = e.target.closest('.switch input');
     if (!input) return;
+    if (input.closest('.deck-card')) return; // switch d'une tuile-deck : géré par bindDeckSwitches (abonne tout le deck)
     if (input.classList.contains('param-mute')) return; // F2 : géré séparément (pause)
     if (input.classList.contains('param-follow-cb')) return; // abonnement paramétré : géré séparément
     var card = input.closest('.card');
@@ -1751,12 +1752,50 @@
     // changement de categorie. matches() les masque hors « Toutes » (pas de data-cats), et
     // computeShow() les epingle (isReco) pour qu'elles ne comptent pas dans la pagination.
     cards = Array.prototype.slice.call(g.querySelectorAll('.card[data-cats], .deck-card[data-deck-tile]'));
+    bindDeckSwitches();
     apply(false); // synchronise l'etat filtre (tuiles masquees si on n'est pas sur « Toutes »)
   }
 
   // Conserve le nom historique (selectChip l'appelle) : la visibilite des tuiles-deck est
   // desormais geree par le pipeline `apply`/matches (comme les cartes), plus par du display.
   function updateShelfVisibility() {}
+
+  // Le switch de la carte de DEVANT (.ds-i0) d'une tuile-deck est actif : il abonne /
+  // desabonne l'utilisateur a TOUT le deck (POST/DELETE /api/collections/:slug/adopt),
+  // au lieu d'etre un simple apercu inerte. Les autres cartes de la pile restent inertes.
+  function bindDeckSwitches() {
+    var g = document.getElementById('grid'); if (!g) return;
+    g.querySelectorAll('.deck-card[data-deck-tile]').forEach(function (tile) {
+      if (tile.dataset.switchBound) return; tile.dataset.switchBound = '1';
+      var front = tile.querySelector('.ds-i0'); if (!front) return;
+      var cb = front.querySelector('.switch-row input[type="checkbox"]'); if (!cb) return;
+      cb.removeAttribute('disabled'); // un switch de param non-geo est disabled par defaut → on l'active ici
+      var row = cb.closest('.switch-row');
+      var label = row ? row.querySelector('.switch-label') : null;
+      var slug = decodeURIComponent((tile.getAttribute('data-href') || '').replace('/collection/', ''));
+      function paint(on) { if (label) { label.textContent = on ? 'Abonné' : 'Non abonné'; label.classList.toggle('on', on); } }
+      // Le clic sur le switch reste dans le switch (ne declenche pas la navigation de la tuile).
+      if (row) row.addEventListener('click', function (e) { e.stopPropagation(); });
+      cb.addEventListener('change', function (e) {
+        e.stopPropagation();
+        var token = LBASession.get();
+        if (!token) { cb.checked = false; window.location.href = '/connexion'; return; }
+        if (!slug) { cb.checked = false; return; }
+        var want = cb.checked;
+        cb.disabled = true; paint(want); // optimiste
+        fetch('/api/collections/' + encodeURIComponent(slug) + '/adopt', {
+          method: want ? 'POST' : 'DELETE',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ token: token })
+        }).then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.json(); })
+          .then(function () {
+            if (want && window.LBACards && LBACards.celebrateBurst) LBACards.celebrateBurst(cb.closest('.switch'));
+          })
+          .catch(function () { cb.checked = !want; paint(cb.checked); }) // rollback
+          .finally(function () { cb.disabled = false; });
+      });
+    });
+  }
 
   /* ====================================================================================
      ETAGERE CARROUSEL DECK — DESACTIVEE le 2026-07-25 (chantier deck-stack, iteration 2).
