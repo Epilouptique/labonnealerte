@@ -25,10 +25,11 @@ router.get('/collections', async (req, res) => {
       `SELECT c.id, c.name, c.description, c.emoji, c.tint, c.display_order,
               COUNT(s.id)::int AS card_count,
               COALESCE(SUM(s.likes_count), 0)::int AS total_likes,
-              -- Apercu du deck (chantier ruban) : nom des 3 dernieres cartes ajoutees
-              -- (position DESC), pour la pile de cartes. json_agg garde l'ordre du sous-select.
-              (SELECT COALESCE(json_agg(p.name), '[]'::json) FROM (
-                 SELECT s3.name FROM collection_items ci3
+              -- Apercu du deck (chantier deck-stack) : ID des 3 dernieres cartes ajoutees
+              -- (position DESC). Le client resout ces IDs en objets source complets depuis
+              -- son catalogue deja charge (/api/sources) et les rend via LBACards.cardHTML.
+              (SELECT COALESCE(json_agg(p.id), '[]'::json) FROM (
+                 SELECT s3.id FROM collection_items ci3
                    JOIN sources s3 ON s3.id = ci3.source_id AND s3.enabled = true
                   WHERE ci3.collection_id = c.id
                   ORDER BY ci3.position DESC LIMIT 3) p) AS preview

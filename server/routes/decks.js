@@ -116,9 +116,10 @@ router.get('/decks', async (req, res) => {
     const { rows } = await pool.query(
       `SELECT c.id, c.name, c.description, c.emoji, c.tint, c.visibility, c.share_token, c.forked_from_name,
               (SELECT COUNT(*) FROM collection_items ci WHERE ci.collection_id = c.id)::int AS card_count,
-              -- Apercu du deck (chantier ruban) : nom des 3 dernieres cartes ajoutees (position DESC).
-              (SELECT COALESCE(json_agg(p.name), '[]'::json) FROM (
-                 SELECT s3.name FROM collection_items ci3
+              -- Apercu du deck (chantier deck-stack) : ID des 3 dernieres cartes (position DESC),
+              -- resolus en objets source complets cote client (catalogue /api/sources).
+              (SELECT COALESCE(json_agg(p.id), '[]'::json) FROM (
+                 SELECT s3.id FROM collection_items ci3
                    JOIN sources s3 ON s3.id = ci3.source_id AND s3.enabled = true
                   WHERE ci3.collection_id = c.id
                   ORDER BY ci3.position DESC LIMIT 3) p) AS preview
