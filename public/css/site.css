@@ -2088,6 +2088,15 @@ body.m-menu-open { overflow: hidden; }
 .pref-dn-save { flex: none; white-space: nowrap; }
 /* Solde de points (phase 1) : affichage minimal, chiffre seul aligne a droite. */
 .pref-points { flex: none; font-size: 20px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+/* Rang prive (phase 2), aligne a droite comme le solde. Prive : visible de vous seul. */
+.pref-rank { flex: none; font-size: 14px; font-weight: 600; color: var(--ink); }
+/* Badge Top 20 (phase 2) : violet charte, sur tuiles kiosque + detail deck, a cote
+   du pseudo auteur. Cohabite avec .ds-ribbon-likes dans le ruban du deck-stack. */
+.deck-badge-top20 {
+  display: inline-block; vertical-align: middle; white-space: nowrap;
+  font-size: 11px; font-weight: 700; line-height: 1; border-radius: 999px;
+  padding: 3px 9px; color: #fff; background: #a567e3;
+}
 @media (max-width: 600px) { .pref-dn-input-row { width: 100%; } }
 
 /* ===================== C1) Recto : état en haut-gauche, icônes en haut-droite ===================== */
@@ -2624,3 +2633,63 @@ html[data-theme="dark"] {
     -webkit-backdrop-filter: none; backdrop-filter: none;
   }
 }
+
+/* ===== Fix retournement : le RECTO transparaissait « en miroir » par-dessus le VERSO ==
+   Depuis la refonte full-art, backface-visibility etait pris en defaut (overflow:hidden
+   + preserve-3d sur les faces) : la face non tournee vers l'utilisateur restait visible.
+   On masque donc EXPLICITEMENT la face inactive du couple recto/verso (les faces partage
+   et deck sont deja gerees en display:none, l.1048/1058). Le basculement se fait a
+   MI-PARCOURS du flip (delai = moitie de la transition .5s) pour garder l'animation
+   fluide. Scope grille + tuiles-deck (meme perimetre que la refonte). =================== */
+.grid .card-front, .grid .card-back,
+.deck-card .card-front, .deck-card .card-back {
+  transition: box-shadow .35s ease, border-color .35s ease, visibility 0s linear .25s;
+}
+.grid .card.flipped .card-front,
+.deck-card .card.flipped .card-front { visibility: hidden; }
+.grid .card:not(.flipped) .card-back,
+.deck-card .card:not(.flipped) .card-back { visibility: hidden; }
+@media (prefers-reduced-motion: reduce) {
+  .grid .card-front, .grid .card-back,
+  .deck-card .card-front, .deck-card .card-back { transition: none; }
+}
+
+/* ===================== Phase 3 : boutique de skins (squelette) ===================== */
+/* Mise en page de /boutique. */
+.shop-main { padding-bottom: 40px; }
+.shop-balance { margin: 6px 0 16px; color: var(--muted); }
+.shop-balance strong { color: var(--ink); font-variant-numeric: tabular-nums; }
+.shop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
+.shop-card { border: 1.5px solid var(--line); border-radius: 16px; padding: 12px; background: var(--bg); }
+.shop-card.is-equipped { border-color: var(--amber); }
+.shop-card-type { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.shop-card-name { font-weight: 700; margin: 2px 0 10px; }
+.shop-card-action .sup-btn { width: 100%; }
+.shop-owned { font-size: 13px; color: var(--muted); }
+/* Apercu : swatch neutre par defaut, surcharge par skin ci-dessous. */
+.shop-preview { height: 72px; border-radius: 12px; margin-bottom: 10px; background: color-mix(in srgb, var(--ink) 6%, transparent); }
+
+/* --- Placeholders des 4 skins. PROVISOIRE : couleur/motif CSS pur, remplacables par
+   les vrais assets de Hugo SANS migration (meme classe asset_ref). Chaque skin pose
+   --skin-accent, reutilise en cascade sur les cartes/tuiles equipees plus bas. --- */
+.skin-aurore { --skin-accent: #d9b8ff; }
+.skin-nuit-etoilee { --skin-accent: #3a4a80; }
+.skin-menthe { --skin-accent: #7fe3c0; }
+.skin-or-royal { --skin-accent: #e3c567; }
+
+.shop-preview.skin-aurore { background: linear-gradient(135deg, #ffd6f0, #d9b8ff, #bfe0ff); }
+.shop-preview.skin-nuit-etoilee {
+  background-color: #1b2450;
+  background-image: radial-gradient(circle at 20% 30%, #ffffff88 1px, transparent 1px);
+  background-size: 14px 14px;
+}
+.shop-preview.skin-menthe { background: linear-gradient(135deg, #d6fff0, #7fe3c0); }
+.shop-preview.skin-or-royal { background: linear-gradient(135deg, #fff6d6, #e3c567); box-shadow: inset 0 0 0 2px #caa63f; }
+
+/* --- Branchement du rendu : le skin equipe est une classe additionnelle qui porte
+   --skin-accent ; on materialise juste un liseré (placeholder visible) le temps que les
+   vrais visuels arrivent. Dashboard = classe sur #grid (cascade sur .card). Deck =
+   classe sur la tuile kiosque et sur la vue detail. --- */
+#grid[class*="skin-"] .card { box-shadow: inset 0 0 0 2px var(--skin-accent, transparent); }
+.deck-card[class*="skin-"] { box-shadow: 0 0 0 2px var(--skin-accent, transparent); }
+#deck-view[class*="skin-"] .card { box-shadow: inset 0 0 0 2px var(--skin-accent, transparent); }
