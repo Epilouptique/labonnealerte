@@ -2223,9 +2223,79 @@ html[data-theme="dark"] .tint-11 .deck-motif-bg::after { background: color-mix(i
 }
 .deck-tint-opt.on { border-color: var(--ink); outline: 2px solid var(--hue); outline-offset: 1px; }
 
-/* Vignette motif dans le menu « Ajouter à un deck » (petite). */
+/* Vignette motif dans le menu « Ajouter à un deck » (petite). INCHANGÉE (exception). */
 .dam-thumb { width: 24px; height: 24px; border-radius: 7px; }
 .deck-row .deck-thumb { margin-right: 2px; }
+
+/* ===================== Deck en « pile de cartes + ruban » (LBADeckStack) =====================
+   Visuel partagé d'un deck : jusqu'à 3 mini-rectos au format 5/7 (mêmes tokens/radius
+   que les cartes du kiosque) empilés en éventail, enveloppés par un ruban teinté centré
+   (nom + compteur). Feuilletage au survol/tap. Un seul composant pour étagère, tuiles,
+   aperçu du formulaire et en-têtes de détail (via des modificateurs de taille .ds-*). */
+.deck-stack { --dsw: 84px; --dsh: calc(var(--dsw) * 1.4); position: relative; display: inline-block; vertical-align: top; }
+.ds-shelf, .ds-tile { --dsw: 84px; }
+.ds-preview { --dsw: 96px; }
+.ds-detail { --dsw: 82px; }
+
+.ds-pile { display: block; position: relative; width: calc(var(--dsw) + 46px); height: calc(var(--dsh) + 22px); margin: 0 auto; }
+.ds-card {
+  position: absolute; top: 6px; left: 50%; margin-left: calc(var(--dsw) / -2);
+  width: var(--dsw); height: var(--dsh);
+  border-radius: 12px; overflow: hidden;
+  background: var(--surface); box-shadow: var(--shadow);
+  transform-origin: 50% 88%;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .ds-card { transition: transform .22s cubic-bezier(.2, .7, .2, 1), box-shadow .2s ease; }
+}
+/* Titre simplifié du recto (tronqué). */
+.ds-card-t {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden;
+  padding: 9px 8px 0; font-size: 10.5px; font-weight: 700; line-height: 1.2;
+  color: var(--ink); letter-spacing: -.01em;
+}
+/* Éventail : carte de devant droite au centre, les deux du fond pivotées et décalées. */
+.ds-i0 { z-index: 3; transform: rotate(0deg); }
+.ds-i1 { z-index: 2; transform: translateX(-15px) rotate(-8deg); }
+.ds-i2 { z-index: 1; transform: translateX(15px) rotate(8deg); }
+/* Feuilletage : la carte du fond survolée (desktop) ou tapée (.ds-lift, mobile) passe
+   au premier plan (z-index + montée). En prefers-reduced-motion : bascule instantanée
+   (aucune transition déclarée hors no-preference ci-dessus). */
+.ds-i1:hover, .ds-i1.ds-lift { z-index: 6; transform: translateX(-15px) rotate(-3deg) translateY(-16px); box-shadow: 0 10px 26px rgba(60, 40, 100, .28); }
+.ds-i2:hover, .ds-i2.ds-lift { z-index: 6; transform: translateX(15px) rotate(3deg) translateY(-16px); box-shadow: 0 10px 26px rgba(60, 40, 100, .28); }
+.ds-card[role="button"] { cursor: pointer; }
+.ds-card:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+/* Deck vide (0 carte) : on garde le visuel générique (carte teintée + motif « paquet »). */
+.ds-empty { background: var(--deck-bg); }
+.ds-empty .deck-motif-bg { border-radius: inherit; }
+
+/* Ruban teinté, centré sur la pile, légèrement plus large (effet enveloppant). */
+.ds-ribbon {
+  position: absolute; left: 50%; top: 54%; transform: translate(-50%, -50%);
+  width: calc(var(--dsw) + 54px); z-index: 4;
+  background: var(--deck-bg); color: var(--ink);
+  padding: 8px 12px; border-radius: 5px; text-align: center;
+  box-shadow: 0 3px 10px rgba(30, 20, 50, .2);
+}
+/* Plis latéraux : petits triangles plus sombres sous les bords → le ruban « s'enroule »
+   derrière la pile (volume/pli). */
+.ds-fold { position: absolute; top: 100%; width: 12px; height: 9px; background: color-mix(in srgb, var(--deck-bg) 74%, #000); }
+.ds-fold-l { left: -4px; clip-path: polygon(0 0, 100% 0, 100% 100%); }
+.ds-fold-r { right: -4px; clip-path: polygon(0 0, 100% 0, 0 100%); }
+.ds-ribbon-name { display: block; font-weight: 700; font-size: .9rem; line-height: 1.15; letter-spacing: -.01em; overflow-wrap: anywhere; }
+.ds-ribbon-meta { display: block; font-size: .74rem; margin-top: 1px; color: color-mix(in srgb, var(--ink) 60%, transparent); }
+
+/* Conteneur cliquable (étagère = <a class="pack">, tuiles = <button class="deck-tile">) :
+   simple support de la pile désormais, sans fond/ombre/padding propres (tout le visuel
+   est porté par .deck-stack ; le clic hors carte du fond reste la navigation). */
+.pack, .deck-tile { background: transparent; box-shadow: none; padding: 0; min-height: 0; width: auto; }
+.pack[class*="tint-"] { background: transparent; }
+.pack:hover, .deck-tile:hover { transform: none; box-shadow: none; }
+@media (prefers-reduced-motion: no-preference) {
+  .pack:hover .ds-pile, .deck-tile:hover .ds-pile { transform: translateY(-2px); transition: transform .16s ease; }
+}
+/* En-tête de détail : la pile remplace la vignette carrée .deck-thumb-lg (voir rapport). */
+.coll-head-top .deck-stack, .coll-head-top { align-items: flex-start; }
 
 /* ---------------- Page « Le Point » ---------------- */
 .lepoint-main { max-width: 760px; padding-bottom: 60px; }
