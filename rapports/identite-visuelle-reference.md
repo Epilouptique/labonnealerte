@@ -25,9 +25,10 @@ Toute couleur doit passer par une variable CSS. Ne jamais coder un hex en dur da
 | `--shadow` | `0 1px 3px rgba(30,20,50,.10), 0 4px 12px rgba(30,20,50,.06)` | idem | Ombre standard |
 | `--dot` | `rgba(120,95,175,.13)` | `rgba(255,255,255,.10)` | Points du fond pointillé |
 | `--bg-decor` | `fond-constellations-jour.svg` | `fond-constellations-nuit.svg` | Fond décoratif |
+| `--danger` | `#dc2626` | `#ef4444` | Erreur / danger (suppression, échec uptime, toast) |
+| `--danger-soft` | `#fdecec` | `#3a1c1c` | Fond associé au danger |
 
 **Couleurs récurrentes NON tokenisées (à connaître) :**
-- `#dc2626` — **rouge d'erreur/danger** (suppression, échec uptime, toast d'erreur). Utilisé en dur ~10 fois dans `site.css`. → _Candidat à un token `--danger`._
 - `#fff` — blanc du texte sur boutons accent (convention assumée).
 - Thème **dev** (`dev.css`, `body.dev`) : palette bleu nuit dédiée (`--bg:#101826`, `--surface:#1a2436`, `--ink:#e9eef6`, `--muted:#7688a3`, `--line:#263248`), accent violet conservé.
 - **8 teintes de decks** (`site.css` ~2046) : `#a567e3` (violet maison), `#5b7db8`, `#6fa287`, `#d9a54a`, `#c97b5f`, `#c58ab0`, `#8a86a3`, `#5fa8a4` (+ noir ardoise, arc-en-ciel). Chaque `.tint-N` pose `--hue`.
@@ -121,7 +122,7 @@ Toute couleur doit passer par une variable CSS. Ne jamais coder un hex en dur da
 
 ### 🟡 Priorité basse / cosmétique
 
-7. **`#dc2626`** répété ~10× en dur dans `site.css` → créer un token `--danger` (+ `--danger-soft`).
+7. ~~**`#dc2626`** répété ~10× en dur dans `site.css`~~ → **résolu** : token `--danger` (+ `--danger-soft`) créé dans `tokens.css`, toutes les occurrences remplacées.
 8. **`session.js:79-80`** : seuls littéraux hex du JS (`var(--surface,#fff)`, `var(--ink,#222)`, ombre `rgba(30,20,50,.16)` en dur). Le reste du JS est **exemplaire** (100% `var()`/`currentColor`).
 9. **`index.html`** concentre les `style=` inline (dimensions ponctuelles + `var(--amber)`, tous conformes palette) → pourraient devenir des classes utilitaires.
 10. **`site.css`** : blocs commentés morts (`.hero::after` de test, l.647-676) et règle `.stats-section{background:#edf}` (hex court en dur).

@@ -13,6 +13,8 @@ html[data-theme="light"] {
   --amber-soft: #eaddf8;
   --green: #16a34a;
   --green-soft: #e9f7ee;
+  --danger: #dc2626;
+  --danger-soft: #fdecec;
   --shadow: 0 1px 3px rgba(30, 20, 50, .10), 0 4px 12px rgba(30, 20, 50, .06);
   --dot: rgba(120, 95, 175, .13);
   --bg-decor: url('/img/fond-constellations-jour.svg');
@@ -28,6 +30,8 @@ html[data-theme="dark"] {
   --amber-soft: #332a44;
   --green: #22c55e;
   --green-soft: #12281a;
+  --danger: #ef4444;
+  --danger-soft: #3a1c1c;
   --shadow: 0 1px 3px rgba(30, 20, 50, .10), 0 4px 12px rgba(30, 20, 50, .06);
   --dot: rgba(255, 255, 255, .10);
   --bg-decor: url('/img/fond-constellations-nuit.svg');
