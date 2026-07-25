@@ -279,6 +279,7 @@ html[data-theme="dark"] .search { border: 1px solid color-mix(in srgb, var(--mut
 .card-back {
   position: absolute; inset: 0; transform: rotateY(180deg); gap: 14px;
   background: color-mix(in srgb, var(--surface) 96%, var(--amber));
+  overflow-y: auto; /* description longue (<=300) defilable si elle depasse le ratio 5/7 */
 }
 .card.flip:hover .card-face { box-shadow: var(--shadow); }
 /* Bouton « ⓘ » masqué au verso (seule la flèche retour reste visible). */
@@ -300,7 +301,8 @@ html[data-theme="dark"] .search { border: 1px solid color-mix(in srgb, var(--mut
 .flip-back, .flip-btn { display: inline-flex; align-items: center; justify-content: center; }
 .flip-back svg, .flip-btn svg { width: 18px; height: 18px; display: block; }
 
-/* Verso : contenu dev. */
+/* Verso : description longue (« i »), puis contenu dev. */
+.card-long-desc { font-size: 12.5px; line-height: 1.45; color: var(--ink); }
 .back-tags { display: flex; flex-wrap: wrap; gap: 6px; }
 .back-tags .tag {
   font-size: 11px; font-weight: 600; color: var(--amber);
@@ -331,15 +333,14 @@ html[data-theme="dark"] .search { border: 1px solid color-mix(in srgb, var(--mut
    chevauchement ; le texte complet reste au verso. */
 /* Disposition A : la description vit désormais dans .card-content (ancré en bas). */
 .grid .card-content > p, .deck-card .card-content > p { min-height: 0; overflow: hidden; }
+/* La description courte est desormais bornee a 120 caracteres EN BASE (CHECK) : le fondu
+   (mask) est retire — la description s'affiche en entier sur la carte. Le -webkit-line-clamp
+   ne reste qu'en GARDE-FOU (5 lignes, large) : il ne devrait plus jamais se declencher pour
+   un texte <=120. Le texte detaille vit au verso (« i ») et sur /source/:id. */
 .grid .card-content > p > .card-desc, .deck-card .card-content > p > .card-desc {
-  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 5;
   overflow: hidden;
-  -webkit-mask-image: linear-gradient(to bottom, #000 74%, transparent);
-          mask-image: linear-gradient(to bottom, #000 74%, transparent);
 }
-/* Cartes plus etroites (mobile) et apercus de deck (toujours etroits) : 2 lignes. */
-@media (max-width: 620px) { .grid .card-content > p > .card-desc { -webkit-line-clamp: 2; } }
-.deck-card .card-content > p > .card-desc { -webkit-line-clamp: 2; }
 .badge {
   font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700;
   text-transform: uppercase; letter-spacing: .08em; border-radius: 8px; padding: 4px 10px;
@@ -2388,7 +2389,20 @@ html[data-theme="dark"] .tint-11 .ds-ribbon {
 /* En-tete de detail : la pile pleine taille remplace la vignette .deck-thumb-lg. On la
    borne a une largeur de carte pour ne pas ecraser le titre a cote. */
 .coll-head-top { align-items: flex-start; }
-.coll-head-top .deck-card { width: min(230px, 48vw); flex: 0 0 auto; }
+.coll-head-top .deck-card,
+.deck-detail-layout .deck-card { width: min(230px, 48vw); flex: 0 0 auto; }
+
+/* Detail d'un deck (/mes-decks) : titre .page-title EN PLEINE LARGEUR, puis rangee
+   [pile deck-card] | [corps]. Le corps (description, categories, actions, partage)
+   est empile verticalement, A DROITE de la pile et SOUS le titre. */
+.deck-detail-layout { display: flex; align-items: flex-start; gap: 20px; margin-bottom: 8px; }
+.deck-detail-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; }
+/* Mobile-first : sous ~640px, le corps repasse SOUS la pile (colonne unique). */
+@media (max-width: 640px) {
+  .deck-detail-layout { flex-direction: column; gap: 14px; }
+  .deck-detail-layout .deck-card { width: min(230px, 60vw); }
+  .deck-detail-body { width: 100%; }
+}
 /* Corps de l'en-tete (nom, description, meta, actions) empile verticalement, a DROITE
    de la pile/vignette (.coll-emoji). */
 .coll-head-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
@@ -2400,10 +2414,13 @@ html[data-theme="dark"] .tint-11 .ds-ribbon {
    etat SOUS la bande d'icones (fini le chevauchement coeur/partage/i avec « Rien a signaler »)
    et titre pleine largeur (fini la coupure en plein milieu d'un mot). */
 .coll-head-top .deck-card .card-front > .state:first-of-type,
+.deck-detail-layout .deck-card .card-front > .state:first-of-type,
 .deck-preview-wrap .deck-card .card-front > .state:first-of-type { padding-right: 0; margin-top: 30px; min-height: 0; }
 .coll-head-top .deck-card .card-front .card-top,
+.deck-detail-layout .deck-card .card-front .card-top,
 .deck-preview-wrap .deck-card .card-front .card-top { padding-right: 0; }
 .coll-head-top .deck-card .card-front .card-top h3,
+.deck-detail-layout .deck-card .card-front .card-top h3,
 .deck-preview-wrap .deck-card .card-front .card-top h3 { flex: 1 1 auto; }
 
 /* ---------------- Page « Le Point » ---------------- */
@@ -2693,3 +2710,13 @@ html[data-theme="dark"] {
 #grid[class*="skin-"] .card { box-shadow: inset 0 0 0 2px var(--skin-accent, transparent); }
 .deck-card[class*="skin-"] { box-shadow: 0 0 0 2px var(--skin-accent, transparent); }
 #deck-view[class*="skin-"] .card { box-shadow: inset 0 0 0 2px var(--skin-accent, transparent); }
+
+/* Selecteur « Skin » dans la gestion d'un deck (/mes-decks). */
+.deck-skin-row { margin-top: 10px; }
+.deck-skin-ctrl { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); }
+.deck-skin-ctrl select {
+  font: inherit; font-size: 14px; color: var(--ink); background: var(--bg);
+  border: 1.5px solid var(--line); border-radius: 10px; padding: 7px 10px;
+}
+.deck-skin-ctrl select:focus { outline: none; border-color: var(--amber); }
+.deck-skin-link { font-size: 14px; color: var(--muted); text-decoration: underline; }

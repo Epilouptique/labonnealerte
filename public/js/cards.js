@@ -373,10 +373,15 @@
     var statut = isLinked ? ''
       : '<a class="back-statut" href="/source/' + esc(s.id) + '/statut">Plus d\'infos →</a>';
 
+    // « i » (verso) : description LONGUE si presente, sinon la courte (jamais de vide).
+    // Visible sur toutes tailles d'ecran (le retournement fait office de popup partout).
+    var longDesc = '<p class="card-long-desc">' + esc(s.description_long || s.description || '') + '</p>';
+
     return '' +
       '<div class="card-face card-back">' +
         '<button class="flip-back" type="button" aria-label="Retour" title="Retour">' + BACK_SVG + '</button>' +
         topRow(s) +
+        longDesc +
         tags + author + statut +
       '</div>';
   }

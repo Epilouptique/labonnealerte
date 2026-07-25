@@ -309,7 +309,8 @@
         } catch (e) { /* silencieux : bonus non bloquant */ }
       })();
 
-      document.getElementById('src-desc').textContent = source.description || '';
+      // Section « plus d'infos » : description longue si présente, sinon la courte (fallback).
+      document.getElementById('src-desc').textContent = source.description_long || source.description || '';
 
       var stEl = document.getElementById('src-state');
       if (source.type === 'linked') { stEl.className = 'state partner'; stEl.innerHTML = '<span class="dot-idle"></span> Service partenaire'; }
