@@ -269,7 +269,11 @@ html[data-theme="dark"] .search { border: 1px solid color-mix(in srgb, var(--mut
    epouse cette hauteur → le flip 3D reste identique, juste recalibre.
    Scope .grid : le seul .card.flip HORS grille est la carte « Mon compte »
    (.acct-front, hauteur libre 460px) — elle ne doit PAS prendre ce ratio. */
-.grid .card-front { aspect-ratio: 5 / 7; }
+/* .deck-card .card-front : les cartes d'apercu d'une pile-deck reutilisent EXACTEMENT
+   le meme traitement que les cartes de la grille (ratio 5/7 + troncature en fondu), y
+   compris hors .grid (en-tete de detail, apercu du formulaire) — sinon le recto s'y
+   affiche sans ratio ni clamp (titre casse, description longue). */
+.grid .card-front, .deck-card .card-front { aspect-ratio: 5 / 7; }
 /* Verso : fond légèrement teinté (subtil), position absolue par-dessus le recto. */
 .card-back {
   position: absolute; inset: 0; transform: rotateY(180deg); gap: 14px;
@@ -324,15 +328,17 @@ html[data-theme="dark"] .search { border: 1px solid color-mix(in srgb, var(--mut
    comprime par flex ; sans ce clip, les 3 lignes de .card-desc deborderaient sur
    le bloc d'abonnement en dessous. Le clip garde le ratio et empeche tout
    chevauchement ; le texte complet reste au verso. */
-.grid .card-front > p { min-height: 0; overflow: hidden; }
-.grid .card-front > p > .card-desc {
+.grid .card-front > p, .deck-card .card-front > p { min-height: 0; overflow: hidden; }
+.grid .card-front > p > .card-desc, .deck-card .card-front > p > .card-desc {
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4;
   overflow: hidden;
   -webkit-mask-image: linear-gradient(to bottom, #000 74%, transparent);
           mask-image: linear-gradient(to bottom, #000 74%, transparent);
 }
-/* Cartes plus etroites (mobile) : moins de lignes pour respecter le ratio. */
+/* Cartes plus etroites (mobile) : moins de lignes pour respecter le ratio. Les cartes
+   d'apercu de deck sont TOUJOURS etroites → 3 lignes en permanence. */
 @media (max-width: 620px) { .grid .card-front > p > .card-desc { -webkit-line-clamp: 3; } }
+.deck-card .card-front > p > .card-desc { -webkit-line-clamp: 3; }
 .badge {
   font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700;
   text-transform: uppercase; letter-spacing: .08em; border-radius: 8px; padding: 4px 10px;
@@ -2289,7 +2295,19 @@ html[data-theme="dark"] .tint-11 .deck-motif-bg::after { background: color-mix(i
 /* En-tete de detail : la pile pleine taille remplace la vignette .deck-thumb-lg. On la
    borne a une largeur de carte pour ne pas ecraser le titre a cote. */
 .coll-head-top { align-items: flex-start; }
-.coll-head-top .deck-card { width: min(220px, 42vw); flex: 0 0 auto; }
+.coll-head-top .deck-card { width: min(230px, 48vw); flex: 0 0 auto; }
+
+/* Cartes d'apercu HORS grille (en-tete de detail, apercu du formulaire) : elles sont
+   toujours etroites, mais ne recoivent pas les regles « carte etroite » de .grid (limitees
+   au mobile). On leur applique donc le MEME traitement, quelle que soit la largeur d'ecran :
+   etat SOUS la bande d'icones (fini le chevauchement coeur/partage/i avec « Rien a signaler »)
+   et titre pleine largeur (fini la coupure en plein milieu d'un mot). */
+.coll-head-top .deck-card .card-front > .state:first-of-type,
+.deck-preview-wrap .deck-card .card-front > .state:first-of-type { padding-right: 0; margin-top: 30px; min-height: 0; }
+.coll-head-top .deck-card .card-front .card-top,
+.deck-preview-wrap .deck-card .card-front .card-top { padding-right: 0; }
+.coll-head-top .deck-card .card-front .card-top h3,
+.deck-preview-wrap .deck-card .card-front .card-top h3 { flex: 1 1 auto; }
 
 /* ---------------- Page « Le Point » ---------------- */
 .lepoint-main { max-width: 760px; padding-bottom: 60px; }
