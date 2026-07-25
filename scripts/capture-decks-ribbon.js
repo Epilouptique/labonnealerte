@@ -23,6 +23,28 @@ const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
 
+// Controle anti-regression : detecte l'effondrement de largeur (bug « une lettre par
+// ligne » → titre interne tres etroit) et confirme la contenance stricte (overflow:hidden
+// sur chaque tuile) + l'absence de scroll horizontal de page.
+async function checkDecks(page) {
+  return page.evaluate(() => {
+    var cards = Array.prototype.slice.call(document.querySelectorAll('.deck-card'));
+    var minH3 = Infinity, allHidden = true;
+    cards.forEach(function (dc) {
+      if (getComputedStyle(dc).overflow !== 'hidden') allHidden = false;
+      dc.querySelectorAll('.card-top h3').forEach(function (h) {
+        minH3 = Math.min(minH3, Math.round(h.getBoundingClientRect().width));
+      });
+    });
+    return {
+      deckCards: cards.length,
+      minInnerTitleWidthPx: cards.length ? minH3 : -1, // doit rester > ~30 (pas d'effondrement)
+      allTilesClipped: allHidden,
+      bodyOverflowX: document.documentElement.scrollWidth > window.innerWidth + 2
+    };
+  });
+}
+
 const BASE_URL = (process.env.BASE_URL || 'http://localhost:3000').replace(/\/$/, '');
 const TOKEN = process.env.LBA_TOKEN || '';
 const OUT = path.join(process.cwd(), 'captures-decks-ribbon');
@@ -63,19 +85,7 @@ async function run() {
         await page.waitForSelector('.deck-card[data-deck-tile] .ds-face .card-front', { timeout: 10000 });
         await sleep(1200);
         await shot(page, 'kiosque-decks-melanges_' + tag);
-        // Controle de debordement horizontal : aucune face de tuile ne doit sortir de sa cellule.
-        const over = await page.evaluate(() => {
-          var worst = 0;
-          document.querySelectorAll('.deck-card[data-deck-tile]').forEach(function (t) {
-            var cell = t.getBoundingClientRect();
-            t.querySelectorAll('.ds-face').forEach(function (f) {
-              var r = f.getBoundingClientRect();
-              worst = Math.max(worst, cell.left - r.left, r.right - cell.right);
-            });
-          });
-          return { worstHorizOverhangPx: Math.round(worst), bodyOverflowX: document.documentElement.scrollWidth > window.innerWidth + 2 };
-        });
-        console.log('    grille:', JSON.stringify(over));
+        console.log('    grille:', JSON.stringify(await checkDecks(page)));
       } catch (e) { console.warn('  ! kiosque :', e.message); }
 
       // 2) Detail d'une collection (anonyme) : en-tete avec pile pleine taille.
@@ -84,14 +94,16 @@ async function run() {
         await page.waitForSelector('.coll-head-top .deck-card .ds-face', { timeout: 8000 });
         await sleep(500);
         await shot(page.locator('.coll-head'), 'collection-detail_' + tag);
+        console.log('    detail:', JSON.stringify(await checkDecks(page)));
       } catch (e) { console.warn('  ! collection detail :', e.message); }
 
       // 3) Vues connectees (si token) : grille Mes decks + formulaire.
       if (TOKEN) {
         try {
           await page.goto(BASE_URL + '/mes-decks', { waitUntil: 'networkidle' });
-          await sleep(1000);
+          await sleep(1500);
           await shot(page, 'mes-decks-grille_' + tag);
+          console.log('    mes-decks:', JSON.stringify(await checkDecks(page)));
         } catch (e) { console.warn('  ! mes-decks :', e.message); }
         try {
           const open = page.locator('#deck-create-open');

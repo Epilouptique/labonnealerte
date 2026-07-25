@@ -2234,29 +2234,40 @@ html[data-theme="dark"] .tint-11 .deck-motif-bg::after { background: color-mix(i
    (meme ratio 5/7, meme largeur de colonne). A l'interieur, jusqu'a 3 VRAIES cartes du
    kiosque (LBACards.cardHTML) empilees + ruban teinte centre. Un seul composant, aucune
    variante de taille selon l'emplacement (kiosque, Mes decks, apercu form, detail). */
-.deck-card { display: block; text-decoration: none; color: inherit; cursor: pointer; min-width: 0; align-self: start; }
+/* overflow:hidden = CONTENANCE STRICTE : la pile (cartes du fond + ruban) ne peut plus
+   deborder de la tuile ni recouvrir une tuile/carte voisine (correctif regression :
+   plus de surplomb non maitrise entre tuiles de la grille dense du kiosque). */
+.deck-card { display: block; text-decoration: none; color: inherit; cursor: pointer; min-width: 0; align-self: start; overflow: hidden; border-radius: 24px; }
 .deck-card, .deck-card * { cursor: pointer; }
 .deck-card:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; border-radius: 24px; }
-.deck-stack { display: block; position: relative; --ds-fan: .03; }
-/* Sizer au ratio 5/7 (comme .card-front) : donne sa hauteur a la tuile ; les cartes
-   empilees sont en absolu par-dessus. */
-.ds-stack { display: block; position: relative; aspect-ratio: 5 / 7; }
-.ds-face { position: absolute; inset: 0; transform-origin: 50% 0; }
+.deck-stack { display: block; position: relative; }
+.ds-stack { display: block; position: relative; }
+/* La carte de DEVANT est EN FLUX : elle donne sa largeur ET sa hauteur a la tuile.
+   CAUSE RACINE du bug « une lettre par ligne » : quand TOUTES les faces etaient en
+   position:absolute, la tuile avait une largeur min-content de 0 ; dans une grille ne
+   contenant QUE des tuiles-deck (page Mes decks), le <main> en shrink-to-fit s'effondrait
+   → colonnes ~78px → titre casse caractere par caractere. Une face en flux redonne une
+   largeur intrinseque normale (comme une vraie carte). Une bande haute (margin-top) laisse
+   les cartes du fond depasser vers le haut, contenue par overflow:hidden. */
+.ds-face { transform-origin: 50% 0; }
 @media (prefers-reduced-motion: no-preference) { .ds-face { transition: transform .2s ease; } }
-.ds-face .card, .ds-face .card.flip { width: 100%; height: 100%; margin: 0; }
+.ds-face .card, .ds-face .card.flip { width: 100%; margin: 0; }
+.ds-i0 { position: relative; z-index: 3; margin-top: 7%; }
+.ds-i1, .ds-i2 { position: absolute; left: 3%; right: 3%; top: 0; bottom: 0; }
+.ds-i1 .card, .ds-i2 .card { height: 100%; }
 /* Cartes d'APERCU : non interactives (la tuile entiere navigue). Le switch « S'abonner »
    reste visible mais grise (desactive). */
 .deck-card .ds-face { pointer-events: none; }
 .deck-card .ds-face .switch-row { opacity: .5; }
-/* Eventail RESSERRE et surtout VERTICAL : les cartes du fond sont legerement reduites
-   (scale) et remontees (translateY negatif) pour depasser vers le HAUT (surplomb accepte),
-   avec une tres legere rotation. Reduites, elles restent DANS la largeur de la carte de
-   devant → aucun debordement horizontal sur la tuile voisine de la grille. */
-.ds-i0 { z-index: 3; transform: none; }
-.ds-i1 { z-index: 2; transform: translateY(-5%) rotate(-3deg) scale(.93); }
-.ds-i2 { z-index: 1; transform: translateY(-9.5%) rotate(3deg) scale(.86); }
-/* Deck vide (0 carte) : visuel generique (carte teintee + motif « paquet »). */
-.ds-empty { background: var(--deck-bg); border-radius: 24px; box-shadow: var(--shadow); overflow: hidden; }
+/* Eventail resserre : les cartes du fond depassent legerement vers le HAUT (bande
+   margin-top de la carte de devant) avec une tres legere rotation. TOUT est contenu par
+   overflow:hidden de la tuile → aucun debordement, ni horizontal ni vertical. */
+.ds-i1 { z-index: 2; transform: rotate(-2.5deg); }
+.ds-i2 { z-index: 1; transform: rotate(2.5deg); }
+/* Deck vide (0 carte) : visuel generique (carte teintee + motif « paquet »). Le contenu
+   (motif) etant en absolu, on donne explicitement la hauteur via aspect-ratio (sinon la
+   carte de devant en flux serait de hauteur nulle → seul le ruban s'afficherait). */
+.ds-empty { aspect-ratio: 5 / 7; background: var(--deck-bg); border-radius: 24px; box-shadow: var(--shadow); overflow: hidden; }
 .ds-empty .deck-motif-bg { border-radius: inherit; }
 
 /* Ruban teinte, centre sur la pile, legerement plus large (effet enveloppant). */
