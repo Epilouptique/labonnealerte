@@ -2232,12 +2232,17 @@ html[data-theme="dark"] .tint-11 .deck-motif-bg::after { background: color-mix(i
    que les cartes du kiosque) empilés en éventail, enveloppés par un ruban teinté centré
    (nom + compteur). Feuilletage au survol/tap. Un seul composant pour étagère, tuiles,
    aperçu du formulaire et en-têtes de détail (via des modificateurs de taille .ds-*). */
-.deck-stack { --dsw: 84px; --dsh: calc(var(--dsw) * 1.4); position: relative; display: inline-block; vertical-align: top; }
+/* --ds-fan : décalage horizontal d'UNE carte du fond, en fraction de la largeur de
+   carte (réglage CENTRALISÉ, responsive, valable pour toutes les tailles/pages).
+   L'éventail est volontairement RESSERRÉ (cf. réf. effet_bandeau.png / mockup
+   deck_concept_bandeau_centre.html) : écart total gauche→droite ≈ 2 × 7 % = 14 % de
+   la largeur de carte, pour ne pas déborder sur la tuile voisine du carrousel. */
+.deck-stack { --dsw: 84px; --dsh: calc(var(--dsw) * 1.4); --ds-fan: .07; position: relative; display: inline-block; vertical-align: top; }
 .ds-shelf, .ds-tile { --dsw: 84px; }
 .ds-preview { --dsw: 96px; }
 .ds-detail { --dsw: 82px; }
 
-.ds-pile { display: block; position: relative; width: calc(var(--dsw) + 46px); height: calc(var(--dsh) + 22px); margin: 0 auto; }
+.ds-pile { display: block; position: relative; width: calc(var(--dsw) + 30px); height: calc(var(--dsh) + 22px); margin: 0 auto; }
 .ds-card {
   position: absolute; top: 6px; left: 50%; margin-left: calc(var(--dsw) / -2);
   width: var(--dsw); height: var(--dsh);
@@ -2254,15 +2259,17 @@ html[data-theme="dark"] .tint-11 .deck-motif-bg::after { background: color-mix(i
   padding: 9px 8px 0; font-size: 10.5px; font-weight: 700; line-height: 1.2;
   color: var(--ink); letter-spacing: -.01em;
 }
-/* Éventail : carte de devant droite au centre, les deux du fond pivotées et décalées. */
+/* Éventail RESSERRÉ : carte de devant droite au centre, les deux du fond très
+   légèrement pivotées et décalées (translateX = fraction --ds-fan de la largeur de
+   carte, cf. réglage centralisé plus haut). */
 .ds-i0 { z-index: 3; transform: rotate(0deg); }
-.ds-i1 { z-index: 2; transform: translateX(-15px) rotate(-8deg); }
-.ds-i2 { z-index: 1; transform: translateX(15px) rotate(8deg); }
+.ds-i1 { z-index: 2; transform: translateX(calc(var(--dsw) * var(--ds-fan) * -1)) rotate(-7deg); }
+.ds-i2 { z-index: 1; transform: translateX(calc(var(--dsw) * var(--ds-fan))) rotate(5deg); }
 /* Feuilletage : la carte du fond survolée (desktop) ou tapée (.ds-lift, mobile) passe
    au premier plan (z-index + montée). En prefers-reduced-motion : bascule instantanée
    (aucune transition déclarée hors no-preference ci-dessus). */
-.ds-i1:hover, .ds-i1.ds-lift { z-index: 6; transform: translateX(-15px) rotate(-3deg) translateY(-16px); box-shadow: 0 10px 26px rgba(60, 40, 100, .28); }
-.ds-i2:hover, .ds-i2.ds-lift { z-index: 6; transform: translateX(15px) rotate(3deg) translateY(-16px); box-shadow: 0 10px 26px rgba(60, 40, 100, .28); }
+.ds-i1:hover, .ds-i1.ds-lift { z-index: 6; transform: translateX(calc(var(--dsw) * var(--ds-fan) * -1)) rotate(-3deg) translateY(-16px); box-shadow: 0 10px 26px rgba(60, 40, 100, .28); }
+.ds-i2:hover, .ds-i2.ds-lift { z-index: 6; transform: translateX(calc(var(--dsw) * var(--ds-fan))) rotate(3deg) translateY(-16px); box-shadow: 0 10px 26px rgba(60, 40, 100, .28); }
 .ds-card[role="button"] { cursor: pointer; }
 .ds-card:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
 /* Deck vide (0 carte) : on garde le visuel générique (carte teintée + motif « paquet »). */
