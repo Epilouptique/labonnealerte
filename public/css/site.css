@@ -229,7 +229,8 @@ html[data-theme="dark"] .search { border: 1px solid color-mix(in srgb, var(--mut
 }
 .card:hover { box-shadow: var(--shadow); transform: none; }
 /* Cartes masquées : pagination (hidden-more) et filtrage (filtered). */
-.card.hidden-more, .card.filtered { display: none; }
+.card.hidden-more, .card.filtered,
+.deck-card.hidden-more, .deck-card.filtered { display: none; }
 
 /* Animation FLIP du filtrage : disparition (fade + scale) / apparition (fade in). */
 .card.card-leave { opacity: 0; transform: scale(.96); transition: opacity .2s ease, transform .2s ease; }
@@ -2263,7 +2264,7 @@ html[data-theme="dark"] .tint-11 .deck-motif-bg::after { background: color-mix(i
    se voit. La carte de devant reste EN FLUX (elle donne largeur+hauteur a la tuile → pas
    d'effondrement « une lettre par ligne ») ; le scale est purement visuel (n'affecte pas la
    largeur min-content). Tout reste CONTENU par overflow:hidden de la tuile. */
-.deck-stack { --ds-fan: 7%; --ds-front: .86; }
+.deck-stack { --ds-fan: 8%; --ds-front: .8; }
 .ds-i0 { position: relative; z-index: 3; transform: scale(var(--ds-front)); }
 .ds-i1, .ds-i2 { position: absolute; inset: 0; }
 .ds-i1 .card, .ds-i2 .card { height: 100%; }
@@ -2293,9 +2294,9 @@ html[data-theme="dark"] .tint-11 .deck-motif-bg::after { background: color-mix(i
 .ds-ribbon {
   --r: 9px;
   --ds-ribbon-shadow: rgba(30, 20, 50, .33);
-  position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); z-index: 4;
+  position: absolute; left: 0; right: 3px; top: 54%; transform: translateY(-50%); z-index: 4;
   text-align: center; line-height: 1.25; color: var(--ink);
-  padding: calc(2 * var(--r)) 14px 9px;
+  padding: calc(3 * var(--r)) 14px 9px;
   border-radius: var(--r);
   --_g: 0 / var(--r) calc(2 * var(--r)) no-repeat;
   background:
@@ -2335,6 +2336,10 @@ html[data-theme="dark"] .tint-11 .ds-ribbon {
    borne a une largeur de carte pour ne pas ecraser le titre a cote. */
 .coll-head-top { align-items: flex-start; }
 .coll-head-top .deck-card { width: min(230px, 48vw); flex: 0 0 auto; }
+/* Corps de l'en-tete (nom, description, meta, actions) empile verticalement, a DROITE
+   de la pile/vignette (.coll-emoji). */
+.coll-head-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.coll-head-body .page-title { text-align: left; }
 
 /* Cartes d'apercu HORS grille (en-tete de detail, apercu du formulaire) : elles sont
    toujours etroites, mais ne recoivent pas les regles « carte etroite » de .grid (limitees

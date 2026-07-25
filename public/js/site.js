@@ -1153,8 +1153,10 @@
     var idx = 0, hiddenMore = 0;
     cards.forEach(function (c) {
       var elig = matches(c, q);
-      // Épinglées (ne consomment pas de créneau) : la reco ET la carte de comblement.
-      var isReco = c.classList.contains('card-reco') || c.classList.contains('card-filler');
+      // Épinglées (ne consomment pas de créneau) : la reco, la carte de comblement, et les
+      // tuiles-deck (elles ne comptent pas dans la pagination des alertes).
+      var isReco = c.classList.contains('card-reco') || c.classList.contains('card-filler')
+        || c.classList.contains('deck-card');
       var show;
       if (!elig) show = false;
       else if (searching) show = true;      // sous filtre/recherche : comme les autres cartes
@@ -1744,19 +1746,17 @@
         if (e.key === 'Enter') { window.location.href = t.getAttribute('data-href'); }
       });
     });
-    updateShelfVisibility();
+    // Les tuiles-deck rejoignent la collection `cards` du kiosque → elles suivent EXACTEMENT
+    // le meme pipeline de filtrage/animation que les cartes (apparition/disparition, FLIP) au
+    // changement de categorie. matches() les masque hors « Toutes » (pas de data-cats), et
+    // computeShow() les epingle (isReco) pour qu'elles ne comptent pas dans la pagination.
+    cards = Array.prototype.slice.call(g.querySelectorAll('.card[data-cats], .deck-card[data-deck-tile]'));
+    apply(false); // synchronise l'etat filtre (tuiles masquees si on n'est pas sur « Toutes »)
   }
 
-  // Les tuiles-deck ne s'affichent que sur « Toutes » (comme l'ancienne étagère) : sur un
-  // filtre de catégorie, elles sont masquées (elles ne portent pas de catégorie). Conserve
-  // le nom historique car selectChip l'appelle déjà.
-  function updateShelfVisibility() {
-    var g = document.getElementById('grid');
-    if (!g) return;
-    g.querySelectorAll('.deck-card[data-deck-tile]').forEach(function (t) {
-      t.style.display = (cat === 'all') ? '' : 'none';
-    });
-  }
+  // Conserve le nom historique (selectChip l'appelle) : la visibilite des tuiles-deck est
+  // desormais geree par le pipeline `apply`/matches (comme les cartes), plus par du display.
+  function updateShelfVisibility() {}
 
   /* ====================================================================================
      ETAGERE CARROUSEL DECK — DESACTIVEE le 2026-07-25 (chantier deck-stack, iteration 2).
