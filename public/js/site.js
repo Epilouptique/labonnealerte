@@ -270,9 +270,10 @@
     return candidates[0];
   }
 
-  // Rebuild du tableau `cards` depuis le DOM (après un déplacement de carte).
+  // Rebuild du tableau `cards` depuis le DOM (après un déplacement de carte). Inclut les
+  // tuiles-deck (comme loadDecksIntoGrid) pour qu'elles restent dans le pipeline de filtrage.
   function refreshCards() {
-    if (grid) cards = Array.prototype.slice.call(grid.querySelectorAll('.card[data-cats]'));
+    if (grid) cards = Array.prototype.slice.call(grid.querySelectorAll('.card[data-cats], .deck-card[data-deck-tile]'));
   }
 
   // Habille une carte existante en « recommandée » (étiquette + classe).
@@ -1059,6 +1060,7 @@
   function initialLimit() { return currentMode === 'connected' ? INITIAL_CONNECTED : INITIAL_ANON; }
   var cards = [], moreBtn = null, qInput = null, grid = null, addCard = null;
   var sourcesData = []; // liste des sources (pour recalculer une recommandation à l'adoption)
+  var decksData = [];   // tuiles-deck du kiosque (officiels + perso publics) — modes spéciaux
   // D) Personnalisation (connecté) : renseignée depuis /api/my-alerts au chargement.
   var profile = { country: null, departement: null, region: null, ville: null, interests: [] };
   // Une source est-elle géolocalisée sur le département choisi ? Signal simple et
@@ -1108,23 +1110,38 @@
   //   départage par display_order croissant), IDENTIQUE pour tous — connectés comme
   //   anonymes. La personnalisation ne pilote PLUS ce filtre (elle continue de piloter la
   //   recommandation et le tri général, inchangés).
+  // Les tuiles-deck (decksData) entrent dans le calcul aux côtés des cartes, mais sont
+  // PLAFONNÉES pour ne pas noyer les cartes : 2 decks max en Nouveautés (sur 6), 4 max en
+  // Populaires (sur 12). L'id d'un deck (data-source-id de la tuile) rejoint la map → la
+  // même fonction matches() les affiche/masque sans logique parallèle.
   function computeSpecialIds(mode) {
-    var list = (sourcesData || []).filter(function (s) { return s.type !== 'linked'; });
-    var take = 6;
+    var cardsL = (sourcesData || []).filter(function (s) { return s.type !== 'linked'; });
+    var decksL = (decksData || []).slice();
+    var ids = {};
     if (mode === 'nouveautes') {
-      list = list.slice().sort(function (a, b) {
-        return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
-      });
+      var TAKE = 6, DECK_CAP = 2;
+      // Fusion cartes+decks triée par created_at desc ; on prend 6 au plus, ≤2 decks.
+      var merged = cardsL.map(function (s) { return { id: s.id, t: new Date(s.created_at || 0).getTime(), deck: false }; })
+        .concat(decksL.map(function (d) { return { id: d.id, t: new Date(d.created_at || 0).getTime(), deck: true }; }))
+        .sort(function (a, b) { return b.t - a.t; });
+      var nDeck = 0, n = 0;
+      for (var i = 0; i < merged.length && n < TAKE; i++) {
+        if (merged[i].deck) { if (nDeck >= DECK_CAP) continue; nDeck++; }
+        ids[merged[i].id] = true; n++;
+      }
     } else { // 'selection' = Les plus populaires
-      take = 12;
-      list = list.slice().sort(function (a, b) {
+      var TOTAL = 12, DECK_MAX = 4;
+      // Decks par nombre d'adoptions (desc, >0 seulement), plafonnés ; le reste = cartes par likes.
+      var topDecks = decksL.filter(function (d) { return (d.adopt_count || 0) > 0; })
+        .sort(function (a, b) { return (b.adopt_count || 0) - (a.adopt_count || 0); })
+        .slice(0, DECK_MAX);
+      topDecks.forEach(function (d) { ids[d.id] = true; });
+      cardsL.slice().sort(function (a, b) {
         var d = (b.likes_count || 0) - (a.likes_count || 0);
         if (d !== 0) return d;
         return (a.display_order || 0) - (b.display_order || 0); // départage ex æquo
-      });
+      }).slice(0, TOTAL - topDecks.length).forEach(function (s) { ids[s.id] = true; });
     }
-    var ids = {};
-    list.slice(0, take).forEach(function (s) { ids[s.id] = true; });
     return ids;
   }
 
@@ -1748,20 +1765,34 @@
     } catch (e) { return; }
     var list = (data && data.collections) || [];
     if (!list.length) return;
+    decksData = list; // conservé pour les modes spéciaux (Nouveautés / Populaires)
     var index = LBADeckStack.indexSources(sourcesData || []);
     var tiles = list.map(function (c) {
       var cards = LBADeckStack.resolveCards(c.preview || [], index);
       var meta = (c.total_likes > 0)
         ? '<span class="ds-ribbon-likes">❤ ' + esc(LBACards.formatCount(c.total_likes)) + '</span>' : '';
+      var cats = Array.isArray(c.categories) ? c.categories : [];
       var stack = LBADeckStack.html({
         name: c.name, tint: c.tint, emoji: c.emoji, count: c.card_count || 0,
-        cards: cards, meta: meta, mode: 'anon'
+        cards: cards, meta: meta, cats: cats, mode: 'anon'
       });
+      // Data-attributs IDENTIQUES aux cartes → matches()/catsOf()/modes spéciaux
+      // fonctionnent sans logique parallèle. data-source-id = id du deck (distinct des
+      // ids de sources) → computeSpecialIds peut inclure les decks. data-deck-id = id du
+      // deck pour l'adoption (POST /api/collections/:id/adopt, officiel OU perso public).
+      // data-href = navigation (/collection/:id ou /deck/:token selon le type).
+      var searchTxt = ((c.name || '') + ' ' + cats.map(function (s) {
+        return (window.LBACat && LBACat.label) ? LBACat.label(s) : s;
+      }).join(' ')).toLowerCase();
+      var href = c.href || ('/collection/' + encodeURIComponent(c.id));
       // La tuile est un <div> (PAS un <a>) : les vraies cartes contiennent des <button>
-      // (like/partage/i), interdits dans un <a> (le parseur casserait la structure). La
-      // navigation se fait au clic via data-href (cartes internes en pointer-events:none).
-      return '<div class="deck-card" data-deck-tile role="link" tabindex="0" ' +
-        'data-href="/collection/' + encodeURIComponent(c.id) + '">' + stack + '</div>';
+      // (like/partage/i), interdits dans un <a>. La navigation se fait au clic via data-href.
+      return '<div class="deck-card" data-deck-tile role="link" tabindex="0"' +
+        ' data-cats="' + esc(cats.join(' ')) + '"' +
+        ' data-source-id="' + esc(c.id) + '"' +
+        ' data-deck-id="' + esc(c.id) + '"' +
+        ' data-search="' + esc(searchTxt) + '"' +
+        ' data-href="' + esc(href) + '">' + stack + '</div>';
     });
     // Insertion à intervalles réguliers parmi les cartes VISIBLES (hors pagination cachée).
     var visible = g.querySelectorAll('.card[data-cats]:not(.hidden-more)');
@@ -1793,6 +1824,9 @@
     // computeShow() les epingle (isReco) pour qu'elles ne comptent pas dans la pagination.
     cards = Array.prototype.slice.call(g.querySelectorAll('.card[data-cats], .deck-card[data-deck-tile]'));
     bindDeckSwitches();
+    // Les decks arrivent en async : si on est deja dans un mode special (arrivee via
+    // ?mode=nouveautes|selection), on recalcule l'ensemble pour les y inclure.
+    if (isSpecial(cat)) specialIds = computeSpecialIds(cat);
     apply(false); // synchronise l'etat filtre (tuiles masquees si on n'est pas sur « Toutes »)
   }
 
@@ -1812,7 +1846,9 @@
       cb.removeAttribute('disabled'); // un switch de param non-geo est disabled par defaut → on l'active ici
       var row = cb.closest('.switch-row');
       var label = row ? row.querySelector('.switch-label') : null;
-      var slug = decodeURIComponent((tile.getAttribute('data-href') || '').replace('/collection/', ''));
+      // Adoption par ID de collection (officiel OU deck perso public) : POST /api/collections/:id/adopt.
+      var slug = tile.getAttribute('data-deck-id')
+        || decodeURIComponent((tile.getAttribute('data-href') || '').replace('/collection/', ''));
       // Cœur : reflete l'etat « favori » du deck (localStorage) au montage.
       var like = front.querySelector('.like-btn');
       if (like && isDeckFav(slug)) setLikeUI(like, true);

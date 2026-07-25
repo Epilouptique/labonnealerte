@@ -35,6 +35,15 @@
   function motifSvg(emoji) {
     return (window.LBADeckMotifs && (LBADeckMotifs[emoji] || LBADeckMotifs['📦'])) || '';
   }
+  function catLabel(slug) { return (window.LBACat && LBACat.label) ? LBACat.label(slug) : slug; }
+  // Catégories auto du deck (top-3, LECTURE SEULE) rendues au style des tags de carte
+  // (.tag), jamais cliquables ici : elles décrivent le deck, elles ne filtrent pas.
+  function catsHTML(cats) {
+    if (!Array.isArray(cats) || !cats.length) return '';
+    return '<span class="ds-ribbon-cats">' + cats.slice(0, 3).map(function (c) {
+      return '<span class="tag ds-cat-tag">' + esc(catLabel(c)) + '</span>';
+    }).join('') + '</span>';
+  }
 
   // Une carte de la pile = recto complet du kiosque. On NEUTRALISE les data-attributs
   // que site.js enumere sur .card[...] (tri, filtre, pagination, reco, like, prefill)
@@ -68,6 +77,7 @@
     var ribbon = '<span class="ds-ribbon">' +
         nameHtml +
         '<span class="ds-ribbon-meta">' + meta + '</span>' +
+        catsHTML(opts.cats) +
       '</span>';
     return '<div class="deck-stack ' + tintCls(opts.tint) + '" data-count="' + cards.length + '">' +
       '<div class="ds-stack">' + inner + ribbon + '</div></div>';

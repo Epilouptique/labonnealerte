@@ -96,13 +96,14 @@
   // cartes, ids du champ preview résolus depuis le catalogue (CATALOG).
   function deckTileHTML(d) {
     var badge = d.visibility && d.visibility !== 'private'
-      ? '<span class="deck-badge deck-badge-shared">Partagé</span>'
+      ? '<span class="deck-badge deck-badge-shared">Public</span>'
       : '<span class="deck-badge">Privé</span>';
     var cards = window.LBADeckStack
       ? LBADeckStack.resolveCards(d.preview || [], LBADeckStack.indexSources(CATALOG || [])) : [];
     var stack = window.LBADeckStack ? LBADeckStack.html({
       name: d.name, tint: d.tint, emoji: d.emoji || DEFAULT_EMOJI,
-      count: d.card_count || 0, cards: cards, meta: badge, mode: 'anon'
+      count: d.card_count || 0, cards: cards, meta: badge,
+      cats: Array.isArray(d.categories) ? d.categories : [], mode: 'anon'
     }) : '';
     return '<div class="deck-card" role="button" tabindex="0" data-deck="' + esc(d.id) + '">' + stack + '</div>';
   }
@@ -234,6 +235,8 @@
     var tint = editing ? (deck.tint || 1) : 1;
     // État local mutable des cartes-graines (retirables avant création).
     var seed = (!editing && Array.isArray(seedCards)) ? seedCards.slice() : [];
+    // Visibilité : PUBLIC par défaut (découvrable dans le kiosque) ; « Privé » = opt-out.
+    var vis = editing ? (deck.visibility === 'private' ? 'private' : 'public') : 'public';
 
     viewEl.innerHTML = '' +
       '<button type="button" class="deck-back" id="deck-form-back">← Retour</button>' +
@@ -255,6 +258,15 @@
         emojiPickerHTML(emoji) +
         '<label>Teinte</label>' +
         tintPickerHTML(tint) +
+        '<label>Visibilité</label>' +
+        '<div class="deck-vis-picker" role="radiogroup" aria-label="Visibilité du deck">' +
+          '<button type="button" class="deck-vis-opt' + (vis === 'public' ? ' on' : '') + '" data-vis="public"' +
+            ' role="radio" aria-checked="' + (vis === 'public' ? 'true' : 'false') + '">' +
+            '<span class="deck-vis-title">Public</span><span class="deck-vis-sub">Visible dans le kiosque, adoptable par tous</span></button>' +
+          '<button type="button" class="deck-vis-opt' + (vis === 'private' ? ' on' : '') + '" data-vis="private"' +
+            ' role="radio" aria-checked="' + (vis === 'private' ? 'true' : 'false') + '">' +
+            '<span class="deck-vis-title">Privé</span><span class="deck-vis-sub">Vous seul le voyez</span></button>' +
+        '</div>' +
         (seed.length ? (
           '<label>Cartes de ce deck (<span id="deck-seed-count">' + seed.length + '</span>)</label>' +
           '<div class="grid deck-seed-grid" id="deck-seed-grid"></div>' +
@@ -347,6 +359,15 @@
       opt.classList.add('on'); opt.setAttribute('aria-checked', 'true');
       updatePreview();
     });
+    var visPicker = viewEl.querySelector('.deck-vis-picker');
+    if (visPicker) visPicker.addEventListener('click', function (e) {
+      var opt = e.target.closest('.deck-vis-opt');
+      if (!opt) return;
+      visPicker.querySelectorAll('.deck-vis-opt').forEach(function (b) {
+        b.classList.remove('on'); b.setAttribute('aria-checked', 'false');
+      });
+      opt.classList.add('on'); opt.setAttribute('aria-checked', 'true');
+    });
 
     document.getElementById('deck-form-back').addEventListener('click', function () {
       editing ? openDeck(deck.id) : renderList();
@@ -371,11 +392,13 @@
     if (!name) { formMsg('Donnez un nom à votre deck.', 'err'); return; }
     var chosen = picker.querySelector('.deck-emoji-opt.on');
     var chosenT = tintPicker ? tintPicker.querySelector('.deck-tint-opt.on') : null;
+    var chosenV = document.querySelector('.deck-vis-opt.on');
     var body = {
       name: name,
       description: (descEl.value || '').trim(),
       emoji: chosen ? chosen.getAttribute('data-emoji') : DEFAULT_EMOJI,
-      tint: chosenT ? parseInt(chosenT.getAttribute('data-tint'), 10) : 1
+      tint: chosenT ? parseInt(chosenT.getAttribute('data-tint'), 10) : 1,
+      visibility: chosenV ? chosenV.getAttribute('data-vis') : 'public'
     };
     var btn = document.querySelector('#deck-form button[type="submit"]');
     if (btn) btn.disabled = true;
@@ -435,6 +458,12 @@
         '<h1>' + esc(deck.name) + '</h1>' +
       '</div>' +
       (deck.description ? '<p class="src-desc">' + esc(deck.description) + '</p>' : '') +
+      // Catégories auto (top-3, LECTURE SEULE) : dérivées des cartes, jamais choisies.
+      (Array.isArray(deck.categories) && deck.categories.length
+        ? '<div class="deck-detail-cats">' + deck.categories.slice(0, 3).map(function (c) {
+            return '<span class="tag ds-cat-tag">' + esc(window.LBACat && LBACat.label ? LBACat.label(c) : c) + '</span>';
+          }).join('') + '</div>'
+        : '') +
       forked +
       '<div class="coll-actions deck-detail-actions">' +
         '<button type="button" id="deck-adopt" class="coll-adopt">S\'abonner à ce deck</button>' +
