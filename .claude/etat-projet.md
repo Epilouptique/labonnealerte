@@ -179,6 +179,18 @@ FAIT (cycle ma-collectivite) : le champ dynamic-enum est passé en COMBOBOX auto
 champ visuel), avec styles dédiés .dyn-enum/.dyn-search/.dyn-listbox/.dyn-option/.dyn-status
 (tokens, rayons DS, focus violet), navigation clavier ARIA et zone aria-live — sorti du backlog.
 
+## Règle absolue — Titre de page (h1) & en-tête détail deck
+Tout h1 de page (y compris ceux rendus par JS) DOIT être `<h1 class="page-title" data-hero-done="1">`
+comme toutes les pages du site (cohérence typo Baloo 2 + animation hero gérée par hero-letters.js).
+Ne PAS régresser en `<h1>` nu.
+DÉTAIL D'UN DECK (/mes-decks, renderDetail dans js/decks.js) : mise en page figée =
+titre .page-title EN PLEINE LARGEUR, puis rangée `.deck-detail-layout` = [pile .deck-card à gauche]
+| [`.deck-detail-body` à droite]. Le corps empile verticalement, dans l'ordre : src-desc (description),
+.deck-detail-cats, .deck-detail-actions (coll-actions), #deck-adopt-msg, #deck-share-box — chacun
+l'un SOUS l'autre, à DROITE de la pile et SOUS le titre. Responsive/mobile-first : sous 640px le
+corps repasse SOUS la pile (colonne unique). CSS = .deck-detail-layout / .deck-detail-body (site.css).
+Des refontes ont déjà cassé ça plusieurs fois → règle, ne pas re-diverger.
+
 ## Géoloc IP & département (RÉSOLU via Cloudflare + IPLocate — historique figé)
 Parcours complet (ne pas rejouer les impasses) :
 1. geoip-lite ABANDONNÉ pour le département : `area` mesure la confiance, pas l'exactitude

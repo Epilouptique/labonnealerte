@@ -16,7 +16,8 @@
     decks: [],
     display_name: null,
     emojis: [],
-    max_decks: 15
+    max_decks: 15,
+    deckSkins: null // skins 'deck' POSSEDES (chargement paresseux via ensureSkins)
   };
   var DEFAULT_EMOJI = '📦';
   var SUGGEST_STEP = 6;
@@ -437,6 +438,23 @@
 
   // --- Vue détail d'un deck -------------------------------------------------
 
+  // Controle « Skin » d'un deck (phase 3). N'apparait que si l'utilisateur possede au
+  // moins un skin 'deck' : un select [Aucun + skins possedes], preselectionne sur le
+  // skin actuellement equipe (deck.equipped_skin_id). Sinon, lien discret vers la boutique.
+  function skinControlHTML(deck) {
+    var owned = STATE.deckSkins || [];
+    if (!owned.length) {
+      return '<a class="deck-skin-link" href="/boutique">Obtenir un skin de deck</a>';
+    }
+    var cur = deck.equipped_skin_id || '';
+    var opts = '<option value=""' + (cur ? '' : ' selected') + '>Aucun</option>';
+    owned.forEach(function (s) {
+      opts += '<option value="' + esc(s.id) + '"' + (s.id === cur ? ' selected' : '') + '>' + esc(s.name) + '</option>';
+    });
+    return '<label class="deck-skin-ctrl"><span>Skin</span>' +
+      '<select id="deck-skin-select" aria-label="Skin du deck">' + opts + '</select></label>';
+  }
+
   function renderDetail(deck, sources) {
     curDeck = deck;
     deckSources = (sources || []).slice();
@@ -451,28 +469,38 @@
     var forked = deck.forked_from_name
       ? '<p class="deck-forked">Inspiré de « ' + esc(deck.forked_from_name) + ' »</p>' : '';
 
+    // Mise en page : titre (.page-title, comme toutes les pages) EN PLEINE LARGEUR,
+    // puis une rangée [pile deck-card] | [corps empilé] où le corps (description,
+    // catégories, actions, boîte de partage) vit À DROITE de la pile et SOUS le titre.
+    // Responsive : le corps repasse SOUS la pile en une colonne sur mobile (cf. site.css).
     viewEl.innerHTML = '' +
       '<button type="button" class="deck-back" id="deck-detail-back">← Tous mes decks</button>' +
-      '<div class="coll-head-top">' +
+      '<h1 class="page-title" data-hero-done="1">' + esc(deck.name) + '</h1>' +
+      '<div class="deck-detail-layout">' +
         headStack +
-        '<h1>' + esc(deck.name) + '</h1>' +
+        '<div class="deck-detail-body">' +
+          (deck.description ? '<p class="src-desc">' + esc(deck.description) + '</p>' : '') +
+          // Catégories auto (top-3, LECTURE SEULE) : dérivées des cartes, jamais choisies.
+          (Array.isArray(deck.categories) && deck.categories.length
+            ? '<div class="deck-detail-cats">' + deck.categories.slice(0, 3).map(function (c) {
+                return '<span class="tag ds-cat-tag">' + esc(window.LBACat && LBACat.label ? LBACat.label(c) : c) + '</span>';
+              }).join('') + '</div>'
+            : '') +
+          forked +
+          '<div class="coll-actions deck-detail-actions">' +
+            '<button type="button" id="deck-adopt" class="coll-adopt">S\'abonner à ce deck</button>' +
+            '<button type="button" id="deck-share" class="notif-btn">' + (shared ? 'Gérer le partage' : 'Partager') + '</button>' +
+            '<button type="button" id="deck-edit" class="notif-btn">Modifier</button>' +
+            '<button type="button" id="deck-delete" class="deck-delete-btn">Supprimer</button>' +
+          '</div>' +
+          // Phase 3 : skin de deck (cosmetique public). Visible seulement si l'utilisateur
+          // possede un skin 'deck' ; sinon lien discret vers la boutique.
+          '<div class="deck-skin-row">' + skinControlHTML(deck) + '</div>' +
+          '<div id="deck-skin-msg" class="coll-adopt-msg" hidden></div>' +
+          '<div id="deck-adopt-msg" class="coll-adopt-msg" hidden></div>' +
+          '<div id="deck-share-box" class="deck-share-box" hidden></div>' +
+        '</div>' +
       '</div>' +
-      (deck.description ? '<p class="src-desc">' + esc(deck.description) + '</p>' : '') +
-      // Catégories auto (top-3, LECTURE SEULE) : dérivées des cartes, jamais choisies.
-      (Array.isArray(deck.categories) && deck.categories.length
-        ? '<div class="deck-detail-cats">' + deck.categories.slice(0, 3).map(function (c) {
-            return '<span class="tag ds-cat-tag">' + esc(window.LBACat && LBACat.label ? LBACat.label(c) : c) + '</span>';
-          }).join('') + '</div>'
-        : '') +
-      forked +
-      '<div class="coll-actions deck-detail-actions">' +
-        '<button type="button" id="deck-adopt" class="coll-adopt">S\'abonner à ce deck</button>' +
-        '<button type="button" id="deck-share" class="notif-btn">' + (shared ? 'Gérer le partage' : 'Partager') + '</button>' +
-        '<button type="button" id="deck-edit" class="notif-btn">Modifier</button>' +
-        '<button type="button" id="deck-delete" class="deck-delete-btn">Supprimer</button>' +
-      '</div>' +
-      '<div id="deck-adopt-msg" class="coll-adopt-msg" hidden></div>' +
-      '<div id="deck-share-box" class="deck-share-box" hidden></div>' +
       '<p class="src-desc" id="deck-empty-msg" hidden>Ce deck ne contient encore aucune carte. Ajoutez-en depuis le kiosque ou à partir d\'ici.</p>' +
       '<div class="grid" id="deck-grid"></div>' +
       '<div id="deck-suggest-block" class="deck-suggest-block"></div>';
@@ -488,7 +516,28 @@
     document.getElementById('deck-delete').addEventListener('click', function () { onDelete(deck); });
     document.getElementById('deck-adopt').addEventListener('click', function () { onAdopt(deck); });
     document.getElementById('deck-share').addEventListener('click', function () { onShareToggle(deck); });
+    var skinSel = document.getElementById('deck-skin-select');
+    if (skinSel) skinSel.addEventListener('change', function () { onEquipSkin(deck, skinSel.value || null); });
     renderShareMgmt(deck); // affiche « Arrêter le partage » si déjà partagé (le lien vit dans la modale)
+  }
+
+  // Equipe (ou retire si skinId null) un skin 'deck' sur CE deck. Cosmetique public,
+  // effet non destructif. Met a jour l'etat local pour rester coherent sans rechargement.
+  async function onEquipSkin(deck, skinId) {
+    var msg = document.getElementById('deck-skin-msg');
+    try {
+      var res = await apiSend('POST', '/api/skins/equip', { skin_id: skinId, collection_id: deck.id });
+      var d = await readJson(res);
+      if (!res.ok) throw new Error((d && d.error) || 'echec');
+      deck.equipped_skin_id = d.equipped_skin_id || null;
+      if (curDeck && curDeck.id === deck.id) curDeck.equipped_skin_id = deck.equipped_skin_id;
+      if (msg) { msg.textContent = skinId ? 'Skin équipé ✓' : 'Skin retiré'; msg.className = 'coll-adopt-msg ok'; msg.hidden = false; }
+    } catch (e) {
+      // Rollback visuel : on resynchronise le select sur l'etat serveur connu.
+      var sel = document.getElementById('deck-skin-select');
+      if (sel) sel.value = deck.equipped_skin_id || '';
+      if (msg) { msg.textContent = 'Équipement impossible'; msg.className = 'coll-adopt-msg err'; msg.hidden = false; }
+    }
   }
 
   // Rend la grille des cartes DU deck (depuis l'état local deckSources).
@@ -517,6 +566,18 @@
   }
 
   // --- Propositions de cartes (« La sélection », en excluant celles du deck) ----
+
+  // Charge une fois les skins 'deck' POSSEDES par l'utilisateur (pour le selecteur
+  // « Skin » de chaque deck). GET /api/skins expose owned ; on filtre type==='deck'.
+  async function ensureSkins() {
+    if (STATE.deckSkins) return;
+    try {
+      var res = await apiGet('/api/skins');
+      var d = await readJson(res);
+      var all = (d && Array.isArray(d.skins)) ? d.skins : [];
+      STATE.deckSkins = all.filter(function (s) { return s.type === 'deck' && s.owned; });
+    } catch (e) { STATE.deckSkins = STATE.deckSkins || []; }
+  }
 
   async function ensureCatalog() {
     if (CATALOG) return;
@@ -751,6 +812,7 @@
       var res = await apiGet('/api/decks/' + encodeURIComponent(id));
       var d = await readJson(res);
       if (!res.ok || !d || !d.deck) { renderList(); return; }
+      await ensureSkins(); // selecteur « Skin » : necessite la liste des skins deck possedes
       renderDetail(d.deck, d.sources || []);
     } catch (e) { renderList(); }
   }

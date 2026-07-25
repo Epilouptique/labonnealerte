@@ -1650,6 +1650,9 @@
           profile.ville = s.data.ville || null;
           profile.interests = s.data.interests || [];
           accountDisplayName = s.data.display_name || null;
+          // Phase 3 : skin dashboard equipe (prive) -> classe sur la grille, cascade
+          // sur toutes les cartes source. Token CSS placeholder (asset_ref) ou null.
+          if (s.data.dashboard_skin) g.classList.add(s.data.dashboard_skin);
         }
       } catch (e) { /* réseau : on reste anonyme */ }
     }
@@ -1771,8 +1774,10 @@
     var index = LBADeckStack.indexSources(sourcesData || []);
     var tiles = list.map(function (c) {
       var cards = LBADeckStack.resolveCards(c.preview || [], index);
-      var meta = (c.total_likes > 0)
-        ? '<span class="ds-ribbon-likes">❤ ' + esc(LBACards.formatCount(c.total_likes)) + '</span>' : '';
+      // Ruban meta : badge Top 20 (phase 2, auteur classe <= 20) puis compteur de likes.
+      var meta = '';
+      if (c.author_top20) meta += '<span class="deck-badge-top20">Top 20</span>';
+      if (c.total_likes > 0) meta += (meta ? ' ' : '') + '<span class="ds-ribbon-likes">❤ ' + esc(LBACards.formatCount(c.total_likes)) + '</span>';
       var cats = Array.isArray(c.categories) ? c.categories : [];
       var stack = LBADeckStack.html({
         name: c.name, tint: c.tint, emoji: c.emoji, count: c.card_count || 0,
@@ -1789,7 +1794,9 @@
       var href = c.href || ('/collection/' + encodeURIComponent(c.id));
       // La tuile est un <div> (PAS un <a>) : les vraies cartes contiennent des <button>
       // (like/partage/i), interdits dans un <a>. La navigation se fait au clic via data-href.
-      return '<div class="deck-card" data-deck-tile role="link" tabindex="0"' +
+      // Phase 3 : skin de deck equipe (public) -> classe additionnelle sur la tuile.
+      var skinCls = c.deck_skin ? ' ' + esc(c.deck_skin) : '';
+      return '<div class="deck-card' + skinCls + '" data-deck-tile role="link" tabindex="0"' +
         ' data-cats="' + esc(cats.join(' ')) + '"' +
         ' data-source-id="' + esc(c.id) + '"' +
         ' data-deck-id="' + esc(c.id) + '"' +

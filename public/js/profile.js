@@ -13,7 +13,7 @@
   var token = S.get();
   if (!token) return; // anonyme : pas de personnalisation
 
-  var state = { country: 'FR', departement: null, region: null, ville: null, interests: [], displayName: null, points: 0 };
+  var state = { country: 'FR', departement: null, region: null, ville: null, interests: [], displayName: null, points: 0, rank: null, optout: false };
   var geo = { countries: [], departements: [], regions: [] };
   var kioskCats = []; // slugs de catégories réellement utilisées par le kiosque
 
@@ -23,6 +23,28 @@
     });
   }
   function catLabel(slug) { return (window.LBACat && LBACat.label) ? LBACat.label(slug) : slug; }
+  // Ordinal francais : 1 -> "1er", n -> "Ne" (2e, 3e, 20e...).
+  function ordinal(n) { return n === 1 ? '1er' : (String(n) + 'e'); }
+
+  // Bascule opt-out classement (auto-save serveur, comme le pseudo/profil). Re-rend
+  // la carte pour refleter le rang (affiche/masque) apres la reponse.
+  async function saveOptout(next) {
+    try {
+      var res = await fetch('/api/my-alerts/leaderboard', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: token, optout: next }),
+      });
+      if (!res.ok) throw new Error('http ' + res.status);
+      var d = await res.json();
+      state.optout = !!d.leaderboard_optout;
+      state.rank = d.rank != null ? d.rank : null;
+      flash('Enregistré ✓', true);
+    } catch (e) {
+      state.optout = !next; // rollback visuel
+      flash('Échec de l\'enregistrement', false);
+    }
+    render();
+  }
 
   var flashTimer = null;
   function flash(msg, ok) {
@@ -248,14 +270,43 @@
       '<div class="acct-subhead">Mes points</div>' +
       '<div class="notif-card">' +
       '  <div class="notif-row">' +
-      '    <div class="notif-txt"><strong>Solde</strong><span class="notif-sub">Points gagnes en creant et adoptant des decks</span></div>' +
+      '    <div class="notif-txt"><strong>Solde</strong><span class="notif-sub">Points gagnés en créant et adoptant des decks</span></div>' +
       '    <div class="pref-points" aria-label="Solde de points">' + esc(String(state.points || 0)) + '</div>' +
       '  </div>' +
+      // Rang privé (phase 2) : visible seulement par vous, jamais exposé à un tiers.
+      // Masqué si opt-out ou pas encore de rang (rank null).
+      (!state.optout && state.rank != null
+        ? '  <div class="notif-row pref-rank-row">' +
+          '    <div class="notif-txt"><strong>Votre classement</strong>' +
+          '      <span class="notif-sub">Visible de vous seul, jamais partagé</span></div>' +
+          '    <div class="pref-rank" aria-label="Votre rang">Vous êtes classé ' + esc(ordinal(state.rank)) + '</div>' +
+          '  </div>'
+        : '') +
+      // Opt-out : décoché = vous participez (défaut). Coché = exclu du classement.
+      '  <div class="notif-row">' +
+      '    <div class="notif-txt"><strong>Ne pas participer au classement</strong>' +
+      '      <span class="notif-sub">Vous retire du calcul de rang et du badge Top 20</span></div>' +
+      '    <button type="button" class="notif-toggle" id="pref-optout" role="switch" aria-label="Ne pas participer au classement"></button>' +
+      '  </div>' +
+      // Phase 3 : acces a la boutique de skins cosmetiques.
+      '  <a class="notif-row notif-nav" href="/boutique">' +
+      '    <span class="notif-txt"><strong>Boutique</strong>' +
+      '      <span class="notif-sub">Débloquez des skins avec vos points</span></span>' +
+      '    <span class="notif-chevron" aria-hidden="true">→</span>' +
+      '  </a>' +
       '</div>';
 
     renderChips();
     refreshGeoSelects();
     fillVilleSuggestions();
+
+    // Toggle opt-out classement : peint l'état courant puis bascule au clic (auto-save).
+    var optoutTgl = document.getElementById('pref-optout');
+    if (optoutTgl) {
+      optoutTgl.classList.toggle('on', state.optout);
+      optoutTgl.setAttribute('aria-checked', state.optout ? 'true' : 'false');
+      optoutTgl.addEventListener('click', function () { saveOptout(!state.optout); });
+    }
 
     // Pays : ne préremplit RIEN en dessous (trop large), mais filtre/vide Région et
     // Département. Hors France, aucune subdivision gérée → on vide et masque proprement.
@@ -357,6 +408,8 @@
       state.interests = (me && me.interests) || [];
       state.displayName = (me && me.display_name) || null;
       state.points = (me && me.points_balance) || 0;
+      state.rank = me && me.rank != null ? me.rank : null; // null = opt-out ou sans pseudo
+      state.optout = !!(me && me.leaderboard_optout);
 
       // Centres d'intérêt proposés = catégories réellement présentes dans le kiosque,
       // restreintes à la taxonomie connue (libellés fiables, acceptées côté serveur).

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Boutique — La Bonne Alerte</title>
+<meta name="description" content="Debloquez des skins cosmetiques avec vos points.">
+<meta property="og:title" content="Boutique — La Bonne Alerte">
+<meta property="og:description" content="Debloquez des skins cosmetiques avec vos points.">
+<meta property="og:url" content="https://labonnealerte.fr/boutique">
+<meta property="og:type" content="website">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="/css/fonts.css">
+<link rel="stylesheet" href="/css/tokens.css">
+<link rel="stylesheet" href="/css/site.css">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#fdfaff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1419" media="(prefers-color-scheme: dark)">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+</head>
+<body class="loading">
+
+<header>
+  <!-- Header injecte par js/header.js (source unique). Ancre minimale. -->
+  <div class="wrap nav"></div>
+</header>
+
+<!-- Halo de l'écran de chargement commun (visible tant que body.loading). -->
+<div class="page-loading" role="status" aria-live="polite">Chargement…</div>
+
+<main class="wrap shop-main">
+  <div id="shop-loading" class="src-loading">Chargement…</div>
+
+  <div id="shop-anon" class="decks-anon" hidden>
+    <h1 class="page-title">La <span class="hl">boutique</span></h1>
+    <p class="src-desc">Connectez-vous pour débloquer des skins cosmétiques avec vos points.</p>
+    <a class="coll-adopt" href="/connexion">Se connecter</a>
+  </div>
+
+  <section id="shop-view" hidden>
+    <h1 class="page-title">La <span class="hl">boutique</span></h1>
+    <p class="src-desc">Des skins purement cosmétiques, débloqués avec les points gagnés sur le site. Jamais d'argent réel.</p>
+    <div class="shop-balance">Votre solde : <strong id="shop-balance">0</strong> points</div>
+    <div id="shop-msg" class="coll-adopt-msg" role="status" hidden></div>
+    <div id="shop-grid" class="shop-grid"></div>
+  </section>
+</main>
+
+<footer>
+  La Bonne Alerte — gratuit, open-source (MIT), sans spam, rien de caché.<br>
+  <a href="/">Kiosque</a> · <a href="/a-propos">À propos</a> · <a href="/soutenir">Nous soutenir</a> · <a href="/mentions-legales">Mentions légales</a> · <a href="/confidentialite">Confidentialité</a> · <a href="/proposer">Espace développeur</a>
+</footer>
+
+<script src="/js/page-loading.js"></script>
+<script src="/js/session.js"></script>
+<script src="/js/boutique.js"></script>
+<script src="/js/hero-letters.js"></script>
+<script src="/js/theme.js"></script>
+<script src="/js/header.js"></script>
+<script src="/js/pwa.js"></script>
+</body>
+</html>

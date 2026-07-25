@@ -55,6 +55,8 @@
 
   function fillHeader() {
     var d = DECK.deck || {}, sources = DECK.sources || [];
+    // Phase 3 : skin de deck equipe (public) -> classe sur la vue du deck (header + grille).
+    if (d.deck_skin && viewEl) viewEl.classList.add(d.deck_skin);
     // E5) motif+teinte à la place de l'emoji.
     var em = document.getElementById('deck-emoji');
     if (em) {
@@ -69,7 +71,9 @@
     document.getElementById('deck-desc').textContent = d.description || '';
 
     var authorEl = document.getElementById('deck-author');
-    authorEl.textContent = 'Par ' + (d.author ? d.author : 'un utilisateur');
+    // Badge Top 20 (phase 2) a cote du pseudo si l'auteur est classe <= 20.
+    var badge = d.author_top20 ? ' <span class="deck-badge-top20">Top 20</span>' : '';
+    authorEl.innerHTML = 'Par ' + esc(d.author ? d.author : 'un utilisateur') + badge;
 
     var forkedEl = document.getElementById('deck-forked');
     if (d.forked_from_name) {

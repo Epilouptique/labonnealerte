@@ -46,4 +46,64 @@ async function award(subscriberId, eventType, refId) {
   }
 }
 
-module.exports = { award, POINTS };
+// ===========================================================================
+// Phase 2 : rang prive + badge Top 20. Classement calcule A LA VOLEE, jamais
+// denormalise. Deux invariants partout : on ne compte QUE les participants
+// (leaderboard_optout = false) qui ont un display_name non nul (jamais de pseudo
+// vide expose). RANK() donne "1 + nb de soldes strictement superieurs", ce qui
+// gere les ex aequo (rang partage, rang suivant saute) — un LIMIT 20 casserait
+// sur egalites.
+// ===========================================================================
+
+// Cache en memoire process (2 min) du Set des subscriber_id de rang <= 20, sur le
+// modele de routes/le-point.js. Evite un COUNT par deck au rendu de la grille : une
+// seule requete pour toute la page, membership teste en JS via set.has(owner_id).
+let top20Cache = { at: 0, ids: null };
+const TOP20_CACHE_MS = 2 * 60 * 1000;
+
+async function getTop20Ids() {
+  const now = Date.now();
+  if (top20Cache.ids && now - top20Cache.at <= TOP20_CACHE_MS) return top20Cache.ids;
+  try {
+    const { rows } = await pool.query(
+      `SELECT id FROM (
+         SELECT id, RANK() OVER (ORDER BY points_balance DESC) AS rk
+           FROM subscribers
+          WHERE leaderboard_optout = false AND display_name IS NOT NULL
+       ) t WHERE rk <= 20`
+    );
+    top20Cache = { at: now, ids: new Set(rows.map((r) => r.id)) };
+  } catch (err) {
+    // Badge = cosmetique non critique : en cas d'echec on renvoie un Set vide
+    // (aucun badge) sans planter le rendu de la grille/du detail.
+    console.error('[points] getTop20Ids echoue :', err.message);
+    if (!top20Cache.ids) top20Cache = { at: now, ids: new Set() };
+  }
+  return top20Cache.ids;
+}
+
+// Rang prive d'un compte pour "Mon compte". NULL si le compte est opt-out ou sans
+// pseudo (aucun rang calcule/affiche, on ne montre que le solde). Non cache : une
+// requete par chargement de compte, negligeable et toujours fraiche.
+async function getRank(subscriberId) {
+  if (!subscriberId) return null;
+  try {
+    const { rows } = await pool.query(
+      `SELECT CASE
+                WHEN me.leaderboard_optout = false AND me.display_name IS NOT NULL
+                THEN 1 + (SELECT COUNT(*) FROM subscribers o
+                           WHERE o.leaderboard_optout = false AND o.display_name IS NOT NULL
+                             AND o.points_balance > me.points_balance)
+                ELSE NULL
+              END AS rank
+         FROM subscribers me WHERE me.id = $1`,
+      [subscriberId]
+    );
+    return rows[0] ? rows[0].rank : null; // rank est INTEGER ou NULL
+  } catch (err) {
+    console.error('[points] getRank echoue :', err.message);
+    return null;
+  }
+}
+
+module.exports = { award, POINTS, getTop20Ids, getRank };

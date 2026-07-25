@@ -2599,7 +2599,7 @@ html[data-theme="dark"] {
 .card-content .card-top { padding-right: 0; align-items: center; gap: 7px; }
 .grid .card-content h3, .deck-card .card-content h3 {
   font-family: 'Baloo 2', sans-serif; font-size: 20px; font-weight: 800;
-  line-height: 1.1; letter-spacing: -0.01em; color: var(--ink);
+  line-height: 1.1; letter-spacing: -0.02em; color: var(--ink);
 }
 .grid .card-content .card-subtitle, .deck-card .card-content .card-subtitle {
   margin-top: 3px; font-size: 10.5px; font-weight: 700;

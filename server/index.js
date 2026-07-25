@@ -14,6 +14,7 @@ const authRouter = require('./routes/auth');
 const pushRouter = require('./routes/push');
 const collectionsRouter = require('./routes/collections');
 const decksRouter = require('./routes/decks');
+const skinsRouter = require('./routes/skins');
 const { apiRouter: lePointApiRouter } = require('./routes/le-point');
 const { cleanupExpired } = require('./sessions');
 const { startPoller } = require('./poller');
@@ -144,6 +145,7 @@ app.use('/api', myAlertsApiRouter);
 app.use('/api', pushRouter);
 app.use('/api', collectionsRouter);
 app.use('/api', decksRouter);
+app.use('/api', skinsRouter);
 app.use('/api', lePointApiRouter);
 app.use('/api/dev', devRouter);
 // Connexion OAuth (Google / GitHub) — redirections serveur.
@@ -184,6 +186,11 @@ const FUSED_REDIRECTS = {
 // Page « Mes decks » (gestion des decks utilisateur) — contenu chargé côté client.
 app.get('/mes-decks', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'mes-decks.html'));
+});
+
+// Page « Boutique » (skins cosmetiques, phase 3) — contenu chargé côté client.
+app.get('/boutique', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'boutique.html'));
 });
 
 // D) Page « Mes favoris » — cartes aimées (serveur si connecté, localStorage sinon).
