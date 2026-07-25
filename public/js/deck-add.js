@@ -70,36 +70,6 @@
     }
   }
 
-  // Crée un premier deck puis y ajoute la carte (sans quitter le kiosque).
-  async function createFirstDeckAndAdd(name, sourceId, params, msgEl, btn, card) {
-    var token = S.get(); if (!token) return;
-    if (!name) { if (msgEl) msgEl.textContent = 'Choisissez un nom.'; return; }
-    if (btn) btn.disabled = true;
-    try {
-      var r = await fetch('/api/decks', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: token, name: name })
-      });
-      var d = await r.json().catch(function () { return {}; });
-      if (!r.ok || !d.deck) throw new Error(d.error || 'Création impossible');
-      decksCache = null; // la liste a changé
-      if (card) flipBack(card);
-      await addToDeck(d.deck.id, sourceId, params, d.deck.name);
-    } catch (e) {
-      if (msgEl) msgEl.textContent = e.message || 'Échec';
-      if (btn) btn.disabled = false;
-    }
-  }
-
-  function firstDeckHTML() {
-    return '<div class="dam-first">' +
-      '<div class="dam-first-label">Créer mon premier deck</div>' +
-      '<input type="text" class="dam-first-input" maxlength="40" placeholder="Nom du deck (ex. Ski 2026)" aria-label="Nom du deck">' +
-      '<button type="button" class="dam-first-btn">Créer et ajouter</button>' +
-      '<div class="dam-first-msg" role="status"></div>' +
-    '</div>';
-  }
-
   // F3) Remplit la face « deck » au dos de la carte puis retourne la carte.
   async function openDeckFace(btn) {
     var card = btn.closest('.card'); if (!card) return;
@@ -117,15 +87,14 @@
     body = card.querySelector('.card-deck-face .cdf-body');
 
     if (!data || !data.decks || !data.decks.length) {
-      // Aucun deck : création rapide inline (au dos de la carte).
-      body.innerHTML = firstDeckHTML();
-      var input = body.querySelector('.dam-first-input');
-      var mkBtn = body.querySelector('.dam-first-btn');
-      var msg = body.querySelector('.dam-first-msg');
-      var go = function () { createFirstDeckAndAdd((input.value || '').trim(), sourceId, params, msg, mkBtn, card); };
-      mkBtn.addEventListener('click', go);
-      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); go(); } });
-      setTimeout(function () { input.focus(); }, 60);
+      // Aucun deck encore : au lieu d'un micro-formulaire inline, on redirige vers la page
+      // de création complète (/mes-decks?creer=1) en transmettant la carte source
+      // (source_id + params) via localStorage — même patron que l'intention « lba-adopt ».
+      // La carte sera pré-présente dans le nouveau deck.
+      try {
+        localStorage.setItem('lba-deck-seed', JSON.stringify({ source_id: sourceId, params: params }));
+      } catch (e) {}
+      window.location.href = '/mes-decks?creer=1';
       return;
     }
 

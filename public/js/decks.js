@@ -62,6 +62,15 @@
   }
   async function readJson(res) { try { return await res.json(); } catch (e) { return null; } }
 
+  // Intention « créer un deck depuis une carte » : posée par deck-add.js dans localStorage
+  // (source_id + params) quand l'utilisateur n'a encore aucun deck. Consommée une seule fois.
+  function readSeed() {
+    var raw; try { raw = localStorage.getItem('lba-deck-seed'); } catch (e) { return null; }
+    if (!raw) return null;
+    try { var o = JSON.parse(raw); return (o && o.source_id) ? o : null; } catch (e) { return null; }
+  }
+  function clearSeed() { try { localStorage.removeItem('lba-deck-seed'); } catch (e) {} }
+
   // --- Rendu de la liste des decks -----------------------------------------
 
   function pseudoBlockHTML() {
@@ -208,12 +217,16 @@
   }
 
   // deck : objet existant (édition) ou null (création).
-  function openForm(deck) {
+  // seedCards : cartes pré-ajoutées à un NOUVEAU deck (création depuis une carte du
+  // kiosque) — tableau de { source, params }. Ignoré en édition.
+  function openForm(deck, seedCards) {
     var editing = !!deck;
     var name = editing ? (deck.name || '') : '';
     var desc = editing ? (deck.description || '') : '';
     var emoji = editing ? (deck.emoji || DEFAULT_EMOJI) : DEFAULT_EMOJI;
     var tint = editing ? (deck.tint || 1) : 1;
+    // État local mutable des cartes-graines (retirables avant création).
+    var seed = (!editing && Array.isArray(seedCards)) ? seedCards.slice() : [];
 
     viewEl.innerHTML = '' +
       '<button type="button" class="deck-back" id="deck-form-back">← Retour</button>' +
@@ -240,11 +253,39 @@
         emojiPickerHTML(emoji) +
         '<label>Teinte</label>' +
         tintPickerHTML(tint) +
+        (seed.length ? (
+          '<label>Cartes de ce deck (<span id="deck-seed-count">' + seed.length + '</span>)</label>' +
+          '<div class="grid deck-seed-grid" id="deck-seed-grid"></div>' +
+          '<p class="deck-hint">Vous pourrez en ajouter d\'autres après la création.</p>'
+        ) : '') +
         '<div class="deck-form-actions">' +
           '<button type="submit" class="coll-adopt">' + (editing ? 'Enregistrer' : 'Créer le deck') + '</button>' +
         '</div>' +
         '<div id="deck-form-msg" class="deck-form-msg" hidden></div>' +
       '</form>';
+
+    // Grille des cartes-graines : vraie carte (LBACards, mode 'anon') + bouton « Retirer »,
+    // même gabarit que la vue détail (deck-card-wrap / .deck-remove).
+    function renderSeedGrid() {
+      var g = document.getElementById('deck-seed-grid');
+      if (!g) return;
+      g.innerHTML = seed.map(function (item) {
+        return '<div class="deck-card-wrap">' +
+          LBACards.cardHTML(item.source, 'anon') +
+          '<button type="button" class="deck-remove" data-source="' + esc(item.source.id) + '">Retirer</button>' +
+        '</div>';
+      }).join('');
+      g.querySelectorAll('.deck-remove').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var id = btn.getAttribute('data-source');
+          seed = seed.filter(function (it) { return it.source.id !== id; });
+          renderSeedGrid();
+          var c = document.getElementById('deck-seed-count');
+          if (c) c.textContent = seed.length;
+        });
+      });
+    }
+    if (seed.length) renderSeedGrid();
 
     var nameEl = document.getElementById('deck-name');
     var descEl = document.getElementById('deck-desc');
@@ -302,7 +343,7 @@
 
     document.getElementById('deck-form').addEventListener('submit', function (e) {
       e.preventDefault();
-      submitForm(deck, nameEl, descEl, picker, tintPicker);
+      submitForm(deck, nameEl, descEl, picker, tintPicker, function () { return seed; });
     });
   }
 
@@ -314,7 +355,7 @@
     el.className = 'deck-form-msg' + (kind ? ' ' + kind : '');
   }
 
-  async function submitForm(deck, nameEl, descEl, picker, tintPicker) {
+  async function submitForm(deck, nameEl, descEl, picker, tintPicker, seedGetter) {
     var name = (nameEl.value || '').trim();
     if (!name) { formMsg('Donnez un nom à votre deck.', 'err'); return; }
     var chosen = picker.querySelector('.deck-emoji-opt.on');
@@ -333,6 +374,19 @@
         : await apiSend('POST', '/api/decks', body);
       var d = await readJson(res);
       if (res.ok && d && d.deck) {
+        // Création depuis une carte : ajoute les cartes-graines au deck fraîchement créé,
+        // puis consomme l'intention (une seule fois). Un ajout qui échoue n'annule pas
+        // la création — l'utilisateur retrouvera la carte via le kiosque.
+        var seed = (!deck && seedGetter) ? seedGetter() : [];
+        if (seed && seed.length) {
+          for (var i = 0; i < seed.length; i++) {
+            try {
+              await apiSend('POST', '/api/decks/' + encodeURIComponent(d.deck.id) + '/items',
+                { source_id: seed[i].source.id, params: seed[i].params || undefined });
+            } catch (e) { /* best-effort : on continue */ }
+          }
+        }
+        clearSeed();
         await refreshDecks();
         openDeck(d.deck.id);
         return;
@@ -669,6 +723,24 @@
     } catch (e) { /* réseau : on garde l'état courant */ }
   }
 
+  // Ouvre le formulaire de création avec la carte-graine transmise depuis le kiosque
+  // (résolue via le catalogue déjà utilisé pour « La sélection »).
+  async function openCreateFromSeed() {
+    var raw = readSeed();
+    clearSeed(); // consommé : évite une graine périmée au prochain passage
+    viewEl.innerHTML = '<div class="src-loading">Chargement…</div>';
+    var seedCards = [];
+    if (raw) {
+      await ensureCatalog();
+      var src = null;
+      for (var i = 0; i < (CATALOG || []).length; i++) {
+        if (CATALOG[i].id === raw.source_id) { src = CATALOG[i]; break; }
+      }
+      if (src) seedCards.push({ source: src, params: raw.params || null });
+    }
+    openForm(null, seedCards);
+  }
+
   async function init() {
     TOKEN = window.LBASession && LBASession.get();
     if (!TOKEN) { showAnon(); return; }
@@ -693,7 +765,10 @@
     if (loadingEl) loadingEl.hidden = true;
     if (anonEl) anonEl.hidden = true;
     if (viewEl) viewEl.hidden = false;
-    renderList();
+    // Arrivée depuis une carte du kiosque (aucun deck) : ouvrir directement la création
+    // avec la carte pré-présente. Sinon, liste normale.
+    if (/[?&]creer(=|&|$)/.test(location.search)) openCreateFromSeed();
+    else renderList();
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
