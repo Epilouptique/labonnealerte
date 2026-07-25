@@ -462,18 +462,18 @@ router.post('/decks/:id/adopt', async (req, res) => {
 
 /* ---------------- Signalement (anonyme autorisé) ---------------- */
 // POST /api/decks/shared/:token/report — { target: 'deck' | 'name' }. IP hashée.
-// À 3 ip distinctes : partage suspendu ('private', token invalidé) ; si 'name',
-// le pseudo repasse aussi à NULL. Réponse neutre (anti-abus, pas de compteur fuité).
+// À 3 ip distinctes : le DECK est suspendu ('private', token invalidé) dans tous les cas.
+// Le display_name du compte n'est JAMAIS modifié (un pseudo n'est jamais vide). Réponse
+// neutre (anti-abus, pas de compteur fuité).
 router.post('/decks/shared/:token/report', async (req, res) => {
   const target = ((req.body || {}).target === 'name') ? 'name' : 'deck';
   try {
     const found = await pool.query(
-      `SELECT id, owner_subscriber_id FROM collections WHERE share_token = $1 AND visibility IN ('public', 'unlisted')`,
+      `SELECT id FROM collections WHERE share_token = $1 AND visibility IN ('public', 'unlisted')`,
       [req.params.token]
     );
     if (found.rows.length === 0) return res.status(200).json({ ok: true }); // neutre
     const deckId = found.rows[0].id;
-    const ownerId = found.rows[0].owner_subscriber_id;
     const ipHash = ugc.hashIp(req.ip);
 
     // Idempotent par (deck, target, ip) : un signalant ne compte qu'une fois.
@@ -486,14 +486,14 @@ router.post('/decks/shared/:token/report', async (req, res) => {
       [deckId, target]
     );
     if (distinct.rows[0].n >= 3) {
-      // Suspend le partage dans tous les cas.
+      // Suspend le deck (repasse 'private', retire du kiosque + coupe le lien) dans tous
+      // les cas. On NE touche JAMAIS au display_name du compte : un pseudo n'est jamais
+      // vide (auto-rempli a l'inscription, non videable) — le signalement 'name' suspend
+      // seulement le deck concerne, l'auteur reste libre de renommer son pseudo lui-meme.
       await pool.query(
         `UPDATE collections SET visibility = 'private', share_token = NULL, updated_at = NOW() WHERE id = $1`,
         [deckId]
       );
-      if (target === 'name' && ownerId) {
-        await pool.query('UPDATE subscribers SET display_name = NULL WHERE id = $1', [ownerId]);
-      }
       console.warn(`[decks] SUSPENDU par signalements : deck=${deckId} target=${target} (>=3 ip distinctes).`);
     }
     return res.status(200).json({ ok: true });
