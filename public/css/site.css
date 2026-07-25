@@ -2255,21 +2255,27 @@ html[data-theme="dark"] .tint-11 .deck-motif-bg::after { background: color-mix(i
    → colonnes ~78px → titre casse caractere par caractere. Une face en flux redonne une
    largeur intrinseque normale (comme une vraie carte). Une bande haute (margin-top) laisse
    les cartes du fond depasser vers le haut, contenue par overflow:hidden. */
-.ds-face { transform-origin: 50% 0; }
+.ds-face { transform-origin: 50% 50%; }
 @media (prefers-reduced-motion: no-preference) { .ds-face { transition: transform .2s ease; } }
 .ds-face .card, .ds-face .card.flip { width: 100%; margin: 0; }
-.ds-i0 { position: relative; z-index: 3; margin-top: 7%; }
-.ds-i1, .ds-i2 { position: absolute; left: 3%; right: 3%; top: 0; bottom: 0; }
+/* --ds-fan : decalage horizontal d'une carte du fond (fraction de la largeur de tuile) ;
+   --ds-front : reduction de la carte de devant, qui LIBERE la place laterale ou l'eventail
+   se voit. La carte de devant reste EN FLUX (elle donne largeur+hauteur a la tuile → pas
+   d'effondrement « une lettre par ligne ») ; le scale est purement visuel (n'affecte pas la
+   largeur min-content). Tout reste CONTENU par overflow:hidden de la tuile. */
+.deck-stack { --ds-fan: 7%; --ds-front: .86; }
+.ds-i0 { position: relative; z-index: 3; transform: scale(var(--ds-front)); }
+.ds-i1, .ds-i2 { position: absolute; inset: 0; }
 .ds-i1 .card, .ds-i2 .card { height: 100%; }
 /* Cartes d'APERCU : non interactives (la tuile entiere navigue). Le switch « S'abonner »
    reste visible mais grise (desactive). */
 .deck-card .ds-face { pointer-events: none; }
 .deck-card .ds-face .switch-row { opacity: .5; }
-/* Eventail resserre : les cartes du fond depassent legerement vers le HAUT (bande
-   margin-top de la carte de devant) avec une tres legere rotation. TOUT est contenu par
-   overflow:hidden de la tuile → aucun debordement, ni horizontal ni vertical. */
-.ds-i1 { z-index: 2; transform: rotate(-2.5deg); }
-.ds-i2 { z-index: 1; transform: rotate(2.5deg); }
+/* Eventail VISIBLE : les cartes du fond sont decalees de --ds-fan de chaque cote + une
+   legere rotation, reduites, et debordent donc de part et d'autre de la carte de devant
+   (elle-meme reduite) — le ruban pleine largeur englobe l'ensemble. */
+.ds-i1 { z-index: 2; transform: translateX(calc(-1 * var(--ds-fan))) rotate(-5deg) scale(calc(var(--ds-front) - .04)); }
+.ds-i2 { z-index: 1; transform: translateX(var(--ds-fan)) rotate(5deg) scale(calc(var(--ds-front) - .06)); }
 /* Deck vide (0 carte) : visuel generique (carte teintee + motif « paquet »). Le contenu
    (motif) etant en absolu, on donne explicitement la hauteur via aspect-ratio (sinon la
    carte de devant en flux serait de hauteur nulle → seul le ruban s'afficherait). */
