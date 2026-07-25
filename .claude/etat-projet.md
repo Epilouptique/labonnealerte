@@ -1,4 +1,4 @@
-# LaBonneAlerte — État du projet (25 juillet 2026, clôture du fil "vagues d'alertes & PanneauPocket")
+# LaBonneAlerte — État du projet (25 juillet 2026, clôture du fil "cartes & decks" ; précédent : "vagues d'alertes & PanneauPocket")
 
 Ce document fait foi pour tout nouveau fil. Il remplace toute version antérieure d'etat-projet.md (fichiers du projet Claude Chat ET .claude/ côté VS Code — synchroniser les deux ; pas de synchro automatique, remplacer la copie Claude Chat à la main).
 
@@ -59,7 +59,7 @@ SURVEILLANCE PanneauPocket : (a) stabilité des ids ?panneau= à l'ÉDITION d'un
 - Pré-remplissage géo sur cartes paramétrées : pour un schéma clé departement/region/pays/ville, le contrôle (select/input) est pré-rempli depuis le profil (pas de chip séparée). GÉO : switch « S'abonner » visible mais OFF, activation UNIQUEMENT au clic (jamais au pré-remplissage). NON-GÉO : switch visible mais disabled tant que vide, activation immédiate au choix/saisie (comportement d'origine). Une fois abonné, interrupteur pause/reprise (toggle-mute) = pause sans perdre le paramètre (distinct de la suppression d'instance). Seul le département matche une source aujourd'hui (region=Québec only, pays=slugs diaspora, ville=slugs iss/INSEE) → prefill générique, rien de faux affiché.
 - Likes + Favoris : table favorites + /favoris + sync montante localStorage→serveur + cœur header. Limite : sync descendante multi-appareils absente.
 - « Les plus populaires » (ex-Sélection, top-12 likes public, slug interne 'selection' conservé) + « Nouveautés ».
-- Collections : 7 packs officiels (étagère carrousel infini + fondu bords, adoption 1 clic idempotente, params résolus profil>pack>à compléter, sources dormantes auto-incluses à l'activation) + Decks utilisateurs (10 max, 24 motifs SVG + 11 teintes — UN SEUL CSS partagé toutes pages, partage lien non-listé token 128 bits révocable, fork-copie avec attribution figée, pseudo public display_name unique « Mon pseudo », signalements 3 IP → suspension auto, remontée Robot 1). « Ma collection » (abonnements) ≠ « Mes decks » (compositions). Avatar initiale.
+- Collections : 7 packs officiels (étagère carrousel infini + fondu bords, adoption 1 clic idempotente, params résolus profil>pack>à compléter, sources dormantes auto-incluses à l'activation) + Decks utilisateurs (15 max — relevé de 10 au fil cartes & decks, compteur « X / 15 » visible + bouton grisé au plafond ; 24 motifs SVG + 11 teintes — UN SEUL CSS partagé toutes pages, partage lien non-listé token 128 bits révocable, fork-copie avec attribution figée, pseudo public display_name unique « Mon pseudo », signalements 3 IP → suspension auto, remontée Robot 1 ; tuiles PLEINE TAILLE LBADeckStack depuis le fil cartes & decks — voir section dédiée). « Ma collection » (abonnements) ≠ « Mes decks » (compositions). Avatar initiale.
 - Soutien financier (EN PROD, actif) : dons PayPal + Ko-fi. Archi = endpoint GET /api/support-links (lit PAYPAL_DONATE_URL / KOFI_URL côté serveur, ne renvoie l'URL que si posée ET https://) + public/js/support.js (rendu conditionnel : bouton actif <a target=_blank rel=noopener> si variable posée, sinon <button disabled> « bientôt » ; activation INDÉPENDANTE par service). Posées sur Railway : paypal.me/labonnealerteFR + ko-fi.com/labonnealerte. 3 emplacements synchronisés (soutenir.html + index.html ×2, data-label). Libellés : « Me soutenir avec PayPal » / « ☕ M'offrir un café » (icône café SVG inline, vapeur animée CSS pure dans site.css .sup-coffee, prefers-reduced-motion respecté). Widget externe Ko-fi REFUSÉ (dépendance tierce + rupture de charte). Mention « arrivent bientôt » retirée des textes.
 - Le Point (/le-point) : « en ce moment » (broadcast actifs + agrégats paramétrés des combinaisons souscrites — assumé dans le libellé) + « à venir » 10 j (contrat upcoming() de calendar-factory, 72 sources ; paramétrées exclues — CHANTIER VALIDÉ EN ATTENTE : upcoming() toutes-combinaisons pour jours-feries + fetes-nationales). Cache 2 min, état calme assumé, pending exclus. Vitrine de lancement désignée.
 
@@ -77,6 +77,16 @@ Faits (ce fil) : hero padding petits smartphones (≤400px) ; page /source respo
 ACCESSIBILITÉ : body.high-contrast (toggle Mon compte › Apparence, persistance localStorage lba-contrast, appliqué site-wide via theme.js/site.js). Règles CSS de contraste renforcé implémentées (overrides --muted/--line/--amber en light ET dark, ajustements par composant).
 À vérifier post-déploiement : iss-passages en conditions réelles (un soir à Gap).
 Pages de chargement : PAS de page unique — états locaux par page (.grid-loading home, .src-loading mes-decks/favoris/collection/deck), halo animé, reduced-motion respecté.
+
+## Chantier cartes & decks (fil clôturé 25/07/2026)
+
+FORMAT CARTE À JOUER (déployé) : ratio 5/7 sur toutes les cartes du site ; grille adaptative repeat(auto-fill, minmax(250px,1fr)) (remplace les 3 colonnes fixes) ; description en troncature + fondu (line-clamp) ; badge « vérifié » repositionné en haut-droite du titre (ne casse plus sur 2 lignes) ; contrôles de paramètre contraints en largeur (plus de débordement inter-cartes). RESTE : select « Choisir département… » tronqué illisible sur mobile très étroit ; coupure de mot disgracieuse sur titres longs (ex. « Restrictions ») en carte étroite — pistes hyphens:auto ou réduction de font-size cible ; vide central sur cartes courtes/non paramétrées, attendu comblable par le contenu plus riche des sources v2.
+
+DECK-STACK (déployé) : étagère carrousel home DÉSACTIVÉE (commentée, PAS supprimée — public/index.html + public/js/site.js, bloc daté 2026-07-25, réactivable). Decks (collections + decks perso) = désormais des tuiles PLEINE TAILLE mélangées aux cartes classiques dans la grille du kiosque (et Mes decks, formulaire, détail). Composant unique LBADeckStack (public/js/deck-stack.js) = pile de jusqu'à 3 vraies cartes (recto complet, switch désactivé) + ruban teinté centré en forme de vague (dégradé arc-en-ciel reproduit pour tint-11). Carte de devant à l'échelle 0.86 (vs 1.0 des cartes normales) pour libérer la place latérale de l'éventail — léger écart de taille ASSUMÉ pour l'instant, noté à retravailler. dam-thumb (24px, menu « ajouter à un deck » au dos d'une carte) INCHANGÉ (ergonomie à repenser plus tard). deck-thumb (44px) SUPPRIMÉ, remplacé par le composant pleine taille partout, y compris en-têtes de détail.
+
+À TESTER / DÉCIDER (prochain fil « decks ») : (a) étagère carrousel — comparer engagement/découvrabilité vs mélange en grille, décider réactivation/ajustement/abandon définitif ; (b) catégories dédiées aux decks + logique « recommandé » alignée sur les cartes (NON implémentée — tuiles-deck actuellement mélangées à intervalles réguliers sans logique) ; (c) doublon de contenu ASSUMÉ : une carte peut apparaître seule ET en tête de pile d'un deck dans la même grille — à observer en usage réel ; (d) amplitude de l'éventail (--ds-fan) et échelle de la carte de devant (--ds-front) — réglages actuels à affiner après retour d'usage ; (e) feuilletage tactile (tap sur carte du fond = mise en avant) implémenté identique desktop/mobile — à limiter au desktop si la zone de tap s'avère trop étroite en usage réel sur petit écran ; (f) aperçu de deck en recto complet (« titre de la source » envisagé comme alternative plus légère, PAS retenu) — réévaluer si le rendu complet s'avère trop chargé ; (g) petites finitions CSS supplémentaires appliquées par Hugo après le dernier rapport (à documenter si notable).
+
+NOUVEAUX SUJETS ACTÉS (prochain fil « decks », suite) : Communauté (forum intégré ?) ; présence réseaux sociaux ; alertes déclenchées par l'utilisateur (ex. « mon chien a disparu ») ; MODALE DE PARTAGE DECK à simplifier — suppression de la modale, boutons inline près du titre ; renommer « Gérer le partage » → « Partager » ; désactiver « Arrêter le partage » (fonction pas claire) ; visuel d'état vide pour « Ajouter des cartes » ; « S'abonner à ce deck » → « S'abonner » (NB : contredit volontairement l'acquis « PARTAGE = modale unifiée LBAShare » ci-dessus, qui décrit l'état ACTUEL) ; POSITIONNEMENT PanneauPocket/IntraMuros/Illiwap acté = complémentaire en façade, concurrent indirect assumé (même besoin, agrégation vs saisie manuelle mairie), OpenAlert-pour-mairies = suite logique du positionnement, piste V3 non prioritaire.
 
 ## Plateforme & infra
 
@@ -127,8 +137,9 @@ FILE DES CHANTIERS (ordre pressenti, mise à jour 25/07) :
 6. VAGUES DE SOURCES — XXL 1, XXL 2, 3XL, v2-only, francophonie/plus-value (en jachère, non définies).
 7. STREAMING phase 2 (SPA anti-bot → headless requis).
 8. ÉTAPE B — checked_at (chantier plateforme).
-Hérités d'avant le fil (toujours ouverts) : ONBOARDING première visite (3 questions hero) ; PHASE DE LANCEMENT (README, RGPD final, /le-point vitrine, activer Robot 3) ; en parallèle CARTES/DECKS (comportement + visuel, relire identite-visuelle-reference.md) + DÉBRIEFING STRATÉGIQUE.
-Nettoyages à ne pas oublier : purge ligne DB orpheline veille-artiste-spotify (DELETE manuel, migrate.js ne supprime pas), retrait du middleware diag IP dormant (LOG_CLIENT_IP), backlog visuel.
+Hérités d'avant le fil (toujours ouverts) : ONBOARDING première visite (3 questions hero) ; PHASE DE LANCEMENT (README, RGPD final, /le-point vitrine, activer Robot 3) ; DÉBRIEFING STRATÉGIQUE.
+DECKS (suite du fil cartes & decks — voir section « Chantier cartes & decks » pour le détail) : trancher l'étagère carrousel (réactiver/ajuster/abandonner), catégories + reco dédiées aux decks, simplification de la modale de partage (→ boutons inline, renommages), réglages --ds-fan/--ds-front et échelle de la carte de devant, feuilletage tactile desktop-only ?, + sujets actés communauté/réseaux sociaux/alertes déclenchées par l'utilisateur.
+Nettoyages à ne pas oublier : purge ligne DB orpheline veille-artiste-spotify (DELETE manuel, migrate.js ne supprime pas), retrait du middleware diag IP dormant (LOG_CLIENT_IP), backlog visuel restant (.page-title éditoriales, .sup-block, factorisation .page, offline.html).
 
 ## Règle absolue — Header & menu (source unique)
 Il existe UN SEUL header mobile normal et UN SEUL header PC normal, injectés par un composant/script
@@ -159,10 +170,11 @@ en dur (toujours un token var()), radius 24px cartes / 999px pilules, titres via
 (Baloo 2), prefers-reduced-motion partout.
 BACKLOG VISUEL (chantiers ouverts identifiés par l'audit, à traiter dans un futur lot dédié) :
 doublon composant .sup-btn (redéfini inline dans soutenir.html alors que présent dans site.css) ;
-.page h1 maison (Inter) vs token .page-title (Baloo 2 centré) sur pages éditoriales ; token
---danger manquant (#dc2626 répété ~10× en dur) ; .sup-block radius 20px (≠24px) ; bloc .page
-copié-collé dans 3 fichiers à factoriser ; offline.html hors design-system ; fond-constellations
-« - Copie.svg » résiduel à supprimer.
+.page h1 maison (Inter) vs token .page-title (Baloo 2 centré) sur pages éditoriales ; .sup-block
+radius 20px (≠24px) ; bloc .page copié-collé dans 3 fichiers à factoriser ; offline.html hors
+design-system. RÉSOLUS (fil cartes & decks) : token --danger/--danger-soft créé (tous les #dc2626
+en dur remplacés) ; règle morte .pack-emoji supprimée ; fichier doublon « fond-constellations-jour
+- Copie.svg » supprimé.
 FAIT (cycle ma-collectivite) : le champ dynamic-enum est passé en COMBOBOX autocomplete (un seul
 champ visuel), avec styles dédiés .dyn-enum/.dyn-search/.dyn-listbox/.dyn-option/.dyn-status
 (tokens, rayons DS, focus violet), navigation clavier ARIA et zone aria-live — sorti du backlog.

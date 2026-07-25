@@ -38,23 +38,27 @@
       </a>
       <div class="coll-head-top">
         <span id="coll-emoji" class="coll-emoji" aria-hidden="true"></span>
-        <h1 id="coll-name"></h1>
+        <div class="coll-head-body">
+          <h1 id="coll-name" class="page-title"></h1>
+          <p id="coll-desc" class="src-desc"></p>
+          <div class="coll-meta">
+            <span id="coll-count"></span>
+            <span id="coll-likes" class="coll-likes"></span>
+          </div>
+          <div class="coll-actions">
+            <button id="coll-adopt" class="coll-adopt" type="button">Adopter ce deck</button>
+            <button id="coll-share" class="share-btn share-btn-lg" type="button">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>
+              <span class="share-label">Partager</span>
+            </button>
+          </div>
+          <div id="coll-adopt-msg" class="coll-adopt-msg" hidden></div>
+          <div id="coll-share-grid" class="share-face-grid coll-share-grid" hidden></div>
+        </div>
       </div>
-      <p id="coll-desc" class="src-desc"></p>
-      <div class="coll-meta">
-        <span id="coll-count"></span>
-        <span id="coll-likes" class="coll-likes"></span>
-      </div>
-      <div class="coll-actions">
-        <button id="coll-adopt" class="coll-adopt" type="button">Adopter cette collection</button>
-        <button id="coll-share" class="share-btn share-btn-lg" type="button">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>
-          <span class="share-label">Partager</span>
-        </button>
-      </div>
-      <div id="coll-adopt-msg" class="coll-adopt-msg" hidden></div>
-      <div id="coll-share-grid" class="share-face-grid coll-share-grid" hidden></div>
-    </div>
+     
+   
+    
 
     <div class="grid" id="coll-grid"></div>
   </section>

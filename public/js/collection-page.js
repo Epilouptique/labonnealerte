@@ -151,7 +151,7 @@
     } catch (e) {
       setAdoptMsg('Réessayez dans un instant.', 'err');
     } finally {
-      if (btn) { btn.disabled = false; btn.textContent = 'Adopter cette collection'; }
+      if (btn) { btn.disabled = false; btn.textContent = 'Adopter ce deck'; }
     }
   }
 
