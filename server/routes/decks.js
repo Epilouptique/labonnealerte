@@ -12,7 +12,7 @@ const { resolveInstances } = require('./collections'); // réutilise la résolut
 const ugc = require('../ugc');
 
 const router = express.Router();
-const MAX_DECKS = 10;
+const MAX_DECKS = 15;
 // Teinte dominante 1-11 (défaut 1 = violet). Toute valeur hors plage → 1.
 function parseTint(v) { const n = parseInt(v, 10); return (Number.isInteger(n) && n >= 1 && n <= 11) ? n : 1; }
 

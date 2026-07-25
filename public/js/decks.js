@@ -16,7 +16,7 @@
     decks: [],
     display_name: null,
     emojis: [],
-    max_decks: 10
+    max_decks: 15
   };
   var DEFAULT_EMOJI = '📦';
   var SUGGEST_STEP = 6;
@@ -101,17 +101,23 @@
   }
 
   function renderList() {
-    var canCreate = STATE.decks.length < STATE.max_decks;
-    var rows = STATE.decks.length
+    var total = STATE.decks.length;
+    var canCreate = total < STATE.max_decks;
+    var rows = total
       ? '<div class="deck-tiles">' + STATE.decks.map(deckTileHTML).join('') + '</div>'
       : '<p class="src-desc">Vous n\'avez pas encore de deck. Créez-en un pour commencer.</p>';
+    // Compteur visible « X / max decks », teinté « plein » quand le quota est atteint.
+    var counter = '<span class="deck-count' + (canCreate ? '' : ' full') + '">' +
+      total + ' / ' + STATE.max_decks + ' decks</span>';
+    // Bouton grisé + message explicite quand le quota est atteint (sinon actif).
     var createBtn = canCreate
       ? '<button type="button" id="deck-create-open" class="coll-adopt deck-create-btn">＋ Créer un deck</button>'
-      : '<p class="deck-form-msg">Vous avez atteint le maximum de ' + STATE.max_decks + ' decks.</p>';
+      : '<button type="button" class="coll-adopt deck-create-btn" disabled aria-disabled="true">＋ Créer un deck</button>' +
+        '<p class="deck-form-msg">Vous avez atteint le maximum de ' + STATE.max_decks + ' decks. Supprimez-en un pour en créer un nouveau.</p>';
 
     viewEl.innerHTML = '' +
       '<h1 class="page-title">Mes <span class="hl">decks</span></h1>' +
-      '<div class="section-label">Vos decks</div>' +
+      '<div class="deck-list-head"><div class="section-label">Vos decks</div>' + counter + '</div>' +
       rows +
       '<div class="deck-list-actions">' + createBtn + '</div>';
 
@@ -658,7 +664,7 @@
         STATE.decks = d.decks || [];
         STATE.display_name = d.display_name || null;
         STATE.emojis = d.emojis || [];
-        STATE.max_decks = d.max_decks || 10;
+        STATE.max_decks = d.max_decks || 15;
       }
     } catch (e) { /* réseau : on garde l'état courant */ }
   }
@@ -679,7 +685,7 @@
     STATE.decks = d.decks || [];
     STATE.display_name = d.display_name || null;
     STATE.emojis = d.emojis || [];
-    STATE.max_decks = d.max_decks || 10;
+    STATE.max_decks = d.max_decks || 15;
 
     // En-tête connecté (masque « Se connecter », affiche « Mon compte »).
     LBASession.renderHeader(d.email || 'compte');
