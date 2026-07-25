@@ -1,21 +1,25 @@
-/* deck-stack.js — LBADeckStack : rendu partage du visuel d'un deck en « pile de
- * cartes + ruban », commun a TOUS les emplacements (etagere home, tuiles Mes decks,
- * apercu du formulaire, en-tetes de detail). Un seul composant, un seul mecanisme
- * de feuilletage (survol desktop + tap mobile), pour ne pas diverger d'une page a
- * l'autre.
+/* deck-stack.js — LBADeckStack : visuel partage d'un deck en « pile de cartes +
+ * ruban ». ITERATION 2 (refonte Hugo) : la pile reutilise le MEME composant de carte
+ * que le kiosque (LBACards.cardHTML), a la MEME taille (ratio 5/7, largeur de colonne).
+ * Jusqu'a 3 vraies cartes (recto complet : titre, badge, sous-titre, description en
+ * fondu, bloc parametre/switch) empilees en eventail resserre, entourees d'un ruban
+ * teinte centre. Un seul composant, aucune variante de taille selon l'emplacement
+ * (grille kiosque, Mes decks, apercu formulaire, en-tetes de detail).
  *
- * Structure produite (a placer DANS le conteneur cliquable existant .pack/.deck-tile
- * ou un wrapper) :
- *   .deck-stack.ds-<size>.tint-N
- *     .ds-pile                      → jusqu'a 3 mini-rectos 5/7 en eventail
- *       .ds-card.ds-i0 (devant) … .ds-i2 (derriere)
- *     .ds-ribbon                    → ruban teinte centre (nom + compteur), plis lateraux
+ * Les cartes de la pile sont un APERCU : non interactives (pointer-events:none en CSS),
+ * le switch « S'abonner » est visible mais desactive. Le clic sur la tuile-deck dans
+ * son ensemble navigue vers la page du deck (gere par le conteneur appelant, <a> ou
+ * bouton). Il n'y a plus de feuilletage carte-par-carte a cet endroit (les cartes sont
+ * en pleine taille ; la tuile entiere est la cible de navigation).
  *
- * Feuilletage : survoler (desktop, via CSS) ou taper (mobile, via ce handler) une
- * carte de la pile qui n'est pas au premier plan la fait passer devant (.ds-lift).
- * Le clic sur une carte du fond NE navigue PAS (stopPropagation) ; le clic ailleurs
- * (carte de devant, ruban) laisse le conteneur naviguer normalement.
- * prefers-reduced-motion : gere en CSS (transitions neutralisees).
+ * Structure produite (a placer DANS le conteneur cliquable de l'appelant) :
+ *   .deck-stack.tint-N
+ *     .ds-stack                      → sizer ratio 5/7 ; cartes empilees en absolu
+ *       .ds-face.ds-i0 (devant) … .ds-i2 (derriere)   → chacune = LBACards.cardHTML
+ *       .ds-ribbon                   → ruban teinte centre (nom + compteur), plis lateraux
+ *
+ * L'appelant fournit opts.cards = tableau d'objets source COMPLETS deja resolus
+ * (recent d'abord, <=3) ; deck vide → visuel generique (carte teintee + motif paquet).
  */
 (function () {
   'use strict';
@@ -32,36 +36,32 @@
     return (window.LBADeckMotifs && (LBADeckMotifs[emoji] || LBADeckMotifs['📦'])) || '';
   }
 
-  // Un mini-recto de la pile. idx 0 = devant (carte la plus recemment ajoutee).
-  // Les cartes du fond (idx>0) sont focusables/tapables pour le feuilletage.
-  function cardHTML(name, idx) {
-    var back = idx > 0;
-    return '<span class="ds-card ds-i' + idx + '"' +
-      (back ? ' tabindex="0" role="button" aria-label="Feuilleter : ' + esc(name) + '"' : '') + '>' +
-      '<span class="ds-card-t">' + esc(name) + '</span>' +
-      '</span>';
+  // Une carte de la pile = recto complet du kiosque. On NEUTRALISE les data-attributs
+  // que site.js enumere sur .card[...] (tri, filtre, pagination, reco, like, prefill)
+  // pour que ces cartes d'apercu, imbriquees dans la grille, n'interferent pas avec la
+  // logique du kiosque. Elles sont aussi rendues non interactives via CSS.
+  function faceHTML(src, idx, mode) {
+    var raw = (window.LBACards && LBACards.cardHTML) ? LBACards.cardHTML(src, mode || 'anon') : '';
+    raw = raw.replace(/\sdata-(cats|source-id|search|subscribed|dyn-prefill)="[^"]*"/g, '');
+    return '<div class="ds-face ds-i' + idx + '">' + raw + '</div>';
   }
 
-  // opts : { name, tint, emoji, count, preview:[nom,…] (recent d'abord), meta?, size? }
-  // size : 'shelf' | 'tile' | 'preview' | 'detail' | 'thumb' (defaut 'tile').
+  // opts : { name, tint, emoji, count, cards:[srcObj,…] (recent d'abord, <=3), meta?, mode? }
   function html(opts) {
     opts = opts || {};
-    var size = opts.size || 'tile';
-    var names = (opts.preview || []).filter(Boolean).slice(0, 3);
+    var cards = (opts.cards || []).filter(Boolean).slice(0, 3);
     var count = opts.count || 0;
-    var pile;
-    if (!names.length) {
-      // Deck vide (0 carte) : on conserve le visuel generique (carte teintee + motif « paquet »).
-      pile = '<span class="ds-card ds-i0 ds-empty">' +
-        '<span class="deck-motif-bg" aria-hidden="true">' + motifSvg(opts.emoji) + '</span></span>';
+    var inner;
+    if (!cards.length) {
+      // Deck vide (0 carte) : visuel generique conserve (carte teintee + motif « paquet »).
+      inner = '<div class="ds-face ds-i0 ds-empty">' +
+        '<span class="deck-motif-bg" aria-hidden="true">' + motifSvg(opts.emoji) + '</span></div>';
     } else {
-      pile = names.map(function (nm, i) { return cardHTML(nm, i); }).join('');
+      inner = cards.map(function (s, i) { return faceHTML(s, i, opts.mode); }).join('');
     }
-    // Meta ruban : « N cartes » (+ complement libre eventuel : ❤, badge Partage…).
     var meta = count + (count > 1 ? ' cartes' : ' carte');
     if (opts.meta) meta += ' ' + opts.meta;
-    // Nom optionnel : sur les pages de détail, le <h1> porte déjà le nom → on passe
-    // name:'' pour ne pas le dupliquer (le ruban n'affiche alors que le compteur).
+    // Nom optionnel : sur les pages de detail, le <h1> porte deja le nom (name:'').
     var nameHtml = opts.name ? '<span class="ds-ribbon-name">' + esc(opts.name) + '</span>' : '';
     var ribbon = '<span class="ds-ribbon">' +
         '<span class="ds-fold ds-fold-l" aria-hidden="true"></span>' +
@@ -69,37 +69,22 @@
         nameHtml +
         '<span class="ds-ribbon-meta">' + meta + '</span>' +
       '</span>';
-    return '<span class="deck-stack ds-' + size + ' ' + tintCls(opts.tint) + '" data-count="' + names.length + '">' +
-      '<span class="ds-pile">' + pile + '</span>' + ribbon + '</span>';
+    return '<div class="deck-stack ' + tintCls(opts.tint) + '" data-count="' + cards.length + '">' +
+      '<div class="ds-stack">' + inner + ribbon + '</div></div>';
   }
 
-  // Amene une carte du fond au premier plan (et repose les autres de la meme pile).
-  function lift(card) {
-    var pile = card.parentNode;
-    if (!pile) return;
-    pile.querySelectorAll('.ds-card.ds-lift').forEach(function (c) {
-      if (c !== card) c.classList.remove('ds-lift');
-    });
-    card.classList.toggle('ds-lift');
+  // Resout un tableau d'IDs de sources en objets source complets, via un index id→source.
+  // Preserve l'ordre des IDs, ignore les introuvables (source desactivee/absente).
+  function resolveCards(ids, index) {
+    if (!Array.isArray(ids) || !index) return [];
+    return ids.map(function (id) { return index[id]; }).filter(Boolean);
+  }
+  // Construit un index id→source depuis un tableau de sources.
+  function indexSources(sources) {
+    var idx = {};
+    (sources || []).forEach(function (s) { if (s && s.id != null) idx[s.id] = s; });
+    return idx;
   }
 
-  // Delegation unique : tap/clic sur une carte du fond → feuilletage (pas de navigation).
-  function onActivate(e) {
-    var card = e.target.closest ? e.target.closest('.ds-card') : null;
-    if (!card || card.classList.contains('ds-i0') || card.classList.contains('ds-empty')) return;
-    e.preventDefault();
-    e.stopPropagation();
-    lift(card);
-  }
-  document.addEventListener('click', onActivate);
-  document.addEventListener('keydown', function (e) {
-    if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
-    var card = e.target && e.target.classList && e.target.classList.contains('ds-card') ? e.target : null;
-    if (!card || card.classList.contains('ds-i0') || card.classList.contains('ds-empty')) return;
-    e.preventDefault();
-    e.stopPropagation();
-    lift(card);
-  });
-
-  window.LBADeckStack = { html: html, tintCls: tintCls };
+  window.LBADeckStack = { html: html, tintCls: tintCls, resolveCards: resolveCards, indexSources: indexSources };
 })();
