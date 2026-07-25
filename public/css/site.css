@@ -1058,9 +1058,28 @@ body[data-mode="connected"] #stats { display: none; }
 .card-share-face .share-opt { padding: 8px 2px; border-radius: 12px; }
 .card-share-face .share-lbl { font-size: 10px; }
 
-/* Volet B : le badge-icône suit le titre sans jamais le pousser hors flux */
-.card-top h3 { flex: 0 1 auto; min-width: 0; }
-.card-top .badge-ic { align-self: center; }
+/* Volet B : le badge-icône suit le titre sans jamais le pousser hors flux.
+   min-width:0 laisse le titre rétrécir dans sa colonne (garde-fou « vie locale ») ;
+   overflow-wrap autorise un mot très long et insécable (ex. « Restrictions ») à se
+   couper pour rester dans la boîte du h3 au lieu de déborder SOUS le badge inline
+   sur carte étroite. Ne se déclenche que si un mot ne tient pas. */
+.card-top h3 { flex: 0 1 auto; min-width: 0; overflow-wrap: anywhere; }
+/* Format « carte a jouer » : quand le titre passe sur 2 lignes (fréquent sur carte
+   étroite, ex. « Vigilance météo »), le badge doit rester aligné sur la PREMIÈRE
+   ligne du titre — et non centré verticalement sur tout le bloc, où il tombait au
+   milieu de la 2e ligne. On top-aligne le bloc titre et le badge (override des
+   règles align-items:center / align-self:center ci-dessus, par ordre source),
+   avec un léger décalage pour l'optique. src-head-top (page source) reste centré. */
+.card-front .card-top, .card-back .card-top { align-items: flex-start; }
+.card-top .badge-ic { align-self: flex-start; margin-top: 2px; }
+/* Carte étroite (2 col mobile) : le titre est SOUS la bande d'icônes (voir .state
+   repositionné) → plus besoin de la réserve padding-right, et le titre prend toute
+   la largeur (flex:1) au lieu d'être comprimé au point de casser chaque mot. Le
+   badge se pose alors en haut-droite du bloc titre (aligné 1re ligne). */
+@media (max-width: 620px) {
+  .card-front .card-top { padding-right: 0; }
+  .card-front .card-top h3 { flex: 1 1 auto; }
+}
 
 /* Comptage des stats : petit pop du « 0 » (sans comptage) quand les chiffres finissent */
 @keyframes zero-pop { 0% { transform: scale(.6); } 60% { transform: scale(1.12); } 100% { transform: scale(1); } }
