@@ -58,10 +58,10 @@
       // Visuel de synthèse « pile + ruban » (remplace l'ancienne vignette .deck-thumb-lg).
       // Le <h1> porte le nom → ruban sans nom (name:''), juste le compteur. Aperçu = 3
       // dernières cartes du pack (récent d'abord).
-      var names = sources.map(function (s) { return s.name; }).filter(Boolean).slice(-3).reverse();
-      em.innerHTML = window.LBADeckStack ? LBADeckStack.html({
-        name: '', tint: c.tint, emoji: c.emoji, count: sources.length, preview: names, size: 'detail'
-      }) : '';
+      var cards = sources.slice(-3).reverse();
+      em.innerHTML = window.LBADeckStack ? ('<div class="deck-card">' + LBADeckStack.html({
+        name: '', tint: c.tint, emoji: c.emoji, count: sources.length, cards: cards, mode: 'anon'
+      }) + '</div>') : '';
     }
     document.getElementById('coll-name').textContent = c.name;
     document.getElementById('coll-desc').textContent = c.description || '';

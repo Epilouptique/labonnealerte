@@ -60,10 +60,10 @@
     if (em) {
       // Visuel de synthèse « pile + ruban » (remplace l'ancienne vignette .deck-thumb-lg).
       // Le <h1> porte le nom → ruban sans nom (name:''). Aperçu = 3 dernières cartes.
-      var names = sources.map(function (s) { return s.name; }).filter(Boolean).slice(-3).reverse();
-      em.innerHTML = window.LBADeckStack ? LBADeckStack.html({
-        name: '', tint: d.tint, emoji: d.emoji, count: sources.length, preview: names, size: 'detail'
-      }) : '';
+      var cards = sources.slice(-3).reverse();
+      em.innerHTML = window.LBADeckStack ? ('<div class="deck-card">' + LBADeckStack.html({
+        name: '', tint: d.tint, emoji: d.emoji, count: sources.length, cards: cards, mode: 'anon'
+      }) + '</div>') : '';
     }
     document.getElementById('deck-name').textContent = d.name || '';
     document.getElementById('deck-desc').textContent = d.description || '';

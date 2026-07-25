@@ -91,26 +91,30 @@
       '</form>';
   }
 
-  // G) Tuile de deck façon étagère de la home (motif + teinte + « paquet »), plus de
-  // ligne austère. Reprend le gabarit .pack du kiosque.
+  // Tuile de deck PLEINE TAILLE (iteration 2) : même composant/même taille que les cartes
+  // du kiosque (LBADeckStack : pile de 3 vraies cartes + ruban). Aperçu = 3 dernières
+  // cartes, ids du champ preview résolus depuis le catalogue (CATALOG).
   function deckTileHTML(d) {
     var badge = d.visibility && d.visibility !== 'private'
       ? '<span class="deck-badge deck-badge-shared">Partagé</span>'
       : '<span class="deck-badge">Privé</span>';
-    // Visuel partagé « pile + ruban » (LBADeckStack) ; le badge Privé/Partagé va dans
-    // le sous-titre du ruban. Aperçu = 3 dernières cartes (champ preview de l'API).
+    var cards = window.LBADeckStack
+      ? LBADeckStack.resolveCards(d.preview || [], LBADeckStack.indexSources(CATALOG || [])) : [];
     var stack = window.LBADeckStack ? LBADeckStack.html({
       name: d.name, tint: d.tint, emoji: d.emoji || DEFAULT_EMOJI,
-      count: d.card_count || 0, preview: d.preview, size: 'tile', meta: badge
+      count: d.card_count || 0, cards: cards, meta: badge, mode: 'anon'
     }) : '';
-    return '<button type="button" class="pack deck-tile" data-deck="' + esc(d.id) + '">' + stack + '</button>';
+    return '<div class="deck-card" role="button" tabindex="0" data-deck="' + esc(d.id) + '">' + stack + '</div>';
   }
 
   function renderList() {
+    // Les tuiles affichent un aperçu (3 vraies cartes) → besoin du catalogue. S'il n'est
+    // pas encore chargé, on le charge puis on re-rend une fois (rendu immédiat sinon).
+    if (!CATALOG) { ensureCatalog().then(function () { renderList(); }); }
     var total = STATE.decks.length;
     var canCreate = total < STATE.max_decks;
     var rows = total
-      ? '<div class="deck-tiles">' + STATE.decks.map(deckTileHTML).join('') + '</div>'
+      ? '<div class="grid deck-grid">' + STATE.decks.map(deckTileHTML).join('') + '</div>'
       : '<p class="src-desc">Vous n\'avez pas encore de deck. Créez-en un pour commencer.</p>';
     // Compteur visible « X / max decks », teinté « plein » quand le quota est atteint.
     var counter = '<span class="deck-count' + (canCreate ? '' : ' full') + '">' +
@@ -134,8 +138,14 @@
     var pf = document.getElementById('deck-pseudo-form');
     if (pf) pf.addEventListener('submit', onPseudoSubmit);
 
-    viewEl.querySelectorAll('.deck-tile').forEach(function (btn) {
+    viewEl.querySelectorAll('.deck-card[data-deck]').forEach(function (btn) {
       btn.addEventListener('click', function () { openDeck(btn.getAttribute('data-deck')); });
+      // Tuile = div role=button → clavier explicite (Entree / Espace).
+      btn.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
+          e.preventDefault(); openDeck(btn.getAttribute('data-deck'));
+        }
+      });
     });
     var open = document.getElementById('deck-create-open');
     if (open) open.addEventListener('click', function () { openForm(null); });
@@ -239,7 +249,7 @@
             '<textarea id="deck-desc" maxlength="200" rows="3">' + esc(desc) + '</textarea>' +
             '<div class="deck-hint" id="deck-desc-hint"></div>' +
           '</div>' +
-          '<div class="deck-preview-wrap"><div id="deck-preview">' + previewStack() + '</div></div>' +
+          '<div class="deck-preview-wrap"><div id="deck-preview" class="deck-card">' + previewStack() + '</div></div>' +
         '</div>' +
         '<label>Motif (icône)</label>' +
         emojiPickerHTML(emoji) +
@@ -300,11 +310,10 @@
       var nm = (typeof nameEl !== 'undefined' && nameEl) ? (nameEl.value || '').trim() : name;
       var tn = (typeof tintPicker !== 'undefined' && tintPicker) ? currentTint() : tint;
       var em = (typeof picker !== 'undefined' && picker) ? currentEmoji() : emoji;
-      // 3 dernières cartes ajoutées (récent d'abord) parmi les cartes-graines.
-      var names = seed.map(function (it) { return it.source && it.source.name; })
-        .filter(Boolean).slice(-3).reverse();
+      // Pleine taille : 3 dernières cartes-graines (objets source complets), récent d'abord.
+      var cards = seed.map(function (it) { return it.source; }).filter(Boolean).slice(-3).reverse();
       return window.LBADeckStack ? LBADeckStack.html({
-        name: nm || 'Votre deck', tint: tn, emoji: em, count: seed.length, preview: names, size: 'preview'
+        name: nm || 'Votre deck', tint: tn, emoji: em, count: seed.length, cards: cards, mode: 'anon'
       }) : '';
     }
     function updatePreview() {
@@ -411,11 +420,11 @@
     var shared = deck.visibility && deck.visibility !== 'private';
     // Visuel de synthèse « pile + ruban » (remplace l'ancienne vignette .deck-thumb-lg) :
     // 3 dernières cartes ajoutées (récent d'abord) parmi les cartes du deck.
-    var headNames = deckSources.map(function (s) { return s.name; }).filter(Boolean).slice(-3).reverse();
-    var headStack = window.LBADeckStack ? LBADeckStack.html({
+    var headCards = deckSources.slice(-3).reverse();
+    var headStack = window.LBADeckStack ? ('<div class="deck-card">' + LBADeckStack.html({
       name: '', tint: deck.tint, emoji: deck.emoji || DEFAULT_EMOJI,
-      count: deckSources.length, preview: headNames, size: 'detail'
-    }) : '';
+      count: deckSources.length, cards: headCards, mode: 'anon'
+    }) + '</div>') : '';
     var forked = deck.forked_from_name
       ? '<p class="deck-forked">Inspiré de « ' + esc(deck.forked_from_name) + ' »</p>' : '';
 
