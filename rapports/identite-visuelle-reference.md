@@ -110,7 +110,7 @@ Toute couleur doit passer par une variable CSS. Ne jamais coder un hex en dur da
 
 ### 🔴 Priorité haute
 
-1. **`img/fond-constellations-jour - Copie.svg`** — fichier doublon/résidu, à **supprimer**.
+1. ~~**`img/fond-constellations-jour - Copie.svg`** — fichier doublon/résidu~~ → **résolu** : fichier supprimé.
 2. **`soutenir.html` — duplication de composant** : les règles `.sup-actions / .sup-btn / .primary / .ghost / [disabled] / .soon` sont **déjà dans `site.css:1209-1221`** (commentaire « partagé avec /soutenir »). Le `<style>` inline les redéfinit intégralement → supprimer le doublon. De plus `.sup-block` a `border-radius:20px` (non conforme, ≠24px).
 3. **`offline.html` — tout en dur hors DS** : police `system-ui`, `background:#0f1419`, `color:#f4f0fa` (n'existe dans aucun thème), `p{color:#b9b2c9}` (≠ `--muted`), bouton `#a567e3` (= `--amber` codé en dur). Justifiable (page offline isolée) mais devrait au minimum documenter/aligner les valeurs sur les tokens.
 
