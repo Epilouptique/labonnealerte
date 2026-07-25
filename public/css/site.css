@@ -274,7 +274,7 @@ html[data-theme="dark"] .search { border: 1px solid color-mix(in srgb, var(--mut
    le meme traitement que les cartes de la grille (ratio 5/7 + troncature en fondu), y
    compris hors .grid (en-tete de detail, apercu du formulaire) — sinon le recto s'y
    affiche sans ratio ni clamp (titre casse, description longue). */
-.grid .card-front, .deck-card .card-front { aspect-ratio: 5 / 7; }
+.grid .card-front, .deck-card .card-front { aspect-ratio: 2 / 3; }
 /* Verso : fond légèrement teinté (subtil), position absolue par-dessus le recto. */
 .card-back {
   position: absolute; inset: 0; transform: rotateY(180deg); gap: 14px;
@@ -329,17 +329,17 @@ html[data-theme="dark"] .search { border: 1px solid color-mix(in srgb, var(--mut
    comprime par flex ; sans ce clip, les 3 lignes de .card-desc deborderaient sur
    le bloc d'abonnement en dessous. Le clip garde le ratio et empeche tout
    chevauchement ; le texte complet reste au verso. */
-.grid .card-front > p, .deck-card .card-front > p { min-height: 0; overflow: hidden; }
-.grid .card-front > p > .card-desc, .deck-card .card-front > p > .card-desc {
-  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4;
+/* Disposition A : la description vit désormais dans .card-content (ancré en bas). */
+.grid .card-content > p, .deck-card .card-content > p { min-height: 0; overflow: hidden; }
+.grid .card-content > p > .card-desc, .deck-card .card-content > p > .card-desc {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3;
   overflow: hidden;
   -webkit-mask-image: linear-gradient(to bottom, #000 74%, transparent);
           mask-image: linear-gradient(to bottom, #000 74%, transparent);
 }
-/* Cartes plus etroites (mobile) : moins de lignes pour respecter le ratio. Les cartes
-   d'apercu de deck sont TOUJOURS etroites → 3 lignes en permanence. */
-@media (max-width: 620px) { .grid .card-front > p > .card-desc { -webkit-line-clamp: 3; } }
-.deck-card .card-front > p > .card-desc { -webkit-line-clamp: 3; }
+/* Cartes plus etroites (mobile) et apercus de deck (toujours etroits) : 2 lignes. */
+@media (max-width: 620px) { .grid .card-content > p > .card-desc { -webkit-line-clamp: 2; } }
+.deck-card .card-content > p > .card-desc { -webkit-line-clamp: 2; }
 .badge {
   font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700;
   text-transform: uppercase; letter-spacing: .08em; border-radius: 8px; padding: 4px 10px;
@@ -2432,4 +2432,193 @@ html[data-theme="dark"] .tint-11 .ds-ribbon {
 @media (max-width: 560px) {
   .lp-soon-item a { flex-direction: column; gap: 2px; }
   .lp-soon-when { min-width: 0; }
+}
+
+/* ======================================================================
+   CARTES DE SOURCE — REFONTE VISUELLE « disposition A » (full-art)
+   Reproduit le modele valide (design-reference-cartes.html) : fond degrade
+   + motif SVG plein-carte + voile de lisibilite + double lisere ; rangee
+   haute (etat a gauche, controles ronds a droite) ; contenu ancre en bas.
+   PERIMETRE STRICTEMENT VISUEL : aucune classe interactive ni handler
+   modifie (card-share/card-like/card-add-deck/flip-btn/state/switch/param-*
+   conserves). Le theme nuit de la carte suit le dark mode du site.
+   Scope .grid + .deck-card : couvre home, favoris, collection, deck, mes-decks
+   et les apercus de deck (LBADeckStack reutilise LBACards.cardHTML). La carte
+   « Mon compte » (.acct-*, hors grille) et l'apercu dev (.preview) sont
+   volontairement hors scope.
+   Toutes les valeurs (degrades, opacites, voile, rayons 18/14, tailles) sont
+   reprises telles quelles de la reference, centralisees en variables --tc-*
+   pour rester swappables (motif par categorie a venir).
+   ====================================================================== */
+:root, html[data-theme="light"] {
+  --tc-grad: linear-gradient(180deg, #f6effd 0%, #efe4fb 100%);
+  --tc-edge: rgba(165, 103, 227, .45);
+  --tc-edge-in: rgba(165, 103, 227, .18);
+  --tc-veil: linear-gradient(180deg, rgba(250,245,255,0) 26%, rgba(250,245,255,.86) 54%, rgba(250,245,255,.98) 78%);
+  --tc-glass: rgba(255, 255, 255, .72);
+  --tc-glass-fg: var(--muted);
+  --tc-glass-shadow: 0 1px 3px rgba(30, 20, 50, .10);
+  --tc-motif-stroke: #a567e3;
+  --tc-rings-op: .38;
+  --tc-line-op: .26;
+  --tc-stars-op: .35;
+  --tc-stars-color: #a567e3;
+  --tc-dot-idle: #c9c2b8;
+  --tc-desc: var(--muted);
+  --tc-chip-bg: #fff;
+  --tc-chip-fg: var(--ink);
+  --tc-chip-shadow: 0 1px 2px rgba(30, 20, 50, .12);
+}
+html[data-theme="dark"] {
+  --tc-grad: linear-gradient(180deg, #241c38 0%, #171126 100%);
+  --tc-edge: rgba(189, 142, 240, .5);
+  --tc-edge-in: rgba(189, 142, 240, .2);
+  --tc-veil: linear-gradient(180deg, rgba(23,17,38,0) 26%, rgba(23,17,38,.86) 54%, rgba(23,17,38,.97) 78%);
+  --tc-glass: rgba(255, 255, 255, .12);
+  --tc-glass-fg: #cfc5e4;
+  --tc-glass-shadow: none;
+  --tc-motif-stroke: #bd8ef0;
+  --tc-rings-op: .5;
+  --tc-line-op: .35;
+  --tc-stars-op: .65;
+  --tc-stars-color: #e9dff8;
+  --tc-dot-idle: #5c5470;
+  --tc-desc: #cfc5e4;
+  --tc-chip-bg: rgba(255, 255, 255, .12);
+  --tc-chip-fg: #f0eaf8;
+  --tc-chip-shadow: none;
+}
+
+/* ----- Recto : conteneur full-art (degrade + couches en fond) ----- */
+.grid .card-front, .deck-card .card-front {
+  display: flex; flex-direction: column; gap: 0;
+  padding: 0; overflow: hidden; position: relative;
+  border-radius: 18px; background: var(--tc-grad); color: var(--ink);
+  box-shadow: 0 2px 6px rgba(30, 20, 50, .10), 0 14px 34px rgba(30, 20, 50, .13);
+  border: none;
+}
+/* Motif SVG plein-carte (couche du fond). Opacite par element (rings/line/stars)
+   pour garder le point vert a pleine intensite, comme la reference. */
+.grid .card-front .fullart, .deck-card .card-front .fullart {
+  position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  color: var(--tc-motif-stroke);
+}
+.card-front .fullart svg { width: 100%; height: 100%; display: block; }
+.card-front .fullart .tc-rings { opacity: var(--tc-rings-op); }
+.card-front .fullart .tc-line { opacity: var(--tc-line-op); }
+.card-front .fullart .tc-stars { opacity: var(--tc-stars-op); color: var(--tc-stars-color); }
+.card-front .fullart .tc-dot { fill: var(--green); }
+/* Voile de lisibilite (transparent en haut -> quasi opaque en bas). */
+.grid .card-front .card-veil, .deck-card .card-front .card-veil {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background: var(--tc-veil);
+}
+/* Double lisere : bordure externe 1.5px + filet interne 1px (pseudo). */
+.grid .card-front .card-edge, .deck-card .card-front .card-edge {
+  position: absolute; inset: 0; z-index: 5; pointer-events: none;
+  border-radius: 18px; border: 1.5px solid var(--tc-edge);
+}
+.card-front .card-edge::after {
+  content: ""; position: absolute; inset: 4px; border-radius: 14px;
+  border: 1px solid var(--tc-edge-in);
+}
+
+/* ----- Rangee haute : etat a gauche, controles a droite ----- */
+.card-toprow {
+  position: absolute; top: 11px; left: 11px; right: 11px; z-index: 3;
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+}
+/* Pastille d'etat (verre depoli). .active reste vert (lu par cardIsActive). */
+.card-toprow .state {
+  flex: 0 1 auto; min-width: 0;
+  border-radius: 999px; padding: 4px 10px; gap: 6px;
+  font-size: 11px; font-weight: 700; white-space: nowrap; overflow: hidden;
+  background: var(--tc-glass); color: var(--tc-glass-fg);
+  box-shadow: var(--tc-glass-shadow);
+  -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px);
+}
+.card-toprow .state .state-txt, .card-toprow .state { text-overflow: ellipsis; }
+.card-toprow .state.active { color: var(--green); }
+.card-toprow .dot-idle { background: var(--tc-dot-idle); opacity: 1; }
+/* Groupe de controles ronds (26px, verre depoli). Ordre DOM = ♥ · partage · +deck · i. */
+.card-toprow .card-icons { display: flex; align-items: center; gap: 5px; flex: none; }
+.card-toprow .card-icons .card-like,
+.card-toprow .card-icons .card-share,
+.card-toprow .card-icons .card-add-deck,
+.card-toprow .card-icons .flip-btn {
+  position: static; top: auto; right: auto; margin: 0; padding: 0;
+  width: 26px; height: 26px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--tc-glass); color: var(--tc-glass-fg);
+  box-shadow: var(--tc-glass-shadow);
+  -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px);
+}
+.card-toprow .card-icons svg { width: 14px; height: 14px; }
+/* Le « + deck » (action collection) ressort en violet ; les 3 autres restent neutres. */
+.card-toprow .card-icons .card-add-deck { color: var(--amber); }
+.card-toprow .card-icons .card-like:hover,
+.card-toprow .card-icons .card-share:hover,
+.card-toprow .card-icons .flip-btn:hover { color: var(--amber); }
+.card-toprow .card-icons .card-like.liked { color: var(--amber); }
+/* Compteur numerique masque dans la pastille ronde (comme la reference). */
+.card-toprow .card-icons .like-n { display: none; }
+
+/* ----- Contenu bas (ancre en bas, au-dessus du voile) ----- */
+.card-content {
+  position: relative; z-index: 3; margin-top: auto;
+  padding: 0 14px 13px; min-width: 0;
+}
+.card-content .card-top { padding-right: 0; align-items: center; gap: 7px; }
+.grid .card-content h3, .deck-card .card-content h3 {
+  font-family: 'Baloo 2', sans-serif; font-size: 20px; font-weight: 800;
+  line-height: 1.1; letter-spacing: -0.01em; color: var(--ink);
+}
+.grid .card-content .card-subtitle, .deck-card .card-content .card-subtitle {
+  margin-top: 3px; font-size: 10.5px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .07em; color: var(--amber);
+}
+.grid .card-content > p, .deck-card .card-content > p {
+  flex: none; margin-top: 7px; font-size: 12px; color: var(--tc-desc);
+}
+.card-content .card-desc { font-size: 12px; color: var(--tc-desc); }
+.card-content .sub-count { color: var(--tc-desc); }
+/* Chips de parametres : pilules verre/blanc (la reference). « + ajouter » reste la
+   pilule violette pleine (.param-add) → les deux « + » ne se confondent pas. */
+.card-content .param-chip {
+  background: var(--tc-chip-bg); color: var(--tc-chip-fg); box-shadow: var(--tc-chip-shadow);
+}
+.card-content .switch-row, .card-content .param-row { margin-top: 10px; }
+
+/* ----- Versos (info / partage / deck) : meme langage (degrade + lisere) ----- */
+.grid .card-back, .grid .card-share-face, .grid .card-deck-face,
+.deck-card .card-back, .deck-card .card-share-face, .deck-card .card-deck-face {
+  background: var(--tc-grad); color: var(--ink);
+  border: 1.5px solid var(--tc-edge); border-radius: 18px;
+}
+.grid .card-back::after, .grid .card-share-face::after, .grid .card-deck-face::after,
+.deck-card .card-back::after, .deck-card .card-share-face::after, .deck-card .card-deck-face::after {
+  content: ""; position: absolute; inset: 4px; border-radius: 14px;
+  border: 1px solid var(--tc-edge-in); pointer-events: none; z-index: 5;
+}
+.grid .card-back h3, .grid .card-share-face .share-face-title, .grid .card-deck-face .cdf-title,
+.deck-card .card-back h3, .deck-card .card-share-face .share-face-title, .deck-card .card-deck-face .cdf-title {
+  color: var(--ink);
+}
+
+/* ----- Survol : ombre renforcee (remplace le .card.flip:hover generique) ----- */
+.grid .card.flip:hover .card-front, .deck-card:hover .ds-i0 .card-front {
+  box-shadow: 0 4px 12px rgba(30, 20, 50, .16), 0 18px 44px rgba(30, 20, 50, .20);
+}
+
+/* ----- Perf mobile : le blur generalise (voile + ~178 pastilles verre) peut ramer.
+   Sous 620px on retire backdrop-filter ; les fonds translucides restent (rendu tres
+   proche, sans le cout du flou). Documente dans le rapport. ----- */
+@media (max-width: 620px) {
+  .card-toprow .state,
+  .card-toprow .card-icons .card-like,
+  .card-toprow .card-icons .card-share,
+  .card-toprow .card-icons .card-add-deck,
+  .card-toprow .card-icons .flip-btn {
+    -webkit-backdrop-filter: none; backdrop-filter: none;
+  }
 }

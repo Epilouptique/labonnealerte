@@ -84,6 +84,27 @@
   // A1) Cœur « j'aime » : contour (non aimé) ; le CSS le remplit quand .liked.
   var LIKE_SVG = '<svg class="ic-like" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20.3l-1.45-1.32C5.4 14.36 2.5 11.7 2.5 8.5 2.5 6.08 4.42 4.2 6.8 4.2c1.36 0 2.66.63 3.5 1.64l.7.85.7-.85C12.54 4.83 13.84 4.2 15.2 4.2c2.38 0 4.3 1.88 4.3 4.3 0 3.2-2.9 5.86-8.05 10.48z"/></svg>';
 
+  // Motif de fond « full-art » (disposition A). UN SEUL motif générique pour toutes les
+  // cartes pour l'instant (cercles concentriques + point vert + ligne sismique + points
+  // épars), repris du modèle de référence. Couleurs pilotées par le CSS (currentColor +
+  // classes .tc-*) → suivent le thème jour/nuit. Bloc ISOLÉ et facilement remplaçable :
+  // la substitution future par catégorie n'aura qu'à faire varier ce SVG (ou son injection).
+  var FULLART_SVG = '<span class="fullart" aria-hidden="true">' +
+    '<svg viewBox="0 0 280 420" fill="none" stroke="currentColor" stroke-linecap="round" preserveAspectRatio="xMidYMid slice">' +
+      '<g class="tc-rings">' +
+        '<circle cx="140" cy="128" r="34" stroke-width="2"/>' +
+        '<circle cx="140" cy="128" r="64" stroke-width="1.6" opacity=".6"/>' +
+        '<circle cx="140" cy="128" r="98" stroke-width="1.4" opacity=".35"/>' +
+        '<circle cx="140" cy="128" r="136" stroke-width="1.2" opacity=".2"/>' +
+      '</g>' +
+      '<circle class="tc-dot" cx="140" cy="128" r="8" stroke="none"/>' +
+      '<path class="tc-line" d="M-10 296 L70 232 L120 268 L180 216 L236 264 L300 226" stroke-width="4"/>' +
+      '<g class="tc-stars" stroke="none" fill="currentColor">' +
+        '<circle cx="52" cy="58" r="1.8"/><circle cx="228" cy="42" r="1.5"/>' +
+        '<circle cx="200" cy="90" r="1.3"/><circle cx="60" cy="176" r="1.4"/>' +
+      '</g>' +
+    '</svg></span>';
+
   // Format compact du compteur de likes : 1240 → « 1,2 k », 12000 → « 12 k ».
   function formatCount(n) {
     n = Number(n) || 0;
@@ -302,24 +323,36 @@
       ? '<button class="add-deck-btn card-add-deck" type="button" data-source-id="' + esc(s.id) +
         '" aria-label="Ajouter à un deck" title="Ajouter à un deck">' + PLUS_SVG + '</button>'
       : '';
+    // Disposition A : full-art (motif) + voile de lisibilité + double liseré en fond ;
+    // rangée haute (état à gauche, contrôles à droite dans l'ordre ♥·partage·+deck·i) ;
+    // contenu ancré en bas sur le voile. Toutes les classes interactives sont conservées
+    // (card-share, card-like, card-add-deck, flip-btn, state, switch, param-*) → aucun
+    // handler ni comportement modifié, seul le markup/les classes changent.
     return '' +
       '<div class="card-face card-front' + (showAdd ? ' has-add' : '') + '">' +
-        '<button class="share-btn card-share" type="button" aria-label="Partager" title="Partager">' + SHARE_SVG + '</button>' +
-        addBtn +
-        '<button class="flip-btn" type="button" aria-label="En savoir plus" title="En savoir plus">' + INFO_SVG + '</button>' +
-        likeBtn(s) +
-        // C1) Rangée du haut : état (.state) à gauche, icônes (absolues) à droite.
-        state +
-        // C1) Rangée du dessous : titre + badge.
-        topRow(s) +
-        (s.subtitle ? '<div class="card-subtitle">' + esc(s.subtitle) + '</div>' : '') +
-        // Description : le texte est encapsule dans .card-desc pour que la
-        // troncature -webkit-line-clamp s'applique reellement. Sur .p directement,
-        // le clamp est inerte (le <p>, enfant flex du recto, est « blockifie » en
-        // flow-root par le moteur) ; sur un enfant non-flex, il fonctionne.
-        '<p><span class="card-desc">' + esc(s.description || '') + '</span></p>' +
-        count +
-        action +
+        FULLART_SVG +
+        '<span class="card-veil" aria-hidden="true"></span>' +
+        '<span class="card-edge" aria-hidden="true"></span>' +
+        // C1) Rangée du haut : état (.state, pastille verre) à gauche, icônes à droite.
+        '<div class="card-toprow">' +
+          state +
+          '<div class="card-icons">' +
+            likeBtn(s) +
+            '<button class="share-btn card-share" type="button" aria-label="Partager" title="Partager">' + SHARE_SVG + '</button>' +
+            addBtn +
+            '<button class="flip-btn" type="button" aria-label="En savoir plus" title="En savoir plus">' + INFO_SVG + '</button>' +
+          '</div>' +
+        '</div>' +
+        // Contenu bas (titre + coche, sous-titre, description, compteur, abonnement).
+        '<div class="card-content">' +
+          topRow(s) +
+          (s.subtitle ? '<div class="card-subtitle">' + esc(s.subtitle) + '</div>' : '') +
+          // Description encapsulée dans .card-desc pour que la troncature
+          // -webkit-line-clamp s'applique (inerte sur le <p> lui-même).
+          '<p><span class="card-desc">' + esc(s.description || '') + '</span></p>' +
+          count +
+          action +
+        '</div>' +
       '</div>';
   }
 

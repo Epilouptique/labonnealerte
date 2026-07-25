@@ -67,7 +67,9 @@
     var el = document.createElement('div');
     el.className = 'sub-msg ' + (kind || 'ok');
     el.textContent = text;
-    card.querySelector('.card-front').appendChild(el);
+    // Disposition A : le contenu est ancré dans .card-content (au-dessus du voile) ;
+    // on y insère le message pour qu'il reste lisible (repli sur .card-front si absent).
+    (card.querySelector('.card-content') || card.querySelector('.card-front')).appendChild(el);
   }
   // Animation signature : ping vert + illumination verte de la carte.
   function celebrate(card) {
