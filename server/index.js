@@ -197,7 +197,7 @@ app.get('/favoris', (req, res) => {
 app.get('/deck/:token', async (req, res) => {
   try {
     const { rows } = await pool.query(
-      "SELECT name, emoji FROM collections WHERE share_token = $1 AND visibility = 'unlisted'",
+      "SELECT name, emoji FROM collections WHERE share_token = $1 AND visibility IN ('public', 'unlisted')",
       [req.params.token]
     );
     if (rows.length === 0) {

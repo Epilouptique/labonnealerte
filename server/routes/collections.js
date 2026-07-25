@@ -17,17 +17,30 @@ const { validateParams } = require('../params');
 
 const router = express.Router();
 
-// GET /api/collections — collections officielles, ordonnées, avec nb de cartes
-// abonnables et somme des ❤ des cartes (réutilise sources.likes_count).
+// GET /api/collections — tuiles-deck du kiosque : packs OFFICIELS + decks perso
+// PUBLICS (visibility='public', pseudo requis, au moins une carte). Chaque ligne
+// porte de quoi filtrer/trier/naviguer cote client sans logique parallele :
+//   kind      'official' | 'user'
+//   href      /collection/:id (officiel) | /deck/:share_token (perso public)
+//   categories top-3 auto-derivees (lecture seule, jamais choisies par l'utilisateur)
+//   created_at pour le mode « Nouveautes »
+//   adopt_count pour le mode « Les plus populaires » (COUNT collection_adoptions)
+//   author    pseudo public (decks perso, jamais l'email) ; NULL pour les officiels
 router.get('/collections', async (req, res) => {
   try {
     const { rows } = await pool.query(
       `SELECT c.id, c.name, c.description, c.emoji, c.tint, c.display_order,
+              c.visibility, c.share_token, c.created_at, c.categories,
+              CASE WHEN c.owner_subscriber_id IS NULL THEN 'official' ELSE 'user' END AS kind,
+              CASE WHEN c.owner_subscriber_id IS NULL
+                   THEN '/collection/' || c.id
+                   ELSE '/deck/' || c.share_token END AS href,
+              subr.display_name AS author,
               COUNT(s.id)::int AS card_count,
               COALESCE(SUM(s.likes_count), 0)::int AS total_likes,
-              -- Apercu du deck (chantier deck-stack) : ID des 3 dernieres cartes ajoutees
-              -- (position DESC). Le client resout ces IDs en objets source complets depuis
-              -- son catalogue deja charge (/api/sources) et les rend via LBACards.cardHTML.
+              (SELECT COUNT(*) FROM collection_adoptions a WHERE a.collection_id = c.id)::int AS adopt_count,
+              -- Apercu : ID des 3 dernieres cartes ajoutees (position DESC), resolus
+              -- en objets source complets cote client (/api/sources) puis rendus.
               (SELECT COALESCE(json_agg(p.id), '[]'::json) FROM (
                  SELECT s3.id FROM collection_items ci3
                    JOIN sources s3 ON s3.id = ci3.source_id AND s3.enabled = true
@@ -36,9 +49,13 @@ router.get('/collections', async (req, res) => {
          FROM collections c
          LEFT JOIN collection_items ci ON ci.collection_id = c.id
          LEFT JOIN sources s ON s.id = ci.source_id AND s.enabled = true
-        WHERE c.visibility = 'official' AND c.owner_subscriber_id IS NULL
-        GROUP BY c.id
-        ORDER BY c.display_order ASC, c.name ASC`
+         LEFT JOIN subscribers subr ON subr.id = c.owner_subscriber_id
+        WHERE (c.visibility = 'official' AND c.owner_subscriber_id IS NULL)
+           OR (c.visibility = 'public' AND c.owner_subscriber_id IS NOT NULL
+               AND c.share_token IS NOT NULL AND subr.display_name IS NOT NULL)
+        GROUP BY c.id, subr.display_name
+        HAVING COUNT(s.id) > 0 OR c.owner_subscriber_id IS NULL
+        ORDER BY (c.owner_subscriber_id IS NOT NULL), c.display_order ASC, c.created_at DESC, c.name ASC`
     );
     res.json({ collections: rows });
   } catch (err) {
@@ -46,6 +63,28 @@ router.get('/collections', async (req, res) => {
     res.status(503).json({ error: 'DB unavailable' });
   }
 });
+
+// Recalcule et stocke les catégories auto d'un deck (top-3 des catégories les plus
+// fréquentes parmi ses cartes ENABLED, départage alphabétique). Appelé à chaque
+// ajout/retrait de carte. Même logique que le backfill idempotent d'init.sql.
+async function recomputeDeckCategories(collectionId) {
+  await pool.query(
+    `WITH cat_counts AS (
+       SELECT cat, COUNT(*) AS n
+         FROM collection_items ci
+         JOIN sources s ON s.id = ci.source_id AND s.enabled = true
+         CROSS JOIN LATERAL unnest(s.categories) AS cat
+        WHERE ci.collection_id = $1
+        GROUP BY cat
+     ), ranked AS (
+       SELECT cat, ROW_NUMBER() OVER (ORDER BY n DESC, cat ASC) AS rk FROM cat_counts
+     )
+     UPDATE collections
+        SET categories = COALESCE((SELECT array_agg(cat ORDER BY rk) FROM ranked WHERE rk <= 3), '{}')
+      WHERE id = $1`,
+    [collectionId]
+  );
+}
 
 // GET /api/collections/:slug — méta + cartes enrichies (forme /api/sources) + default_params.
 router.get('/collections/:slug', async (req, res) => {
@@ -112,8 +151,12 @@ router.post('/collections/:slug/adopt', async (req, res) => {
     const auth = await authenticate(token);
     if (!auth) return res.status(401).json({ error: 'Session invalide ou expirée' });
 
+    // Adoptable = pack officiel OU deck perso PUBLIC (visible du kiosque).
     const exists = await pool.query(
-      `SELECT 1 FROM collections WHERE id = $1 AND visibility = 'official' AND owner_subscriber_id IS NULL`,
+      `SELECT 1 FROM collections
+        WHERE id = $1 AND (
+              (visibility = 'official' AND owner_subscriber_id IS NULL)
+           OR (visibility = 'public' AND owner_subscriber_id IS NOT NULL AND share_token IS NOT NULL))`,
       [req.params.slug]
     );
     if (exists.rows.length === 0) return res.status(404).json({ error: 'Collection inconnue' });
@@ -165,6 +208,13 @@ router.post('/collections/:slug/adopt', async (req, res) => {
       }
     }
 
+    // Suivi d'adoption (popularite du deck). Idempotent : un compte compte une fois.
+    await pool.query(
+      `INSERT INTO collection_adoptions (subscriber_id, collection_id)
+       VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+      [auth.id, req.params.slug]
+    );
+
     return res.status(200).json({ added, already, needs_params: needsParams, total: added + already });
   } catch (err) {
     console.error('[collections] Erreur POST /adopt :', err.message);
@@ -182,7 +232,10 @@ router.delete('/collections/:slug/adopt', async (req, res) => {
     if (!auth) return res.status(401).json({ error: 'Session invalide ou expirée' });
 
     const exists = await pool.query(
-      `SELECT 1 FROM collections WHERE id = $1 AND visibility = 'official' AND owner_subscriber_id IS NULL`,
+      `SELECT 1 FROM collections
+        WHERE id = $1 AND (
+              (visibility = 'official' AND owner_subscriber_id IS NULL)
+           OR (visibility = 'public' AND owner_subscriber_id IS NOT NULL AND share_token IS NOT NULL))`,
       [req.params.slug]
     );
     if (exists.rows.length === 0) return res.status(404).json({ error: 'Collection inconnue' });
@@ -191,6 +244,11 @@ router.delete('/collections/:slug/adopt', async (req, res) => {
       `DELETE FROM subscriptions
         WHERE subscriber_id = $1
           AND source_id IN (SELECT source_id FROM collection_items WHERE collection_id = $2)`,
+      [auth.id, req.params.slug]
+    );
+    // Retire aussi le suivi d'adoption (popularite).
+    await pool.query(
+      'DELETE FROM collection_adoptions WHERE subscriber_id = $1 AND collection_id = $2',
       [auth.id, req.params.slug]
     );
     return res.status(200).json({ removed: r.rowCount });
@@ -202,3 +260,4 @@ router.delete('/collections/:slug/adopt', async (req, res) => {
 
 module.exports = router;
 module.exports.resolveInstances = resolveInstances; // exposé pour tests
+module.exports.recomputeDeckCategories = recomputeDeckCategories; // réutilisé par routes/decks.js

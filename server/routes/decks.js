@@ -8,7 +8,7 @@ const express = require('express');
 const { pool } = require('../db');
 const { authenticate } = require('../sessions');
 const { validateParams } = require('../params');
-const { resolveInstances } = require('./collections'); // réutilise la résolution phase 1
+const { resolveInstances, recomputeDeckCategories } = require('./collections'); // réutilise phase 1
 const ugc = require('../ugc');
 
 const router = express.Router();
@@ -59,7 +59,7 @@ async function enrichItems(deckId) {
 // Récupère un deck possédé par l'utilisateur, ou null.
 async function ownedDeck(deckId, subscriberId) {
   const { rows } = await pool.query(
-    `SELECT id, name, description, emoji, tint, visibility, share_token, forked_from_name
+    `SELECT id, name, description, emoji, tint, visibility, share_token, forked_from_name, categories
        FROM collections WHERE id = $1 AND owner_subscriber_id = $2`,
     [deckId, subscriberId]
   );
@@ -114,7 +114,7 @@ router.get('/decks', async (req, res) => {
   const auth = await requireAuth(req, res); if (!auth) return;
   try {
     const { rows } = await pool.query(
-      `SELECT c.id, c.name, c.description, c.emoji, c.tint, c.visibility, c.share_token, c.forked_from_name,
+      `SELECT c.id, c.name, c.description, c.emoji, c.tint, c.visibility, c.share_token, c.forked_from_name, c.categories,
               (SELECT COUNT(*) FROM collection_items ci WHERE ci.collection_id = c.id)::int AS card_count,
               -- Apercu du deck (chantier deck-stack) : ID des 3 dernieres cartes (position DESC),
               -- resolus en objets source complets cote client (catalogue /api/sources).
@@ -161,12 +161,16 @@ router.post('/decks', async (req, res) => {
     }
     const id = ugc.genDeckId();
     const tint = parseTint(body.tint);
+    // Decks perso PUBLICS par defaut (decouvrables dans le kiosque) ; « Prive » = opt-out.
+    // Un token de partage est genere des la creation (page /deck/:token + adoption kiosque).
+    const visibility = body.visibility === 'private' ? 'private' : 'public';
+    const shareToken = ugc.genShareToken();
     await pool.query(
-      `INSERT INTO collections (id, name, description, emoji, tint, owner_subscriber_id, visibility, display_order)
-       VALUES ($1, $2, $3, $4, $5, $6, 'private', 100)`,
-      [id, name.value, desc.value || null, emoji, tint, auth.id]
+      `INSERT INTO collections (id, name, description, emoji, tint, owner_subscriber_id, visibility, share_token, display_order)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 100)`,
+      [id, name.value, desc.value || null, emoji, tint, auth.id, visibility, shareToken]
     );
-    return res.status(200).json({ deck: { id, name: name.value, description: desc.value || null, emoji, tint, visibility: 'private', card_count: 0 } });
+    return res.status(200).json({ deck: { id, name: name.value, description: desc.value || null, emoji, tint, visibility, share_token: shareToken, card_count: 0 } });
   } catch (err) {
     console.error('[decks] Erreur POST /decks :', err.message);
     return res.status(503).json({ error: 'Service indisponible' });
@@ -202,12 +206,20 @@ router.patch('/decks/:id', async (req, res) => {
     const deck = await ownedDeck(req.params.id, auth.id);
     if (!deck) return res.status(404).json({ error: 'Deck inconnu' });
     const tint = parseTint(body.tint);
+    // Bascule Public <-> Prive (opt-in explicite). Public = decouvrable dans le kiosque ;
+    // on garantit un token de partage. Prive conserve le token (non resolvable tant que
+    // prive) pour retrouver le meme lien si re-publie.
+    let visibility = deck.visibility;
+    if (body.visibility === 'public' || body.visibility === 'private') visibility = body.visibility;
+    let shareToken = deck.share_token;
+    if (visibility === 'public' && !shareToken) shareToken = ugc.genShareToken();
     await pool.query(
-      `UPDATE collections SET name = $1, description = $2, emoji = $3, tint = $4, updated_at = NOW()
-        WHERE id = $5 AND owner_subscriber_id = $6`,
-      [name.value, desc.value || null, emoji, tint, deck.id, auth.id]
+      `UPDATE collections SET name = $1, description = $2, emoji = $3, tint = $4,
+              visibility = $5, share_token = $6, updated_at = NOW()
+        WHERE id = $7 AND owner_subscriber_id = $8`,
+      [name.value, desc.value || null, emoji, tint, visibility, shareToken, deck.id, auth.id]
     );
-    return res.status(200).json({ deck: { id: deck.id, name: name.value, description: desc.value || null, emoji, tint, visibility: deck.visibility } });
+    return res.status(200).json({ deck: { id: deck.id, name: name.value, description: desc.value || null, emoji, tint, visibility, share_token: shareToken } });
   } catch (err) {
     console.error('[decks] Erreur PATCH /decks/:id :', err.message);
     return res.status(503).json({ error: 'Service indisponible' });
@@ -267,6 +279,7 @@ router.post('/decks/:id/items', async (req, res) => {
       [deck.id, sourceId, defaultParams ? JSON.stringify(defaultParams) : null, pos.rows[0].p]
     );
     await pool.query('UPDATE collections SET updated_at = NOW() WHERE id = $1', [deck.id]);
+    await recomputeDeckCategories(deck.id); // categories auto (top-3) re-derivees
     return res.status(200).json({ ok: true, source_id: sourceId, default_params: defaultParams });
   } catch (err) {
     console.error('[decks] Erreur POST /decks/:id/items :', err.message);
@@ -285,6 +298,7 @@ router.delete('/decks/:id/items/:sourceId', async (req, res) => {
       [deck.id, req.params.sourceId]
     );
     await pool.query('UPDATE collections SET updated_at = NOW() WHERE id = $1', [deck.id]);
+    await recomputeDeckCategories(deck.id); // categories auto (top-3) re-derivees
     return res.status(200).json({ ok: true });
   } catch (err) {
     console.error('[decks] Erreur DELETE /decks/:id/items/:sourceId :', err.message);
@@ -304,8 +318,10 @@ router.post('/decks/:id/share', async (req, res) => {
     const deck = await ownedDeck(req.params.id, auth.id);
     if (!deck) return res.status(404).json({ error: 'Deck inconnu' });
     const token = deck.share_token || ugc.genShareToken();
+    // Partager = rendre PUBLIC (decouvrable dans le kiosque + lien). Le modele est binaire
+    // public/prive depuis le chantier « decks dans la grille » ; 'unlisted' est retire.
     await pool.query(
-      `UPDATE collections SET visibility = 'unlisted', share_token = $1, updated_at = NOW()
+      `UPDATE collections SET visibility = 'public', share_token = $1, updated_at = NOW()
         WHERE id = $2 AND owner_subscriber_id = $3`,
       [token, deck.id, auth.id]
     );
@@ -341,7 +357,7 @@ router.get('/decks/shared/:token', async (req, res) => {
     const meta = await pool.query(
       `SELECT c.id, c.name, c.description, c.emoji, c.tint, c.forked_from_name, subr.display_name AS author
          FROM collections c JOIN subscribers subr ON subr.id = c.owner_subscriber_id
-        WHERE c.share_token = $1 AND c.visibility = 'unlisted'`,
+        WHERE c.share_token = $1 AND c.visibility IN ('public', 'unlisted')`,
       [req.params.token]
     );
     if (meta.rows.length === 0) return res.status(404).json({ error: 'Deck introuvable ou partage arrêté' });
@@ -369,7 +385,7 @@ router.post('/decks/shared/:token/fork', async (req, res) => {
     const src = await pool.query(
       `SELECT c.id, c.name, c.description, c.emoji, c.tint, subr.display_name AS author
          FROM collections c JOIN subscribers subr ON subr.id = c.owner_subscriber_id
-        WHERE c.share_token = $1 AND c.visibility = 'unlisted'`,
+        WHERE c.share_token = $1 AND c.visibility IN ('public', 'unlisted')`,
       [req.params.token]
     );
     if (src.rows.length === 0) return res.status(404).json({ error: 'Deck introuvable ou partage arrêté' });
@@ -452,7 +468,7 @@ router.post('/decks/shared/:token/report', async (req, res) => {
   const target = ((req.body || {}).target === 'name') ? 'name' : 'deck';
   try {
     const found = await pool.query(
-      `SELECT id, owner_subscriber_id FROM collections WHERE share_token = $1 AND visibility = 'unlisted'`,
+      `SELECT id, owner_subscriber_id FROM collections WHERE share_token = $1 AND visibility IN ('public', 'unlisted')`,
       [req.params.token]
     );
     if (found.rows.length === 0) return res.status(200).json({ ok: true }); // neutre
