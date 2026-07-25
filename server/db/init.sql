@@ -3599,3 +3599,56 @@ SELECT 'cantine-a2m2v', 'Menus cantine — SIVOM A2M2V', 'Menus et infos scolair
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'cantine-a2m2v');
 INSERT INTO source_states (source_id) SELECT 'cantine-a2m2v'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'cantine-a2m2v');
+
+-- ================================================================
+-- DECKS DANS LA GRILLE : categories auto-derivees + suivi d'adoption +
+-- decks perso publics par defaut. Idempotent (rejouable par migrate.js).
+-- ================================================================
+
+-- 1) Categories auto : top-3 des categories les plus frequentes parmi les cartes
+--    ENABLED du deck. LECTURE SEULE cote UI (jamais choisies par l'utilisateur, pour
+--    empecher le gonflage de visibilite) ; recalculees par le serveur a chaque
+--    ajout/retrait de carte, et re-backfillees ci-dessous a chaque migrate.
+ALTER TABLE collections ADD COLUMN IF NOT EXISTS categories TEXT[] DEFAULT '{}';
+
+-- 2) Suivi d'adoption (popularite des decks). Une ligne = un compte a adopte un deck.
+--    Idempotent (PK composite) ; CASCADE avec le compte ET le deck. Popularite d'un
+--    deck = COUNT sur cette table (aucun compteur denormalise a maintenir). Repart de
+--    zero : aucune adoption passee n'a jamais ete enregistree avant ce chantier.
+CREATE TABLE IF NOT EXISTS collection_adoptions (
+  subscriber_id INTEGER REFERENCES subscribers(id) ON DELETE CASCADE,
+  collection_id VARCHAR(64) REFERENCES collections(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (subscriber_id, collection_id)
+);
+CREATE INDEX IF NOT EXISTS idx_collection_adoptions_coll ON collection_adoptions (collection_id);
+
+-- 3) Decks perso PUBLICS par defaut : les decks jusqu'ici partages par lien (unlisted)
+--    rejoignent le kiosque public (ils avaient deja choisi de partager). Migration
+--    idempotente. Les decks 'private' restent prives ; 'official' inchange. Les
+--    nouveaux decks perso sont crees en 'public' cote serveur (routes/decks.js).
+UPDATE collections SET visibility = 'public'
+ WHERE visibility = 'unlisted' AND owner_subscriber_id IS NOT NULL;
+
+-- 4) Backfill idempotent des categories auto pour TOUS les decks (officiels + perso).
+--    top-3 par frequence, departage alphabetique stable ; deck sans carte -> '{}'.
+WITH cat_counts AS (
+  SELECT ci.collection_id AS cid, cat, COUNT(*) AS n
+    FROM collection_items ci
+    JOIN sources s ON s.id = ci.source_id AND s.enabled = true
+    CROSS JOIN LATERAL unnest(s.categories) AS cat
+   GROUP BY ci.collection_id, cat
+), ranked AS (
+  SELECT cid, cat,
+         ROW_NUMBER() OVER (PARTITION BY cid ORDER BY n DESC, cat ASC) AS rk
+    FROM cat_counts
+), top3 AS (
+  SELECT cid, array_agg(cat ORDER BY rk) AS cats
+    FROM ranked WHERE rk <= 3
+   GROUP BY cid
+)
+UPDATE collections c
+   SET categories = COALESCE(t.cats, '{}')
+  FROM (SELECT id FROM collections) base
+  LEFT JOIN top3 t ON t.cid = base.id
+ WHERE c.id = base.id;
