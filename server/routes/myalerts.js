@@ -16,7 +16,7 @@ const { validateParams, resolveLabel } = require('../params');
 const { resolveCommuneInsee, isInsee, resolveCommuneCoords, encodeCoords, isEncodedCoords } = require('../sources/lib/commune-insee');
 const { trackDomain } = require('../doomname');
 const { applyAutofill, deriveDisplayNameFromEmail, clientIp } = require('../profile-autofill');
-const { award } = require('../points');
+const { award, getRank } = require('../points');
 
 // État « le pire » d'un ensemble d'instances (pour l'affichage de la carte).
 const STATE_RANK = { active: 3, pending: 2, inactive: 1 };
@@ -180,7 +180,7 @@ apiRouter.get('/my-alerts', async (req, res) => {
     if (!auth) return res.status(401).json({ error: 'Lien invalide ou expiré' });
 
     const { rows } = await pool.query(
-      `SELECT s.id, s.name, s.description, s.badge,
+      `SELECT s.id, s.name, s.description, s.description_long, s.badge,
               COALESCE(st.state, 'inactive') AS state,
               (sub.subscriber_id IS NOT NULL) AS subscribed
          FROM sources s
@@ -231,7 +231,8 @@ apiRouter.get('/my-alerts', async (req, res) => {
     // Préférences : email activé, appareils push, et personnalisation d'affichage.
     const prefs = await pool.query(
       `SELECT s.email_enabled, s.country, s.departement, s.region, s.ville, s.interests, s.display_name,
-              s.points_balance, s.quiet_start, s.quiet_end, s.quiet_disabled,
+              s.points_balance, s.leaderboard_optout, s.quiet_start, s.quiet_end, s.quiet_disabled,
+              (SELECT asset_ref FROM skins WHERE id = s.equipped_dashboard_skin_id) AS dashboard_skin,
               (SELECT COUNT(*)::int FROM push_subscriptions p WHERE p.subscriber_id = s.id) AS push_endpoints_count
          FROM subscribers s WHERE s.id = $1`,
       [auth.id]
@@ -256,6 +257,10 @@ apiRouter.get('/my-alerts', async (req, res) => {
     const emailEnabled = pr.email_enabled !== undefined ? pr.email_enabled : true;
     const pushCount = pr.push_endpoints_count || 0;
 
+    // Rang prive (phase 2) : NULL si opt-out ou sans pseudo (on n'affiche alors que
+    // le solde). Calcule a la volee ; jamais expose a un tiers (route perso, auth).
+    const rank = pr.leaderboard_optout ? null : await getRank(auth.id);
+
     // On renvoie le token de session (potentiellement issu de l'échange du magic
     // token) pour que le client mette à jour son localStorage.
     return res.status(200).json({
@@ -272,6 +277,11 @@ apiRouter.get('/my-alerts', async (req, res) => {
       display_name: pr.display_name || null,
       // Solde de points cosmetiques (phase 1) : juste le nombre, pas de detail du ledger.
       points_balance: pr.points_balance || 0,
+      // Phase 2 : rang prive (null si opt-out/sans pseudo) + etat de participation.
+      rank: rank,
+      leaderboard_optout: pr.leaderboard_optout === true,
+      // Phase 3 : skin dashboard equipe (token CSS asset_ref), null si aucun.
+      dashboard_skin: pr.dashboard_skin || null,
       // Heures de veille (défaut 23/8 appliqué en code si NULL).
       quiet_start: pr.quiet_start == null ? 23 : pr.quiet_start,
       quiet_end: pr.quiet_end == null ? 8 : pr.quiet_end,
@@ -391,6 +401,33 @@ apiRouter.post('/my-alerts/profile', async (req, res) => {
     return res.status(200).json({ country, departement, region, ville, interests });
   } catch (err) {
     console.error('[my-alerts] Erreur POST /profile :', err.message);
+    return res.status(503).json({ error: 'Service indisponible' });
+  }
+});
+
+/* ------------------------------------------------------------------ */
+/* POST /api/my-alerts/leaderboard — participation au classement prive. */
+/* Corps : { token, optout:boolean }. optout=true -> exclu du calcul de */
+/* rang (dans les deux sens). Renvoie l'etat + le rang recalcule.       */
+/* ------------------------------------------------------------------ */
+apiRouter.post('/my-alerts/leaderboard', async (req, res) => {
+  const body = req.body || {};
+  const { token } = body;
+  if (typeof body.optout !== 'boolean') {
+    return res.status(400).json({ error: 'Paramètre optout invalide' });
+  }
+  try {
+    const auth = await authenticate(token);
+    if (!auth) return res.status(401).json({ error: 'Session invalide ou expirée' });
+    await pool.query(
+      'UPDATE subscribers SET leaderboard_optout = $1 WHERE id = $2',
+      [body.optout, auth.id]
+    );
+    // Rang recalcule apres bascule : null si on vient de s'exclure (ou sans pseudo).
+    const rank = body.optout ? null : await getRank(auth.id);
+    return res.status(200).json({ leaderboard_optout: body.optout, rank });
+  } catch (err) {
+    console.error('[my-alerts] Erreur POST /leaderboard :', err.message);
     return res.status(503).json({ error: 'Service indisponible' });
   }
 });

@@ -14,7 +14,7 @@ const express = require('express');
 const { pool } = require('../db');
 const { authenticate } = require('../sessions');
 const { validateParams } = require('../params');
-const { award } = require('../points');
+const { award, getTop20Ids } = require('../points');
 
 const router = express.Router();
 
@@ -32,11 +32,13 @@ router.get('/collections', async (req, res) => {
     const { rows } = await pool.query(
       `SELECT c.id, c.name, c.description, c.emoji, c.tint, c.display_order,
               c.visibility, c.share_token, c.created_at, c.categories,
+              c.owner_subscriber_id,
               CASE WHEN c.owner_subscriber_id IS NULL THEN 'official' ELSE 'user' END AS kind,
               CASE WHEN c.owner_subscriber_id IS NULL
                    THEN '/collection/' || c.id
                    ELSE '/deck/' || c.share_token END AS href,
               subr.display_name AS author,
+              (SELECT asset_ref FROM skins WHERE id = c.equipped_skin_id) AS deck_skin,
               COUNT(s.id)::int AS card_count,
               COALESCE(SUM(s.likes_count), 0)::int AS total_likes,
               (SELECT COUNT(*) FROM collection_adoptions a WHERE a.collection_id = c.id)::int AS adopt_count,
@@ -58,6 +60,13 @@ router.get('/collections', async (req, res) => {
         HAVING COUNT(s.id) > 0 OR c.owner_subscriber_id IS NULL
         ORDER BY (c.owner_subscriber_id IS NOT NULL), c.display_order ASC, c.created_at DESC, c.name ASC`
     );
+    // Badge Top 20 (phase 2) : marque les decks perso dont l'auteur est classe <= 20.
+    // Un seul Set cache (2 min) pour toute la grille -> aucun COUNT par deck.
+    const top20 = await getTop20Ids();
+    for (const r of rows) {
+      r.author_top20 = r.owner_subscriber_id != null && top20.has(r.owner_subscriber_id);
+      delete r.owner_subscriber_id; // interne : jamais expose au client
+    }
     res.json({ collections: rows });
   } catch (err) {
     console.error('[collections] Erreur GET /collections :', err.message);
@@ -100,7 +109,7 @@ router.get('/collections/:slug', async (req, res) => {
     // Cartes du pack, enrichies exactement comme GET /api/sources (pour réutiliser
     // le rendu de carte côté client), + default_params + position.
     const items = await pool.query(
-      `SELECT s.id, s.name, s.subtitle, s.description, s.badge, s.type, s.link_url,
+      `SELECT s.id, s.name, s.subtitle, s.description, s.description_long, s.badge, s.type, s.link_url,
               s.categories, s.submitted_by_github, s.params_schema,
               s.likes_count, s.created_at,
               CASE WHEN s.type = 'linked' THEN NULL

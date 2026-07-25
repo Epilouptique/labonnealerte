@@ -10,7 +10,7 @@ const { authenticate } = require('../sessions');
 const { validateParams } = require('../params');
 const { resolveInstances, recomputeDeckCategories } = require('./collections'); // réutilise phase 1
 const ugc = require('../ugc');
-const { award } = require('../points');
+const { award, getTop20Ids } = require('../points');
 
 const router = express.Router();
 const MAX_DECKS = 15;
@@ -40,7 +40,7 @@ setInterval(() => {
 // Cartes enrichies d'un deck (même forme que /api/sources → rendu client identique).
 async function enrichItems(deckId) {
   const { rows } = await pool.query(
-    `SELECT s.id, s.name, s.subtitle, s.description, s.badge, s.type, s.link_url,
+    `SELECT s.id, s.name, s.subtitle, s.description, s.description_long, s.badge, s.type, s.link_url,
             s.categories, s.submitted_by_github, s.params_schema, s.likes_count, s.created_at,
             CASE WHEN s.type = 'linked' THEN NULL ELSE COALESCE(st.state, 'inactive') END AS state,
             (SELECT COUNT(*) FROM subscriptions sub JOIN subscribers subr ON subr.id = sub.subscriber_id
@@ -60,7 +60,8 @@ async function enrichItems(deckId) {
 // Récupère un deck possédé par l'utilisateur, ou null.
 async function ownedDeck(deckId, subscriberId) {
   const { rows } = await pool.query(
-    `SELECT id, name, description, emoji, tint, visibility, share_token, forked_from_name, categories
+    `SELECT id, name, description, emoji, tint, visibility, share_token, forked_from_name, categories,
+            equipped_skin_id
        FROM collections WHERE id = $1 AND owner_subscriber_id = $2`,
     [deckId, subscriberId]
   );
@@ -359,7 +360,9 @@ router.post('/decks/:id/unshare', async (req, res) => {
 router.get('/decks/shared/:token', async (req, res) => {
   try {
     const meta = await pool.query(
-      `SELECT c.id, c.name, c.description, c.emoji, c.tint, c.forked_from_name, subr.display_name AS author
+      `SELECT c.id, c.name, c.description, c.emoji, c.tint, c.forked_from_name,
+              c.owner_subscriber_id, subr.display_name AS author,
+              (SELECT asset_ref FROM skins WHERE id = c.equipped_skin_id) AS deck_skin
          FROM collections c JOIN subscribers subr ON subr.id = c.owner_subscriber_id
         WHERE c.share_token = $1 AND c.visibility IN ('public', 'unlisted')`,
       [req.params.token]
@@ -367,10 +370,15 @@ router.get('/decks/shared/:token', async (req, res) => {
     if (meta.rows.length === 0) return res.status(404).json({ error: 'Deck introuvable ou partage arrêté' });
     const deck = meta.rows[0];
     const sources = await enrichItems(deck.id);
+    // Badge Top 20 (phase 2) : cohérent avec le kiosque, affiché à côté de « Par {pseudo} ».
+    const top20 = await getTop20Ids();
     return res.status(200).json({
       deck: {
         name: deck.name, description: deck.description, emoji: deck.emoji, tint: deck.tint,
         author: deck.author || null, forked_from_name: deck.forked_from_name || null,
+        author_top20: top20.has(deck.owner_subscriber_id),
+        // Phase 3 : skin de deck equipe (public), token CSS ou null.
+        deck_skin: deck.deck_skin || null,
       },
       sources,
     });

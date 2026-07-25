@@ -208,15 +208,26 @@ router.post('/submit-source', rateLimit, async (req, res) => {
       if (++attempts > 5) break;
     }
 
+    // Respecte les CHECK de `sources` (description courte <=120, longue <=300) : on borne
+    // la courte (117 + « … », coupe sur un espace) et on verse le texte complet dans la
+    // longue (<=300). Sinon une soumission longue violerait le CHECK a l'INSERT.
+    const rawDesc = description ? String(description).trim() : null;
+    let descShort = rawDesc, descLong = null;
+    if (rawDesc && rawDesc.length > 120) {
+      descShort = rawDesc.slice(0, 117).replace(/\s\S*$/, '') + '…';
+      descLong = rawDesc.slice(0, 300);
+    }
+
     await pool.query(
       `INSERT INTO sources
-         (id, name, description, type, badge, enabled, endpoint_url,
+         (id, name, description, description_long, type, badge, enabled, endpoint_url,
           submitted_by_github, submitted_by_email, categories, params_schema)
-       VALUES ($1, $2, $3, 'external', 'community', false, $4, $5, $6, $7, $8::jsonb)`,
+       VALUES ($1, $2, $3, $4, 'external', 'community', false, $5, $6, $7, $8, $9::jsonb)`,
       [
         id,
         name.slice(0, 255),
-        description ? String(description) : null,
+        descShort,
+        descLong,
         manifest_url,
         github ? String(github).slice(0, 255) : null,
         email ? String(email).slice(0, 255) : null,

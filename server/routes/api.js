@@ -113,7 +113,7 @@ router.get('/communes', async (req, res) => {
 router.get('/sources', async (req, res) => {
   try {
     const { rows } = await pool.query(
-      `SELECT s.id, s.name, s.subtitle, s.description, s.badge, s.type, s.link_url,
+      `SELECT s.id, s.name, s.subtitle, s.description, s.description_long, s.badge, s.type, s.link_url,
               s.categories, s.submitted_by_github, s.params_schema,
               s.likes_count, s.created_at,
               CASE WHEN s.type = 'linked' THEN NULL
@@ -197,7 +197,7 @@ router.get('/favorites', async (req, res) => {
   if (!auth) return res.status(401).json({ error: 'Session invalide ou expirée' });
   try {
     const { rows } = await pool.query(
-      `SELECT s.id, s.name, s.subtitle, s.description, s.badge, s.type, s.link_url,
+      `SELECT s.id, s.name, s.subtitle, s.description, s.description_long, s.badge, s.type, s.link_url,
               s.categories, s.submitted_by_github, s.params_schema,
               s.likes_count, s.created_at,
               CASE WHEN s.type = 'linked' THEN NULL
