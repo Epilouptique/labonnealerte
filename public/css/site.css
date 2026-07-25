@@ -1707,7 +1707,6 @@ body.m-menu-open { overflow: hidden; }
 .pack:hover { transform: translateY(-3px); box-shadow: 0 6px 22px rgba(90, 60, 150, .22); }
 .pack:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; }
 .pack-body { display: flex; flex-direction: column; gap: 4px; }
-.pack-emoji { font-size: 1.7rem; line-height: 1; }
 .pack-name { font-weight: 700; font-size: 1.02rem; letter-spacing: -.01em; }
 .pack-meta { color: var(--muted); font-size: .82rem; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .pack-likes { color: var(--amber); font-weight: 600; }
