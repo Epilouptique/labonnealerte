@@ -7,3 +7,5 @@ server/db/diagnostics/
 *.zip
 # Captures de travail pour la revue UX des decks (livrées en local, non versionnées)
 captures-decks-review/
+# Captures du chantier « format carte a jouer » (locales, non versionnées)
+captures-cards-format/
