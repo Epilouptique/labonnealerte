@@ -2307,6 +2307,12 @@ html[data-theme="dark"] .tint-11 .deck-motif-bg::after { background: color-mix(i
    largeur min-content). Tout reste CONTENU par overflow:hidden de la tuile. */
 .deck-stack { --ds-fan: 8%; --ds-front: .8; }
 .ds-i0 { position: relative; z-index: 3; transform: scale(var(--ds-front)); }
+/* Parite avec .grid > .card : la carte de devant est mise a l'echelle par scale(--ds-front)
+   (=0.8) → elle rendait a tile x 0.8 = 308px en desktop large (> 300px des cartes classiques).
+   On plafonne sa largeur de LAYOUT a 300/--ds-front (=375px) → APRES le scale, elle rend a
+   300px pile, comme .grid > .card. margin-inline:auto la recentre dans sa face. Scope grille
+   uniquement (kiosque + mes-decks). Ne touche NI l'eventail (.ds-i1/.ds-i2) NI le ruban. */
+.grid .deck-card .ds-i0 .card { max-width: calc(300px / var(--ds-front)); margin-inline: auto; }
 .ds-i1, .ds-i2 { position: absolute; inset: 0; }
 .ds-i1 .card, .ds-i2 .card { height: 100%; }
 /* Cartes d'APERCU : non interactives (la tuile entiere navigue). Le switch « S'abonner »
@@ -2627,7 +2633,7 @@ html[data-theme="dark"] {
 .grid .card-content > p, .deck-card .card-content > p {
   flex: none; margin-top: 7px; font-size: 12px; color: var(--tc-desc);
 }
-.card-content .card-desc { font-size: 12px; color: var(--tc-desc); }
+.card-content .card-desc { font-size: 13px; color: var(--tc-desc); }
 .card-content .sub-count { color: var(--tc-desc); }
 /* Chips de parametres : pilules verre/blanc (la reference). « + ajouter » reste la
    pilule violette pleine (.param-add) → les deux « + » ne se confondent pas. */
