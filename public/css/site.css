@@ -223,10 +223,19 @@ html[data-theme="dark"] .search { border: 1px solid color-mix(in srgb, var(--mut
    pas a etre gonfle pour bloquer la 4e colonne, il reste a 18px. Meme fix sur .decks-main. */
 main#alertes { width: 100%; }
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); gap: 18px; padding-top: 2rem; padding-bottom: 26px; grid-auto-rows: auto; align-content: start; }
+/* Plafond de largeur des cartes d'alerte : la piste reste en 1fr (ex. 385px desktop large),
+   la carte y REMPLIT au plus 300px puis est CENTREE via margin auto (mesure : 300px, marges
+   symetriques). On utilise margin-inline:auto et NON justify-items:center sur .grid, car
+   justify-items:center repasserait aussi les tuiles-deck (.deck-card) en auto-width et
+   ferait resurgir l'effondrement shrink-to-fit. Scope « .grid > .card » : cible les cartes
+   d'alerte (enfants directs de la grille : kiosque #grid + collection/favoris/deck) et
+   EXCLUT .deck-card (tuiles), .ds-face .card (apercus imbriques) et .acct-card (hors grille,
+   /mes-decks non touche : ses items sont des .deck-card). */
+.grid > .card { max-width: 300px; margin-inline: auto; }
 /* Mobile : UNE carte par rangee (format « carte a jouer » pleine largeur, ratio conserve).
    minmax(0,1fr) → la carte se partage la largeur sans jamais deborder, meme sur les tres
    petits ecrans (~320px). */
-@media (max-width: 620px) { .grid { grid-template-columns: repeat(1, minmax(0, 1fr)); gap: 12px; } }
+@media (max-width: 620px) { .grid { grid-template-columns: repeat(1, minmax(0, 1fr)); gap: 12px; } .grid > .card { max-width: none; } }
 .card {
   background: var(--surface); border: none; border-radius: 24px;
   padding: 22px; box-shadow: none;
