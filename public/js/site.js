@@ -1250,6 +1250,43 @@
     grid.style.display = show ? 'none' : '';
   }
 
+  // « Afficher plus » : re-impose la position de scroll y le temps de la reveal + de
+  // l'animation de hauteur (~380ms), pour neutraliser le scroll-anchoring du navigateur
+  // (qui, pres du bas, decale scrollY pour garder le contenu du bas immobile). Restauration
+  // INSTANTANEE (scroll-behavior:auto force) : sinon le html{scroll-behavior:smooth} global
+  // animerait la correction en un « redescendre puis remonter » visible.
+  //
+  // Libere le verrou des qu'un VRAI geste utilisateur est detecte (molette / tactile /
+  // touche de defilement) : c'est le signal fiable d'une intention deliberee. On ne se fie
+  // PAS a la distance de scrollY : la correction d'anchoring qu'on contre est elle-meme
+  // grande (mesuree ~1250px), donc un seuil de distance se declencherait sur l'anchoring.
+  function holdScroll(y) {
+    var de = document.documentElement;
+    var prevBehav = de.style.scrollBehavior;
+    de.style.scrollBehavior = 'auto';
+    function now() { return (window.performance && performance.now) ? performance.now() : Date.now(); }
+    var t0 = now(), released = false;
+    var SCROLL_KEYS = { ArrowUp: 1, ArrowDown: 1, PageUp: 1, PageDown: 1, Home: 1, End: 1, ' ': 1, Spacebar: 1 };
+    function release() {
+      if (released) return; released = true;
+      de.style.scrollBehavior = prevBehav;
+      window.removeEventListener('wheel', release);
+      window.removeEventListener('touchmove', release);
+      window.removeEventListener('keydown', onKey);
+    }
+    function onKey(e) { if (SCROLL_KEYS[e.key]) release(); } // seules les touches de defilement liberent
+    window.addEventListener('wheel', release, { passive: true });
+    window.addEventListener('touchmove', release, { passive: true });
+    window.addEventListener('keydown', onKey);
+    function hold() {
+      if (released) return;
+      if ((window.pageYOffset || 0) !== y) window.scrollTo(0, y);
+      if (now() - t0 < 380) requestAnimationFrame(hold);
+      else release();
+    }
+    hold();
+  }
+
   // Volet E : anime la hauteur du conteneur pour éviter tout saut de la section suivante.
   function animateGridHeight(fromH) {
     if (!grid) return;
@@ -1265,7 +1302,15 @@
 
   // Volet F/G/A : movers glissent (FLIP) ; la carte Proposer anime aussi sa HAUTEUR
   // (mesurée, car height:auto issu du stretch n'est pas transitionnable) dans les deux sens.
-  function flipMoves(first, fromAddH) {
+  // grow = chemin « afficher plus » (pagination). Sur ce chemin, les cartes DEJA
+  // affichees ne doivent PAS glisser : sinon les cartes de queue (Proposer, tuile-deck
+  // en debordement) se retrouvent poussees de ~1 page vers le bas et balaient tout
+  // l'ecran (« trait blanc »). On annule leur translate (elles se replacent d'un coup) ;
+  // seules les NOUVELLES cartes animent leur entree (branche else). En reagencement
+  // (grow absent : chips/recherche), le FLIP reste normal QUELLE QUE SOIT la distance
+  // — un seuil fixe/relatif couperait a tort les gros deplacements legitimes (mobile 1
+  // colonne : un mover peut remonter de plusieurs rangs, cf. mesure).
+  function flipMoves(first, fromAddH, grow) {
     if (!grid.offsetHeight) return;
     var movers = positionedShown();
     var enterIdx = 0;
@@ -1274,7 +1319,7 @@
       var f = first.get(c);
       var last = c.getBoundingClientRect();
       if (f) {
-        var dx = f.left - last.left, dy = f.top - last.top;
+        var dx = grow ? 0 : f.left - last.left, dy = grow ? 0 : f.top - last.top;
         var dh = isAdd ? Math.abs(last.height - fromAddH) : 0;
         if (dx || dy || dh > 2) {
           c.style.transition = 'none';
@@ -1314,8 +1359,13 @@
     });
   }
 
-  function apply(animate, mutate) {
+  function apply(animate, mutate, grow) {
     if (!grid || !qInput) return;
+    // « Afficher plus » (grow) ne doit JAMAIS deplacer le scroll : on memorise la position
+    // AVANT toute mutation pour la re-imposer ensuite (cf. holdScroll dans commit). Le saut
+    // vient du scroll-anchoring du navigateur qui, pres du bas, decale scrollY pour garder le
+    // contenu du bas immobile quand la grille grandit au-dessus.
+    var pinY = grow ? (window.pageYOffset || 0) : null;
     var doAnim = animate && !REDUCE;
     var beforeVisible = cards.filter(isShown);
     var first = doAnim ? snapshot(positionedShown()) : null;
@@ -1330,7 +1380,8 @@
       setClasses();
       updateMore(info);
       updateMineEmpty();
-      if (doAnim) { flipMoves(first, fromAddH); animateGridHeight(fromH); }
+      if (doAnim) { flipMoves(first, fromAddH, grow); animateGridHeight(fromH); }
+      if (pinY !== null) holdScroll(pinY); // grow : verrouille la position de scroll
     }
 
     if (doAnim && leaving.length) {
@@ -1482,7 +1533,7 @@
     var secWrap = document.getElementById('chips-secondary-wrap');
     if (secWrap) secWrap.addEventListener('click', onChipClick);
 
-    moreBtn.addEventListener('click', function () { visibleLimit += STEP; apply(true); });
+    moreBtn.addEventListener('click', function () { visibleLimit += STEP; apply(true, null, true); });
 
     apply(false); // initial : pagination sans animation
     markLikes();  // A1) marque les cœurs déjà aimés (localStorage)
@@ -1804,12 +1855,22 @@
         ' data-href="' + esc(href) + '">' + stack + '</div>';
     });
     // Insertion à intervalles réguliers parmi les cartes VISIBLES (hors pagination cachée).
-    var visible = g.querySelectorAll('.card[data-cats]:not(.hidden-more)');
+    // EXCLUT les cartes epinglees en fin de grille (reco deplacee en dernier, filler) : sinon
+    // ref = visible[...] peut TOMBER sur la carte reco et y coller une tuile juste avant elle
+    // → tuile figee avant-derniere, independamment de la pagination (bug « deck montagne »).
+    var visible = g.querySelectorAll('.card[data-cats]:not(.hidden-more):not(.card-reco):not(.card-filler)');
     var extras = document.getElementById('static-extras');
+    // Debordement (plus de tuiles que de creneaux visibles) : on insere AVANT le bloc
+    // hidden-more (fin du bloc visible), et NON avant Proposer (qui est apres tout le
+    // bloc cache). Sinon la tuile resterait la toute derniere carte et « afficher plus »
+    // ferait apparaitre les nouvelles cartes AVANT elle (bug d'ordre). Ainsi placee, le
+    // demasquage ajoute bien les cartes APRES la tuile, a la vraie fin (avant Proposer).
+    var firstHidden = g.querySelector('.card[data-cats].hidden-more');
     var step = Math.max(2, Math.floor(visible.length / (tiles.length + 1)));
     tiles.forEach(function (tileHTML, i) {
       var ref = visible[(i + 1) * step];
       if (ref) ref.insertAdjacentHTML('beforebegin', tileHTML);
+      else if (firstHidden) firstHidden.insertAdjacentHTML('beforebegin', tileHTML);
       else if (extras) extras.insertAdjacentHTML('beforebegin', tileHTML);
       else g.insertAdjacentHTML('beforeend', tileHTML);
     });

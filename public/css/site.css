@@ -2285,7 +2285,7 @@ html[data-theme="dark"] .tint-11 .deck-motif-bg::after { background: color-mix(i
 /* overflow:hidden = CONTENANCE STRICTE : la pile (cartes du fond + ruban) ne peut plus
    deborder de la tuile ni recouvrir une tuile/carte voisine (correctif regression :
    plus de surplomb non maitrise entre tuiles de la grille dense du kiosque). */
-.deck-card { display: block; text-decoration: none; color: inherit; cursor: pointer; min-width: 0; align-self: start; overflow: hidden; border-radius: 24px; }
+.deck-card { display: block; text-decoration: none; color: inherit; cursor: pointer; min-width: 0; align-self: start; overflow: visible; border-radius: 24px; }
 .deck-card, .deck-card * { cursor: pointer; }
 .deck-card:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; border-radius: 24px; }
 .deck-stack { display: block; position: relative; }
@@ -2305,16 +2305,24 @@ html[data-theme="dark"] .tint-11 .deck-motif-bg::after { background: color-mix(i
    se voit. La carte de devant reste EN FLUX (elle donne largeur+hauteur a la tuile → pas
    d'effondrement « une lettre par ligne ») ; le scale est purement visuel (n'affecte pas la
    largeur min-content). Tout reste CONTENU par overflow:hidden de la tuile. */
-.deck-stack { --ds-fan: 8%; /*--ds-front: .8;*/ }
+.deck-stack { --ds-fan: 7%; /* --ds-front supprime : la taille vient de max-width, plus du scale */ }
 .ds-i0 { position: relative; z-index: 3; /* Plus de tansformation transform: scale(var(--ds-front));*/ }
-/* Parite avec .grid > .card : la carte de devant est mise a l'echelle par scale(--ds-front)
-   (=0.8) → elle rendait a tile x 0.8 = 308px en desktop large (> 300px des cartes classiques).
-   On plafonne sa largeur de LAYOUT a 300/--ds-front (=375px) → APRES le scale, elle rend a
-   300px pile, comme .grid > .card. margin-inline:auto la recentre dans sa face. Scope grille
+/* Parite avec .grid > .card : la carte de devant fait la MEME TAILLE REELLE (300px), a
+   taille native (contenu non reduit). Le scale(--ds-front) a ete retire : on plafonne donc
+   la largeur REELLE a 300px directement (avant, on plafonnait a 300/--ds-front car le scale
+   reduisait ensuite la carte). margin-inline:auto la recentre dans sa face. Scope grille
    uniquement (kiosque + mes-decks). Ne touche NI l'eventail (.ds-i1/.ds-i2) NI le ruban. */
-.grid .deck-card .ds-i0 .card { max-width: calc(300px / var(--ds-front)); margin-inline: auto; }
+.grid .deck-card .ds-i0 .card { max-width: 300px; margin-inline: auto; }
 .ds-i1, .ds-i2 { position: absolute; inset: 0; }
 .ds-i1 .card, .ds-i2 .card { height: 100%; }
+/* Cartes de FOND : MEME base de taille que le front (max-width 300px + centrage), au lieu
+   de dependre du scale pour la TAILLE. Avant, scale(.74-.76) depuis le centre reduisait la
+   carte vers son milieu → retrait vertical (bas « coupe ») qui exigeait une compensation
+   empirique. Ici la taille de base est deja bonne via max-width ; le transform ne garde que
+   l'offset + la rotation (+ un scale tres subtil pour la profondeur, cf. plus bas). Parite
+   avec .ds-i0 .card ; scope grille (kiosque + mes-decks), comme le front. */
+.grid .deck-card .ds-i1 .card,
+.grid .deck-card .ds-i2 .card { max-width: 300px; margin-inline: auto; }
 /* Cartes d'APERCU : non interactives (la tuile entiere navigue). Le switch « S'abonner »
    reste visible mais grise (desactive). */
 .deck-card .ds-face { pointer-events: none; }
@@ -2341,11 +2349,13 @@ html[data-theme="dark"] .tint-11 .deck-motif-bg::after { background: color-mix(i
 .deck-card.ds-sharing .ds-ribbon,
 .deck-card.ds-sharing .ds-i1,
 .deck-card.ds-sharing .ds-i2 { opacity: 0; pointer-events: none; }
-/* Eventail VISIBLE : les cartes du fond sont decalees de --ds-fan de chaque cote + une
-   legere rotation, reduites, et debordent donc de part et d'autre de la carte de devant
-   (elle-meme reduite) — le ruban pleine largeur englobe l'ensemble. */
-.ds-i1 { z-index: 2; transform: translateX(calc(-1 * var(--ds-fan))) rotate(-5deg) scale(calc(var(--ds-front) - .04)); }
-.ds-i2 { z-index: 1; transform: translateX(var(--ds-fan)) rotate(5deg) scale(calc(var(--ds-front) - .06)); }
+/* Eventail VISIBLE : la TAILLE des fonds vient deja de max-width (ci-dessus). Le transform
+   ne fait plus que l'effet de pile : offset horizontal (--ds-fan) de chaque cote + rotation
+   ±5°, plus un scale TRES SUBTIL (.98/.97) pour un leger retrait de profondeur — pas assez
+   pour recreer le decalage vertical de l'ancien gros scale. Le ruban pleine largeur englobe
+   l'ensemble. transform-origin reste au centre (50% 50%, cf. .ds-face). */
+.ds-i1 { z-index: 2; transform: translateX(calc(-1 * var(--ds-fan))) rotate(-5deg) scale(.98); }
+.ds-i2 { z-index: 1; transform: translateX(var(--ds-fan)) rotate(5deg) scale(.97); }
 /* Deck vide (0 carte) : visuel generique (carte teintee + motif « paquet »). Le contenu
    (motif) etant en absolu, on donne explicitement la hauteur via aspect-ratio (sinon la
    carte de devant en flux serait de hauteur nulle → seul le ruban s'afficherait). */
@@ -2363,7 +2373,7 @@ html[data-theme="dark"] .tint-11 .deck-motif-bg::after { background: color-mix(i
 .ds-ribbon {
   --r: 9px;
   --ds-ribbon-shadow: rgba(30, 20, 50, .33);
-  position: absolute; left: 0; right: 3px; top: 54%; transform: translateY(-50%); z-index: 4;
+  position: absolute; left: 8px; right: 8px; top: 54%; transform: translateY(-50%); z-index: 4;
   text-align: center; line-height: 1.25; color: var(--ink);
   padding: calc(3 * var(--r)) 14px 9px;
   border-radius: var(--r);
@@ -2545,10 +2555,13 @@ html[data-theme="dark"] {
 /* ----- Recto : conteneur full-art (degrade + couches en fond) ----- */
 .grid .card-front, .deck-card .card-front {
   display: flex; flex-direction: column; gap: 0;
-  padding: 0; overflow: hidden; position: relative;
+  padding: 0; position: relative;
   border-radius: 18px; background: var(--tc-grad); color: var(--ink);
   box-shadow: 0 2px 6px rgba(30, 20, 50, .10), 0 14px 34px rgba(30, 20, 50, .13);
   border: none;
+}
+.grid .card-front{
+overflow: hidden;
 }
 /* Motif SVG plein-carte (couche du fond). Opacite par element (rings/line/stars)
    pour garder le point vert a pleine intensite, comme la reference. */
