@@ -1879,6 +1879,96 @@ SELECT 'guide-michelin', 'Guide Michelin', 'La cérémonie du palmarès',
   'internal', 'official', false, ARRAY['culture', 'restaurants'], 172
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'guide-michelin');
 
+-- Lignes d'état manquantes pour ce lot de sources (le poller ignore une source
+-- sans source_states : « aucune ligne d'état (migration ?) »). Idempotent.
+INSERT INTO source_states (source_id) SELECT 'pannes-hydro-quebec'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'pannes-hydro-quebec');
+INSERT INTO source_states (source_id) SELECT 'feries-quebec'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'feries-quebec');
+INSERT INTO source_states (source_id) SELECT 'feries-belgique'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'feries-belgique');
+INSERT INTO source_states (source_id) SELECT 'feries-suisse'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'feries-suisse');
+INSERT INTO source_states (source_id) SELECT 'grandes-journees-mondiales'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'grandes-journees-mondiales');
+INSERT INTO source_states (source_id) SELECT 'energie-tarifs'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'energie-tarifs');
+INSERT INTO source_states (source_id) SELECT 'ouverture-ventes-sncf'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'ouverture-ventes-sncf');
+INSERT INTO source_states (source_id) SELECT 'guide-michelin'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'guide-michelin');
+
+-- Coherence install neuve : lignes d'etat pour toutes les autres sources qui n'avaient
+-- pas de seed source_states dans init.sql (en prod elles existent deja, creees au runtime
+-- au 1er poll ; ce bloc garantit qu'une base vierge ne demarre pas avec des sources sans
+-- ligne d'etat). Idempotent (WHERE NOT EXISTS) : sans effet la ou la ligne existe deja.
+INSERT INTO source_states (source_id) SELECT 'vigilance-meteo'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'vigilance-meteo');
+INSERT INTO source_states (source_id) SELECT 'doomname'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'doomname');
+INSERT INTO source_states (source_id) SELECT 'vacances-scolaires'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'vacances-scolaires');
+INSERT INTO source_states (source_id) SELECT 'vigieau'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'vigieau');
+INSERT INTO source_states (source_id) SELECT 'carburant'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'carburant');
+INSERT INTO source_states (source_id) SELECT 'fin-de-vie-logicielle'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'fin-de-vie-logicielle');
+INSERT INTO source_states (source_id) SELECT 'risque-avalanche'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'risque-avalanche');
+INSERT INTO source_states (source_id) SELECT 'meteo-forets'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'meteo-forets');
+INSERT INTO source_states (source_id) SELECT 'github-release'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'github-release');
+INSERT INTO source_states (source_id) SELECT 'npm-release'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'npm-release');
+INSERT INTO source_states (source_id) SELECT 'pypi-release'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'pypi-release');
+INSERT INTO source_states (source_id) SELECT 'steam-jeu-promo'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'steam-jeu-promo');
+INSERT INTO source_states (source_id) SELECT 'youtube-chaine'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'youtube-chaine');
+INSERT INTO source_states (source_id) SELECT 'veille-hackernews'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'veille-hackernews');
+INSERT INTO source_states (source_id) SELECT 'veille-rss'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'veille-rss');
+INSERT INTO source_states (source_id) SELECT 'indice-uv'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'indice-uv');
+INSERT INTO source_states (source_id) SELECT 'seismes-departement'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'seismes-departement');
+INSERT INTO source_states (source_id) SELECT 'taux-de-change'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'taux-de-change');
+INSERT INTO source_states (source_id) SELECT 'meteo-quebec'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'meteo-quebec');
+INSERT INTO source_states (source_id) SELECT 'meteo-belgique'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'meteo-belgique');
+INSERT INTO source_states (source_id) SELECT 'meteo-suisse'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'meteo-suisse');
+INSERT INTO source_states (source_id) SELECT 'cyclones-outremer'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'cyclones-outremer');
+INSERT INTO source_states (source_id) SELECT 'vigicrues-departement'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'vigicrues-departement');
+INSERT INTO source_states (source_id) SELECT 'fetes-nationales'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'fetes-nationales');
+INSERT INTO source_states (source_id) SELECT 'meteo-europe'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'meteo-europe');
+INSERT INTO source_states (source_id) SELECT 'crates-release'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'crates-release');
+INSERT INTO source_states (source_id) SELECT 'packagist-release'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'packagist-release');
+INSERT INTO source_states (source_id) SELECT 'rubygems-release'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'rubygems-release');
+INSERT INTO source_states (source_id) SELECT 'fete-des-prenoms'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'fete-des-prenoms');
+INSERT INTO source_states (source_id) SELECT 'rappel-personnalise'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'rappel-personnalise');
+INSERT INTO source_states (source_id) SELECT 'tour-de-france-passage'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'tour-de-france-passage');
+INSERT INTO source_states (source_id) SELECT 'risque-secheresse'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'risque-secheresse');
+INSERT INTO source_states (source_id) SELECT 'iss-passages'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'iss-passages');
+
 
 -- ================================================================
 -- LOT 1 — migrations additives (idempotentes, réversibles).

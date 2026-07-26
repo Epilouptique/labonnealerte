@@ -1803,12 +1803,13 @@ body.m-menu-open { overflow: hidden; }
    width:100% force le main a occuper la largeur dispo (plafonnee par .wrap max-width),
    ce qui rend a la grille son auto-fill 4-6 colonnes. Mobile inchange (.wrap = 100%). */
 .favoris-main { width: 100%; }
-/* Grille favoris : vise 4 a 6 cartes par ligne sur desktop (le kiosque en tient 3
-   car ses colonnes font 300px de plancher). On abaisse le plancher a 200px pour cette
-   seule page ; la carte garde son max-width 300px (centree), leger recouvrement toleré.
-   La bascule 1 colonne en mobile (<=620px, regle .grid existante) reste prioritaire. */
+/* Grille favoris : plafonnee a 4 colonnes MAX sur desktop (meme principe que le kiosque,
+   dont le plancher de 300px le limite a 3). La grille utile plafonne a ~1192px (wrap 1240
+   - padding) ; un plancher de 230px empeche l'auto-fill de placer une 5e colonne
+   (5*230+4*18 = 1222 > 1192) tout en gardant 4 colonnes des ~1024px (4*230+3*18 = 974).
+   La carte garde son max-width 300px (centree). Mobile <=620px : 1 colonne (regle .grid). */
 @media (min-width: 621px) {
-  .favoris-main .grid { grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr)); }
+  .favoris-main .grid { grid-template-columns: repeat(auto-fill, minmax(min(230px, 100%), 1fr)); }
 }
 .coll-head { position: relative; margin-bottom: 22px; }
 .coll-head-top { display: flex; align-items: center; gap: 12px; }
