@@ -963,6 +963,28 @@
       e.target.checked = !e.target.checked;
       e.target.dispatchEvent(new Event('change', { bubbles: true }));
     }
+    // Entrée dans un champ paramétré (.param-input) = valider MAINTENANT, équivalent immédiat
+    // de ce que ferait le debounce de saisie à cet instant, quel que soit l'état d'abonnement.
+    if (e.key === 'Enter' && e.target.matches('.param-input')) {
+      e.preventDefault();
+      var pcard = e.target.closest('.card');
+      if (pcard) {
+        var t = paramInputTimers.get(e.target);
+        if (t) { clearTimeout(t); paramInputTimers.delete(e.target); } // pas de double déclenchement
+        if ((e.target.value || '').trim()) {
+          if (autoBlocked(pcard)) {
+            // 1er abonnement géo : le change/saisie auto est bloqué → on coche le switch
+            // « S'abonner » (son handler valide readParam puis abonne), comme un clic.
+            var pcb = pcard.querySelector('.param-follow-cb');
+            if (pcb && !pcb.disabled) { pcb.checked = true; pcb.dispatchEvent(new Event('change', { bubbles: true })); }
+          } else {
+            // Déjà abonné (ajout d'instance) ou carte non-géo : abonnement immédiat.
+            if (document.body.getAttribute('data-mode') === 'connected') followParamConnected(pcard);
+            else followParamAnon(pcard);
+          }
+        }
+      }
+    }
     if (e.key === 'Escape') cancelAllPending(null);
   });
   // Clic hors d'une carte « en attente » → annulation.

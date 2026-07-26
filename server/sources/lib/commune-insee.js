@@ -105,9 +105,13 @@ async function resolveCommuneCoords(nomVille, departement) {
 
   let list = [];
   try {
+    // Portée NATIONALE : contrairement à resolveCommuneInsee (type 'commune', local),
+    // le type 'commune-coords' vise un point n'importe où en France (l'ISS survole tout).
+    // On n'envoie donc PAS codeDepartement en filtre (il exclurait Paris/Clamensane depuis
+    // un profil 05) ; le département sert seulement de DÉPARTAGE entre homonymes (ci-dessous),
+    // d'où sa présence dans `fields`.
     const url = GEO_URL + '?nom=' + encodeURIComponent(raw)
-      + (dep ? '&codeDepartement=' + encodeURIComponent(dep) : '')
-      + '&fields=nom,code,centre,population&boost=population&limit=15';
+      + '&fields=nom,code,codeDepartement,centre,population&boost=population&limit=15';
     const data = await safeFetchJson(url, { maxBytes: 512 * 1024, timeoutMs: 6000 });
     list = Array.isArray(data) ? data : [];
   } catch (err) {
@@ -123,7 +127,10 @@ async function resolveCommuneCoords(nomVille, departement) {
     && c.centre.coordinates.length === 2);
   if (!withCentre.length) { coordsCache.set(cacheKey, null); return null; }
 
-  const best = withCentre[0]; // geo.api trie par population (boost=population)
+  // Départage : à nom égal, on PRIORISE la commune du département du profil (lève les
+  // homonymes localement), sinon on garde l'ordre geo.api (tri par population).
+  const localMatch = dep ? withCentre.find((c) => String(c.codeDepartement) === dep) : null;
+  const best = localMatch || withCentre[0];
   const lon = Number(best.centre.coordinates[0]);
   const lat = Number(best.centre.coordinates[1]);
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) { coordsCache.set(cacheKey, null); return null; }

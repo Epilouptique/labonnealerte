@@ -4137,3 +4137,23 @@ UPDATE sources SET description_long = 'Alerte quand Météo-France place le Rhô
 UPDATE sources SET description_long = 'Alerte quand Météo-France place Paris en vigilance orange ou rouge (canicule, orages, pluie-inondation...). Source officielle Météo-France.' WHERE id = 'vigilance-meteo-75';
 UPDATE sources SET description_long = 'Vigilance vagues-submersion (submersion marine, tempête littorale) de Météo-France pour la région côtière de votre choix : alerte en vigilance orange ou rouge. Enum limité aux 8 régions littorales. Nécessite une clé Météo-France (côté serveur) ; sans clé, la carte reste silencieuse.' WHERE id = 'vigilance-submersion';
 UPDATE sources SET description_long = 'Prévenu à la publication d''une nouvelle vidéo d''une chaîne YouTube. Opt-in par chaîne : choisissez des chaînes qui publient peu pour un signal utile. Flux RSS public, sans clé.' WHERE id = 'youtube-chaine';
+
+-- ================================================================
+-- OBSERVATION leboncoin-livraison — journal de diagnostic (append-only).
+-- Mode « log uniquement » : aucune alerte abonné. On compare, sur plusieurs
+-- vendredis, la fiabilité/latence de deux pistes de détection de la promo
+-- « livraison Mondial Relay 0,99 € » — 'dealabs' (source tierce) et
+-- 'leboncoin-direct' (retest du blocage DataDome depuis l'IP Railway).
+-- Réversible : DROP TABLE promo_probe_log + retrait du module de sonde.
+-- ================================================================
+CREATE TABLE IF NOT EXISTS promo_probe_log (
+  id          BIGSERIAL PRIMARY KEY,
+  probed_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  probe       TEXT NOT NULL,                 -- 'dealabs' | 'leboncoin-direct'
+  detected    BOOLEAN NOT NULL,              -- promo jugée ACTIVE par cette piste
+  http_status INTEGER,                       -- code HTTP (NULL si erreur réseau)
+  blocked     BOOLEAN NOT NULL DEFAULT false,-- anti-bot détecté (DataDome…)
+  latency_ms  INTEGER,                       -- durée de la requête
+  detail      JSONB                          -- brut : titre, publishedAt, isExpired, marqueur, erreur…
+);
+CREATE INDEX IF NOT EXISTS idx_promo_probe_log_time ON promo_probe_log (probed_at DESC);

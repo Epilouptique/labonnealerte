@@ -141,6 +141,14 @@ async function staticFetch() {
  * @returns {Promise<{ state, since, until, message, url }>}
  */
 async function check() {
+  // PHASE D'OBSERVATION (log uniquement) : tant qu'on compare les pistes de détection
+  // (cf. server/leboncoin-promo-probe.js + table promo_probe_log), cette source n'émet
+  // AUCUNE alerte — elle renvoie toujours inactive(). La détection réelle (Dealabs vs
+  // Leboncoin-direct) est journalisée par le cron dédié, sans notifier les abonnés.
+  // Réactivation : retirer ce court-circuit une fois la piste gagnante choisie.
+  return inactive();
+
+  // eslint-disable-next-line no-unreachable
   const stat = await staticFetch();
 
   if (!stat) {

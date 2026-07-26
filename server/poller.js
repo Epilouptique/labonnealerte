@@ -9,6 +9,7 @@ const { cleanupExpired } = require('./sessions');
 const { resolveLabel } = require('./params');
 const { buildExternalSource } = require('./external');
 const { trackDomain } = require('./doomname');
+const { runProbe } = require('./leboncoin-promo-probe'); // OBSERVATION leboncoin (cron dédié, cf. startPoller)
 
 // Purge des sessions expirées : au plus une fois par jour.
 let lastSessionCleanup = 0;
@@ -734,6 +735,19 @@ function startPoller() {
   // Premier passage immédiat pour voir le comportement sans attendre 30 min.
   runCycle();
   cron.schedule(SCHEDULE, runCycle);
+
+  // ── EXCEPTION ASSUMÉE (ne PAS copier ailleurs sans réflexion) ───────────────
+  // Sonde d'OBSERVATION leboncoin-livraison : cron DÉDIÉ à cadence fine (3 min),
+  // le seul du projet en dehors du cron global de 30 min. Justification : la
+  // latence de détection est le cœur de la valeur de cette alerte (promo qui
+  // démarre le vendredi vers 14h). node-cron avec timezone Europe/Paris déclenche
+  // pendant 13h-15h le vendredi ; runProbe() re-vérifie la fenêtre exacte
+  // 13:58-15:00 (Paris) et sort sans requête réseau en dehors. MODE LOG UNIQUEMENT :
+  // écrit dans promo_probe_log, n'envoie AUCUNE alerte (cf. leboncoin-promo-probe.js).
+  cron.schedule('*/3 13-15 * * 5', () => {
+    runProbe(pool).catch((err) => console.error('[promo-probe] runProbe :', err.message));
+  }, { timezone: 'Europe/Paris' });
+  console.log('[poller] Sonde observation leboncoin-livraison : cron dédié "*/3 13-15 * * 5" (Europe/Paris), fenêtre effective vendredi 13:58-15:00.');
 }
 
 // processSource/processParamSource/decideTransition exposés pour le banc d'essai.
