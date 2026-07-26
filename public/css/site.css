@@ -209,18 +209,20 @@ html[data-theme="dark"] .search { border: 1px solid color-mix(in srgb, var(--mut
    à ~644px et écrasait les autres — visible seulement au filtre car cette carte est
    paginée en vue « Toutes ». `minmax(0,1fr)` force des colonnes égales, le contenu
    pouvant rétrécir/déborder proprement (voir aussi `.card { min-width:0 }`). */
-/* Format « carte a jouer » : la grille est ADAPTATIVE (le nombre de colonnes se
-   recalcule selon la largeur), plutot que 3 colonnes fixes. Largeur de carte cible
-   ~340px sur desktop → 3 colonnes sur .wrap (1240px), 2 en tablette, 1 en mobile.
-   La carte garde son ratio (voir .card-face). minmax(min(340px,100%),1fr) preserve le
-   garde-fou « vie locale » (colonnes qui ne gonflent pas au min-content d'un <select>). */
+/* Format « carte a jouer » : la grille est ADAPTATIVE (auto-fill, le nombre de colonnes se
+   recalcule selon la largeur), plutot que 3 colonnes fixes. Plancher de carte = 300px →
+   3 colonnes sur tout le desktop (1024→1920), 2 en tablette, 1 en mobile. Les cartes
+   REMPLISSENT (1fr) : largeur reelle mesuree = 313px (~1024) a 385px (>=1280), dans la
+   fourchette voulue (280-420). minmax(min(300px,100%),1fr) preserve le garde-fou « vie
+   locale » (colonnes qui ne gonflent pas au min-content d'un <select> long). */
 /* BUG conteneur (corrige) : body est flex-column (footer colle en bas) et .wrap a
    margin:0 auto ; une marge auto sur l'axe transverse d'un flex item DESACTIVE le stretch
    → main#alertes retrecissait a son contenu (~675px) et auto-fill s'effondrait a 2 colonnes.
-   width:100% redonne une largeur DEFINIE (cappee par max-width:1240) → etirement correct,
-   auto-fill calcule 3 colonnes. Meme correctif sur .decks-main (Mes decks). */
+   width:100% redonne une largeur DEFINIE (cappee par max-width:1240 → grille 1192px) →
+   etirement correct. 4 colonnes ne tiennent JAMAIS (4x300=1200 > 1192) : le gap n'a donc
+   pas a etre gonfle pour bloquer la 4e colonne, il reste a 18px. Meme fix sur .decks-main. */
 main#alertes { width: 100%; }
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr)); gap: 18px; padding-top: 2rem; padding-bottom: 26px; grid-auto-rows: auto; align-content: start; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); gap: 18px; padding-top: 2rem; padding-bottom: 26px; grid-auto-rows: auto; align-content: start; }
 /* Mobile : UNE carte par rangee (format « carte a jouer » pleine largeur, ratio conserve).
    minmax(0,1fr) → la carte se partage la largeur sans jamais deborder, meme sur les tres
    petits ecrans (~320px). */
