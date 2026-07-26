@@ -320,7 +320,7 @@ WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'vigicrues-05');
 -- Durance pour le 05 (GA30, GA21), ni le Buëch ni le Guil.
 UPDATE sources
    SET subtitle = 'Vigilance crues de la Durance',
-       description = 'Alerte quand la Durance (de Serre-Ponçon à Cadarache) passe en vigilance crues orange ou rouge. Source officielle Vigicrues (SCHAPI).'
+       description = 'Alerte quand la Durance (de Serre-Ponçon à Cadarache) passe en vigilance crues orange ou rouge. Source officielle…'
  WHERE id = 'vigicrues-05';
 
 -- Sources « panne de service » (standard Statuspage). requires_confirmation =
@@ -1057,7 +1057,7 @@ UPDATE sources SET enabled = false WHERE id = 'vigieau-gap' AND enabled = true;
 -- ---------------------------------------------------------------
 UPDATE sources SET
     name = 'Rappels produits', subtitle = 'La catégorie de votre choix',
-    description = 'Alerte quand un produit est rappelé pour un RISQUE GRAVE, dans la ou les catégories de votre choix (alimentation, maison, appareils électriques, jouets, mode…). Filtre « risques graves uniquement » (microbien, toxique, blessure, brûlure, incendie, étouffement, chimique…) pour éviter le bruit. Source officielle RappelConso (DGCCRF).',
+    description = 'Alerte quand un produit est rappelé pour un RISQUE GRAVE, dans la ou les catégories de votre choix (alimentation,…',
     categories = ARRAY['rappels-produits', 'sante', 'securite'],
     params_schema = '[{"key":"categorie","label":"Catégorie de produit","type":"enum","values":[{"value":"alimentation","label":"Alimentation"},{"value":"bébés-enfants (hors alimentaire)","label":"Bébés & enfants"},{"value":"maison-habitat","label":"Maison & habitat"},{"value":"appareils électriques, outils","label":"Appareils électriques & outils"},{"value":"vêtements, mode, epi","label":"Vêtements & mode"},{"value":"hygiène-beauté","label":"Hygiène & beauté"},{"value":"sports-loisirs","label":"Sports & loisirs"},{"value":"automobiles et moyens de déplacement","label":"Auto & mobilité"},{"value":"equipements de communication","label":"Équipements de communication"},{"value":"autres","label":"Autres produits"}],"multiple":true,"required":true,"default":"alimentation"}]'::jsonb
  WHERE id = 'rappel-conso';
@@ -1359,7 +1359,7 @@ WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'statut-vimeo');
 -- ---------------------------------------------------------------
 UPDATE sources SET
     name = 'Fériés & ponts', subtitle = 'La zone de votre choix',
-    description = 'Une semaine avant chaque jour férié, un rappel — et le bon plan pont. Choisissez votre zone (métropole, Alsace-Moselle, Outre-mer…). Calendrier officiel de l''administration française.',
+    description = 'Une semaine avant chaque jour férié, un rappel — et le bon plan pont. Choisissez votre zone (métropole,…',
     params_schema = '[{"key":"zone","label":"Zone","type":"enum","values":[{"value":"metropole","label":"Métropole"},{"value":"alsace-moselle","label":"Alsace-Moselle"},{"value":"guadeloupe","label":"Guadeloupe"},{"value":"martinique","label":"Martinique"},{"value":"guyane","label":"Guyane"},{"value":"la-reunion","label":"La Réunion"},{"value":"mayotte","label":"Mayotte"},{"value":"saint-barthelemy","label":"Saint-Barthélemy"},{"value":"saint-martin","label":"Saint-Martin"},{"value":"nouvelle-caledonie","label":"Nouvelle-Calédonie"},{"value":"polynesie-francaise","label":"Polynésie française"},{"value":"wallis-et-futuna","label":"Wallis-et-Futuna"},{"value":"saint-pierre-miquelon","label":"Saint-Pierre-et-Miquelon"}],"multiple":true,"required":true,"default":"metropole"}]'::jsonb
  WHERE id = 'jours-feries';
 
@@ -3427,7 +3427,7 @@ UPDATE sources SET params_schema = '[{"key":"url","label":"URL de la page Pannea
 UPDATE sources SET
   name = 'PanneauPocket',
   subtitle = 'Les panneaux de votre collectivité',
-  description = 'Recevez les alertes et infos de votre mairie, syndicat des eaux ou collectivité publiées sur PanneauPocket (coupures d''eau, arrosage, travaux…). Copiez l''adresse de la page de votre collectivité sur app.panneaupocket.com à suivre.'
+  description = 'Recevez les alertes et infos de votre mairie, syndicat des eaux ou collectivité publiées sur PanneauPocket (coupures…'
 WHERE id = 'panneaupocket';
 INSERT INTO source_states (source_id) SELECT 'panneaupocket'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'panneaupocket');
