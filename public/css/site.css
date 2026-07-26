@@ -1797,6 +1797,19 @@ body.m-menu-open { overflow: hidden; }
 
 /* Page collection. */
 .coll-main { padding-top: 26px; }
+/* Page « Mes favoris » : le body est un flex-column et .wrap (margin:0 auto) est
+   un flex-item qui, sans contenu large pour l'ouvrir (contrairement au kiosque avec
+   hero/recherche/stats), se replie en shrink-to-fit -> la grille tombe a 1 colonne.
+   width:100% force le main a occuper la largeur dispo (plafonnee par .wrap max-width),
+   ce qui rend a la grille son auto-fill 4-6 colonnes. Mobile inchange (.wrap = 100%). */
+.favoris-main { width: 100%; }
+/* Grille favoris : vise 4 a 6 cartes par ligne sur desktop (le kiosque en tient 3
+   car ses colonnes font 300px de plancher). On abaisse le plancher a 200px pour cette
+   seule page ; la carte garde son max-width 300px (centree), leger recouvrement toleré.
+   La bascule 1 colonne en mobile (<=620px, regle .grid existante) reste prioritaire. */
+@media (min-width: 621px) {
+  .favoris-main .grid { grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr)); }
+}
 .coll-head { position: relative; margin-bottom: 22px; }
 .coll-head-top { display: flex; align-items: center; gap: 12px; }
 .coll-emoji { font-size: 2.2rem; line-height: 1; }

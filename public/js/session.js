@@ -120,8 +120,12 @@
         // ouvre la carte au chargement). Sur la home, l'onclick bascule le panneau en place.
         link.setAttribute('href', '/#mon-compte');
         link.onclick = function (e) {
-          // « Mon compte » bascule le panneau (ouvre s'il est fermé, ferme s'il est ouvert).
-          if (window.LBAAccount && window.LBAAccount.toggle) {
+          // Le panneau « Mon compte » n'existe que sur la home. On ne bascule (et donc on ne
+          // bloque la navigation) QUE s'il est présent sur la page courante : sinon
+          // preventDefault tuerait le lien (openAccount no-op faute de panneau) et « Mon
+          // compte » ne ferait rien depuis /favoris & co. Hors home, on laisse l'ancre
+          // /#mon-compte naviguer vers la home, qui ouvre la carte au chargement.
+          if (document.getElementById('account-panel') && window.LBAAccount && window.LBAAccount.toggle) {
             e.preventDefault();
             window.LBAAccount.toggle();
           }
