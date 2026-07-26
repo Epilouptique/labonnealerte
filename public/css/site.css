@@ -2305,8 +2305,8 @@ html[data-theme="dark"] .tint-11 .deck-motif-bg::after { background: color-mix(i
    se voit. La carte de devant reste EN FLUX (elle donne largeur+hauteur a la tuile → pas
    d'effondrement « une lettre par ligne ») ; le scale est purement visuel (n'affecte pas la
    largeur min-content). Tout reste CONTENU par overflow:hidden de la tuile. */
-.deck-stack { --ds-fan: 8%; --ds-front: .8; }
-.ds-i0 { position: relative; z-index: 3; transform: scale(var(--ds-front)); }
+.deck-stack { --ds-fan: 8%; /*--ds-front: .8;*/ }
+.ds-i0 { position: relative; z-index: 3; /* Plus de tansformation transform: scale(var(--ds-front));*/ }
 /* Parite avec .grid > .card : la carte de devant est mise a l'echelle par scale(--ds-front)
    (=0.8) → elle rendait a tile x 0.8 = 308px en desktop large (> 300px des cartes classiques).
    On plafonne sa largeur de LAYOUT a 300/--ds-front (=375px) → APRES le scale, elle rend a
@@ -2415,7 +2415,7 @@ html[data-theme="dark"] .tint-11 .ds-ribbon {
    borne a une largeur de carte pour ne pas ecraser le titre a cote. */
 .coll-head-top { align-items: flex-start; }
 .coll-head-top .deck-card,
-.deck-detail-layout .deck-card { width: min(230px, 48vw); flex: 0 0 auto; }
+.deck-detail-layout .deck-card { width: min(250px, 48vw); flex: 0 0 auto; padding: 10px;}
 
 /* Detail d'un deck (/mes-decks) : titre .page-title EN PLEINE LARGEUR, puis rangee
    [pile deck-card] | [corps]. Le corps (description, categories, actions, partage)
