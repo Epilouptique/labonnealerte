@@ -211,15 +211,20 @@ html[data-theme="dark"] .search { border: 1px solid color-mix(in srgb, var(--mut
    pouvant rétrécir/déborder proprement (voir aussi `.card { min-width:0 }`). */
 /* Format « carte a jouer » : la grille est ADAPTATIVE (le nombre de colonnes se
    recalcule selon la largeur), plutot que 3 colonnes fixes. Largeur de carte cible
-   ~250px sur desktop → 4 colonnes sur .wrap (1240px), 2-3 en tablette. La carte
-   garde son ratio 5/7 (voir .card-face). minmax(0,...) preserve le garde-fou « vie
-   locale » (colonnes qui ne gonflent pas au min-content d'un <select> long). */
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(250px, 100%), 1fr)); gap: 18px; padding-top: 2rem; padding-bottom: 26px; grid-auto-rows: auto; align-content: start; }
-/* Mobile : 2 cartes par rangee (format « carte a jouer » narrow, ratio conserve).
-   minmax(0,1fr) → les cartes se partagent la largeur sans jamais deborder, meme
-   sur les tres petits ecrans (~320px). Le recto etant plus etroit, la description
-   est limitee a 3 lignes (voir .grid .card-front > p). */
-@media (max-width: 620px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; } }
+   ~340px sur desktop → 3 colonnes sur .wrap (1240px), 2 en tablette, 1 en mobile.
+   La carte garde son ratio (voir .card-face). minmax(min(340px,100%),1fr) preserve le
+   garde-fou « vie locale » (colonnes qui ne gonflent pas au min-content d'un <select>). */
+/* BUG conteneur (corrige) : body est flex-column (footer colle en bas) et .wrap a
+   margin:0 auto ; une marge auto sur l'axe transverse d'un flex item DESACTIVE le stretch
+   → main#alertes retrecissait a son contenu (~675px) et auto-fill s'effondrait a 2 colonnes.
+   width:100% redonne une largeur DEFINIE (cappee par max-width:1240) → etirement correct,
+   auto-fill calcule 3 colonnes. Meme correctif sur .decks-main (Mes decks). */
+main#alertes { width: 100%; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr)); gap: 18px; padding-top: 2rem; padding-bottom: 26px; grid-auto-rows: auto; align-content: start; }
+/* Mobile : UNE carte par rangee (format « carte a jouer » pleine largeur, ratio conserve).
+   minmax(0,1fr) → la carte se partage la largeur sans jamais deborder, meme sur les tres
+   petits ecrans (~320px). */
+@media (max-width: 620px) { .grid { grid-template-columns: repeat(1, minmax(0, 1fr)); gap: 12px; } }
 .card {
   background: var(--surface); border: none; border-radius: 24px;
   padding: 22px; box-shadow: none;
@@ -318,6 +323,9 @@ html[data-theme="dark"] .search { border: 1px solid color-mix(in srgb, var(--mut
 .card-top { display: flex; justify-content: flex-start; align-items: flex-start; gap: 7px; }
 .card-front .card-top { padding-right: 20px; } /* réserve pour like + partager + ⓘ */
 .card-back .card-top { padding-right: 30px; }  /* réserve pour ↩ */
+/* Verso « i » : le titre (deja present sur le recto) est masque quand la carte est
+   retournee, sur toutes tailles — le verso se concentre sur la description longue + tags. */
+.card.flipped .card-back .card-top { display: none; }
 .card h3 { font-size: 16.5px; font-weight: 700; letter-spacing: -0.01em; }
 .card p { font-size: 13.5px; color: var(--muted); flex: 1; }
 /* Troncature de la description dans le nouveau ratio : nombre de lignes fixe
@@ -1820,7 +1828,7 @@ body.m-menu-open { overflow: hidden; }
 .deck-report-sm { font-size: .78rem; opacity: .8; }
 
 /* ===================== MES DECKS (phase 2 UGC) ===================== */
-.decks-main { padding-top: 26px; }
+.decks-main { padding-top: 26px; width: 100%; } /* width:100% : meme fix shrink-to-fit que main#alertes */
 .decks-main h1 { margin: 0 0 16px; } /* typographie via .page-title (1) */
 .decks-anon { text-align: center; padding: 40px 0; }
 .decks-anon .src-desc { margin: 8px auto 20px; max-width: 460px; }
