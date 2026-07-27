@@ -27,12 +27,26 @@ const router = express.Router();
 //   created_at pour le mode « Nouveautes »
 //   adopt_count pour le mode « Les plus populaires » (COUNT collection_adoptions)
 //   author    pseudo public (decks perso, jamais l'email) ; NULL pour les officiels
+//   adopted   true/false SI un token valide est fourni (?token=) : ce compte a-t-il
+//             deja adopte ce deck (collection_adoptions) ? Sans token -> false partout.
+//             Sert a la reco du kiosque (jamais recommander un deck deja adopte).
 router.get('/collections', async (req, res) => {
   try {
+    // Auth OPTIONNELLE : un token valide alimente la colonne `adopted`. Absent/invalide
+    // -> authId null -> adopted=false partout (comportement anonyme inchange).
+    let authId = null;
+    if (req.query.token) {
+      const a = await authenticate(req.query.token);
+      if (a) authId = a.id;
+    }
     const { rows } = await pool.query(
       `SELECT c.id, c.name, c.description, c.emoji, c.tint, c.display_order,
               c.visibility, c.share_token, c.created_at, c.categories,
               c.owner_subscriber_id,
+              (CASE WHEN $1::int IS NULL THEN false
+                    ELSE EXISTS (SELECT 1 FROM collection_adoptions a2
+                                  WHERE a2.collection_id = c.id AND a2.subscriber_id = $1)
+               END) AS adopted,
               CASE WHEN c.owner_subscriber_id IS NULL THEN 'official' ELSE 'user' END AS kind,
               CASE WHEN c.owner_subscriber_id IS NULL
                    THEN '/collection/' || c.id
@@ -58,7 +72,8 @@ router.get('/collections', async (req, res) => {
                AND c.share_token IS NOT NULL AND subr.display_name IS NOT NULL)
         GROUP BY c.id, subr.display_name
         HAVING COUNT(s.id) > 0 OR c.owner_subscriber_id IS NULL
-        ORDER BY (c.owner_subscriber_id IS NOT NULL), c.display_order ASC, c.created_at DESC, c.name ASC`
+        ORDER BY (c.owner_subscriber_id IS NOT NULL), c.display_order ASC, c.created_at DESC, c.name ASC`,
+      [authId]
     );
     // Badge Top 20 (phase 2) : marque les decks perso dont l'auteur est classe <= 20.
     // Un seul Set cache (2 min) pour toute la grille -> aucun COUNT par deck.

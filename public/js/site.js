@@ -230,20 +230,28 @@
     var x = e.target.closest('.reco-x');
     if (!x) return;
     e.preventDefault(); e.stopPropagation();
-    var card = x.closest('.card.card-reco');
+    var card = x.closest('.card-reco'); // .card OU .deck-card habillee en reco
     if (!card) return;
     dismissReco(card);
   });
 
   // Sélectionne la meilleure source à recommander (connecté, sources non suivies,
   // hors recommandations déjà refusées dans la session).
+  // Retourne l'item reco de meilleur score, en fusionnant sources ET decks dans UN SEUL
+  // classement (pas de quota par type : 100% source, 100% deck ou panaché selon les scores).
+  // Item generalise : { type:'source'|'deck', id, score, tiebreak } — les consommateurs
+  // (applyReco/adoptReco/dismissReco) n'ont besoin que de .id, resolu via cardById.
   function pickReco(sources, subMap) {
     var dismissed = dismissedSet();
     var followedCats = {};
     sources.forEach(function (s) {
       if (subMap[s.id]) (s.categories || []).forEach(function (c) { followedCats[c] = true; });
     });
-    var candidates = sources.filter(function (s) {
+    var now = Date.now();
+    var items = [];
+
+    // --- Sources (scoring historique inchange : dept > interet > cats communes > frais > pop) ---
+    var srcC = sources.filter(function (s) {
       if (s.type === 'linked' || subMap[s.id] || dismissed.indexOf(s.id) !== -1) return false;
       // B1) Jamais recommander une source désactivée (bug « vigilance Paris »).
       if (s.enabled === false || s.disabled === true) return false;
@@ -254,11 +262,9 @@
       }
       return true;
     });
-    if (!candidates.length) return null;
     var maxSub = 0;
-    candidates.forEach(function (s) { maxSub = Math.max(maxSub, s.subscriber_count || 0); });
-    var now = Date.now();
-    candidates.forEach(function (s) {
+    srcC.forEach(function (s) { maxSub = Math.max(maxSub, s.subscriber_count || 0); });
+    srcC.forEach(function (s) {
       var common = (s.categories || []).filter(function (c) { return followedCats[c]; }).length;
       var recent = (s.last_activated_at && (now - new Date(s.last_activated_at).getTime()) < 30 * 86400000) ? 1 : 0;
       var pop = maxSub > 0 ? (s.subscriber_count || 0) / maxSub : 0;
@@ -266,10 +272,43 @@
       // passent devant les critères historiques.
       var dept = sourceMatchesDept(s) ? 1 : 0;
       var interest = sourceMatchesInterest(s) ? 1 : 0;
-      s._score = 4 * dept + 3 * interest + 3 * common + 2 * recent + 1 * pop;
+      items.push({
+        type: 'source', id: s.id,
+        score: 4 * dept + 3 * interest + 3 * common + 2 * recent + 1 * pop,
+        tiebreak: s.subscriber_count || 0
+      });
     });
-    candidates.sort(function (a, b) { return b._score - a._score || (b.subscriber_count || 0) - (a.subscriber_count || 0); });
-    return candidates[0];
+
+    // --- Decks (officiels + perso publics) : meme esprit que computeSpecialIds — recoupement
+    // categories/interets, fraicheur (created_at), popularite (adopt_count). Pas de terme geo
+    // (un deck n'a pas de dimension departementale : confirme sans objet, aucun invente). Exclus :
+    // deja adopte par le compte (adopted), et dismiss (par id, generique). Le prive est deja
+    // filtre en amont par /api/collections (officiel + public seulement).
+    var deckC = (decksData || []).filter(function (d) {
+      if (!d || !d.id) return false;
+      if (d.adopted === true) return false;
+      if (dismissed.indexOf(d.id) !== -1) return false;
+      return true;
+    });
+    var maxAdopt = 0;
+    deckC.forEach(function (d) { maxAdopt = Math.max(maxAdopt, d.adopt_count || 0); });
+    deckC.forEach(function (d) {
+      var cats = Array.isArray(d.categories) ? d.categories : [];
+      var common = cats.filter(function (c) { return followedCats[c]; }).length;
+      var interest = (profile.interests && profile.interests.length &&
+        cats.some(function (c) { return profile.interests.indexOf(c) !== -1; })) ? 1 : 0;
+      var recent = (d.created_at && (now - new Date(d.created_at).getTime()) < 30 * 86400000) ? 1 : 0;
+      var pop = maxAdopt > 0 ? (d.adopt_count || 0) / maxAdopt : 0;
+      items.push({
+        type: 'deck', id: d.id,
+        score: 3 * interest + 3 * common + 2 * recent + 1 * pop,
+        tiebreak: d.adopt_count || 0
+      });
+    });
+
+    if (!items.length) return null;
+    items.sort(function (a, b) { return b.score - a.score || b.tiebreak - a.tiebreak; });
+    return items[0];
   }
 
   // Rebuild du tableau `cards` depuis le DOM (après un déplacement de carte). Inclut les
@@ -289,12 +328,14 @@
     }
   }
 
-  // Réinsère une carte à sa place d'origine (ordre source, via data-order).
+  // Réinsère une tuile à sa place d'origine (ordre unifié via data-order). Cartes ET
+  // tuiles-deck partagent le MÊME espace de classement (les tuiles-deck portent un ordre
+  // fractionnaire pose par loadDecksIntoGrid) : un seul tri, pas deux zones qui se chevauchent.
   function placeByOrder(card) {
     if (!grid) return;
     var extras = document.getElementById('static-extras');
     var order = +card.dataset.order || 0;
-    var sibs = grid.querySelectorAll('.card[data-cats]');
+    var sibs = grid.querySelectorAll('.card[data-cats], .deck-card[data-deck-tile]');
     var ref = null;
     for (var i = 0; i < sibs.length; i++) {
       if (sibs[i] === card) continue;
@@ -358,11 +399,14 @@
     if (label) label.remove();
   }
 
-  // Résout l'élément carte d'une source par son id (échappement CSS sûr).
+  // Résout l'élément tuile par son id (échappement CSS sûr). Trouve aussi bien une carte
+  // source (.card[data-source-id]) qu'une tuile-deck (.deck-card[data-deck-tile][data-source-id]) :
+  // les ids sources et decks sont disjoints -> au plus une correspondance.
   function cardById(id) {
     if (!grid || !id) return null;
     var sel = (window.CSS && CSS.escape) ? CSS.escape(id) : id;
-    return grid.querySelector('.card[data-source-id="' + sel + '"]');
+    return grid.querySelector('.card[data-source-id="' + sel + '"], ' +
+      '.deck-card[data-deck-tile][data-source-id="' + sel + '"]');
   }
 
   // B) Adoption de la recommandée : l'étiquette part, la carte reste, et une
@@ -1847,14 +1891,18 @@
     var g = document.getElementById('grid');
     if (!g || !window.LBADeckStack || !window.LBACards) return;
     var data;
+    // Token (si connecté) : alimente `adopted` par deck -> la reco exclut les decks
+    // deja adoptes. Anonyme : pas de token, adopted=false partout (sans effet reco).
+    var deckTok = window.LBASession && LBASession.get ? LBASession.get() : null;
+    var url = '/api/collections' + (deckTok ? ('?token=' + encodeURIComponent(deckTok)) : '');
     try {
-      var r = await fetch('/api/collections', { headers: { Accept: 'application/json' } });
+      var r = await fetch(url, { headers: { Accept: 'application/json' } });
       if (!r.ok) return;
       data = await r.json();
     } catch (e) { return; }
     var list = (data && data.collections) || [];
     if (!list.length) return;
-    decksData = list; // conservé pour les modes spéciaux (Nouveautés / Populaires)
+    decksData = list; // conservé pour les modes spéciaux (Nouveautés / Populaires) et la reco
     var index = LBADeckStack.indexSources(sourcesData || []);
     var tiles = list.map(function (c) {
       var cards = LBADeckStack.resolveCards(c.preview || [], index);
@@ -1914,7 +1962,9 @@
         // Un clic sur un controle actif de la carte de devant (switch, cœur, partager,
         // retour, face de partage) NE navigue PAS : il laisse bulle jusqu'aux handlers
         // delegues (abonnement / favori / partage). Le reste de la tuile navigue.
-        if (e.target.closest('.ds-i0 .switch-row, .ds-i0 .card-like, .ds-i0 .card-share, .ds-i0 .flip-back, .ds-i0 .card-share-face')) return;
+        // .reco-label / .reco-x : l'etiquette « Recommandee » et sa croix (×) ne naviguent
+        // pas — la croix doit ignorer la reco (handler delegue), pas ouvrir la page du deck.
+        if (e.target.closest('.ds-i0 .switch-row, .ds-i0 .card-like, .ds-i0 .card-share, .ds-i0 .flip-back, .ds-i0 .card-share-face, .reco-label')) return;
         window.location.href = t.getAttribute('data-href');
       });
       t.addEventListener('keydown', function (e) {
@@ -1927,10 +1977,42 @@
     // computeShow() les epingle (isReco) pour qu'elles ne comptent pas dans la pagination.
     cards = Array.prototype.slice.call(g.querySelectorAll('.card[data-cats], .deck-card[data-deck-tile]'));
     bindDeckSwitches();
+    // Ordre unifie cartes+decks : les cartes portent deja un data-order (entier, pose au
+    // rendu). On donne aux tuiles-deck un ordre FRACTIONNAIRE (ordre de la carte precedente
+    // + 0.5) pour qu'elles s'inserent a leur place naturelle via placeByOrder si une reco-deck
+    // est ensuite ignoree/adoptee. On NE reecrit PAS l'ordre des cartes (preserve le retour a
+    // la place d'origine de la carte-reco source deja deplacee en fin de grille).
+    var lastOrder = -1;
+    g.querySelectorAll('.card[data-cats], .deck-card[data-deck-tile]').forEach(function (c) {
+      if (c.classList.contains('deck-card')) { c.dataset.order = String(lastOrder + 0.5); }
+      else { lastOrder = +c.dataset.order || 0; }
+    });
     // Les decks arrivent en async : si on est deja dans un mode special (arrivee via
     // ?mode=nouveautes|selection), on recalcule l'ensemble pour les y inclure.
     if (isSpecial(cat)) specialIds = computeSpecialIds(cat);
     apply(false); // synchronise l'etat filtre (tuiles masquees si on n'est pas sur « Toutes »)
+
+    // (b) 2e passage reco : au 1er rendu, pickReco n'avait que les sources (decksData vide).
+    // Maintenant que les decks sont charges, un deck peut surclasser la source recommandee.
+    // On reconcilie l'UNIQUE reco du kiosque, sans bloquer/retarder l'affichage initial.
+    if (document.body.getAttribute('data-mode') === 'connected') reconcileReco();
+  }
+
+  // Recalcule l'unique reco (sources + decks fusionnes) et remplace celle affichee si un
+  // meilleur candidat existe. Idempotent : ne fait rien si la reco courante est deja la meilleure.
+  function reconcileReco() {
+    if (!grid) return;
+    var best = pickReco(sourcesData, currentSubMap());
+    var current = grid.querySelector('.card-reco');
+    var curId = current ? current.getAttribute('data-source-id') : null;
+    if (!best || best.id === curId) return; // deja optimal (ou plus aucun candidat)
+    apply(true, function () {
+      if (current) { current.classList.remove('card-reco'); stripRecoLabel(current); placeByOrder(current); }
+      var newCard = cardById(best.id);
+      var extras = document.getElementById('static-extras');
+      if (newCard) { dressReco(newCard); grid.insertBefore(newCard, extras || null); }
+      refreshCards();
+    });
   }
 
   // Conserve le nom historique (selectChip l'appelle) : la visibilite des tuiles-deck est
@@ -1971,6 +2053,15 @@
           headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
           body: JSON.stringify({ token: token })
         }).then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.json(); })
+          .then(function () {
+            // Tient decksData a jour (adopted) : la reco n'ira jamais reproposer un deck
+            // qu'on vient d'adopter (et redevient candidat apres desabonnement).
+            var d = (decksData || []).filter(function (x) { return x && x.id === slug; })[0];
+            if (d) d.adopted = want;
+            // Tuile-deck recommandee ADOPTEE : comme une carte source, l'etiquette part apres
+            // la celebration et une nouvelle reco (source ou deck) est calculee (adoptReco).
+            if (want && tile.classList.contains('card-reco')) setTimeout(function () { adoptReco(tile); }, 800);
+          })
           .catch(function () { cb.checked = !want; paint(cb.checked); }) // rollback
           .finally(function () { cb.disabled = false; });
       });
