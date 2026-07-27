@@ -433,6 +433,10 @@ main#alertes { width: 100%; }
 .state.active { color: var(--green); }
 .state.idle { color: var(--muted); }
 .state.partner { color: var(--muted); }
+/* V3 · état neutre des cartes « tâche à échéance » : ni active (pas de veille en
+   cours), ni idle (« Rien à signaler » n'aurait aucun sens). Même traitement
+   visuel que .state.partner — troisième vocabulaire assumé, pas une variante. */
+.state.task { color: var(--muted); }
 .dot-idle { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); opacity: .4; }
 /* Boutons d'abonnement : pilule violette, radius 10px. */
 .sub-btn {
@@ -451,6 +455,8 @@ main#alertes { width: 100%; }
   font-family: inherit; transition: background .15s;
 }
 .link-btn:hover { background: var(--amber-soft); }
+/* Recto d'une carte « tâche à échéance » : renvoi au verso, non actionnable. */
+.task-hint { font-size: 12.5px; color: var(--muted); line-height: 1.45; }
 .sub-form { display: none; gap: 8px; }
 .card.open .sub-form { display: flex; }
 .card.open .sub-btn { display: none; }
@@ -3038,6 +3044,12 @@ overflow: hidden;
    (.param-follow-row, présent tant que non abonné) reste visible : c'est le vrai
    contrôle de souscription (avec sa valeur). */
 .lrow-exp .card.in-list-exp .param-mute-row { display: none; }
+/* Non abonné, source NON-GÉO (switch « S'abonner » disabled, `.param-follow-auto`) :
+   l'abonnement se déclenche déjà à la saisie/sélection du champ (change/input câblés
+   sur followParamConnected). Le switch du volet ferait doublon avec celui de la ligne
+   → on le masque. Les sources GÉO (`.param-follow-geo`, switch cliquable = seul trigger,
+   auto-abonnement bloqué à dessein) NE sont PAS ciblées : leur switch reste visible. */
+.lrow-exp .card.in-list-exp .param-follow-row:has(.param-follow-auto) { display: none; }
 
 /* (h) Apparition d'une ligne (filtrage catégorie, adoption, dismiss reco) : même
    durée/easing que l'entrée des cartes (.25s ease). Le réordonnancement complet type

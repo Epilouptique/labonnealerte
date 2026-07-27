@@ -128,6 +128,11 @@
   // Source paramétrée (OpenAlert v2) : schéma plat à au moins un paramètre.
   function isParam(s) { return Array.isArray(s.params_schema) && s.params_schema.length > 0; }
 
+  // V3 · carte « tâche à échéance glissante » : elle n'a ni veille, ni abonnement
+  // broadcast. Sa souscription EST la création d'une tâche, qui se fait au VERSO
+  // (taskZone). Le recto ne doit donc porter aucun contrôle d'abonnement.
+  function isUserTask(s) { return s.type === 'user-task'; }
+
   // Séquence d'ids uniques pour les listbox des combobox dynamic-enum (aria-controls).
   var dynSeq = 0;
 
@@ -308,6 +313,26 @@
       state = '<div class="state partner"><span class="dot-idle"></span> Service partenaire</div>';
       action = '<a class="link-btn" href="' + esc(s.link_url) + '" target="_blank" rel="noopener">' +
         'Configurer sur ' + esc(domainOf(s.link_url)) + ' →</a>';
+    } else if (isUserTask(s)) {
+      // Même patron que les cartes 'linked' : on remplace À LA FOIS l'état et
+      // l'action, et le rendu est IDENTIQUE en anonyme et en connecté.
+      //
+      // État : troisième vocabulaire neutre (.state.task, muted), PAS .state.active
+      // même quand une tâche est suivie. « active » a un sens précis dans ce projet
+      // (une alerte se déclenche en ce moment) : il anime le motif full-art
+      // (.card-front:has(.state.active)) et alimente le KPI « mes alertes actives »
+      // via cardIsActive(). Une échéance suivie n'est pas une alerte en cours.
+      // Les deux libellés sont un indicateur BINAIRE d'adoption (même signal que
+      // hasTask au verso), jamais un résumé d'échéance : ni date, ni compte.
+      //
+      // Action : AUCUN contrôle actionnable. Pas de switch (rien à basculer), pas de
+      // formulaire email (il ne créerait qu'une ligne subscriptions vide), pas de
+      // bouton « Créer ma tâche » dupliqué — l'action vit au verso, et le seul
+      // chemin pour y aller reste le ⓘ universel de .card-icons.
+      var hasTask = Array.isArray(s.tasks) && s.tasks.length > 0;
+      state = '<div class="state task"><span class="dot-idle"></span> ' +
+        (hasTask ? 'Tâche suivie' : 'Tâche personnelle') + '</div>';
+      action = '<div class="task-hint">Retournez la carte pour créer et gérer votre tâche.</div>';
     } else if (isParam(s)) {
       state = stateFor(s.state); // état de la/les instance(s) de l'utilisateur (le pire), sinon neutre
       action = paramFace(s, mode);

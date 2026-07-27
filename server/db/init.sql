@@ -1742,9 +1742,15 @@ UPDATE sources SET params_schema = '[{"key":"appid","label":"Identifiant Steam (
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
 SELECT 'youtube-chaine', 'Nouvelle vidéo YouTube', 'La chaîne de votre choix',
   'Nouvelle vidéo sur une chaîne que vous suivez ? Prévenu direct — idéal pour les chaînes qui publient peu.',
-  'internal', 'official', false, ARRAY['culture', 'tech'], 153, '[{"key":"channel_id","label":"ID de chaîne YouTube","type":"string","placeholder":"UCxxxxxxxxxxxxxxxxxxxxxx","pattern":"^UC[A-Za-z0-9_-]{22}$","lowercase":false,"multiple":true,"required":true,"default":null}]'::jsonb
+  'internal', 'official', false, ARRAY['culture', 'tech'], 153, '[{"key":"channel_id","label":"Chaîne YouTube","type":"string","placeholder":"@nomdelachaine","pattern":"^(?:UC[A-Za-z0-9_-]{22}|@[^\\s/?#]{1,60}|https:\\/\\/(?:www\\.|m\\.)?youtube\\.com\\/(?:@[^\\s/?#]{1,60}|channel\\/UC[A-Za-z0-9_-]{22}|c\\/[^\\s/?#]{1,60}|user\\/[^\\s/?#]{1,60})\\/?)$","lowercase":false,"multiple":true,"required":true,"default":null}]'::jsonb
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'youtube-chaine');
-UPDATE sources SET params_schema = '[{"key":"channel_id","label":"ID de chaîne YouTube","type":"string","placeholder":"UCxxxxxxxxxxxxxxxxxxxxxx","pattern":"^UC[A-Za-z0-9_-]{22}$","lowercase":false,"multiple":true,"required":true,"default":null}]'::jsonb WHERE id = 'youtube-chaine';
+-- Saisie élargie (chantier @pseudo) : en plus de l'identifiant UC… historique, la
+-- carte accepte le pseudo public et l'adresse de la page de chaîne, résolus côté
+-- serveur. Clé de paramètre INCHANGÉE → les abonnements existants sont préservés.
+-- ⚠️ Ce pattern doit rester STRICTEMENT identique à paramsSchema[0].pattern dans
+-- server/sources/youtube-chaine.js (un écart rendrait la validation incohérente
+-- entre le formulaire et le module).
+UPDATE sources SET params_schema = '[{"key":"channel_id","label":"Chaîne YouTube","type":"string","placeholder":"@nomdelachaine","pattern":"^(?:UC[A-Za-z0-9_-]{22}|@[^\\s/?#]{1,60}|https:\\/\\/(?:www\\.|m\\.)?youtube\\.com\\/(?:@[^\\s/?#]{1,60}|channel\\/UC[A-Za-z0-9_-]{22}|c\\/[^\\s/?#]{1,60}|user\\/[^\\s/?#]{1,60})\\/?)$","lowercase":false,"multiple":true,"required":true,"default":null}]'::jsonb WHERE id = 'youtube-chaine';
 
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
 SELECT 'veille-hackernews', 'Veille Hacker News', 'Le mot-clé de votre choix',
@@ -4136,7 +4142,7 @@ UPDATE sources SET description_long = 'Alerte quand Météo-France place le Bas-
 UPDATE sources SET description_long = 'Alerte quand Météo-France place le Rhône en vigilance orange ou rouge (canicule, orages, neige-verglas...). Source officielle Météo-France.' WHERE id = 'vigilance-meteo-69';
 UPDATE sources SET description_long = 'Alerte quand Météo-France place Paris en vigilance orange ou rouge (canicule, orages, pluie-inondation...). Source officielle Météo-France.' WHERE id = 'vigilance-meteo-75';
 UPDATE sources SET description_long = 'Vigilance vagues-submersion (submersion marine, tempête littorale) de Météo-France pour la région côtière de votre choix : alerte en vigilance orange ou rouge. Enum limité aux 8 régions littorales. Nécessite une clé Météo-France (côté serveur) ; sans clé, la carte reste silencieuse.' WHERE id = 'vigilance-submersion';
-UPDATE sources SET description_long = 'Prévenu à la publication d''une nouvelle vidéo d''une chaîne YouTube. Opt-in par chaîne : choisissez des chaînes qui publient peu pour un signal utile. Flux RSS public, sans clé.' WHERE id = 'youtube-chaine';
+UPDATE sources SET description_long = 'Indiquez le pseudo de la chaîne (celui qui commence par @, affiché sous son nom sur YouTube) ou l''adresse de sa page. Prévenu à chaque nouvelle vidéo. Opt-in par chaîne : choisissez-en qui publient peu, pour un signal utile.' WHERE id = 'youtube-chaine';
 
 -- ================================================================
 -- OBSERVATION leboncoin-livraison — journal de diagnostic (append-only).
