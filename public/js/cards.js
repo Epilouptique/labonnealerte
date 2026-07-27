@@ -394,10 +394,19 @@
   }
 
   function taskZone(s, mode) {
-    if (mode !== 'connected' || s.type !== 'user-task') return '';
+    if (s.type !== 'user-task') return '';
     var tasks = Array.isArray(s.tasks) ? s.tasks : [];
-    if (!tasks.length) return '';
-    return '<div class="task-zone">' + tasks.map(taskItem).join('') + '</div>';
+    // Verso-DÉCOUVERTE (aucune tâche) : invitation à en créer une. En anonyme la
+    // création est impossible (elle exige un compte) → lien vers la connexion,
+    // plutôt qu'un formulaire qui finirait en 401 après saisie.
+    var create = (mode === 'connected')
+      ? '<button type="button" class="task-create">Créer ma tâche</button>'
+      : '<a class="task-create" href="/connexion">Créer ma tâche</a>';
+    if (!tasks.length) return '<div class="task-zone">' + create + '</div>';
+    // Verso-INSTANCE : tâches suivies, puis « + une autre » (connecté uniquement).
+    return '<div class="task-zone">' + tasks.map(taskItem).join('') +
+      (mode === 'connected' ? '<button type="button" class="task-create secondary">+ une autre tâche</button>' : '') +
+      '</div>';
   }
 
   function backFace(s, cats, isLinked, mode) {

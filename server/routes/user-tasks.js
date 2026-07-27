@@ -17,6 +17,7 @@ const crypto = require('crypto');
 const { pool } = require('../db');
 const { htmlPage } = require('./subscribe');
 const { authenticate } = require('../sessions');
+const ugc = require('../ugc');
 
 const pagesRouter = express.Router();
 // apiRouter : confirmation IN-APP (fetch depuis le kiosque, session en corps JSON).
@@ -26,12 +27,49 @@ const apiRouter = express.Router();
 
 // Unités autorisées → arguments de make_interval(). Liste fermée : le nom de
 // l'unité ne transite JAMAIS en concaténation SQL, on ne passe que des entiers.
-const UNIT_TO_INTERVAL = {
+// Partagée par la CRÉATION (ancrage = anchor_date saisi) et la CONFIRMATION
+// (ancrage = aujourd'hui) : une seule table de correspondance pour les deux.
+const UNITS = {
   day:   (v) => ({ days: v,     months: 0, years: 0 }),
   week:  (v) => ({ days: v * 7, months: 0, years: 0 }),
   month: (v) => ({ days: 0,     months: v, years: 0 }),
   year:  (v) => ({ days: 0,     months: 0, years: v }),
 };
+// null si l'unité est inconnue ou la valeur non strictement positive.
+function intervalFor(value, unit) {
+  const f = UNITS[unit];
+  if (!f || !(value > 0)) return null;
+  return f(value);
+}
+
+/* ---------------- Anti-abus : création de tâches ----------------
+   20 créations/heure/compte, en mémoire, même esprit que decks.js (rateOk). */
+const WINDOW_MS = 60 * 60 * 1000;
+const MAX_CREATES = 20;
+const createHits = new Map();
+function rateOk(id) {
+  const now = Date.now();
+  const recent = (createHits.get(id) || []).filter((t) => now - t < WINDOW_MS);
+  if (recent.length >= MAX_CREATES) { createHits.set(id, recent); return false; }
+  recent.push(now); createHits.set(id, recent); return true;
+}
+setInterval(() => {
+  const now = Date.now();
+  for (const [id, arr] of createHits) {
+    const recent = arr.filter((t) => now - t < WINDOW_MS);
+    if (recent.length) createHits.set(id, recent); else createHits.delete(id);
+  }
+}, WINDOW_MS).unref();
+
+// Préavis maximal cohérent : jamais plus long que la période elle-même
+// (« prévenez-moi 2 ans avant une tâche mensuelle » ouvrirait la fenêtre en
+// permanence et la relance partirait aussitôt, à chaque échéance).
+// Approximations 30 j/mois et 365 j/an : il s'agit de BORNER UNE SAISIE, pas de
+// calculer une échéance — ce calcul-là reste exact, confié à make_interval.
+function maxAnnounceDays(value, unit) {
+  const perDay = { day: 1, week: 7, month: 30, year: 365 }[unit] || 1;
+  return Math.max(1, Math.min(365, value * perDay));
+}
 
 // Décale l'échéance d'une tâche 'time' déjà validée par l'appelant : anchor = today,
 // next_due recalculé, horodatage, et NOUVEAU token (invalide un lien email en attente).
@@ -46,9 +84,8 @@ const UNIT_TO_INTERVAL = {
 // 31 → 30 et les années bissextiles sans code maison. next_due calculé en UTC serveur
 // — décalage négligeable à cette granularité.
 async function applyTimeConfirmation(task) {
-  const shift = UNIT_TO_INTERVAL[task.periodicity_unit];
-  if (!shift || !(task.periodicity_value > 0)) return undefined;
-  const iv = shift(task.periodicity_value);
+  const iv = intervalFor(task.periodicity_value, task.periodicity_unit);
+  if (!iv) return undefined;
   const { rows } = await pool.query(
     `UPDATE user_tasks
         SET anchor_date = CURRENT_DATE,
@@ -200,6 +237,79 @@ apiRouter.post('/user-tasks/:id/confirm', async (req, res) => {
     return res.json({ id: task.id, next_due: nextDue, message: 'Échéance décalée' });
   } catch (err) {
     console.error('[user-tasks] Erreur POST /user-tasks/:id/confirm :', err.message);
+    return res.status(503).json({ error: 'Service indisponible' });
+  }
+});
+
+// POST /api/user-tasks — crée une tâche à échéance glissante.
+// Corps : { token, label, anchor_date, periodicity_value, periodicity_unit, announce_days? }.
+// tracking_mode est FIXÉ à 'time' côté serveur et n'est JAMAIS lu du client : tant que
+// le mode 'counter' n'a pas son UI de relevé, cette route ne peut pas en créer une.
+// ANTI-HALLUCINATION : aucune périodicité par défaut, aucun preset réglementaire. Tous
+// les champs de durée sont obligatoires et proviennent de la saisie utilisateur.
+apiRouter.post('/user-tasks', async (req, res) => {
+  const body = req.body || {};
+  const auth = await authenticate(body.token);
+  if (!auth) return res.status(401).json({ error: 'Session invalide ou expirée' });
+  if (!rateOk(auth.id)) return res.status(429).json({ error: 'Trop de créations, réessayez plus tard.' });
+
+  const label = ugc.validateTaskLabel(body.label);
+  if (!label.ok) return res.status(400).json({ error: 'Libellé : ' + label.error });
+
+  // Dernière réalisation : format ISO strict, date réellement existante, jamais future.
+  const rawDate = String(body.anchor_date || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(rawDate)) {
+    return res.status(400).json({ error: 'Date de dernière réalisation invalide' });
+  }
+  const d = new Date(rawDate + 'T00:00:00Z');
+  // Le second test rejette les dates inexistantes (31/02 → 03/03 après normalisation).
+  if (isNaN(d.getTime()) || rawDate !== d.toISOString().slice(0, 10)) {
+    return res.status(400).json({ error: 'Date de dernière réalisation invalide' });
+  }
+  const todayIso = new Date().toISOString().slice(0, 10);
+  if (rawDate > todayIso) {
+    return res.status(400).json({ error: 'La dernière réalisation ne peut pas être dans le futur' });
+  }
+
+  const value = Number(body.periodicity_value);
+  if (!Number.isInteger(value) || value < 1 || value > 1000) {
+    return res.status(400).json({ error: 'Périodicité : indiquez un nombre entier positif' });
+  }
+  const unit = String(body.periodicity_unit || '');
+  const iv = intervalFor(value, unit);
+  if (!iv) return res.status(400).json({ error: 'Périodicité : unité inconnue' });
+
+  // Préavis : défaut 7 (choix produit), borné par la période elle-même.
+  const announce = (body.announce_days == null || body.announce_days === '') ? 7 : Number(body.announce_days);
+  if (!Number.isInteger(announce) || announce < 0) {
+    return res.status(400).json({ error: 'Préavis : indiquez un nombre de jours entier' });
+  }
+  const maxAnnounce = maxAnnounceDays(value, unit);
+  if (announce > maxAnnounce) {
+    return res.status(400).json({
+      error: `Préavis trop long : ${maxAnnounce} jours au maximum pour cette périodicité`,
+    });
+  }
+
+  try {
+    const { rows } = await pool.query(
+      `INSERT INTO user_tasks
+         (subscriber_id, label, tracking_mode, anchor_date, periodicity_value, periodicity_unit,
+          next_due, announce_days, confirm_token)
+       VALUES ($1, $2, 'time', $3::date, $4, $5,
+          ($3::date + make_interval(days => $6, months => $7, years => $8))::date, $9, $10)
+       RETURNING id, label, tracking_mode, next_due`,
+      [auth.id, label.value, rawDate, value, unit, iv.days, iv.months, iv.years, announce,
+       crypto.randomBytes(32).toString('hex')]
+    );
+    return res.status(201).json({ task: rows[0] });
+  } catch (err) {
+    // 23505 = violation d'unicité → idx_user_tasks_unique_label (subscriber_id, label)
+    // WHERE active = true. Message clair plutôt que l'erreur PG brute.
+    if (err && err.code === '23505') {
+      return res.status(409).json({ error: 'Vous suivez déjà une tâche portant ce nom' });
+    }
+    console.error('[user-tasks] Erreur POST /user-tasks :', err.message);
     return res.status(503).json({ error: 'Service indisponible' });
   }
 });

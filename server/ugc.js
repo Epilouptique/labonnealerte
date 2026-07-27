@@ -23,11 +23,20 @@ const URL_LIKE = [
 // apostrophes, tiret, et émojis (pictogrammes + ZWJ + sélecteur de variation).
 const ALLOWED_TEXT = /^[\p{L}\p{N} '’\-‍️\p{Extended_Pictographic}]+$/u;
 
+// V3 · jeu ÉLARGI, réservé aux libellés de tâche à échéance (usage domestique très
+// concret : « Vidange (voiture) », « Rév. 20 000 km », « Chaudière + adoucisseur »).
+// Ajoute . , ( ) ° + & : au jeu commun. N'ajoute VOLONTAIREMENT ni « / » ni « @ » :
+// le CHECK SQL user_tasks_label_chk les interdit (label !~ '[/@]'). Les laisser
+// passer ici ferait remonter l'erreur PG brute que cette validation existe pour
+// éviter. Le jeu commun ALLOWED_TEXT reste inchangé pour les decks et les pseudos.
+const ALLOWED_TASK_LABEL = /^[\p{L}\p{N} '’\-.,()°+&:‍️\p{Extended_Pictographic}]+$/u;
+
 // Longueur en points de code (les émojis comptent pour 1-2, on reste indulgent).
 function cpLength(s) { return Array.from(String(s)).length; }
 
 // Valide un texte UGC (nom/description de deck, ou pseudo). Options : { min, max,
-// allowEmpty, noAt }. Retourne { ok, value } (trimmé) ou { ok:false, error }.
+// allowEmpty, noAt, allowed }. `allowed` remplace le jeu de caractères par défaut
+// (voir validateTaskLabel). Retourne { ok, value } (trimmé) ou { ok:false, error }.
 function validateText(raw, opts) {
   opts = opts || {};
   const min = opts.min || 0;
@@ -46,7 +55,7 @@ function validateText(raw, opts) {
   for (const re of URL_LIKE) {
     if (re.test(s)) return { ok: false, error: 'les adresses de sites ne sont pas autorisées' };
   }
-  if (!ALLOWED_TEXT.test(s)) return { ok: false, error: 'caractères non autorisés' };
+  if (!(opts.allowed || ALLOWED_TEXT).test(s)) return { ok: false, error: 'caractères non autorisés' };
   return { ok: true, value: s };
 }
 
@@ -74,6 +83,13 @@ function validateDisplayName(raw) {
 function validateDeckName(raw) { return validateText(raw, { min: 3, max: 40 }); }
 function validateDeckDescription(raw) { return validateText(raw, { min: 0, max: 200, allowEmpty: true }); }
 
+// V3 · libellé d'une tâche à échéance (1-80 = VARCHAR(80) en base), jeu élargi.
+// Le libellé n'est affiché qu'à son auteur, mais il part dans des emails de relance :
+// l'anti-URL commun (URL_LIKE) s'applique donc aussi.
+function validateTaskLabel(raw) {
+  return validateText(raw, { min: 1, max: 80, allowed: ALLOWED_TASK_LABEL });
+}
+
 function isValidEmoji(e) { return typeof e === 'string' && EMOJI_SET.has(e); }
 
 // Token de partage non devinable (22 caractères base64url ≈ 128 bits).
@@ -90,5 +106,6 @@ function hashIp(ip) {
 module.exports = {
   DECK_EMOJIS, isValidEmoji,
   validateText, validateDisplayName, validateDeckName, validateDeckDescription,
+  validateTaskLabel,
   genShareToken, genDeckId, hashIp,
 };
