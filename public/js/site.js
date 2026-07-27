@@ -1085,6 +1085,9 @@
   var cards = [], moreBtn = null, qInput = null, grid = null, addCard = null;
   var sourcesData = []; // liste des sources (pour recalculer une recommandation à l'adoption)
   var decksData = [];   // tuiles-deck du kiosque (officiels + perso publics) — modes spéciaux
+  // Exposition lecture seule pour la vue liste (list-view.js) : données + mode. La liste
+  // reste une PROJECTION ; les cartes de #grid demeurent la source de vérité par-source.
+  window.LBAKiosk = { sources: function () { return sourcesData; }, mode: function () { return currentMode; } };
   // D) Personnalisation (connecté) : renseignée depuis /api/my-alerts au chargement.
   var profile = { country: null, departement: null, region: null, ville: null, interests: [] };
   // Une source est-elle géolocalisée sur le département choisi ? Signal simple et
@@ -1404,6 +1407,8 @@
       updateMineEmpty();
       if (doAnim) { flipMoves(first, fromAddH, grow); animateGridHeight(fromH); }
       if (pinY !== null) holdScroll(pinY); // grow : verrouille la position de scroll
+      // Vue liste : recopie visibilité (filtre/recherche/pagination) + état carte→ligne.
+      if (window.LBAListView) LBAListView.sync();
     }
 
     if (doAnim && leaving.length) {
@@ -1708,7 +1713,7 @@
     }
 
     // Session : mode connecté si token valide.
-    var mode = 'anon', subMap = {}, mineMap = {}, email = null;
+    var mode = 'anon', subMap = {}, mineMap = {}, email = null, accountViewMode = null;
     if (token) {
       try {
         var s = await alertP;
@@ -1723,6 +1728,7 @@
           profile.ville = s.data.ville || null;
           profile.interests = s.data.interests || [];
           accountDisplayName = s.data.display_name || null;
+          accountViewMode = s.data.view_mode || 'cards'; // préférence de compte (sync multi-appareils)
           // Phase 3 : skin dashboard equipe (prive) -> classe sur la grille, cascade
           // sur toutes les cartes source. Token CSS placeholder (asset_ref) ou null.
           if (s.data.dashboard_skin) g.classList.add(s.data.dashboard_skin);
@@ -1808,6 +1814,11 @@
     if (mode === 'connected') syncFavorites(token); // D) remontée one-shot des favoris locaux
     LBASession.renderHeader(email);
     setupKiosk(mode);
+    // Vue liste : projection des cartes, rendue APRÈS setupKiosk pour que sync() lise le
+    // filtrage/pagination initial. adoptAccount fait primer la préférence de COMPTE
+    // (connecté) sur l'affichage initial issu du localStorage (anonyme = localStorage seul).
+    if (window.LBAListView) LBAListView.render(sourcesData, mode);
+    if (window.LBAViewMode && accountViewMode) LBAViewMode.adoptAccount(accountViewMode);
     if (mode === 'connected') refreshMineDependent(); // initialise le compteur « Ma collection » (chip + panneau)
     applyUrlParams(); // Lot 5) ?q=<terme> et ?mode=nouveautes|selection|mine depuis les autres pages
     bindMineLinks();

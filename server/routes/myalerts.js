@@ -231,7 +231,7 @@ apiRouter.get('/my-alerts', async (req, res) => {
     // Préférences : email activé, appareils push, et personnalisation d'affichage.
     const prefs = await pool.query(
       `SELECT s.email_enabled, s.country, s.departement, s.region, s.ville, s.interests, s.display_name,
-              s.points_balance, s.leaderboard_optout, s.quiet_start, s.quiet_end, s.quiet_disabled,
+              s.points_balance, s.leaderboard_optout, s.quiet_start, s.quiet_end, s.quiet_disabled, s.view_mode,
               (SELECT asset_ref FROM skins WHERE id = s.equipped_dashboard_skin_id) AS dashboard_skin,
               (SELECT COUNT(*)::int FROM push_subscriptions p WHERE p.subscriber_id = s.id) AS push_endpoints_count
          FROM subscribers s WHERE s.id = $1`,
@@ -286,6 +286,8 @@ apiRouter.get('/my-alerts', async (req, res) => {
       quiet_start: pr.quiet_start == null ? 23 : pr.quiet_start,
       quiet_end: pr.quiet_end == null ? 8 : pr.quiet_end,
       quiet_disabled: pr.quiet_disabled === true,
+      // Mode d'affichage du kiosque (préférence de compte, sync multi-appareils).
+      view_mode: pr.view_mode === 'list' ? 'list' : 'cards',
     });
   } catch (err) {
     console.error('[my-alerts] Erreur GET /my-alerts :', err.message);
@@ -340,6 +342,27 @@ apiRouter.post('/my-alerts/preferences', async (req, res) => {
     return res.status(200).json({ email_enabled });
   } catch (err) {
     console.error('[my-alerts] Erreur POST /preferences :', err.message);
+    return res.status(503).json({ error: 'Service indisponible' });
+  }
+});
+
+/* ------------------------------------------------------------------ */
+/* POST /api/my-alerts/view-mode — mode d'affichage du kiosque.        */
+/* Corps : { token, view_mode: 'cards' | 'list' }. Auto-save depuis le  */
+/* toggle de la toolbar ET le contrôle « Apparence » de Mon compte.     */
+/* ------------------------------------------------------------------ */
+apiRouter.post('/my-alerts/view-mode', async (req, res) => {
+  const { token, view_mode } = req.body || {};
+  if (view_mode !== 'cards' && view_mode !== 'list') {
+    return res.status(400).json({ error: 'view_mode invalide' });
+  }
+  try {
+    const auth = await authenticate(token);
+    if (!auth) return res.status(401).json({ error: 'Session invalide ou expirée' });
+    await pool.query('UPDATE subscribers SET view_mode = $1 WHERE id = $2', [view_mode, auth.id]);
+    return res.status(200).json({ view_mode });
+  } catch (err) {
+    console.error('[my-alerts] Erreur POST /view-mode :', err.message);
     return res.status(503).json({ error: 'Service indisponible' });
   }
 });

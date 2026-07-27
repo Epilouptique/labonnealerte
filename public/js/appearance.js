@@ -26,18 +26,33 @@
     '      <span class="notif-sub">Améliore la lisibilité (accessibilité).</span></div>' +
     '    <button type="button" class="notif-toggle" id="appear-contrast" role="switch" aria-label="Renforcer les contrastes"></button>' +
     '  </div>' +
+    '  <div class="notif-row">' +
+    '    <div class="notif-txt"><strong>Vue liste</strong>' +
+    '      <span class="notif-sub">Affiche le kiosque en liste dense plutôt qu\'en cartes. Préférence liée au compte.</span></div>' +
+    '    <button type="button" class="notif-toggle" id="appear-view" role="switch" aria-label="Vue liste"></button>' +
+    '  </div>' +
     '</div>';
 
   var themeTgl = document.getElementById('appear-theme');
   var contrastTgl = document.getElementById('appear-contrast');
+  var viewTgl = document.getElementById('appear-view');
+  function isList() { return !!(window.LBAViewMode && LBAViewMode.get() === 'list'); }
 
   function paint(el, on) {
     if (!el) return;
     el.classList.toggle('on', !!on);
     el.setAttribute('aria-checked', on ? 'true' : 'false');
   }
-  function refresh() { paint(themeTgl, isDark()); paint(contrastTgl, isHC()); }
+  function refresh() { paint(themeTgl, isDark()); paint(contrastTgl, isHC()); paint(viewTgl, isList()); }
   refresh();
+
+  // Vue cartes/liste : même source de vérité que le toggle de la toolbar (LBAViewMode).
+  if (viewTgl) viewTgl.addEventListener('click', function () {
+    if (window.LBAViewMode) LBAViewMode.set(isList() ? 'cards' : 'list');
+    paint(viewTgl, isList());
+  });
+  // Resync si la vue change ailleurs (toolbar) — garde les deux contrôles alignés.
+  document.addEventListener('lba-view-change', function () { paint(viewTgl, isList()); });
 
   themeTgl.addEventListener('click', function () {
     if (window.toggleTheme) window.toggleTheme();

@@ -4157,3 +4157,15 @@ CREATE TABLE IF NOT EXISTS promo_probe_log (
   detail      JSONB                          -- brut : titre, publishedAt, isExpired, marqueur, erreur…
 );
 CREATE INDEX IF NOT EXISTS idx_promo_probe_log_time ON promo_probe_log (probed_at DESC);
+
+-- ================================================================
+-- Préférence de compte : mode d'affichage du kiosque ('cards' | 'list').
+-- Synchronisée entre appareils (toolbar ↔ Mon compte). L'anonyme utilise
+-- localStorage ('lba-view') ; une fois connecté, cette colonne prime.
+-- ================================================================
+ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS view_mode TEXT NOT NULL DEFAULT 'cards';
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'subscribers_view_mode_chk') THEN
+    ALTER TABLE subscribers ADD CONSTRAINT subscribers_view_mode_chk CHECK (view_mode IN ('cards', 'list'));
+  END IF;
+END $$;
