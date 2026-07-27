@@ -4324,3 +4324,26 @@ SELECT 'tache-echeance-glissante', 'Tâche à échéance', 'Vos échéances qui 
   'Vidange, contrôle technique, filtre à eau… posez l''échéance, on vous relance. Vous confirmez, le compteur repart.',
   'user-task', 'official', false, ARRAY['vie-pratique', 'administration'], 461, false
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'tache-echeance-glissante');
+
+-- ----------------------------------------------------------------
+-- veille-agenda (display_order 462) : agenda personnel de l'abonné au format
+-- iCal (Google, Outlook, Apple). Alerte sur les événements ENTRANT dans une
+-- fenêtre de préavis, chacun UNE SEULE FOIS (état anti-rétroactif persistant
+-- via loadRef/dumpRef, colonne ref — cf. server/sources/veille-agenda.js).
+-- ⚠️ `pattern` et `maxLength` doivent rester STRICTEMENT identiques au
+-- paramsSchema du module JS. maxLength:300 est INDISPENSABLE : une adresse iCal
+-- réelle dépasse le plafond par défaut de 120 caractères (137 mesurés sur une
+-- adresse Google typique) et serait tronquée EN SILENCE, rendant l'abonnement
+-- définitivement muet (cf. server/params.js).
+-- `preavis` est NON requis à dessein : la page de souscription ne rend que le
+-- premier paramètre d'un schéma ; absent, il retombe sur un préavis d'un jour.
+-- ----------------------------------------------------------------
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
+SELECT 'veille-agenda', 'Mon agenda', 'Vos rendez-vous à venir',
+  'Vos rendez-vous à venir vous sont rappelés à l''avance, une seule fois. Sans ouvrir votre agenda.',
+  'internal', 'official', false, ARRAY['vie-pratique', 'veille'], 462, '[{"key":"agenda","label":"Adresse de votre agenda (format iCal)","type":"string","placeholder":"https://calendar.google.com/calendar/ical/…/basic.ics","pattern":"^https:\\/\\/[^\\s]{1,300}$","lowercase":false,"multiple":true,"required":true,"default":null,"maxLength":300},{"key":"preavis","label":"Me prévenir","type":"enum","values":[{"value":"1","label":"La veille"},{"value":"2","label":"2 jours avant"},{"value":"3","label":"3 jours avant"},{"value":"7","label":"Une semaine avant"}],"multiple":false,"required":false,"default":"1"}]'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'veille-agenda');
+UPDATE sources SET params_schema = '[{"key":"agenda","label":"Adresse de votre agenda (format iCal)","type":"string","placeholder":"https://calendar.google.com/calendar/ical/…/basic.ics","pattern":"^https:\\/\\/[^\\s]{1,300}$","lowercase":false,"multiple":true,"required":true,"default":null,"maxLength":300},{"key":"preavis","label":"Me prévenir","type":"enum","values":[{"value":"1","label":"La veille"},{"value":"2","label":"2 jours avant"},{"value":"3","label":"3 jours avant"},{"value":"7","label":"Une semaine avant"}],"multiple":false,"required":false,"default":"1"}]'::jsonb WHERE id = 'veille-agenda';
+INSERT INTO source_states (source_id) SELECT 'veille-agenda'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'veille-agenda');
+UPDATE sources SET description_long = 'Collez l''adresse iCal de votre agenda (Google, Outlook, Apple) et choisissez votre préavis : la veille, 2, 3 ou 7 jours avant. Chaque événement n''est signalé qu''une fois, et jamais ceux déjà passés. Votre adresse reste privée.' WHERE id = 'veille-agenda';
