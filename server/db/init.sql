@@ -4280,6 +4280,17 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_user_tasks_confirm_token
 CREATE UNIQUE INDEX IF NOT EXISTS idx_user_tasks_unique_label
   ON user_tasks (subscriber_id, label) WHERE active = true;
 
+-- V3 · étape 2 — Horodatage de la dernière relance envoyée. NULL = jamais notifiée.
+-- Garde anti-spam du job : on ne renotifie que si last_notified_at est ANTÉRIEUR à
+-- l'ouverture de la fenêtre d'annonce courante (next_due - announce_days). Une seule
+-- relance par échéance ; une confirmation qui repousse next_due rouvre le droit à
+-- une relance pour la nouvelle échéance, sans avoir à remettre la colonne à NULL.
+ALTER TABLE user_tasks ADD COLUMN IF NOT EXISTS last_notified_at TIMESTAMPTZ;
+
+-- Balayage quotidien du job : restreint aux tâches temporelles vivantes.
+CREATE INDEX IF NOT EXISTS idx_user_tasks_due_scan
+  ON user_tasks (next_due) WHERE active = true AND tracking_mode = 'time';
+
 -- ----------------------------------------------------------------
 -- Carte-modèle du kiosque (étape 2/3). Insert-only, comme tous les seeds.
 --

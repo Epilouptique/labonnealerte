@@ -54,11 +54,19 @@
     var ctrl;
     if (isLinked(s)) {
       ctrl = '<a class="lrow-link" href="' + esc(s.link_url) + '" target="_blank" rel="noopener" aria-label="Configurer sur le service partenaire">Configurer →</a>';
-    } else if (isParam(s)) {
-      // (b/g) Abonnement paramétré : géré inline en dépliant la VRAIE carte (B1).
-      ctrl = '<button type="button" class="lrow-manage" aria-label="Gérer cette alerte">Gérer</button>';
     } else {
-      var on = mode === 'connected' && !!s.subscribed;
+      // Broadcast ET paramétré : MÊME switch (même classe/markup) sur la ligne fermée.
+      //  · broadcast → coché = abonné.
+      //  · paramétré → coché = ACTIF (au moins une instance ET non en pause). Refléter
+      //    « actif » (et non « abonné ») est nécessaire pour que OFF=pause ne rebondisse
+      //    pas au sync suivant. Le détail (choix de valeur, ajout/retrait d'instances) se
+      //    gère dans le volet déplié (carte réelle).
+      var on;
+      if (isParam(s)) {
+        on = mode === 'connected' && Array.isArray(s.instances) && s.instances.length > 0 && !s.muted;
+      } else {
+        on = mode === 'connected' && !!s.subscribed;
+      }
       ctrl = '<label class="switch-row lrow-switch"><span class="switch">' +
         '<input type="checkbox"' + (on ? ' checked' : '') + ' aria-label="Basculer l\'abonnement">' +
         '<span class="track"></span><span class="thumb"></span></span></label>';
@@ -127,14 +135,24 @@
         rowLike.classList.toggle('liked', liked);
         rowLike.setAttribute('aria-pressed', liked ? 'true' : 'false');
       }
-      // Abonnement (broadcast) : reflète le switch de la carte.
+      // Abonnement : reflète l'état de la carte (source de vérité).
       var rowSw = row.querySelector('.lrow-switch input');
       if (rowSw) {
-        var subscribed = card.dataset.subscribed === '1' || (function () {
-          var ci = card.querySelector('.switch-row input'); return ci && ci.checked;
-        })();
-        if (rowSw.checked !== subscribed) rowSw.checked = subscribed;
-        var lab = row.querySelector('.lrow-switch'); if (lab) lab.classList.toggle('on', subscribed);
+        var src = srcOf(id) || {};
+        var on;
+        if (isParam(src)) {
+          // Paramétré : ACTIF = abonné (≥1 instance) ET non en pause (param-mute coché).
+          var sub = card.dataset.subscribed === '1';
+          var muteCb = card.querySelector('.param-mute');
+          on = sub && (!muteCb || muteCb.checked);
+        } else {
+          // Broadcast : coché = abonné.
+          on = card.dataset.subscribed === '1' || (function () {
+            var ci = card.querySelector('.switch-row input'); return ci && ci.checked;
+          })();
+        }
+        if (rowSw.checked !== on) rowSw.checked = on;
+        var lab = row.querySelector('.lrow-switch'); if (lab) lab.classList.toggle('on', on);
       }
     }
   }
@@ -296,12 +314,6 @@
         toggleKind(row, 'info', function (body) { loadStatus(id, body); });
         return;
       }
-      // « Gérer » (source paramétrée) : déplie les paramètres inline (carte réelle).
-      if (e.target.closest('.lrow-manage')) {
-        e.preventDefault();
-        openParams(row, id);
-        return;
-      }
       // Lien partenaire : navigation native (ne rien intercepter).
       if (e.target.closest('.lrow-link')) return;
       // Switch : géré sur 'change' (plus bas) — un clic sur le switch ne doit pas déplier.
@@ -321,6 +333,42 @@
       var input = e.target.closest('.lrow-switch input'); if (!input) return;
       var row = e.target.closest('.lrow'); var id = row.getAttribute('data-source-id');
       var card = gridCard(id); if (!card) { input.checked = !input.checked; return; }
+
+      // Source PARAMÉTRÉE : pas d'abonnement binaire à l'aveugle.
+      //  · ON depuis « pas abonné »  → déplie le volet (picker) pour choisir une valeur.
+      //  · ON depuis « en pause »     → reprise (unmute) via .param-mute de la carte réelle.
+      //  · OFF depuis « actif »       → pause (mute all), non destructif (jamais un retrait
+      //                                 d'instance ; le vrai désabonnement reste via les ✕).
+      var srcP = srcOf(id) || {};
+      if (isParam(srcP)) {
+        if (document.body.getAttribute('data-mode') !== 'connected') {
+          input.checked = false; openParams(row, id); return; // anonyme : passe par le picker
+        }
+        var subscribedP = card.dataset.subscribed === '1';
+        var muteCb = card.querySelector('.param-mute');
+        var activeP = subscribedP && (!muteCb || muteCb.checked);
+        if (input.checked && !activeP) {
+          if (subscribedP && muteCb) {
+            muteCb.checked = true; muteCb.dispatchEvent(new Event('change', { bubbles: true }));
+            setTimeout(sync, 400);
+          } else {
+            input.checked = false; // pas abonné : on ne peut pas abonner sans valeur → déplier
+            openParams(row, id);
+            setTimeout(function () {
+              var c = gridCard(id);
+              var ctrl = c && c.querySelector('.dyn-search, .param-select, .param-input');
+              if (ctrl) ctrl.focus();
+            }, 80);
+          }
+        } else if (!input.checked && activeP) {
+          if (muteCb) { muteCb.checked = false; muteCb.dispatchEvent(new Event('change', { bubbles: true })); setTimeout(sync, 400); }
+          else input.checked = true; // sécurité : aucun contrôle de pause → on annule
+        } else {
+          input.checked = activeP; // réaligne sur l'état réel
+        }
+        return;
+      }
+
       var desired = input.checked;
       var connected = document.body.getAttribute('data-mode') === 'connected';
       if (connected) {

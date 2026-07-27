@@ -2949,6 +2949,11 @@ overflow: hidden;
 .lrow-exp .card.in-list-exp .card-content > p,
 .lrow-exp .card.in-list-exp .card-content > .sub-count { display: none; }
 .lrow-exp .card.in-list-exp .card-content { padding: 0; }
+/* Abonné : l'interrupteur pause/reprise du volet est représenté par le switch de la
+   ligne fermée → on le masque ici pour éviter le doublon. Le « S'abonner »
+   (.param-follow-row, présent tant que non abonné) reste visible : c'est le vrai
+   contrôle de souscription (avec sa valeur). */
+.lrow-exp .card.in-list-exp .param-mute-row { display: none; }
 
 /* (h) Apparition d'une ligne (filtrage catégorie, adoption, dismiss reco) : même
    durée/easing que l'entrée des cartes (.25s ease). Le réordonnancement complet type

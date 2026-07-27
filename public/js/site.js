@@ -616,7 +616,10 @@
       if (!res.ok) throw new Error('http ' + res.status);
     } catch (e) {
       input.checked = !input.checked; paint(!input.checked); // rollback
-    } finally { input.disabled = false; }
+    } finally {
+      input.disabled = false;
+      if (window.LBAListView) LBAListView.sync(); // reflète pause/reprise sur le switch de la vue liste
+    }
   }
   document.addEventListener('change', function (e) {
     var m = e.target.closest('.param-mute');
@@ -760,6 +763,7 @@
       }
       celebrate(card);
       refreshMineDependent();
+      if (window.LBAListView) LBAListView.sync(); // reflète l'abonnement sur le switch de la vue liste
       // Carte recommandée adoptée : l'étiquette part, une nouvelle reco est calculée.
       if (card.classList.contains('card-reco')) setTimeout(function () { adoptReco(card); }, 800);
     } catch (e) { note(card, 'Réessaie plus tard', 'err'); }
@@ -794,6 +798,7 @@
         togglePicker(card, true);
       }
       refreshMineDependent();
+      if (window.LBAListView) LBAListView.sync(); // reflète le désabonnement d'instance sur la vue liste
     } catch (e) { /* silencieux */ }
   }
 

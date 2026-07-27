@@ -325,4 +325,63 @@ async function sendDeferredDigest(recipient, items = []) {
   }
 }
 
-module.exports = { sendConfirmation, sendPromoAlert, sendMagicLink, sendDeferredDigest };
+/**
+ * Relance « échéance qui approche » d'une tâche à échéance glissante (V3).
+ * Le bouton confirme la réalisation : il décale l'échéance et invalide le lien
+ * (le token est régénéré côté route). Un seul envoi par échéance — la garde est
+ * dans le job appelant (user_tasks.last_notified_at), pas ici.
+ * @param {{email: string, token: ?string}} recipient
+ * @param {{id: number, label: string, next_due: (Date|string), confirm_token: string}} task
+ * @returns {Promise<{sent: number, failed: number}>}
+ */
+async function sendTaskDueReminder(recipient, task) {
+  const email = typeof recipient === 'string' ? recipient : recipient.email;
+  const token = typeof recipient === 'string' ? null : recipient.token;
+  if (!email || !task || !task.confirm_token) return { sent: 0, failed: 0 };
+
+  const confirmUrl = `${SITE_URL}/tache/${task.id}/confirmer/${task.confirm_token}`;
+  // Libellé = texte UTILISATEUR : échappé avant toute interpolation HTML.
+  const label = esc(task.label);
+  const dueFr = task.next_due
+    ? new Date(task.next_due).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+    : null;
+  const quand = dueFr ? `Échéance prévue le ${dueFr}.` : 'Échéance prévue prochainement.';
+
+  const payload = {
+    from: FROM,
+    to: email,
+    subject: subject(`⏳ ${task.label}`),
+    text:
+      `${task.label}\n\n${quand}\n\n` +
+      `Déjà fait ? Confirme en un clic, l'échéance repart pour un tour :\n${confirmUrl}\n\n` +
+      `—\nTu reçois cet email car tu suis cette échéance.` +
+      MANAGE_TEXT,
+    html: emailShell({
+      heading: 'Une échéance approche',
+      intro: `<strong>${label}</strong> — ${quand}`,
+      button: { url: confirmUrl, label: "C'est fait ✓" },
+      fallbackUrl: confirmUrl,
+      note: "En confirmant, l'échéance repart pour la même durée à partir d'aujourd'hui. Ce lien ne sert qu'une fois.",
+    }),
+  };
+  if (token) {
+    const unsubUrl = `${SITE_URL}/unsubscribe/${token}`;
+    payload.headers = {
+      'List-Unsubscribe': `<${unsubUrl}>`,
+      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+    };
+  }
+  try {
+    await resend.emails.send(payload);
+    await incEmailCounters();
+    return { sent: 1, failed: 0 };
+  } catch (err) {
+    console.error(`[mailer] Échec relance échéance à ${email} :`, err.message);
+    return { sent: 0, failed: 1 };
+  }
+}
+
+module.exports = {
+  sendConfirmation, sendPromoAlert, sendMagicLink, sendDeferredDigest,
+  sendTaskDueReminder,
+};

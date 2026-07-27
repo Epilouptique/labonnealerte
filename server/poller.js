@@ -10,6 +10,7 @@ const { resolveLabel } = require('./params');
 const { buildExternalSource } = require('./external');
 const { trackDomain } = require('./doomname');
 const { runProbe } = require('./leboncoin-promo-probe'); // OBSERVATION leboncoin (cron dédié, cf. startPoller)
+const { runUserTaskNotify } = require('./user-tasks-notify'); // V3 échéances (cron quotidien, cf. startPoller)
 
 // Purge des sessions expirées : au plus une fois par jour.
 let lastSessionCleanup = 0;
@@ -753,6 +754,16 @@ function startPoller() {
     runProbe(pool).catch((err) => console.error('[promo-probe] runProbe :', err.message));
   }, { timezone: 'Europe/Paris' });
   console.log('[poller] Sonde observation leboncoin-livraison : cron dédié "*/3 13-15 * * 5" (Europe/Paris), fenêtre effective vendredi 13:58-15:00.');
+
+  // Relances des tâches à échéance glissante (V3) : cron QUOTIDIEN dédié.
+  // Pourquoi pas dans runCycle : le cycle tourne toutes les 30 min, ce qui
+  // enverrait les relances à une heure arbitraire (y compris en pleine nuit).
+  // Une échéance se compte en jours : un rendez-vous quotidien à heure civile
+  // est le bon grain. 9h Europe/Paris = hors plage de veille par défaut (23h-8h).
+  cron.schedule('0 9 * * *', () => {
+    runUserTaskNotify(pool).catch((err) => console.error('[user-tasks] runUserTaskNotify :', err.message));
+  }, { timezone: 'Europe/Paris' });
+  console.log('[poller] Relances tâches à échéance : cron quotidien "0 9 * * *" (Europe/Paris).');
 }
 
 // processSource/processParamSource/decideTransition exposés pour le banc d'essai.
