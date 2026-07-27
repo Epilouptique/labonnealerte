@@ -2882,9 +2882,11 @@ overflow: hidden;
 .lrow-title { font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lrow-sub { font-size: .84em; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1 1 auto; min-width: 0; }
 .lrow-cat {
-  flex: 0 0 auto; font-size: .78em; color: var(--muted); border: 1px solid var(--line);
-  border-radius: 999px; padding: 2px 9px; white-space: nowrap;
+  flex: 0 0 auto; font: inherit; font-size: .78em; color: var(--muted);
+  background: none; border: 1px solid var(--line); border-radius: 999px;
+  padding: 2px 9px; white-space: nowrap; cursor: pointer; transition: color .15s, border-color .15s;
 }
+.lrow-cat:hover { color: var(--amber); border-color: var(--amber); }
 .lrow-actions { flex: 0 0 auto; display: flex; align-items: center; gap: 10px; }
 
 /* Icône d'état (seule, sans texte). */
@@ -2892,13 +2894,17 @@ overflow: hidden;
 .lrow-state .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); opacity: .45; }
 .lrow-state.active .dot { background: var(--green); opacity: 1; box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 25%, transparent); }
 
-/* Boutons d'action (cœur / partage / i). */
-.lrow-like, .lrow-share, .lrow-info {
-  background: none; border: 0; cursor: pointer; color: var(--muted); font-size: 16px; line-height: 1;
-  padding: 4px; border-radius: 8px; transition: color .15s;
+/* Boutons d'action (cœur / partage / i) : MÊMES classes et SVG que les cartes
+   (like-btn/card-like, card-share, flip-btn). En contexte liste (flux, pas de coin
+   de carte), on neutralise le positionnement absolu hérité de leurs règles de base. */
+.lrow-actions .like-btn, .lrow-actions .card-share, .lrow-actions .flip-btn {
+  position: static; top: auto; right: auto; z-index: auto;
+  background: none; border: 0; cursor: pointer; color: var(--muted);
+  padding: 4px; border-radius: 8px; line-height: 0; transition: color .15s;
 }
-.lrow-like:hover, .lrow-share:hover, .lrow-info:hover { color: var(--ink); }
-.lrow-like.liked { color: #ef5a78; }
+.lrow-actions .like-btn:hover, .lrow-actions .card-share:hover, .lrow-actions .flip-btn:hover { color: var(--ink); }
+.lrow-actions .card-like.liked { color: #ef5a78; }
+.lrow-actions svg { width: 16px; height: 16px; display: block; }
 .lrow-manage, .lrow-link {
   font-size: .82em; color: var(--amber); background: none; border: 1px solid var(--line);
   border-radius: 8px; padding: 4px 10px; cursor: pointer; text-decoration: none; white-space: nowrap;
@@ -2920,6 +2926,36 @@ overflow: hidden;
 .lrow-anon input { flex: 1 1 200px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); }
 .lrow-anon button { padding: 8px 14px; border: 0; border-radius: 8px; background: var(--amber); color: #fff; cursor: pointer; }
 .lrow-anon-note { font-size: .85em; color: var(--muted); }
+
+/* (d) Sous-titre déplacé : en tête du volet déplié, avant tout autre contenu. */
+.lrow-exp-sub { color: var(--muted); font-size: .9em; margin: 0 0 8px; }
+/* (e) Description du statut (« i »), au-dessus des barres d'uptime. */
+.lrow-status-desc { margin: 0 0 10px; color: var(--muted); }
+
+/* (f/g) Carte réelle déplacée dans le volet (B1) : rendu compact et sobre — on ne
+   garde que la zone d'abonnement/paramètres, sans le décor de la carte pleine. */
+.lrow-exp .card.in-list-exp { margin: 0; width: 100%; }
+.lrow-exp .card.in-list-exp .card-inner { transform: none; transition: none; min-height: 0; }
+.lrow-exp .card.in-list-exp .card-face { box-shadow: none; border-color: transparent; background: none; padding: 0; gap: 10px; }
+.lrow-exp .card.in-list-exp .card-back,
+.lrow-exp .card.in-list-exp .card-share-face,
+.lrow-exp .card.in-list-exp .card-deck-face { display: none; }
+.lrow-exp .card.in-list-exp .fullart,
+.lrow-exp .card.in-list-exp .card-veil,
+.lrow-exp .card.in-list-exp .card-edge,
+.lrow-exp .card.in-list-exp .card-toprow,
+.lrow-exp .card.in-list-exp .card-content > .card-top,
+.lrow-exp .card.in-list-exp .card-content > .card-subtitle,
+.lrow-exp .card.in-list-exp .card-content > p,
+.lrow-exp .card.in-list-exp .card-content > .sub-count { display: none; }
+.lrow-exp .card.in-list-exp .card-content { padding: 0; }
+
+/* (h) Apparition d'une ligne (filtrage catégorie, adoption, dismiss reco) : même
+   durée/easing que l'entrée des cartes (.25s ease). Le réordonnancement complet type
+   FLIP est laissé hors périmètre (voir rapport) pour rester simple et robuste. */
+@keyframes lrow-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+.lrow.lrow-in { animation: lrow-in .25s ease; }
+@media (prefers-reduced-motion: reduce) { .lrow.lrow-in { animation: none; } }
 
 /* Surbrillance brève d'une carte ciblée depuis « Gérer » (vue cartes). */
 .card-flash { outline: 3px solid var(--amber); outline-offset: 3px; transition: outline-color .4s; }

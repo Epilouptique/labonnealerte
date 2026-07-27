@@ -68,13 +68,10 @@
     return '<span class="badge-ic ' + b + '" title="' + title + '" role="img" aria-label="' + title + '">' + BADGE_ICON + '</span>';
   }
 
-  var UPTIME_LABEL = { calm: 'Calme', active: 'Alerte active', failed: 'Incident de surveillance', nodata: 'Pas de données' };
-
+  // Barres d'uptime : rendu partagé (LBATimeline.uptimeBars) avec la vue liste.
   function renderUptime(days) {
     var el = document.getElementById('uptime');
-    el.innerHTML = days.map(function (d) {
-      return '<span class="uptime-bar u-' + d.status + '" title="' + esc(d.date) + ' · ' + esc(UPTIME_LABEL[d.status] || d.status) + '"></span>';
-    }).join('');
+    el.innerHTML = LBATimeline.uptimeBars(days);
   }
 
   var myInstances = []; // instances paramétrées de l'utilisateur connecté (volet 1)

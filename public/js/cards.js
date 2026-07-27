@@ -466,6 +466,8 @@
 
   window.LBACards = {
     esc: esc, badgeFor: badgeFor, stateFor: stateFor, domainOf: domainOf, cardHTML: cardHTML, catLabel: catLabel,
-    BACK_SVG: BACK_SVG, formatCount: formatCount, celebrateBurst: celebrateBurst
+    BACK_SVG: BACK_SVG, formatCount: formatCount, celebrateBurst: celebrateBurst,
+    // SVG partagés (réutilisés tels quels par la vue liste — pas de duplication de string).
+    LIKE_SVG: LIKE_SVG, SHARE_SVG: SHARE_SVG, INFO_SVG: INFO_SVG
   };
 })();

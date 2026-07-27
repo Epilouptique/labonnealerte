@@ -18,6 +18,11 @@
   var listEl = null;         // conteneur #list
   var openId = null;         // data-source-id de la ligne actuellement dépliée
   var built = false;
+  // (f/g) B1 : quand une ligne paramétrée est dépliée, la VRAIE carte de #grid est
+  // déplacée (même nœud DOM, pas une copie) dans son volet lrow-exp. On mémorise sa
+  // position d'origine pour la remettre exactement à sa place à la fermeture.
+  var parkedCard = null;     // { card, parent, next } ou null
+  var REDUCE = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -26,6 +31,9 @@
   }
   function grid() { return document.getElementById('grid'); }
   function gridCard(id) {
+    // La carte peut être temporairement déplacée dans un lrow-exp (B1) : on la retrouve
+    // quand même pour que sync() ne la croie pas disparue.
+    if (parkedCard && parkedCard.card.getAttribute('data-source-id') === id) return parkedCard.card;
     var g = grid(); if (!g) return null;
     return g.querySelector('.card[data-source-id="' + (window.CSS && CSS.escape ? CSS.escape(id) : id) + '"]');
   }
@@ -33,37 +41,43 @@
   function isParam(s) { return Array.isArray(s.params_schema) && s.params_schema.length > 0; }
   function isLinked(s) { return s.type === 'linked' || !!s.link_url; }
 
+  // SVG partagés avec les cartes (aucune duplication de string : exposés par LBACards).
+  function ic(name) { return (window.LBACards && LBACards[name]) || ''; }
+
   // ── Construction d'une ligne ────────────────────────────────────────────────
   function rowHTML(s, mode) {
     var cats = Array.isArray(s.categories) ? s.categories : [];
+    // (c) Catégorie cliquable → même filtrage que la puce du header (LBAKiosk.filter).
     var catChip = cats.length
-      ? '<span class="lrow-cat">' + esc(catLabel(cats[0])) + '</span>' : '';
+      ? '<button type="button" class="lrow-cat" data-cat="' + esc(cats[0]) + '" aria-label="Filtrer sur ' + esc(catLabel(cats[0])) + '">' + esc(catLabel(cats[0])) + '</button>' : '';
     // Contrôle d'abonnement selon le type de source.
     var ctrl;
     if (isLinked(s)) {
       ctrl = '<a class="lrow-link" href="' + esc(s.link_url) + '" target="_blank" rel="noopener" aria-label="Configurer sur le service partenaire">Configurer →</a>';
     } else if (isParam(s)) {
-      // Abonnement paramétré (département, ville…) : géré sur la carte. On y renvoie.
-      ctrl = '<button type="button" class="lrow-manage" aria-label="Gérer cette alerte dans la vue cartes">Gérer →</button>';
+      // (b/g) Abonnement paramétré : géré inline en dépliant la VRAIE carte (B1).
+      ctrl = '<button type="button" class="lrow-manage" aria-label="Gérer cette alerte">Gérer</button>';
     } else {
       var on = mode === 'connected' && !!s.subscribed;
       ctrl = '<label class="switch-row lrow-switch"><span class="switch">' +
         '<input type="checkbox"' + (on ? ' checked' : '') + ' aria-label="Basculer l\'abonnement">' +
         '<span class="track"></span><span class="thumb"></span></span></label>';
     }
+    // (a) Icônes cœur/partage/i : mêmes classes ET mêmes SVG que les cartes.
+    // (d) Le sous-titre n'est plus dans .lrow-main : il est injecté en tête du volet
+    //     déplié (fillExp) au moment de l'ouverture.
     return '' +
       '<div class="lrow" data-source-id="' + esc(s.id) + '" data-cats="' + esc(cats.join(' ')) + '">' +
         '<div class="lrow-head">' +
-          '<button type="button" class="lrow-main" aria-expanded="false" aria-label="Afficher la description de ' + esc(s.name) + '">' +
+          '<button type="button" class="lrow-main" aria-expanded="false" aria-label="Afficher le détail de ' + esc(s.name) + '">' +
             '<span class="lrow-title">' + esc(s.name) + '</span>' +
-            (s.subtitle ? '<span class="lrow-sub">' + esc(s.subtitle) + '</span>' : '') +
           '</button>' +
           catChip +
           '<span class="lrow-actions">' +
             '<span class="lrow-state" title="État" aria-hidden="true"><span class="dot"></span></span>' +
-            '<button type="button" class="lrow-like" aria-pressed="false" aria-label="J\'aime cette alerte">♥</button>' +
-            '<button type="button" class="lrow-share" aria-label="Partager">⤴</button>' +
-            '<button type="button" class="lrow-info" aria-label="En savoir plus (statut)">ⓘ</button>' +
+            '<button type="button" class="like-btn card-like" aria-pressed="false" aria-label="J\'aime cette alerte">' + ic('LIKE_SVG') + '</button>' +
+            '<button type="button" class="share-btn card-share" aria-label="Partager" title="Partager">' + ic('SHARE_SVG') + '</button>' +
+            '<button type="button" class="flip-btn" aria-label="En savoir plus (statut)" title="En savoir plus">' + ic('INFO_SVG') + '</button>' +
             ctrl +
           '</span>' +
         '</div>' +
@@ -74,6 +88,7 @@
   function render(sources, mode) {
     listEl = document.getElementById('list');
     if (!listEl || !Array.isArray(sources)) return;
+    unparkCard(); // sécurité : rend une carte éventuellement déplacée à #grid avant qu'il soit reconstruit
     listEl.innerHTML = sources.map(function (s) { return rowHTML(s, mode); }).join('');
     built = true;
     openId = null;
@@ -91,15 +106,22 @@
       var card = gridCard(id);
       // Visibilité : miroir exact du filtrage/pagination des cartes.
       var hidden = !card || card.classList.contains('filtered') || card.classList.contains('hidden-more');
+      var wasHidden = row.hidden;
       row.hidden = hidden;
+      // (h) Apparition animée (mêmes durée/easing que les cartes) quand une ligne
+      // redevient visible (filtrage catégorie, adoption, retrait reco).
+      if (!hidden && wasHidden && !REDUCE) {
+        row.classList.remove('lrow-in'); void row.offsetWidth; row.classList.add('lrow-in');
+      }
       if (!card) continue;
       // État actif (icône seule).
       var active = !!card.querySelector('.state.active');
       var st = row.querySelector('.lrow-state');
       if (st) { st.classList.toggle('active', active); st.setAttribute('title', active ? 'Alerte active' : 'Rien à signaler'); }
-      // Cœur : reflète l'état de la carte.
+      // Cœur : reflète l'état de la carte (bouton de la barre d'actions de la ligne,
+      // scopé à .lrow-actions pour ne jamais viser le cœur caché d'une carte déplacée).
       var cardLike = card.querySelector('.like-btn');
-      var rowLike = row.querySelector('.lrow-like');
+      var rowLike = row.querySelector('.lrow-actions .like-btn');
       if (cardLike && rowLike) {
         var liked = cardLike.classList.contains('liked');
         rowLike.classList.toggle('liked', liked);
@@ -117,22 +139,59 @@
     }
   }
 
+  // ── Déplacement de la vraie carte (B1) ───────────────────────────────────────
+  // (f/g) Déplace le MÊME nœud DOM de la carte dans le volet → tous les handlers,
+  // le prefill géo et l'état restent natifs (c'est la carte réelle, pas une copie).
+  // Le prefill dyn-enum a déjà été déclenché par site.js au rendu du grid ; le nœud
+  // conservant son état, aucun re-déclenchement n'est nécessaire ici.
+  function parkCardInto(id, body) {
+    var card = gridCard(id); if (!card) return false;
+    parkedCard = { card: card, parent: card.parentNode, next: card.nextSibling };
+    card.classList.add('in-list-exp');
+    body.appendChild(card);
+    return true;
+  }
+  function unparkCard() {
+    if (!parkedCard) return;
+    var p = parkedCard; parkedCard = null;
+    p.card.classList.remove('in-list-exp');
+    if (!p.parent) return;
+    // Remise EXACTE à sa position d'origine ; si le repère a disparu (grille reconstruite
+    // entre-temps), on retombe sur un append sans jamais lever d'exception.
+    if (p.next && p.next.parentNode === p.parent) p.parent.insertBefore(p.card, p.next);
+    else p.parent.appendChild(p.card);
+  }
+
   // ── Accordéon (une seule ligne ouverte) ──────────────────────────────────────
+  function expEl(row) { return row.querySelector('.lrow-exp'); }
+  function clearRow(row) {
+    // Restaure une éventuelle carte déplacée AVANT de vider (sinon le nœud est détruit).
+    unparkCard();
+    row.classList.remove('open');
+    var exp = expEl(row);
+    if (exp) { exp.hidden = true; exp.innerHTML = ''; exp.removeAttribute('data-kind'); }
+    var mb = row.querySelector('.lrow-main'); if (mb) mb.setAttribute('aria-expanded', 'false');
+  }
   function closeAll(except) {
     if (!listEl) return;
     listEl.querySelectorAll('.lrow.open').forEach(function (r) {
       if (r === except) return;
-      r.classList.remove('open');
-      var exp = r.querySelector('.lrow-exp'); if (exp) { exp.hidden = true; exp.innerHTML = ''; exp.removeAttribute('data-kind'); }
-      var mainBtn = r.querySelector('.lrow-main'); if (mainBtn) mainBtn.setAttribute('aria-expanded', 'false');
+      clearRow(r);
     });
     if (!except) openId = null;
   }
-  function expEl(row) { return row.querySelector('.lrow-exp'); }
-  function openWith(row, kind, html) {
+  // (d) Sous-titre en tête du volet, puis un corps rempli par le `filler` (string ou fn(body)).
+  function fillExp(row, kind, filler) {
+    // Restaure une carte éventuellement déplacée (y compris dans CE volet : changer de
+    // « kind » sur la même ligne réécrit exp.innerHTML et détruirait le nœud sinon).
+    unparkCard();
     closeAll(row);
+    var s = srcOf(row.getAttribute('data-source-id')) || {};
     var exp = expEl(row);
-    exp.innerHTML = html;
+    var sub = s.subtitle ? '<div class="lrow-exp-sub">' + esc(s.subtitle) + '</div>' : '';
+    exp.innerHTML = sub + '<div class="lrow-exp-body"></div>';
+    var body = exp.querySelector('.lrow-exp-body');
+    if (typeof filler === 'function') filler(body); else body.innerHTML = filler;
     exp.hidden = false;
     exp.setAttribute('data-kind', kind);
     row.classList.add('open');
@@ -141,16 +200,14 @@
     if (mainBtn) mainBtn.setAttribute('aria-expanded', kind === 'desc' ? 'true' : 'false');
   }
   // Bascule : si déjà ouvert sur le même kind → referme ; sinon (ré)ouvre.
-  function toggleKind(row, kind, htmlOrFn) {
+  function toggleKind(row, kind, filler) {
     var exp = expEl(row);
     if (row.classList.contains('open') && exp.getAttribute('data-kind') === kind) {
-      row.classList.remove('open'); exp.hidden = true; exp.innerHTML = ''; exp.removeAttribute('data-kind');
-      var mb = row.querySelector('.lrow-main'); if (mb) mb.setAttribute('aria-expanded', 'false');
-      openId = null;
-      return;
+      clearRow(row); openId = null; return;
     }
-    openWith(row, kind, typeof htmlOrFn === 'function' ? '<div class="lrow-loading">Chargement…</div>' : htmlOrFn);
-    if (typeof htmlOrFn === 'function') htmlOrFn(exp);
+    fillExp(row, kind, typeof filler === 'function'
+      ? function (body) { body.innerHTML = '<div class="lrow-loading">Chargement…</div>'; filler(body); }
+      : filler);
   }
 
   function srcOf(id) {
@@ -159,35 +216,36 @@
     return null;
   }
 
-  // « i » : contenu de la page statut (uptime + timeline), chargé en place.
-  var UPTIME_LABEL = { calm: 'Calme', active: 'Alerte active', failed: 'Incident de surveillance', nodata: 'Pas de données' };
-  function loadStatus(id, exp) {
+  // (e) « i » : contenu COMPLET de la page statut = description + uptime + timeline.
+  // Uptime rendu par le helper partagé (LBATimeline.uptimeBars) → aucune duplication.
+  function loadStatus(id, body) {
+    var s = srcOf(id) || {};
+    var desc = s.description_long || s.description || '';
+    var descHtml = desc ? '<p class="lrow-status-desc">' + esc(desc) + '</p>' : '';
     fetch('/api/sources/' + encodeURIComponent(id) + '/history', { headers: { Accept: 'application/json' } })
       .then(function (r) { return r.ok ? r.json() : { days: [], events: [] }; })
       .then(function (hist) {
-        var days = hist.days || [];
-        var bars = days.map(function (d) {
-          return '<span class="uptime-bar u-' + esc(d.status) + '" title="' + esc(d.date) + ' · ' + esc(UPTIME_LABEL[d.status] || d.status) + '"></span>';
-        }).join('');
-        exp.innerHTML =
+        var bars = (window.LBATimeline && LBATimeline.uptimeBars) ? LBATimeline.uptimeBars(hist.days || []) : '';
+        body.innerHTML =
           '<div class="lrow-status">' +
+            descHtml +
             '<div class="lrow-status-uptime">' + (bars || '<span class="lrow-muted">Pas encore d\'historique.</span>') + '</div>' +
             '<div class="lrow-status-timeline"></div>' +
             '<a class="lrow-status-more" href="/source/' + esc(id) + '/statut">Page complète →</a>' +
           '</div>';
-        var tl = exp.querySelector('.lrow-status-timeline');
+        var tl = body.querySelector('.lrow-status-timeline');
         if (tl && window.LBATimeline && LBATimeline.render) LBATimeline.render(tl, hist.events || []);
       })
-      .catch(function () { exp.innerHTML = '<span class="lrow-muted">Statut indisponible pour le moment.</span>'; });
+      .catch(function () { body.innerHTML = descHtml + '<span class="lrow-muted">Statut indisponible pour le moment.</span>'; });
   }
 
-  function shareInline(row, s, exp) {
+  function shareInline(row, s, body) {
     var url = 'https://labonnealerte.fr/source/' + s.id + '/statut';
     if (window.LBAShare && LBAShare.optionsHTML) {
-      exp.innerHTML = '<div class="lrow-share-grid share-grid">' + LBAShare.optionsHTML(s.name, url) + '</div>';
-      LBAShare.bindCopy(exp, url);
+      body.innerHTML = '<div class="lrow-share-grid share-grid">' + LBAShare.optionsHTML(s.name, url) + '</div>';
+      LBAShare.bindCopy(body, url);
     } else {
-      exp.innerHTML = '<span class="lrow-muted">Partage indisponible.</span>';
+      body.innerHTML = '<span class="lrow-muted">Partage indisponible.</span>';
     }
   }
 
@@ -197,48 +255,64 @@
     if (!listEl || listEl.dataset.bound) return;
     listEl.dataset.bound = '1';
 
+    // (f/g) Déplie une ligne paramétrée en y déplaçant la vraie carte (B1).
+    function openParams(row, id) {
+      toggleKind(row, 'params', function (body) {
+        body.innerHTML = '';
+        if (!parkCardInto(id, body)) {
+          body.innerHTML = '<span class="lrow-muted">Carte indisponible.</span>';
+        }
+      });
+    }
+
     listEl.addEventListener('click', function (e) {
+      // (c) Catégorie cliquable : même filtrage que la puce du header (mécanisme partagé).
+      var catBtn = e.target.closest('.lrow-cat');
+      if (catBtn) {
+        e.preventDefault();
+        if (window.LBAKiosk && LBAKiosk.filter) LBAKiosk.filter(catBtn.getAttribute('data-cat'));
+        return;
+      }
       var row = e.target.closest('.lrow'); if (!row) return;
       var id = row.getAttribute('data-source-id');
       var s = srcOf(id) || {};
 
       // Cœur : FORWARD au bouton like de la carte (réutilise le handler like de site.js).
-      if (e.target.closest('.lrow-like')) {
+      if (e.target.closest('.like-btn')) {
         e.preventDefault();
         var card = gridCard(id); var cl = card && card.querySelector('.like-btn');
         if (cl) { cl.click(); setTimeout(sync, 30); }
         return;
       }
       // Partage inline (remplace le contenu ouvert).
-      if (e.target.closest('.lrow-share')) {
+      if (e.target.closest('.card-share')) {
         e.preventDefault();
-        toggleKind(row, 'share', function (exp) { shareInline(row, s, exp); });
+        toggleKind(row, 'share', function (body) { shareInline(row, s, body); });
         return;
       }
-      // « i » : statut inline (remplace).
-      if (e.target.closest('.lrow-info')) {
+      // « i » : statut complet inline (description + uptime + timeline).
+      if (e.target.closest('.flip-btn')) {
         e.preventDefault();
-        toggleKind(row, 'info', function (exp) { loadStatus(id, exp); });
+        toggleKind(row, 'info', function (body) { loadStatus(id, body); });
         return;
       }
-      // « Gérer » (source paramétrée) : bascule en vue cartes + scroll sur la carte.
+      // « Gérer » (source paramétrée) : déplie les paramètres inline (carte réelle).
       if (e.target.closest('.lrow-manage')) {
         e.preventDefault();
-        if (window.LBAViewMode) LBAViewMode.set('cards');
-        var c2 = gridCard(id);
-        if (c2) setTimeout(function () {
-          c2.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          c2.classList.add('card-flash'); setTimeout(function () { c2.classList.remove('card-flash'); }, 1600);
-        }, 60);
+        openParams(row, id);
         return;
       }
       // Lien partenaire : navigation native (ne rien intercepter).
       if (e.target.closest('.lrow-link')) return;
       // Switch : géré sur 'change' (plus bas) — un clic sur le switch ne doit pas déplier.
       if (e.target.closest('.lrow-switch')) return;
-      // Corps de ligne : déplie/replie la DESCRIPTION COURTE.
+      // Clic à l'intérieur de la carte déplacée (contrôles param) : ne rien intercepter,
+      // ses propres handlers (délégués sur document via .card) s'en chargent.
+      if (e.target.closest('.in-list-exp')) return;
+      // Corps de ligne : paramétrée → params inline (B1) ; sinon description courte.
       if (e.target.closest('.lrow-main')) {
-        toggleKind(row, 'desc', '<p class="lrow-desc">' + esc(s.description || 'Pas de description.') + '</p>');
+        if (isParam(s)) openParams(row, id);
+        else toggleKind(row, 'desc', '<p class="lrow-desc">' + esc(s.description || 'Pas de description.') + '</p>');
       }
     });
 
@@ -256,7 +330,7 @@
         setTimeout(sync, 400);
       } else if (desired) {
         // Anonyme : collecte l'email dans l'accordéon puis pont vers submitAnon (même endpoint).
-        openWith(row, 'anon-sub',
+        fillExp(row, 'anon-sub',
           '<form class="lrow-anon"><input type="email" placeholder="votre@email.fr" aria-label="Adresse email" required>' +
           '<button type="submit">Recevoir l\'alerte</button>' +
           '<span class="lrow-anon-note" role="status"></span></form>');
@@ -280,6 +354,14 @@
         // Anonyme, décoche : annule un éventuel pending de la carte.
         var cs = card.querySelector('.switch-row input');
         if (cs && cs.checked) { cs.checked = false; cs.dispatchEvent(new Event('change', { bubbles: true })); }
+      }
+    });
+
+    // (h) Nettoyage de la classe d'apparition une fois l'animation terminée
+    // (permet de la rejouer au prochain passage hidden→visible).
+    listEl.addEventListener('animationend', function (e) {
+      if (e.target && e.target.classList && e.target.classList.contains('lrow-in')) {
+        e.target.classList.remove('lrow-in');
       }
     });
 

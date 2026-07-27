@@ -16,6 +16,16 @@
     } catch (e) { return d.toISOString(); }
   }
 
+  // Barres d'uptime (page statut + « i » de la vue liste) : un seul rendu partagé
+  // → aucune duplication de la logique/markup entre source.js et list-view.js.
+  var UPTIME_LABEL = { calm: 'Calme', active: 'Alerte active', failed: 'Incident de surveillance', nodata: 'Pas de données' };
+  function uptimeBars(days) {
+    return (days || []).map(function (d) {
+      return '<span class="uptime-bar u-' + esc(d.status) + '" title="' + esc(d.date) +
+        ' · ' + esc(UPTIME_LABEL[d.status] || d.status) + '"></span>';
+    }).join('');
+  }
+
   function meta(ev) {
     if (ev === 'activated') return { cls: 'act', title: 'Alerte déclenchée' };
     if (ev === 'deactivated') return { cls: 'calm', title: 'Retour au calme' };
@@ -44,5 +54,5 @@
     el.innerHTML = html;
   }
 
-  window.LBATimeline = { render: render };
+  window.LBATimeline = { render: render, uptimeBars: uptimeBars, UPTIME_LABEL: UPTIME_LABEL };
 })();

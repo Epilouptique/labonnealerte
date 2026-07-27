@@ -1125,13 +1125,27 @@
   var cat = 'all', visibleLimit = INITIAL_ANON, secondaryOpen = false, currentMode = 'anon';
   var accountEmail = null; // email de la session connectée (pour le panneau compte)
   var accountDisplayName = null; // pseudo unifié (auto-rempli à la 1re connexion) — pilote « Bonjour » + avatar
-  function initialLimit() { return currentMode === 'connected' ? INITIAL_CONNECTED : INITIAL_ANON; }
+  // (j) Vue LISTE + onglet « Toutes » + connecté : 16 par défaut (au lieu de 8).
+  // Uniquement ce cas : cartes, onglets spéciaux, autres catégories et vue anonyme
+  // gardent INITIAL_CONNECTED=8 / INITIAL_ANON=5 inchangés.
+  var INITIAL_LIST_ALL_CONNECTED = 16;
+  function isListView() { return document.documentElement.getAttribute('data-view') === 'list'; }
+  function initialLimit() {
+    if (currentMode === 'connected' && cat === 'all' && isListView()) return INITIAL_LIST_ALL_CONNECTED;
+    return currentMode === 'connected' ? INITIAL_CONNECTED : INITIAL_ANON;
+  }
   var cards = [], moreBtn = null, qInput = null, grid = null, addCard = null;
   var sourcesData = []; // liste des sources (pour recalculer une recommandation à l'adoption)
   var decksData = [];   // tuiles-deck du kiosque (officiels + perso publics) — modes spéciaux
   // Exposition lecture seule pour la vue liste (list-view.js) : données + mode. La liste
   // reste une PROJECTION ; les cartes de #grid demeurent la source de vérité par-source.
-  window.LBAKiosk = { sources: function () { return sourcesData; }, mode: function () { return currentMode; } };
+  // filter(slug) : point d'entrée public du MÊME filtrage que les puces de catégorie
+  // (réutilise selectChip, hoisté). Utilisé par la vue liste (clic sur .lrow-cat).
+  window.LBAKiosk = {
+    sources: function () { return sourcesData; },
+    mode: function () { return currentMode; },
+    filter: function (slug) { if (slug) selectChip(slug); }
+  };
   // D) Personnalisation (connecté) : renseignée depuis /api/my-alerts au chargement.
   var profile = { country: null, departement: null, region: null, ville: null, interests: [] };
   // Une source est-elle géolocalisée sur le département choisi ? Signal simple et
@@ -1618,6 +1632,15 @@
     var card = tag.closest('.card'); if (card) card.classList.remove('flipped');
     selectChip(tag.getAttribute('data-cat'));
     scrollToGrid();
+  });
+
+  // (j) La limite initiale « Toutes » connecté diffère entre liste (16) et cartes (8) :
+  // au changement de vue, on recalcule la pagination (les deux vues partagent le même
+  // état ; une seule est visible à la fois, donc aucun impact visuel sur l'autre).
+  document.addEventListener('lba-view-change', function () {
+    if (!grid || !qInput) return;
+    visibleLimit = initialLimit();
+    apply(false);
   });
 
   // Lien « Mes alertes » : connecté → filtre sur place ; anonyme → /connexion.
