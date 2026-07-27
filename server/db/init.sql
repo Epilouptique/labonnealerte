@@ -4169,3 +4169,141 @@ DO $$ BEGIN
     ALTER TABLE subscribers ADD CONSTRAINT subscribers_view_mode_chk CHECK (view_mode IN ('cards', 'list'));
   END IF;
 END $$;
+
+-- ================================================================
+-- V3 · TÂCHE À ÉCHÉANCE GLISSANTE — socle données (étape 1/3).
+-- Brique HORS cycle de veille : aucune API interrogée, aucun état partagé
+-- entre abonnés. Chaque ligne appartient à UN abonné et décrit UNE échéance
+-- qui se décale à chaque confirmation (« vidange faite » → repart pour N mois).
+--
+-- Deux modes exclusifs (tracking_mode) :
+--   'time'    : ancrage + périodicité → next_due calculé. Notification proactive.
+--   'counter' : seuil sur un compteur (km, heures…). PAS de notification
+--               proactive au MVP : le relevé vient de l'utilisateur.
+--
+-- ANTI-HALLUCINATION : aucune périodicité, aucun seuil, aucune unité n'a de
+-- valeur par défaut. Rien de réglementaire n'est présumé ici (la périodicité
+-- d'un contrôle technique, d'une vidange, etc. est saisie par l'utilisateur).
+-- Seul défaut posé : announce_days = 7 (choix produit, pas une norme).
+--
+-- Conventions suivies : BIGSERIAL comme les tables récentes, token hex 64
+-- généré côté Node (crypto.randomBytes(32)) comme subscribers.token /
+-- sessions.token — pas d'UUID (aucun dans ce schéma, et gen_random_uuid
+-- dépendrait d'une version PG non vérifiée).
+--
+-- Dates en UTC serveur (CURRENT_DATE / NOW(), cohérent avec le reste du
+-- projet sur Railway). Décalage négligeable à cette granularité : une échéance
+-- se compte en jours, mois ou années. À retraiter seulement si une brique à
+-- granularité journalière fine apparaît un jour.
+-- ================================================================
+CREATE TABLE IF NOT EXISTS user_tasks (
+  id BIGSERIAL PRIMARY KEY,
+  subscriber_id INTEGER NOT NULL REFERENCES subscribers(id) ON DELETE CASCADE,
+  label VARCHAR(80) NOT NULL,            -- texte UTILISATEUR : jamais exposé publiquement
+
+  tracking_mode VARCHAR(10) NOT NULL,    -- 'time' | 'counter'
+
+  -- Mode 'time'
+  anchor_date DATE,                      -- dernière réalisation (repositionnée à chaque confirmation)
+  periodicity_value INTEGER,             -- saisi par l'utilisateur, aucun défaut
+  periodicity_unit VARCHAR(10),          -- 'day' | 'week' | 'month' | 'year'
+  next_due DATE,                         -- anchor_date + periodicity (recalculé, jamais saisi)
+
+  -- Mode 'counter'
+  counter_unit VARCHAR(20),              -- 'km', 'heures'… libre, saisi par l'utilisateur
+  counter_current NUMERIC,               -- dernier relevé connu
+  counter_threshold NUMERIC,             -- seuil déclencheur
+  counter_target NUMERIC,                -- valeur visée au prochain passage (non lu avant l'UI de relevé)
+  counter_updated_at TIMESTAMPTZ,
+
+  announce_days INTEGER NOT NULL DEFAULT 7,   -- préavis avant next_due
+  last_confirmed_at TIMESTAMPTZ,
+  confirm_token VARCHAR(64) NOT NULL,    -- hex 64 généré par l'app ; régénéré à chaque confirmation
+  active BOOLEAN NOT NULL DEFAULT true,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Colonnes pour les bases déjà migrées (le CREATE ci-dessus ne rejoue pas).
+ALTER TABLE user_tasks ADD COLUMN IF NOT EXISTS counter_target NUMERIC;
+ALTER TABLE user_tasks ADD COLUMN IF NOT EXISTS counter_updated_at TIMESTAMPTZ;
+ALTER TABLE user_tasks ADD COLUMN IF NOT EXISTS last_confirmed_at TIMESTAMPTZ;
+
+-- CHECK idempotents (pg_constraint : pas d'ADD CONSTRAINT IF NOT EXISTS natif).
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'user_tasks_mode_chk') THEN
+    ALTER TABLE user_tasks ADD CONSTRAINT user_tasks_mode_chk
+      CHECK (tracking_mode IN ('time', 'counter'));
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'user_tasks_unit_chk') THEN
+    ALTER TABLE user_tasks ADD CONSTRAINT user_tasks_unit_chk
+      CHECK (periodicity_unit IS NULL OR periodicity_unit IN ('day', 'week', 'month', 'year'));
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'user_tasks_time_fields_chk') THEN
+    ALTER TABLE user_tasks ADD CONSTRAINT user_tasks_time_fields_chk
+      CHECK (tracking_mode <> 'time' OR (
+        anchor_date IS NOT NULL AND periodicity_value IS NOT NULL
+        AND periodicity_value > 0 AND periodicity_unit IS NOT NULL
+      ));
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'user_tasks_counter_fields_chk') THEN
+    ALTER TABLE user_tasks ADD CONSTRAINT user_tasks_counter_fields_chk
+      CHECK (tracking_mode <> 'counter' OR (
+        counter_unit IS NOT NULL AND counter_threshold IS NOT NULL
+      ));
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'user_tasks_announce_chk') THEN
+    ALTER TABLE user_tasks ADD CONSTRAINT user_tasks_announce_chk
+      CHECK (announce_days >= 0 AND announce_days <= 365);
+  END IF;
+  -- Garde-fou de DONNÉE (pas d'UI) : même règle que le libellé de
+  -- rappel-personnalise.js — ni « / » ni « @ », par prudence anti-URL /
+  -- anti-email. Posé en base pour protéger la colonne quel que soit le point
+  -- d'entrée (formulaire, import, robot). Interdit aussi le libellé vide.
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'user_tasks_label_chk') THEN
+    ALTER TABLE user_tasks ADD CONSTRAINT user_tasks_label_chk
+      CHECK (btrim(label) <> '' AND label !~ '[/@]');
+  END IF;
+END $$;
+
+-- Balayage du futur job de notification : uniquement les tâches temporelles vivantes.
+CREATE INDEX IF NOT EXISTS idx_user_tasks_next_due
+  ON user_tasks (next_due) WHERE active = true;
+-- Liste « mes tâches » d'un abonné.
+CREATE INDEX IF NOT EXISTS idx_user_tasks_subscriber
+  ON user_tasks (subscriber_id);
+-- Lookup O(1) du lien de confirmation cliqué depuis un email.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_user_tasks_confirm_token
+  ON user_tasks (confirm_token);
+-- Anti-doublon accidentel (double-clic sur « créer »). N'impose AUCUN quota :
+-- le nombre de tâches par abonné reste libre, la question se tranchera avec le
+-- formulaire de création si un besoin produit apparaît.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_user_tasks_unique_label
+  ON user_tasks (subscriber_id, label) WHERE active = true;
+
+-- ----------------------------------------------------------------
+-- Carte-modèle du kiosque (étape 2/3). Insert-only, comme tous les seeds.
+--
+-- type = 'user-task' : NOUVEAU type, hors du cycle du poller (cf. poller.js,
+-- requête du cycle : type NOT IN ('linked','user-task')). Cette carte ne
+-- surveille rien : elle sert de porte d'entrée vers le formulaire de tâche.
+--
+-- params_schema reste NULL — VOLONTAIREMENT, et pas '[]'::jsonb : le poller
+-- range dans le chemin paramétré toute source dont params_schema est non-NULL
+-- (paramIds = rows.filter(r => r.params_schema != null)). Cette carte n'utilise
+-- pas le contrat de paramétrage OpenAlert v2 : ses données vivent dans
+-- user_tasks, pas dans subscriptions.params.
+--
+-- enabled = false : tant que le verso-instance et le formulaire de création
+-- n'existent pas, la carte s'afficherait avec un bouton d'abonnement broadcast
+-- inopérant (source.js : type !== 'linked' && !paramSchema → chemin broadcast).
+-- Activation manuelle à l'étape UI :
+--   UPDATE sources SET enabled = true WHERE id = 'tache-echeance-glissante';
+--
+-- Pas de ligne source_states : aucune notion d'état de veille ici. Les lectures
+-- font LEFT JOIN … COALESCE(st.state, 'inactive') et gèrent déjà l'absence.
+-- ----------------------------------------------------------------
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, enabled)
+SELECT 'tache-echeance-glissante', 'Tâche à échéance', 'Vos échéances qui reviennent',
+  'Vidange, contrôle technique, filtre à eau… posez l''échéance, on vous relance. Vous confirmez, le compteur repart.',
+  'user-task', 'official', false, ARRAY['vie-pratique', 'administration'], 461, false
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'tache-echeance-glissante');

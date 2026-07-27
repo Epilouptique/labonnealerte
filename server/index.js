@@ -16,6 +16,7 @@ const collectionsRouter = require('./routes/collections');
 const decksRouter = require('./routes/decks');
 const skinsRouter = require('./routes/skins');
 const { apiRouter: lePointApiRouter } = require('./routes/le-point');
+const { pagesRouter: userTasksPagesRouter } = require('./routes/user-tasks');
 const { cleanupExpired } = require('./sessions');
 const { startPoller } = require('./poller');
 
@@ -324,6 +325,7 @@ app.get('/source/:id/statut', async (req, res) => {
 // Pages HTML (liens email) montées à la racine, après le static.
 app.use('/', pagesRouter);
 app.use('/', myAlertsPagesRouter);
+app.use('/', userTasksPagesRouter);
 
 app.listen(PORT, () => {
   console.log(`[server] Écoute sur http://localhost:${PORT}`);

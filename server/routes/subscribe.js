@@ -25,7 +25,10 @@ const subscribeLimiter = rateLimit({
 const DEFAULT_SOURCE = 'leboncoin-livraison';
 
 // Petite page HTML autonome, même charte que le site, pour les liens
-// cliqués depuis un email (confirmation / désinscription).
+// cliqués depuis un email (confirmation / désinscription). Exportée : réutilisée
+// telle quelle par la confirmation de tâche à échéance (routes/user-tasks.js).
+// ATTENTION : n'échappe pas ses interpolations — n'y passer que du texte de
+// confiance, ou l'échapper en amont (cf. escapeHtml dans routes/user-tasks.js).
 function htmlPage({ title, heading, message, tone = 'ok' }) {
   const accent = tone === 'err' ? '#dc2626' : '#16a34a';
   return `<!DOCTYPE html>
@@ -254,4 +257,4 @@ pagesRouter.get('/unsubscribe/:token', async (req, res) => {
   }
 });
 
-module.exports = { apiRouter, pagesRouter };
+module.exports = { apiRouter, pagesRouter, htmlPage };

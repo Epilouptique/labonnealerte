@@ -642,8 +642,13 @@ async function runCycle() {
   try {
     // Les sources 'linked' (services partenaires externes) n'ont pas de check :
     // elles sont configurées sur leur propre site, donc hors du cycle du poller.
+    // Les sources 'user-task' (V3) non plus : elles ne surveillent aucune API,
+    // leurs échéances vivent dans user_tasks et relèvent de leur propre job.
+    // Exclusion EXPLICITE : ne pas compter sur l'absence de fichier dans
+    // server/sources/ comme garde-fou (un ajout accidentel casserait en silence).
     const { rows } = await pool.query(
-      "SELECT id, requires_confirmation, params_schema FROM sources WHERE enabled = true AND type <> 'linked'"
+      "SELECT id, requires_confirmation, params_schema FROM sources " +
+      "WHERE enabled = true AND type NOT IN ('linked', 'user-task')"
     );
     enabledIds = new Set(rows.map((r) => r.id));
     confirmFlags = new Map(rows.map((r) => [r.id, r.requires_confirmation]));

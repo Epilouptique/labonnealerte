@@ -81,6 +81,15 @@ alignée à la main. header.js retourne tôt sur la home pour ne pas la doubler.
 home dans header.js est possible mais **risqué** (logique imbriquée avec site.js/
 mobile-header.js) → laissé en dette, à ne pas forcer sans lot dédié.
 
+**Relocalisations DOM de `mobile-header.js` (home, toutes largeurs)** : la recherche, la
+`.toolbar` (puces) et le KPI sont **déplacés depuis `main`/`.hero` vers le header** ; le CSS
+`body.m-kiosk` les arrange ensuite (mobile = empilé / desktop ≥721px = rangée 1
+`[… thème] [view-toggle] [KPI]`, rangée 2 = catégories). Le **`view-toggle`** (bascule
+cartes/liste) suit ce même schéma : en **desktop il est inséré dans `.nav-right` entre le
+bouton thème et le KPI** ; en **mobile il reste dans `.toolbar`** (rangée catégories). Ce
+déplacement est en JS (et non en CSS `order`) car `view-toggle` est un petit-enfant de
+`.toolbar` — `order` ne franchit pas les conteneurs. Rejoué au franchissement de 721px.
+
 ## Pages qui doivent charger header.js
 
 Toute page publique **sauf la home** charge `theme.js` + `session.js` + `header.js` et ne

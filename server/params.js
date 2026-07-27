@@ -44,7 +44,15 @@ function validateParams(schema, raw) {
     } else { // string ET dynamic-enum (valeur libre : la liste d'options est côté front/lookup ;
       // ici on valide le FORMAT via pattern — pour dynamic-enum, ce pattern est le contrat
       // validPanneauUrl exprimé en regex, donc toute valeur hors /ville/ est rejetée).
-      let s = String(v).trim().slice(0, 120);
+      // Plafond de longueur : 120 par défaut (inchangé pour toutes les sources
+      // existantes). `maxLength` permet à un schéma INTERNE (init.sql) de le
+      // relever quand la valeur légitime est plus longue — cas des adresses
+      // iCal d'agenda, qui dépassent systématiquement 120 caractères. Sans ce
+      // réglage, l'URL serait tronquée EN SILENCE, passerait quand même le
+      // `pattern`, et l'abonnement serait définitivement muet.
+      const cap = (typeof desc.maxLength === 'number' && desc.maxLength > 0)
+        ? Math.min(desc.maxLength, 500) : 120;
+      let s = String(v).trim().slice(0, cap);
       if (desc.lowercase) s = s.toLowerCase();
       // `pattern` n'est honoré que pour les schémas internes de confiance (init.sql) :
       // validateParamsSchema le retire des schémas soumis (anti-ReDoS).
