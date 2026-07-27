@@ -2300,6 +2300,9 @@ html[data-theme="dark"] .tint-11 .deck-motif-bg::after { background: color-mix(i
    deborder de la tuile ni recouvrir une tuile/carte voisine (correctif regression :
    plus de surplomb non maitrise entre tuiles de la grille dense du kiosque). */
 .deck-card { display: block; text-decoration: none; color: inherit; cursor: pointer; min-width: 0; align-self: start; overflow: visible; border-radius: 24px; }
+/* Tuile-deck recommandee : contexte de positionnement pour l'etiquette « Recommandee »
+   (.reco-label est en position:absolute ; overflow:visible laisse deborder le top:-10px). */
+.deck-card.card-reco { position: relative; }
 .deck-card, .deck-card * { cursor: pointer; }
 .deck-card:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; border-radius: 24px; }
 .deck-stack { display: block; position: relative; }
@@ -2545,6 +2548,9 @@ html[data-theme="dark"] .tint-11 .ds-ribbon {
   --tc-chip-bg: #fff;
   --tc-chip-fg: var(--ink);
   --tc-chip-shadow: 0 1px 2px rgba(30, 20, 50, .12);
+  /* Animation « radar calme » (etat actif) : violet de repos / vert de balayage. */
+  --fa-ring: #a567e3;
+  --fa-green: #16a34a;
 }
 html[data-theme="dark"] {
   --tc-grad: linear-gradient(180deg, #241c38 0%, #171126 100%);
@@ -2564,6 +2570,8 @@ html[data-theme="dark"] {
   --tc-chip-bg: rgba(255, 255, 255, .12);
   --tc-chip-fg: #f0eaf8;
   --tc-chip-shadow: none;
+  --fa-ring: #bd8ef0;
+  --fa-green: #22c55e;
 }
 
 /* ----- Recto : conteneur full-art (degrade + couches en fond) ----- */
@@ -2588,6 +2596,64 @@ overflow: hidden;
 .card-front .fullart .tc-line { opacity: var(--tc-line-op); }
 .card-front .fullart .tc-stars { opacity: var(--tc-stars-op); color: var(--tc-stars-color); }
 .card-front .fullart .tc-dot { fill: var(--green); }
+
+/* ----- Animation d'etat actif « radar calme » (skin full-art par defaut) -----
+   PRINCIPE POUR LA SUITE (a respecter pour tout futur skin de carte) : chaque skin
+   definit SA PROPRE animation d'etat actif, adaptee a SON illustration — minime,
+   calme, et JAMAIS deux elements animes en meme temps hors du vocabulaire du skin.
+   Celle-ci est PROPRE au skin full-art par defaut : ne pas la dupliquer telle quelle
+   sur les futurs skins « ecole classique » / « Arcane » (chacun aura son propre geste).
+   Geste : le point vert bat UNE fois, puis chaque cercle concentrique passe au vert A
+   TOUR DE ROLE (du plus proche au plus lointain, jamais deux a la fois), puis long repos.
+   Valeurs (reference) : cycle 5,6 s ; fenetre verte 3->11 % (~0,62 s) par cercle, fondu
+   ease-in-out ; delais 0,62 / 1,34 / 2,06 / 2,78 s ; point : blip a 0-8 %.
+   Scope = etat actif REEL (.state.active via :has()) → une carte inactive n'anime
+   RIEN. Uniquement stroke/fill/opacity (pas de transform/layout). --fa-op = opacite de
+   repos propre a chaque cercle (retour exact a l'etat de base). */
+.fa-c1 { --fa-op: 1; }
+.fa-c2 { --fa-op: .6; }
+.fa-c3 { --fa-op: .35; }
+.fa-c4 { --fa-op: .2; }
+@keyframes fa-blip {
+  0%       { opacity: 1; }
+  4%       { opacity: .3; }
+  8%, 100% { opacity: 1; }
+}
+@keyframes fa-ring {
+  0%, 3%    { stroke: var(--fa-ring); opacity: var(--fa-op); }
+  7%        { stroke: var(--fa-green); opacity: 1; }
+  11%, 100% { stroke: var(--fa-ring); opacity: var(--fa-op); }
+}
+/* Desync entre cartes actives voisines : decalage de phase par paquet (nth-child) pour
+   eviter l'effet « toutes en choeur » trop mecanique sur une grille dense. --fa-shift
+   s'ajoute au delai de chaque cercle (le stagger interne 0,62 s reste intact) et pilote
+   le point. Neutre (0s) par defaut → une carte isolee reste fidele a la reference. */
+.grid .card, .deck-card .card { --fa-shift: 0s; }
+.grid .card:nth-child(5n+2) { --fa-shift: -1.1s; }
+.grid .card:nth-child(5n+3) { --fa-shift: -2.3s; }
+.grid .card:nth-child(5n+4) { --fa-shift: -3.4s; }
+.grid .card:nth-child(5n+5) { --fa-shift: -4.5s; }
+.card-front:has(.state.active) .fullart .fa-dot {
+  animation: fa-blip 5.6s ease-in-out infinite;
+  animation-delay: var(--fa-shift, 0s);
+}
+.card-front:has(.state.active) .fullart .fa-c1,
+.card-front:has(.state.active) .fullart .fa-c2,
+.card-front:has(.state.active) .fullart .fa-c3,
+.card-front:has(.state.active) .fullart .fa-c4 {
+  animation: fa-ring 5.6s ease-in-out infinite;
+}
+.card-front:has(.state.active) .fullart .fa-c1 { animation-delay: calc(var(--fa-shift, 0s) + .62s); }
+.card-front:has(.state.active) .fullart .fa-c2 { animation-delay: calc(var(--fa-shift, 0s) + 1.34s); }
+.card-front:has(.state.active) .fullart .fa-c3 { animation-delay: calc(var(--fa-shift, 0s) + 2.06s); }
+.card-front:has(.state.active) .fullart .fa-c4 { animation-delay: calc(var(--fa-shift, 0s) + 2.78s); }
+@media (prefers-reduced-motion: reduce) {
+  .card-front:has(.state.active) .fullart .fa-dot,
+  .card-front:has(.state.active) .fullart .fa-c1,
+  .card-front:has(.state.active) .fullart .fa-c2,
+  .card-front:has(.state.active) .fullart .fa-c3,
+  .card-front:has(.state.active) .fullart .fa-c4 { animation: none; }
+}
 /* Voile de lisibilite (transparent en haut -> quasi opaque en bas). */
 .grid .card-front .card-veil, .deck-card .card-front .card-veil {
   position: absolute; inset: 0; z-index: 1; pointer-events: none;

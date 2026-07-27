@@ -91,13 +91,16 @@
   // la substitution future par catégorie n'aura qu'à faire varier ce SVG (ou son injection).
   var FULLART_SVG = '<span class="fullart" aria-hidden="true">' +
     '<svg viewBox="0 0 280 420" fill="none" stroke="currentColor" stroke-linecap="round" preserveAspectRatio="xMidYMid slice">' +
+      // fa-c1..fa-c4 (cercles) + fa-dot (point) = cibles de l'animation « radar calme »
+      // de l'état actif (voir CSS, bloc disposition A). La ligne sismique et les points
+      // épars ne portent pas ces classes → ils ne bougent jamais.
       '<g class="tc-rings">' +
-        '<circle cx="140" cy="128" r="34" stroke-width="2"/>' +
-        '<circle cx="140" cy="128" r="64" stroke-width="1.6" opacity=".6"/>' +
-        '<circle cx="140" cy="128" r="98" stroke-width="1.4" opacity=".35"/>' +
-        '<circle cx="140" cy="128" r="136" stroke-width="1.2" opacity=".2"/>' +
+        '<circle class="fa-c1" cx="140" cy="128" r="34" stroke-width="2"/>' +
+        '<circle class="fa-c2" cx="140" cy="128" r="64" stroke-width="1.6" opacity=".6"/>' +
+        '<circle class="fa-c3" cx="140" cy="128" r="98" stroke-width="1.4" opacity=".35"/>' +
+        '<circle class="fa-c4" cx="140" cy="128" r="136" stroke-width="1.2" opacity=".2"/>' +
       '</g>' +
-      '<circle class="tc-dot" cx="140" cy="128" r="8" stroke="none"/>' +
+      '<circle class="tc-dot fa-dot" cx="140" cy="128" r="8" stroke="none"/>' +
       '<path class="tc-line" d="M-10 296 L70 232 L120 268 L180 216 L236 264 L300 226" stroke-width="4"/>' +
       '<g class="tc-stars" stroke="none" fill="currentColor">' +
         '<circle cx="52" cy="58" r="1.8"/><circle cx="228" cy="42" r="1.5"/>' +
