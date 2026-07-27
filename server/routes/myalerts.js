@@ -218,6 +218,33 @@ apiRouter.get('/my-alerts', async (req, res) => {
       if (!row) return;
       row.instances.push({ params: ps.params, label: resolveLabel(ps.params_schema, ps.params), state: ps.state, muted: ps.muted === true });
     });
+    // V3 · tâches à échéance glissante. STRICTEMENT PRIVÉES : elles ne transitent que
+    // par cette route authentifiée, jamais par /api/sources (publique). Attachées à la
+    // carte 'user-task' correspondante, comme instances[] l'est aux cartes paramétrées.
+    const taskRows = await pool.query(
+      `SELECT ut.id, ut.label, ut.tracking_mode, ut.next_due, ut.announce_days,
+              ut.counter_unit, ut.counter_current, ut.counter_threshold,
+              s.id AS source_id
+         FROM user_tasks ut
+         JOIN sources s ON s.type = 'user-task' AND s.enabled = true
+        WHERE ut.subscriber_id = $1 AND ut.active = true
+        ORDER BY ut.next_due ASC NULLS LAST, ut.id ASC`,
+      [auth.id]
+    );
+    rows.forEach((r) => { r.tasks = []; });
+    taskRows.rows.forEach((t) => {
+      const row = byId[t.source_id];
+      if (!row) return;
+      row.tasks.push({
+        id: t.id, label: t.label, tracking_mode: t.tracking_mode, next_due: t.next_due,
+        counter_unit: t.counter_unit, counter_current: t.counter_current,
+        counter_threshold: t.counter_threshold,
+      });
+      // Une tâche créée vaut adoption de la carte (même traitement que les instances
+      // paramétrées) : la carte compte dans « mes alertes » et porte data-subscribed=1.
+      row.subscribed = true;
+    });
+
     // Pour chaque source paramétrée abonnée : subscribed=true, state = pire instance.
     // F2) muted au niveau source = TOUTES les instances en pause (interrupteur global).
     Object.values(byId).forEach((r) => {

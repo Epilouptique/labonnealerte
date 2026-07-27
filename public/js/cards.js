@@ -359,6 +359,47 @@
       '</div>';
   }
 
+  // ── V3 · TÂCHE À ÉCHÉANCE GLISSANTE ────────────────────────────────────────
+  // Zone PROPRE à ce type de carte, ajoutée en BAS du verso. Ne touche à aucun
+  // élément du tronc commun : les 4 boutons ronds du recto (.card-icons) restent
+  // rigoureusement identiques sur toutes les cartes, y compris celle-ci. Rendue
+  // uniquement en mode connecté, pour une carte 'user-task' portant au moins une
+  // tâche de l'utilisateur (s.tasks vient de /api/my-alerts, route authentifiée —
+  // ces données ne transitent JAMAIS par /api/sources, qui est publique).
+  function dueFr(d) {
+    if (!d) return null;
+    var dt = new Date(d);
+    if (isNaN(dt.getTime())) return null;
+    return dt.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+  }
+
+  function taskItem(t) {
+    // Mode 'counter' : état de lecture seule, PAS de bouton « c'est fait » (aucune
+    // UI de relevé à ce stade). Robustesse : ne casse pas si une ligne existe déjà.
+    if (t.tracking_mode !== 'time') {
+      var lu = (t.counter_current != null && t.counter_unit)
+        ? esc(String(t.counter_current) + ' ' + t.counter_unit) : '—';
+      return '<div class="task-item" data-task-id="' + esc(t.id) + '">' +
+          '<div class="task-label">' + esc(t.label) + '</div>' +
+          '<div class="task-due">Suivi au compteur · dernier relevé : ' + lu + '</div>' +
+        '</div>';
+    }
+    var d = dueFr(t.next_due);
+    return '<div class="task-item" data-task-id="' + esc(t.id) + '">' +
+        '<div class="task-label">' + esc(t.label) + '</div>' +
+        '<div class="task-due">' + (d ? 'Échéance : ' + esc(d) : 'Échéance non calculée') + '</div>' +
+        '<button type="button" class="task-done" aria-label="Marquer « ' + esc(t.label) + ' » comme fait">' +
+          "C'est fait ✓</button>" +
+      '</div>';
+  }
+
+  function taskZone(s, mode) {
+    if (mode !== 'connected' || s.type !== 'user-task') return '';
+    var tasks = Array.isArray(s.tasks) ? s.tasks : [];
+    if (!tasks.length) return '';
+    return '<div class="task-zone">' + tasks.map(taskItem).join('') + '</div>';
+  }
+
   function backFace(s, cats, isLinked, mode) {
     // Tags cliquables → filtre la catégorie sur la home.
     var tags = (cats.length)
@@ -386,6 +427,7 @@
         topRow(s) +
         longDesc +
         tags + author + statut +
+        taskZone(s, mode) +
       '</div>';
   }
 

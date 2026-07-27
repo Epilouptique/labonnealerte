@@ -634,6 +634,44 @@
     if (ok) { e.preventDefault(); submitAnon(ok.closest('.card')); }
   });
 
+  /* ---- V3 · « C'est fait » in-app (zone tâche, verso des cartes user-task) ----
+     Même porte que le lien email (GET /tache/:id/confirmer/:token), autre chemin :
+     ici la session est en corps JSON, comme toutes les routes du projet. */
+  document.addEventListener('click', async function (e) {
+    var btn = e.target.closest('.task-done');
+    if (!btn) return;
+    // Aperçus de deck : cartes non interactives (déjà pointer-events:none en CSS),
+    // même garde de sécurité que les handlers switch/like.
+    if (btn.closest('.deck-card')) return;
+    var item = btn.closest('.task-item'); if (!item) return;
+    var id = item.getAttribute('data-task-id'); if (!id) return;
+
+    e.preventDefault();
+    btn.disabled = true;
+    var due = item.querySelector('.task-due');
+    try {
+      var res = await fetch('/api/user-tasks/' + encodeURIComponent(id) + '/confirm', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: LBASession.get() })
+      });
+      var data = await res.json().catch(function () { return null; });
+      if (!res.ok) throw new Error((data && data.error) || 'http');
+      // Mise à jour du DOM sans reload : seule la ligne d'échéance change.
+      if (due && data && data.next_due) {
+        var d = new Date(data.next_due);
+        due.textContent = isNaN(d.getTime()) ? 'Échéance mise à jour'
+          : 'Échéance : ' + d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+      }
+      item.classList.add('task-just-done');
+      LBACards.celebrateBurst(btn);
+      setTimeout(function () { item.classList.remove('task-just-done'); }, 1200);
+    } catch (err) {
+      if (due) due.textContent = 'Échec — réessayez dans un instant';
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
   /* ---- Abonnement paramétré (OpenAlert v2) : select + instances ---- */
   var escP = LBACards.esc;
   function ensureAddBtn(card) {
@@ -1842,6 +1880,8 @@
           sc.instances = mine.instances || [];
           if (sc.instances.length) { sc.state = mine.state; sc.muted = mine.muted; }
         }
+        // V3 : tâches à échéance (privées, issues de /my-alerts uniquement).
+        if (mine && sc.type === 'user-task') sc.tasks = mine.tasks || [];
       }
       return LBACards.cardHTML(sc, mode);
     }).join('');

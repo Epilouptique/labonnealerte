@@ -16,7 +16,7 @@ const collectionsRouter = require('./routes/collections');
 const decksRouter = require('./routes/decks');
 const skinsRouter = require('./routes/skins');
 const { apiRouter: lePointApiRouter } = require('./routes/le-point');
-const { pagesRouter: userTasksPagesRouter } = require('./routes/user-tasks');
+const { pagesRouter: userTasksPagesRouter, apiRouter: userTasksApiRouter } = require('./routes/user-tasks');
 const { cleanupExpired } = require('./sessions');
 const { startPoller } = require('./poller');
 
@@ -148,6 +148,7 @@ app.use('/api', collectionsRouter);
 app.use('/api', decksRouter);
 app.use('/api', skinsRouter);
 app.use('/api', lePointApiRouter);
+app.use('/api', userTasksApiRouter);
 app.use('/api/dev', devRouter);
 // Connexion OAuth (Google / GitHub) — redirections serveur.
 app.use('/auth', authRouter);

@@ -330,6 +330,30 @@ main#alertes { width: 100%; }
 .back-propose { margin-top: auto; color: var(--amber); font-weight: 600; font-size: 13px; text-decoration: none; }
 .back-propose:hover { text-decoration: underline; }
 
+/* ===== V3 · Zone « tâche à échéance » (bas du verso, cartes user-task) =========
+   Zone PROPRE à ce type de carte : n'affecte aucune autre carte, ne modifie pas la
+   rangée des 4 boutons ronds du recto. Fond plat (var(--amber-soft)) : AUCUN
+   backdrop-filter, donc rien à retirer sous 620px (cf. bloc perf mobile plus bas).
+   .card-back est deja overflow-y:auto → la zone defile si le verso deborde du ratio ;
+   pas de plafond d'affichage au MVP (a reconsiderer si les tâches s'accumulent). --- */
+.task-zone { margin-top: auto; display: flex; flex-direction: column; gap: 8px; }
+.task-item {
+  background: var(--amber-soft); border-radius: 12px; padding: 10px 12px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.task-label { font-size: 13px; font-weight: 700; color: var(--ink); }
+.task-due { font-size: 12px; color: var(--muted); }
+.task-done {
+  align-self: flex-start; margin-top: 4px; border: none; cursor: pointer;
+  background: var(--amber); color: #fff; font-weight: 700; font-size: 12.5px;
+  padding: 7px 14px; border-radius: 999px;
+  transition: filter .15s ease, opacity .15s ease;
+}
+.task-done:hover { filter: brightness(1.08); }
+.task-done:disabled { opacity: .55; cursor: default; }
+.task-just-done { outline: 2px solid var(--amber); outline-offset: 1px; }
+@media (prefers-reduced-motion: reduce) { .task-done { transition: none; } }
+
 /* En-tête : titre + badge-icône dans le flux (le badge suit le titre), coin réservé au ⓘ/↩. */
 .card-top { display: flex; justify-content: flex-start; align-items: flex-start; gap: 7px; }
 .card-front .card-top { padding-right: 20px; } /* réserve pour like + partager + ⓘ */
@@ -2863,6 +2887,29 @@ overflow: hidden;
 .list { display: none; }
 :root[data-view="list"] #grid { display: none; }
 :root[data-view="list"] .list { display: block; }
+
+/* Transition de vue (approche c) — crossfade + slide directionnel, joué UNIQUEMENT au
+   clic (classes .view-leaving/.view-entering posées par view-mode.js). Séquentiel :
+   la vue sortante glisse vers le HAUT en disparaissant, puis (après swap) la nouvelle
+   apparaît depuis le BAS. Un seul #grid/.list en flux à la fois → pas de saut de hauteur
+   nouveau. Durée/easing alignés sur l'entrée des cartes/lignes (.2–.25s ease). */
+:root.view-leaving[data-view="cards"] #grid,
+:root.view-leaving[data-view="list"] .list {
+  opacity: 0; transform: translateY(-14px);
+  transition: opacity .15s ease, transform .15s ease;
+}
+:root.view-entering[data-view="cards"] #grid,
+:root.view-entering[data-view="list"] .list {
+  animation: view-enter .22s ease;
+}
+@keyframes view-enter { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+/* Fallback instantané : aucune animation si l'utilisateur réduit les animations. */
+@media (prefers-reduced-motion: reduce) {
+  :root.view-leaving[data-view="cards"] #grid,
+  :root.view-leaving[data-view="list"] .list,
+  :root.view-entering[data-view="cards"] #grid,
+  :root.view-entering[data-view="list"] .list { transition: none; animation: none; opacity: 1; transform: none; }
+}
 
 /* Conteneur liste : pleine largeur du wrap, lignes séparées par un filet. */
 .list {

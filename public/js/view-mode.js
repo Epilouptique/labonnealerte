@@ -50,11 +50,29 @@
     emit();
   }
 
+  // Transition de vue (approche c) : la vue courante glisse vers le HAUT en disparaissant,
+  // puis (après swap du display) la nouvelle vue apparaît depuis le BAS. Séquentiel (jamais
+  // les deux en flux en même temps) → aucune superposition, donc AUCUN saut de hauteur
+  // nouveau : le changement de hauteur reste exactement celui d'aujourd'hui (un seul
+  // #grid/.list affiché à la fois), simplement encadré par deux fondus.
+  // Classe transitoire posée UNIQUEMENT sur action utilisateur (jamais au chargement).
+  var REDUCE = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  var swapT1 = null, swapT2 = null;
+
   // Changement explicite par l'utilisateur (toggle toolbar OU contrôle compte) : applique + persiste.
   function set(mode) {
     if (!valid(mode) || mode === current) { if (mode === current) emit(); return; }
-    apply(mode);
     persist(mode);
+    if (REDUCE) { apply(mode); return; } // fallback instantané (respect prefers-reduced-motion)
+    root.classList.remove('view-entering');
+    root.classList.add('view-leaving');
+    clearTimeout(swapT1); clearTimeout(swapT2);
+    swapT1 = setTimeout(function () {
+      apply(mode); // swap du display (data-view) pendant que l'ancienne vue est à opacité 0
+      root.classList.remove('view-leaving');
+      root.classList.add('view-entering');
+      swapT2 = setTimeout(function () { root.classList.remove('view-entering'); }, 240);
+    }, 150);
   }
 
   function toggle() { set(current === 'list' ? 'cards' : 'list'); }

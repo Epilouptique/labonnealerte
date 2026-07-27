@@ -16,8 +16,13 @@ const express = require('express');
 const crypto = require('crypto');
 const { pool } = require('../db');
 const { htmlPage } = require('./subscribe');
+const { authenticate } = require('../sessions');
 
 const pagesRouter = express.Router();
+// apiRouter : confirmation IN-APP (fetch depuis le kiosque, session en corps JSON).
+// Le lien email garde sa propre route sur pagesRouter — deux portes d'entrée, une
+// seule logique de décalage (applyTimeConfirmation ci-dessous).
+const apiRouter = express.Router();
 
 // Unités autorisées → arguments de make_interval(). Liste fermée : le nom de
 // l'unité ne transite JAMAIS en concaténation SQL, on ne passe que des entiers.
@@ -27,6 +32,35 @@ const UNIT_TO_INTERVAL = {
   month: (v) => ({ days: 0,     months: v, years: 0 }),
   year:  (v) => ({ days: 0,     months: 0, years: v }),
 };
+
+// Décale l'échéance d'une tâche 'time' déjà validée par l'appelant : anchor = today,
+// next_due recalculé, horodatage, et NOUVEAU token (invalide un lien email en attente).
+// Partagé par les deux portes d'entrée (lien email et bouton in-app) : une seule
+// définition de « ce que veut dire confirmer ».
+// Retours : la nouvelle next_due ; null si la tâche a été archivée entre-temps
+// (course entre le SELECT et l'UPDATE) ; undefined si la périodicité est illisible.
+//
+// L'échéance repart d'AUJOURD'HUI, pas de l'ancien next_due : c'est tout le sens de
+// « glissante » (une vidange faite avec 3 semaines de retard décale la suivante
+// d'autant). Le décalage calendaire est confié à make_interval (PG natif) : il gère
+// 31 → 30 et les années bissextiles sans code maison. next_due calculé en UTC serveur
+// — décalage négligeable à cette granularité.
+async function applyTimeConfirmation(task) {
+  const shift = UNIT_TO_INTERVAL[task.periodicity_unit];
+  if (!shift || !(task.periodicity_value > 0)) return undefined;
+  const iv = shift(task.periodicity_value);
+  const { rows } = await pool.query(
+    `UPDATE user_tasks
+        SET anchor_date = CURRENT_DATE,
+            next_due = (CURRENT_DATE + make_interval(days => $2, months => $3, years => $4))::date,
+            last_confirmed_at = NOW(),
+            confirm_token = $5
+      WHERE id = $1 AND active = true
+      RETURNING next_due`,
+    [task.id, iv.days, iv.months, iv.years, crypto.randomBytes(32).toString('hex')]
+  );
+  return rows.length ? rows[0].next_due : null;
+}
 
 // htmlPage() interpole sans échapper : le libellé est du texte UTILISATEUR,
 // il doit être neutralisé avant d'entrer dans le gabarit.
@@ -83,8 +117,11 @@ pagesRouter.get('/tache/:id/confirmer/:token', async (req, res) => {
         'Cette tâche se suit au compteur : elle se met à jour par un relevé, pas par une confirmation de date.');
     }
 
-    const shift = UNIT_TO_INTERVAL[task.periodicity_unit];
-    if (!shift || !(task.periodicity_value > 0)) {
+    // Décalage : logique partagée avec la confirmation in-app (apiRouter).
+    // Le nouveau token invalide le lien qui vient d'être cliqué (usage unique).
+    const due = await applyTimeConfirmation(task);
+
+    if (due === undefined) {
       // Ne devrait pas arriver (CHECK user_tasks_time_fields_chk + _unit_chk) :
       // filet pour une ligne écrite hors application.
       console.error(`[user-tasks] tâche #${task.id} : périodicité illisible ` +
@@ -92,34 +129,12 @@ pagesRouter.get('/tache/:id/confirmer/:token', async (req, res) => {
       return errPage(res, 500, 'Configuration incomplète',
         'La périodicité de cette tâche est incomplète. Complète-la depuis ton compte.');
     }
-    const iv = shift(task.periodicity_value);
-
-    // Nouveau token : invalide le lien qui vient d'être cliqué (usage unique).
-    const nextToken = crypto.randomBytes(32).toString('hex');
-
-    // L'échéance repart d'AUJOURD'HUI, pas de l'ancien next_due : c'est tout le
-    // sens de « glissante » (une vidange faite avec 3 semaines de retard décale
-    // la suivante d'autant). Le décalage calendaire est confié à make_interval
-    // (PG natif) : il gère 31 → 30 et les années bissextiles sans code maison.
-    // next_due calculé en UTC serveur — décalage négligeable à cette granularité.
-    const upd = await pool.query(
-      `UPDATE user_tasks
-          SET anchor_date = CURRENT_DATE,
-              next_due = (CURRENT_DATE + make_interval(days => $2, months => $3, years => $4))::date,
-              last_confirmed_at = NOW(),
-              confirm_token = $5
-        WHERE id = $1 AND active = true
-        RETURNING next_due`,
-      [task.id, iv.days, iv.months, iv.years, nextToken]
-    );
-
-    if (upd.rows.length === 0) {
+    if (due === null) {
       // Course : la tâche a été archivée entre le SELECT et l'UPDATE.
       return errPage(res, 410, 'Tâche archivée',
         "Cette tâche n'est plus suivie.");
     }
 
-    const due = upd.rows[0].next_due;
     const dueFr = due
       ? new Date(due).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
       : null;
@@ -145,4 +160,48 @@ pagesRouter.get('/tache/:id/confirmer/:token', async (req, res) => {
   }
 });
 
-module.exports = { pagesRouter };
+// POST /api/user-tasks/:id/confirm — « c'est fait » depuis le kiosque.
+// Corps : { token }. Le projet n'a pas de middleware d'auth : chaque route appelle
+// authenticate() à la main, avec le token en corps JSON (cf. myalerts.js). La
+// propriété est vérifiée dans le WHERE — une tâche d'un autre abonné répond 404,
+// jamais 403 (pas d'énumération des tâches d'autrui).
+apiRouter.post('/user-tasks/:id/confirm', async (req, res) => {
+  const auth = await authenticate((req.body || {}).token);
+  if (!auth) return res.status(401).json({ error: 'Session invalide ou expirée' });
+
+  const id = Number.parseInt(req.params.id, 10);
+  if (!Number.isSafeInteger(id) || id <= 0) {
+    return res.status(400).json({ error: 'Identifiant invalide' });
+  }
+
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, label, tracking_mode, periodicity_value, periodicity_unit, active
+         FROM user_tasks WHERE id = $1 AND subscriber_id = $2`,
+      [id, auth.id]
+    );
+    if (rows.length === 0) return res.status(404).json({ error: 'Tâche inconnue' });
+
+    const task = rows[0];
+    if (!task.active) return res.status(410).json({ error: "Cette tâche n'est plus suivie" });
+    // Mode 'counter' : pas de confirmation par date (le relevé vient de l'utilisateur).
+    if (task.tracking_mode !== 'time') {
+      return res.status(409).json({ error: 'Cette tâche se suit au compteur, pas par confirmation de date' });
+    }
+
+    const nextDue = await applyTimeConfirmation(task);
+    if (nextDue === undefined) {
+      console.error(`[user-tasks] tâche #${task.id} : périodicité illisible ` +
+        `(${task.periodicity_value} ${task.periodicity_unit})`);
+      return res.status(500).json({ error: 'Périodicité de la tâche incomplète' });
+    }
+    if (nextDue === null) return res.status(410).json({ error: "Cette tâche n'est plus suivie" });
+
+    return res.json({ id: task.id, next_due: nextDue, message: 'Échéance décalée' });
+  } catch (err) {
+    console.error('[user-tasks] Erreur POST /user-tasks/:id/confirm :', err.message);
+    return res.status(503).json({ error: 'Service indisponible' });
+  }
+});
+
+module.exports = { pagesRouter, apiRouter };
