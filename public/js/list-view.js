@@ -39,7 +39,11 @@
   }
   function catLabel(slug) { return (window.LBACat && LBACat.label) ? LBACat.label(slug) : slug; }
   function isParam(s) { return Array.isArray(s.params_schema) && s.params_schema.length > 0; }
-  function isLinked(s) { return s.type === 'linked' || !!s.link_url; }
+  // Discriminant aligné sur cards.js (frontFace) : SEUL `type === 'linked'` fait une source
+  // partenaire. On n'utilise PAS `link_url` comme critère : une source convertie en paramétrée
+  // (ex. doomname, linked → external) garde un `link_url` résiduel non effacé — s'y fier
+  // afficherait « Configurer → » au lieu du switch, en divergence avec la vue cartes.
+  function isLinked(s) { return s.type === 'linked'; }
 
   // SVG partagés avec les cartes (aucune duplication de string : exposés par LBACards).
   function ic(name) { return (window.LBACards && LBACards[name]) || ''; }
