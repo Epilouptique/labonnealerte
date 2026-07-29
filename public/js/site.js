@@ -886,20 +886,19 @@
     else followParamAnon(card);
   });
 
-  // Cartes NON-géo : activation IMMÉDIATE au choix (select) ou à la saisie debouncée
-  // (input) — comportement d'origine. On distingue les cartes géo par la présence du
-  // switch « S'abonner » (.param-follow-cb) : sur celles-là, l'activation passe UNIQUEMENT
-  // par le switch (bloc ci-dessus), jamais au change/saisie.
-  // Géo = la carte porte le switch cliquable .param-follow-geo (les non-géo ont
-  // .param-follow-auto, disabled). Le discriminant ne peut PLUS être la simple présence
-  // de .param-follow-cb, désormais rendu sur toutes les cartes.
-  function isGeoCard(card) { return !!card.querySelector('.param-follow-geo'); }
-  // Le change/saisie auto est bloqué pour une carte géo TANT QUE le switch « S'abonner »
-  // est actif (1er abonnement, valeur souvent pré-remplie → confirmation explicite requise).
-  // Une fois abonnée (interrupteur pause/reprise du bas présent, switch masqué), l'ajout
-  // d'une instance supplémentaire se fait au change/saisie comme les non-géo : on choisit
-  // forcément une NOUVELLE valeur, aucun risque d'activation accidentelle par pré-remplissage.
-  function autoBlocked(card) { return isGeoCard(card) && !card.querySelector('.param-mute-row'); }
+  // Activation IMMÉDIATE au choix (select) ou à la saisie debouncée (input) pour TOUTES
+  // les cartes paramétrées, géo comme non-géo. Le switch « S'abonner » (.param-follow-cb)
+  // reste un chemin explicite possible (son propre handler, bloc ci-dessus), mais n'est
+  // plus l'unique déclencheur pour les géo.
+  // Un CHOIX ACTIF de l'utilisateur (change select, saisie debouncée, sélection dyn-enum,
+  // Entrée) abonne DIRECTEMENT — géo comme non-géo, sans passer par le switch. Aucun blocage
+  // géo : le garde-fou anti-abonnement-au-prefill ne repose PAS sur ce verrou mais sur le fait
+  // que le pré-remplissage profil pose sa valeur via des attributs HTML (`selected`, `value=`)
+  // qui ne déclenchent NI `change` NI `input` → ces handlers ne s'exécutent que sur une vraie
+  // interaction. (Confirmé : aucun dispatch synthétique de change/input ne vise .param-select
+  // /.param-input ; le prefill dyn-enum dispatche un `input` sur .dyn-search, pas sur le champ
+  // abonnant.) Fonction conservée comme point d'extension unique si un blocage redevenait utile.
+  function autoBlocked(card) { return false; }
   document.addEventListener('change', function (e) {
     var sel = e.target.closest('.param-select');
     if (!sel || !sel.value) return; // ignore le placeholder « Choisir… »
@@ -1059,16 +1058,10 @@
         var t = paramInputTimers.get(e.target);
         if (t) { clearTimeout(t); paramInputTimers.delete(e.target); } // pas de double déclenchement
         if ((e.target.value || '').trim()) {
-          if (autoBlocked(pcard)) {
-            // 1er abonnement géo : le change/saisie auto est bloqué → on coche le switch
-            // « S'abonner » (son handler valide readParam puis abonne), comme un clic.
-            var pcb = pcard.querySelector('.param-follow-cb');
-            if (pcb && !pcb.disabled) { pcb.checked = true; pcb.dispatchEvent(new Event('change', { bubbles: true })); }
-          } else {
-            // Déjà abonné (ajout d'instance) ou carte non-géo : abonnement immédiat.
-            if (document.body.getAttribute('data-mode') === 'connected') followParamConnected(pcard);
-            else followParamAnon(pcard);
-          }
+          // Entrée = choix actif → abonnement immédiat (géo comme non-géo), équivalent au
+          // debounce déclenché maintenant. readParam (dans follow*) valide le pattern.
+          if (document.body.getAttribute('data-mode') === 'connected') followParamConnected(pcard);
+          else followParamAnon(pcard);
         }
       }
     }

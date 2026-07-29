@@ -3040,16 +3040,14 @@ overflow: hidden;
 .lrow-exp .card.in-list-exp .card-content > .sub-count { display: none; }
 .lrow-exp .card.in-list-exp .card-content { padding: 0; }
 /* Abonné : l'interrupteur pause/reprise du volet est représenté par le switch de la
-   ligne fermée → on le masque ici pour éviter le doublon. Le « S'abonner »
-   (.param-follow-row, présent tant que non abonné) reste visible : c'est le vrai
-   contrôle de souscription (avec sa valeur). */
+   ligne fermée → on le masque ici pour éviter le doublon. */
 .lrow-exp .card.in-list-exp .param-mute-row { display: none; }
-/* Non abonné, source NON-GÉO (switch « S'abonner » disabled, `.param-follow-auto`) :
-   l'abonnement se déclenche déjà à la saisie/sélection du champ (change/input câblés
-   sur followParamConnected). Le switch du volet ferait doublon avec celui de la ligne
-   → on le masque. Les sources GÉO (`.param-follow-geo`, switch cliquable = seul trigger,
-   auto-abonnement bloqué à dessein) NE sont PAS ciblées : leur switch reste visible. */
-.lrow-exp .card.in-list-exp .param-follow-row:has(.param-follow-auto) { display: none; }
+/* Non abonné : le switch « S'abonner » du volet est masqué pour TOUTES les familles
+   (géo comme non-géo). Depuis que le choix actif d'une valeur abonne directement
+   (change/input/dyn-enum câblés sur followParamConnected, sans blocage géo), plus aucune
+   source n'a besoin de ce switch pour souscrire : il ferait doublon avec le switch de la
+   ligne fermée (seul contrôle visible en liste, reflète l'état via sync()). */
+.lrow-exp .card.in-list-exp .param-follow-row { display: none; }
 
 /* (h) Apparition d'une ligne (filtrage catégorie, adoption, dismiss reco) : même
    durée/easing que l'entrée des cartes (.25s ease). Le réordonnancement complet type
