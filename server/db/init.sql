@@ -4429,3 +4429,14 @@ CREATE INDEX IF NOT EXISTS idx_forum_reports_post ON forum_reports (post_id);
 
 -- Rôle admin (modération forum) : posé manuellement à true pour le compte de Hugo.
 ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT false;
+
+-- Catégorie chapeau « Bonnes affaires » (voir server/categories.js) : posée EN PLUS du tag
+-- précis sur toute source qui fait économiser (bons plans, soldes, promos, prix carburant…).
+-- Idempotent : n'ajoute rien si déjà présent, et respecte le plafond de 3 catégories.
+UPDATE sources SET categories = categories || ARRAY['bonnes-affaires']
+WHERE NOT ('bonnes-affaires' = ANY(categories))
+  AND COALESCE(cardinality(categories), 0) < 3
+  AND categories && ARRAY['bons-plans', 'promos', 'ventes-flash', 'soldes', 'codes-promo',
+      'cashback', 'livraison-gratuite', 'baisse-de-prix', 'restock', 'precommandes',
+      'occasions', 'encheres', 'echantillons-gratuits', 'deals-du-jour', 'erreurs-de-prix',
+      'prix-carburant', 'prix-occasion'];

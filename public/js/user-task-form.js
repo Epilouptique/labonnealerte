@@ -153,7 +153,8 @@
   // existante, juste avant le bouton de création (qui devient « + une autre »).
   function appendTask(card, task) {
     if (!card || !task) return;
-    var zone = card.querySelector('.card-back .task-zone');
+    // La zone vit désormais sur la 5e face « Configurer », plus sur le verso du ⓘ.
+    var zone = card.querySelector('.card-task-face .task-zone');
     if (!zone) return;
     var due = task.next_due
       ? new Date(task.next_due).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
@@ -162,6 +163,8 @@
     item.className = 'task-item';
     item.setAttribute('data-task-id', task.id);
     item.innerHTML =
+      '<button type="button" class="task-remove" aria-label="Supprimer « ' + esc(task.label) +
+        ' »">✕</button>' +
       '<div class="task-label">' + esc(task.label) + '</div>' +
       '<div class="task-due">' + (due ? 'Échéance : ' + esc(due) : 'Échéance non calculée') + '</div>' +
       '<button type="button" class="task-done" aria-label="Marquer « ' + esc(task.label) +
@@ -170,6 +173,9 @@
     zone.insertBefore(item, create || null);
     if (create) { create.textContent = '+ une autre tâche'; create.classList.add('secondary'); }
     card.dataset.subscribed = '1'; // une tâche vaut adoption (cf. myalerts.js)
+    // Le recto reflète l'adoption sans attendre un rechargement.
+    var st = card.querySelector('.card-front .state.task');
+    if (st) st.innerHTML = '<span class="dot-idle"></span> Tâche suivie';
   }
 
   document.addEventListener('click', function (e) {

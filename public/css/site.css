@@ -352,6 +352,17 @@ main#alertes { width: 100%; }
 .task-done:hover { filter: brightness(1.08); }
 .task-done:disabled { opacity: .55; cursor: default; }
 .task-just-done { outline: 2px solid var(--amber); outline-offset: 1px; }
+/* Croix de suppression d'une tâche : même style que le ✕ d'un chip de deck
+   (.param-remove) — suppression immédiate, sans confirmation. */
+.task-item { position: relative; }
+.task-item .task-label { padding-right: 22px; }  /* réserve pour la croix */
+.task-remove {
+  position: absolute; top: 6px; right: 6px;
+  border: none; background: transparent; color: var(--muted); cursor: pointer;
+  font-size: 13px; line-height: 1; padding: 2px 4px; border-radius: 6px;
+}
+.task-remove:hover { color: var(--amber); }
+.task-remove:disabled { opacity: .5; cursor: default; }
 @media (prefers-reduced-motion: reduce) { .task-done { transition: none; } }
 
 /* V3 · bouton d'appel du verso-decouverte + formulaire de creation (modale).
@@ -455,8 +466,13 @@ main#alertes { width: 100%; }
   font-family: inherit; transition: background .15s;
 }
 .link-btn:hover { background: var(--amber-soft); }
-/* Recto d'une carte « tâche à échéance » : renvoi au verso, non actionnable. */
+/* Recto d'une carte « tâche à échéance » : renvoi au verso, non actionnable.
+   Conservé : plus utilisé par frontFace depuis l'étape 8 (remplacé par le bouton
+   « Configurer »), gardé comme utilitaire de texte discret sur une face de carte. */
 .task-hint { font-size: 12.5px; color: var(--muted); line-height: 1.45; }
+/* Bouton « Configurer » du recto : .link-btn habille déjà un <button>
+   (font-family: inherit), mais display:block ne l'étire pas comme un <a>. */
+.task-config, .task-config-anon { width: 100%; cursor: pointer; }
 .sub-form { display: none; gap: 8px; }
 .card.open .sub-form { display: flex; }
 .card.open .sub-btn { display: none; }
@@ -1147,6 +1163,20 @@ body[data-mode="connected"] #stats { display: none; }
 .cdf-body { display: flex; flex-direction: column; gap: 2px; }
 .cdf-loading { color: var(--muted); font-size: .85rem; padding: 8px 2px; }
 .card-deck-face .dam-item { width: 100%; text-align: left; }
+
+/* V3 · 5e face « Configurer » (gestion des tâches). Même mécanique que les faces
+   partage/deck : .face-task désigne la face arrière visible, indépendamment de
+   .flipped (pas de flicker au retour). Nommage générique : cette structure est
+   destinée à d'autres cartes à instances utilisateur. */
+.card-task-face {
+  position: absolute; inset: 0; transform: rotateY(180deg); gap: 10px;
+  background: color-mix(in srgb, var(--surface) 94%, var(--amber));
+  overflow-y: auto;
+}
+.card.face-task .card-back { display: none; }
+.card:not(.face-task) .card-task-face { display: none; }
+.tf-title { font-size: 14px; font-weight: 700; padding-right: 30px; color: var(--ink); }
+.tf-mute { margin: 0; }
 .share-face-title { font-size: 14px; font-weight: 700; padding-right: 30px; }
 .card-share-face .share-grid { grid-template-columns: repeat(4, 1fr); gap: 4px; }
 .card-share-face .share-opt { padding: 8px 2px; border-radius: 12px; }
@@ -2803,18 +2833,21 @@ overflow: hidden;
 .card-content .switch-row, .card-content .param-row { margin-top: 10px; }
 
 /* ----- Versos (info / partage / deck) : meme langage (degrade + lisere) ----- */
-.grid .card-back, .grid .card-share-face, .grid .card-deck-face,
-.deck-card .card-back, .deck-card .card-share-face, .deck-card .card-deck-face {
+.grid .card-back, .grid .card-share-face, .grid .card-deck-face, .grid .card-task-face,
+.deck-card .card-back, .deck-card .card-share-face, .deck-card .card-deck-face, .deck-card .card-task-face {
   background: var(--tc-grad); color: var(--ink);
   border: 1.5px solid var(--tc-edge); border-radius: 18px;
 }
-.grid .card-back::after, .grid .card-share-face::after, .grid .card-deck-face::after,
-.deck-card .card-back::after, .deck-card .card-share-face::after, .deck-card .card-deck-face::after {
+.grid .card-back::after, .grid .card-share-face::after, .grid .card-deck-face::after, .grid .card-task-face::after,
+.deck-card .card-back::after, .deck-card .card-share-face::after, .deck-card .card-deck-face::after,
+.deck-card .card-task-face::after {
   content: ""; position: absolute; inset: 4px; border-radius: 14px;
   border: 1px solid var(--tc-edge-in); pointer-events: none; z-index: 5;
 }
 .grid .card-back h3, .grid .card-share-face .share-face-title, .grid .card-deck-face .cdf-title,
-.deck-card .card-back h3, .deck-card .card-share-face .share-face-title, .deck-card .card-deck-face .cdf-title {
+.grid .card-task-face .tf-title,
+.deck-card .card-back h3, .deck-card .card-share-face .share-face-title, .deck-card .card-deck-face .cdf-title,
+.deck-card .card-task-face .tf-title {
   color: var(--ink);
 }
 
@@ -3029,7 +3062,8 @@ overflow: hidden;
 .lrow-exp .card.in-list-exp .card-face { box-shadow: none; border-color: transparent; background: none; padding: 0; gap: 10px; }
 .lrow-exp .card.in-list-exp .card-back,
 .lrow-exp .card.in-list-exp .card-share-face,
-.lrow-exp .card.in-list-exp .card-deck-face { display: none; }
+.lrow-exp .card.in-list-exp .card-deck-face,
+.lrow-exp .card.in-list-exp .card-task-face { display: none; }
 .lrow-exp .card.in-list-exp .fullart,
 .lrow-exp .card.in-list-exp .card-veil,
 .lrow-exp .card.in-list-exp .card-edge,

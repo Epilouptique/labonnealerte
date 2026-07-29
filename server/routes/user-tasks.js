@@ -107,6 +107,13 @@ function escapeHtml(s) {
   ));
 }
 
+// Script externe (CSP : 'script-src' = 'self', aucun inline possible) chargé
+// UNIQUEMENT sur la page de succès : si le navigateur porte une session, il renvoie
+// vers le kiosque pour y ouvrir la carte et rejouer l'animation de confirmation.
+// Absent des pages d'erreur. Sans JS, ou sans session : la page reste la réponse,
+// complète et suffisante (amélioration progressive).
+const CONFIRM_SCRIPT = '<script src="/js/task-confirmed.js"></script>';
+
 function errPage(res, status, heading, message) {
   return res.status(status).type('html').send(
     htmlPage({ title: 'Lien invalide', heading, message, tone: 'err' })
@@ -182,6 +189,7 @@ pagesRouter.get('/tache/:id/confirmer/:token', async (req, res) => {
         heading: 'C’est noté ✅',
         message: `« ${escapeHtml(task.label)} » est marquée comme faite.` +
           (dueFr ? ` Prochaine échéance : le ${dueFr}.` : ''),
+        headExtra: CONFIRM_SCRIPT,
       })
     );
   } catch (err) {
@@ -325,6 +333,60 @@ apiRouter.post('/user-tasks', async (req, res) => {
       return res.status(409).json({ error: 'Vous suivez déjà une tâche identique' });
     }
     console.error('[user-tasks] Erreur POST /user-tasks :', err.message);
+    return res.status(503).json({ error: 'Service indisponible' });
+  }
+});
+
+// DELETE /api/user-tasks/:id — retire une tâche de la liste de l'utilisateur.
+// Corps : { token }. Précédent d'un DELETE authentifié par corps JSON :
+// DELETE /api/my-alerts/account (myalerts.js).
+// SOFT DELETE : active = false, la ligne n'est JAMAIS supprimée (historique des
+// confirmations conservé). Effets : le job de relance l'ignore (WHERE active = true),
+// elle disparaît de /my-alerts, et l'index unique partiel
+// idx_user_tasks_unique_label (… WHERE active = true) libère le libellé — on peut
+// donc recréer une tâche du même nom sans conflit.
+// Propriété vérifiée dans le WHERE : la tâche d'un autre abonné répond 404.
+apiRouter.delete('/user-tasks/:id', async (req, res) => {
+  const auth = await authenticate((req.body || {}).token);
+  if (!auth) return res.status(401).json({ error: 'Session invalide ou expirée' });
+
+  const id = Number.parseInt(req.params.id, 10);
+  if (!Number.isSafeInteger(id) || id <= 0) {
+    return res.status(400).json({ error: 'Identifiant invalide' });
+  }
+
+  try {
+    const { rows } = await pool.query(
+      `UPDATE user_tasks SET active = false
+        WHERE id = $1 AND subscriber_id = $2 AND active = true
+        RETURNING id`,
+      [id, auth.id]
+    );
+    if (rows.length === 0) return res.status(404).json({ error: 'Tâche inconnue' });
+
+    // Plus aucune tâche active : on retire la ligne subscriptions posée à la création
+    // (étape 6, porteuse du drapeau de pause). Sinon la carte resterait comptée dans
+    // « Ma collection » et dans subscriber_count sans rien à gérer derrière — l'état
+    // fantôme qu'on évite partout ailleurs. Même geste que removeParam côté chips.
+    // Contrepartie assumée : le réglage de pause est perdu si l'utilisateur recrée
+    // une tâche plus tard (il repart en « Abonné », défaut muted = false).
+    const left = await pool.query(
+      'SELECT 1 FROM user_tasks WHERE subscriber_id = $1 AND active = true LIMIT 1',
+      [auth.id]
+    );
+    let subscribed = true;
+    if (left.rows.length === 0) {
+      await pool.query(
+        `DELETE FROM subscriptions
+          WHERE subscriber_id = $1 AND params IS NULL
+            AND source_id IN (SELECT id FROM sources WHERE type = 'user-task')`,
+        [auth.id]
+      );
+      subscribed = false;
+    }
+    return res.json({ id: rows[0].id, deleted: true, subscribed });
+  } catch (err) {
+    console.error('[user-tasks] Erreur DELETE /user-tasks/:id :', err.message);
     return res.status(503).json({ error: 'Service indisponible' });
   }
 });

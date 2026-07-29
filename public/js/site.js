@@ -479,12 +479,13 @@
       if (c2) {
         var wasShare = c2.classList.contains('face-share');
         var wasDeck = c2.classList.contains('face-deck'); // F3
+        var wasTask = c2.classList.contains('face-task'); // V3 · face « Configurer »
         c2.classList.remove('flipped');
         // Tuile-deck : reaffiche le ruban + les cartes du fond apres la rotation de retour.
         var dc = c2.closest('.deck-card');
         // Garde la face active cachant l'info pendant la rotation de retour (anti-flicker).
-        if (wasShare || wasDeck) setTimeout(function () {
-          c2.classList.remove('face-share', 'face-deck');
+        if (wasShare || wasDeck || wasTask) setTimeout(function () {
+          c2.classList.remove('face-share', 'face-deck', 'face-task');
           if (dc) dc.classList.remove('ds-sharing');
         }, REDUCE ? 0 : 520);
       }
@@ -641,6 +642,74 @@
     if (ok) { e.preventDefault(); submitAnon(ok.closest('.card')); }
   });
 
+  /* ---- V3 · « Configurer » : ouvre la 5e face (gestion des tâches) ---- */
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest('button.task-config');
+    if (!btn) return;
+    if (btn.closest('.deck-card')) return; // aperçus de deck : non interactifs
+    e.preventDefault(); e.stopPropagation();
+    var card = btn.closest('.card'); if (!card) return;
+    // Même geste que openDeckFace : rotation + désignation de la face arrière visible.
+    card.classList.remove('face-share', 'face-deck');
+    card.classList.add('flipped', 'face-task');
+  });
+
+  /* ---- V3 · suppression d'une tâche (croix) ----
+     Calqué sur removeParam() : aucune confirmation, appel API, retrait du DOM au
+     succès. Soft delete côté serveur (active = false) : rien n'est perdu en base. */
+  document.addEventListener('click', async function (e) {
+    var x = e.target.closest('.task-remove');
+    if (!x) return;
+    if (x.closest('.deck-card')) return;
+    e.preventDefault(); e.stopPropagation();
+    var item = x.closest('.task-item'); if (!item) return;
+    var id = item.getAttribute('data-task-id'); if (!id) return;
+    var card = item.closest('.card');
+    x.disabled = true;
+    try {
+      var res = await fetch('/api/user-tasks/' + encodeURIComponent(id), {
+        method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: LBASession.get() })
+      });
+      if (!res.ok) throw new Error('http ' + res.status);
+      var data = await res.json().catch(function () { return null; });
+      var zone = item.parentNode;
+      item.remove();
+      // Plus aucune tâche : le bouton redevient « Créer ma tâche », l'interrupteur de
+      // pause disparaît (rien à mettre en pause) et le recto repasse en « Tâche
+      // personnelle ». Le serveur a aussi retiré la ligne subscriptions (pas d'état
+      // fantôme) → data.subscribed === false, on reflète le désabonnement.
+      if (zone && !zone.querySelector('.task-item')) {
+        var create = zone.querySelector('.task-create');
+        if (create) { create.textContent = 'Créer ma tâche'; create.classList.remove('secondary'); }
+        if (card) {
+          var mute = card.querySelector('.card-task-face .param-mute-row');
+          if (mute) mute.remove();
+          var st = card.querySelector('.card-front .state.task');
+          if (st) st.innerHTML = '<span class="dot-idle"></span> Tâche personnelle';
+          if (!data || data.subscribed === false) {
+            card.dataset.subscribed = '0';
+            if (typeof refreshMineDependent === 'function') refreshMineDependent();
+          }
+        }
+      }
+    } catch (err) {
+      x.disabled = false;
+      var due = item.querySelector('.task-due');
+      if (due) due.textContent = 'Suppression impossible — réessayez';
+    }
+  });
+
+  // Pulse « tâche confirmée ». PARTAGÉE par le bouton in-app et le retour depuis le
+  // lien email (?task-confirmed=<id>) : une seule définition de l'animation.
+  function markTaskDone(item) {
+    if (!item) return;
+    var btn = item.querySelector('.task-done');
+    item.classList.add('task-just-done');
+    if (btn && window.LBACards && LBACards.celebrateBurst) LBACards.celebrateBurst(btn);
+    setTimeout(function () { item.classList.remove('task-just-done'); }, 1200);
+  }
+
   /* ---- V3 · « C'est fait » in-app (zone tâche, verso des cartes user-task) ----
      Même porte que le lien email (GET /tache/:id/confirmer/:token), autre chemin :
      ici la session est en corps JSON, comme toutes les routes du projet. */
@@ -669,9 +738,7 @@
         due.textContent = isNaN(d.getTime()) ? 'Échéance mise à jour'
           : 'Échéance : ' + d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
       }
-      item.classList.add('task-just-done');
-      LBACards.celebrateBurst(btn);
-      setTimeout(function () { item.classList.remove('task-just-done'); }, 1200);
+      markTaskDone(item);
     } catch (err) {
       if (due) due.textContent = 'Échec — réessayez dans un instant';
     } finally {
@@ -1287,8 +1354,13 @@
   function renderChips(mode) {
     var chipsEl = document.getElementById('chips');
     if (!chipsEl) return;
+    // Sous recherche : les puces ne décrivent QUE les résultats — comptes calculés sur les
+    // cartes qui matchent la requête (indépendamment de la catégorie active) et catégories
+    // sans résultat retirées. Cliquer une puce affine donc toujours vers du non-vide.
+    var q = qInput ? normQ(qInput.value) : '';
+    var pool = q ? cards.filter(function (c) { return (c.dataset.search || '').indexOf(q) !== -1; }) : cards;
     var counts = {};
-    cards.forEach(function (c) { catsOf(c).forEach(function (s) { counts[s] = (counts[s] || 0) + 1; }); });
+    pool.forEach(function (c) { catsOf(c).forEach(function (s) { counts[s] = (counts[s] || 0) + 1; }); });
     var slugs = Object.keys(counts).sort(function (a, b) {
       return counts[b] - counts[a] || LBACat.label(a).localeCompare(LBACat.label(b));
     });
@@ -1303,17 +1375,21 @@
     var primaryN = mobile ? slugs.length : (mode === 'connected' ? (wide ? 5 : 3) : (wide ? 6 : 4));
     var primary = slugs.slice(0, primaryN);
     var secondary = mobile ? [] : slugs.slice(primaryN, primaryN + 8);
-    var mineCount = cards.filter(function (c) { return c.dataset.subscribed === '1'; }).length;
+    var mineCount = pool.filter(function (c) { return c.dataset.subscribed === '1'; }).length;
 
     function chip(slug, label, count) {
       return '<button class="chip-f" type="button" data-cat="' + esc(slug) + '">' +
         esc(label) + ' <span class="n">' + count + '</span></button>';
     }
-    var prim = '<button class="chip-f on" type="button" data-cat="all">Toutes <span class="n">' + cards.length + '</span></button>';
-    if (mode === 'connected') prim += chip('mine', 'Ma collection', mineCount);
+    var prim = '<button class="chip-f on" type="button" data-cat="all">Toutes <span class="n">' + pool.length + '</span></button>';
+    if (mode === 'connected' && (!q || mineCount)) prim += chip('mine', 'Ma collection', mineCount);
     // A6) Puces spéciales « Nouveautés » / « Les plus populaires » en tête (après Toutes/Mes alertes).
-    prim += '<button class="chip-f chip-special" type="button" data-cat="nouveautes">' + ICON_NOUVEAUTES + ' Nouveautés</button>';
-    prim += '<button class="chip-f chip-special" type="button" data-cat="selection">' + ICON_SELECTION + ' Les plus populaires</button>';
+    // Masquées sous recherche : elles ignorent la requête (top-N global), donc elles ne
+    // décriraient pas les résultats affichés.
+    if (!q) {
+      prim += '<button class="chip-f chip-special" type="button" data-cat="nouveautes">' + ICON_NOUVEAUTES + ' Nouveautés</button>';
+      prim += '<button class="chip-f chip-special" type="button" data-cat="selection">' + ICON_SELECTION + ' Les plus populaires</button>';
+    }
     primary.forEach(function (s) { prim += chip(s, LBACat.label(s), counts[s]); });
     if (secondary.length) prim += '<button class="chip-f chip-more-toggle" type="button" aria-label="Plus de catégories">+</button>';
 
@@ -1536,6 +1612,13 @@
     // A4/A5) Recalcule l'ensemble des 6 ids en entrant dans un mode spécial.
     specialIds = isSpecial(slug) ? computeSpecialIds(slug) : null;
     visibleLimit = initialLimit();
+    markActiveChip(slug);
+    apply(true);
+  }
+
+  // Marque la puce active (extrait de selectChip : re-rendre les puces après une
+  // recherche perd la classe .on, il faut la reposer sans relancer un apply()).
+  function markActiveChip(slug) {
     document.querySelectorAll('.chip-f').forEach(function (x) {
       if (!x.classList.contains('chip-more-toggle')) x.classList.remove('on');
     });
@@ -1548,7 +1631,6 @@
         if (sec) { setSecOpen(sec, true); secondaryOpen = true; if (tgl) { tgl.textContent = '−'; tgl.classList.add('on'); } }
       }
     }
-    apply(true);
   }
 
   // Ouverture/fermeture fluide de la 2e ligne de catégories : on anime la
@@ -1574,6 +1656,32 @@
     if (top < 0 || top > window.innerHeight * 0.4) main.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
+  // V3) Retour depuis le lien email de confirmation (?task-confirmed=<id>, posé par
+  // task-confirmed.js) : ouvre la carte sur son verso, l'amène à l'écran et rejoue la
+  // MÊME pulse que le bouton in-app. L'URL est nettoyée aussitôt (pas de ré-animation
+  // au rechargement ni au partage du lien) — même geste que showFarewellIfNeeded()
+  // dans session.js.
+  function applyTaskConfirmed() {
+    var params;
+    try { params = new URLSearchParams(window.location.search); } catch (e) { return; }
+    var id = params.get('task-confirmed');
+    if (!id || !/^\d+$/.test(id)) return;
+    params.delete('task-confirmed'); // les autres paramètres (?q=, ?cat=) sont préservés
+    var qs = params.toString();
+    try {
+      history.replaceState(null, '', window.location.pathname + (qs ? '?' + qs : '') + window.location.hash);
+    } catch (e) { /* non bloquant */ }
+    // Absent si la session a expiré entre-temps (kiosque rendu en anonyme) : on ne
+    // fait rien, la confirmation a de toute façon déjà eu lieu côté serveur.
+    var item = document.querySelector('.task-item[data-task-id="' + id + '"]');
+    if (!item) return;
+    var card = item.closest('.card'); if (!card) return;
+    card.classList.remove('face-share', 'face-deck');
+    card.classList.add('flipped');
+    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    markTaskDone(item);
+  }
+
   // Lot 5) Applique les paramètres d'URL au chargement de la home : la recherche des
   // autres pages redirige vers /?q=<terme>, et le menu vers /?mode=<mode>.
   function applyUrlParams() {
@@ -1587,6 +1695,8 @@
       var clr = document.querySelector('.search .search-clear');
       if (clr) clr.hidden = !q.length;
       did = true;
+      renderChips(currentMode); // ?q= depuis une autre page : puces limitées aux résultats
+      markActiveChip(cat);
     }
     var catParam = params.get('cat'); // A1) filtre catégorie depuis le menu d'une autre page
     if (mode === 'nouveautes' || mode === 'selection' || mode === 'mine') {
@@ -1635,8 +1745,10 @@
     // ENSUITE affine les résultats (la requête reste dans le champ). Champ vidé →
     // on ne touche pas à la catégorie courante.
     function runSearch() {
-      if (normQ(qInput.value) && cat !== 'all') selectChip('all');
-      else apply(true);
+      var want = normQ(qInput.value) ? 'all' : cat; // nouvelle recherche → retour à « Toutes »
+      renderChips(mode);                            // puces limitées aux catégories des résultats
+      if (cat !== want) selectChip(want);           // applique déjà (et remarque la puce)
+      else { markActiveChip(cat); apply(true); }
     }
     qInput.addEventListener('input', function () {
       backToGridIfAccount();
@@ -1944,6 +2056,7 @@
     if (window.LBAViewMode && accountViewMode) LBAViewMode.adoptAccount(accountViewMode);
     if (mode === 'connected') refreshMineDependent(); // initialise le compteur « Ma collection » (chip + panneau)
     applyUrlParams(); // Lot 5) ?q=<terme> et ?mode=nouveautes|selection|mine depuis les autres pages
+    applyTaskConfirmed(); // V3) retour depuis le lien email de confirmation d'échéance
     bindMineLinks();
     bindBrandTop();
     if (mode === 'connected') bindAccount();

@@ -130,7 +130,7 @@
 
   // V3 · carte « tâche à échéance glissante » : elle n'a ni veille, ni abonnement
   // broadcast. Sa souscription EST la création d'une tâche, qui se fait au VERSO
-  // (taskZone). Le recto ne doit donc porter aucun contrôle d'abonnement.
+  // (taskFace). Le recto ne doit donc porter aucun contrôle d'abonnement.
   function isUserTask(s) { return s.type === 'user-task'; }
 
   // Séquence d'ids uniques pour les listbox des combobox dynamic-enum (aria-controls).
@@ -332,24 +332,13 @@
       var hasTask = Array.isArray(s.tasks) && s.tasks.length > 0;
       state = '<div class="state task"><span class="dot-idle"></span> ' +
         (hasTask ? 'Tâche suivie' : 'Tâche personnelle') + '</div>';
-      // Au moins une tâche : interrupteur de pause globale, MARKUP STRICTEMENT
-      // IDENTIQUE à celui des cartes paramétrées (.param-mute-row/.param-mute) → il
-      // est repris tel quel par le handler générique toggleMute() de site.js, qui
-      // poste vers /api/my-alerts/toggle-mute. Aucun code front nouveau, aucun CSS.
-      // Coché = relances actives ; décoché = en pause (aucune tâche supprimée,
-      // aucune donnée perdue). Aucune tâche → rien à mettre en pause : on garde
-      // le renvoi au verso.
-      if (hasTask) {
-        var muted = !!s.muted;
-        action = '<label class="switch-row param-mute-row">' +
-            '<span class="switch"><input type="checkbox" class="param-mute"' + (muted ? '' : ' checked') +
-              ' aria-label="Activer ou mettre en pause les relances de vos tâches">' +
-              '<span class="track"></span><span class="thumb"></span></span>' +
-            '<span class="switch-label' + (muted ? '' : ' on') + '">' + (muted ? 'En pause' : 'Abonné') + '</span>' +
-          '</label>';
-      } else {
-        action = '<div class="task-hint">Retournez la carte pour créer et gérer votre tâche.</div>';
-      }
+      // Recto minimal : UN bouton qui ouvre la 5e face de gestion. L'interrupteur de
+      // pause a migré sur cette face (il n'a plus sa place ici), et le ⓘ garde son
+      // rôle habituel. Style .link-btn (précédent : cartes 'linked'), SANS « → » :
+      // l'action est interne, ce n'est pas une sortie du site.
+      action = (mode === 'connected')
+        ? '<button type="button" class="link-btn task-config">Configurer</button>'
+        : '<a class="link-btn task-config-anon" href="/connexion">Configurer</a>';
     } else if (isParam(s)) {
       state = stateFor(s.state); // état de la/les instance(s) de l'utilisateur (le pire), sinon neutre
       action = paramFace(s, mode);
@@ -416,18 +405,25 @@
   }
 
   function taskItem(t) {
+    // Croix de suppression (coin haut-droit) : même geste que le ✕ d'un chip de deck
+    // — clic = suppression immédiate, sans confirmation. Côté serveur c'est un soft
+    // delete (active = false), donc rien n'est réellement perdu en base.
+    var rm = '<button type="button" class="task-remove" aria-label="Supprimer « ' +
+      esc(t.label) + ' »">✕</button>';
     // Mode 'counter' : état de lecture seule, PAS de bouton « c'est fait » (aucune
     // UI de relevé à ce stade). Robustesse : ne casse pas si une ligne existe déjà.
     if (t.tracking_mode !== 'time') {
       var lu = (t.counter_current != null && t.counter_unit)
         ? esc(String(t.counter_current) + ' ' + t.counter_unit) : '—';
       return '<div class="task-item" data-task-id="' + esc(t.id) + '">' +
+          rm +
           '<div class="task-label">' + esc(t.label) + '</div>' +
           '<div class="task-due">Suivi au compteur · dernier relevé : ' + lu + '</div>' +
         '</div>';
     }
     var d = dueFr(t.next_due);
     return '<div class="task-item" data-task-id="' + esc(t.id) + '">' +
+        rm +
         '<div class="task-label">' + esc(t.label) + '</div>' +
         '<div class="task-due">' + (d ? 'Échéance : ' + esc(d) : 'Échéance non calculée') + '</div>' +
         '<button type="button" class="task-done" aria-label="Marquer « ' + esc(t.label) + ' » comme fait">' +
@@ -435,19 +431,37 @@
       '</div>';
   }
 
-  function taskZone(s, mode) {
-    if (s.type !== 'user-task') return '';
+  // 5e face « Configurer » : gestion des instances utilisateur de la carte. Ouverte
+  // par le bouton .task-config du RECTO — pas par le ⓘ, qui garde son rôle habituel
+  // (verso classique : description, tags, infos). Même mécanique de flip que les
+  // faces partage/deck : .face-task désigne la face arrière visible.
+  // Nommage volontairement générique (.card-task-face, .task-*) : la structure
+  // « recto minimal + Configurer + face de gestion » est destinée à d'autres cartes
+  // à instances utilisateur. Connecté uniquement : sans compte, rien à gérer.
+  function taskFace(s, mode) {
+    if (s.type !== 'user-task' || mode !== 'connected') return '';
     var tasks = Array.isArray(s.tasks) ? s.tasks : [];
-    // Verso-DÉCOUVERTE (aucune tâche) : invitation à en créer une. En anonyme la
-    // création est impossible (elle exige un compte) → lien vers la connexion,
-    // plutôt qu'un formulaire qui finirait en 401 après saisie.
-    var create = (mode === 'connected')
-      ? '<button type="button" class="task-create">Créer ma tâche</button>'
-      : '<a class="task-create" href="/connexion">Créer ma tâche</a>';
-    if (!tasks.length) return '<div class="task-zone">' + create + '</div>';
-    // Verso-INSTANCE : tâches suivies, puis « + une autre » (connecté uniquement).
-    return '<div class="task-zone">' + tasks.map(taskItem).join('') +
-      (mode === 'connected' ? '<button type="button" class="task-create secondary">+ une autre tâche</button>' : '') +
+    var hasTask = tasks.length > 0;
+    // Interrupteur de pause GLOBALE, déplacé du recto vers le haut de cette face.
+    // Markup identique aux cartes paramétrées (.param-mute-row/.param-mute) : repris
+    // tel quel par le handler générique toggleMute() de site.js.
+    var muted = !!s.muted;
+    var mute = hasTask
+      ? '<label class="switch-row param-mute-row tf-mute">' +
+          '<span class="switch"><input type="checkbox" class="param-mute"' + (muted ? '' : ' checked') +
+            ' aria-label="Activer ou mettre en pause les relances de vos tâches">' +
+            '<span class="track"></span><span class="thumb"></span></span>' +
+          '<span class="switch-label' + (muted ? '' : ' on') + '">' + (muted ? 'En pause' : 'Abonné') + '</span>' +
+        '</label>'
+      : '';
+    var create = '<button type="button" class="task-create' + (hasTask ? ' secondary' : '') + '">' +
+      (hasTask ? '+ une autre tâche' : 'Créer ma tâche') + '</button>';
+    return '' +
+      '<div class="card-face card-task-face">' +
+        '<button class="flip-back" type="button" aria-label="Retour" title="Retour">' + BACK_SVG + '</button>' +
+        '<div class="tf-title">Mes échéances</div>' +
+        mute +
+        '<div class="task-zone">' + tasks.map(taskItem).join('') + create + '</div>' +
       '</div>';
   }
 
@@ -478,7 +492,6 @@
         topRow(s) +
         longDesc +
         tags + author + statut +
-        taskZone(s, mode) +
       '</div>';
   }
 
@@ -537,6 +550,7 @@
           frontFace(s, mode, isLinked) +
           backFace(s, cats, isLinked, mode) +
           shareFace() +
+          taskFace(s, mode) + // 5e face : '' pour toute carte non user-task
           (showAdd ? deckFace() : '') +
         '</div>' +
       '</div>';

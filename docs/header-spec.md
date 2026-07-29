@@ -66,8 +66,8 @@ Construit par `buildMenu(nav, {isHome, logged})`, **partagé** home + hors-home.
 - `Se connecter` → `Mon compte` si connecté (`data-act="account"`, sinon `data-act="auth"`).
 - Contenu : (connecté) Ma collection · Mes decks · Mes favoris ; (anonyme) Se connecter ·
   Mes favoris — puis **Le Point** · Déposer une alerte · Rechercher — Catégories · Les
-  nouvelles · Les plus populaires — Mon compte (si connecté) · Nous soutenir — Espace
-  développeurs · OpenAlert · Mentions légales — Se déconnecter (si connecté).
+  nouvelles · Les plus populaires — Mon compte (si connecté) · Nous soutenir — **Forum** ·
+  Espace développeurs · OpenAlert · Mentions légales — Se déconnecter (si connecté).
 - Face arrière = liste des catégories (retournement, source `window.LBAKioskCats` sinon
   `LBACat`).
 - Le thème n'est **plus** dans le menu mobile (retiré ; réglable depuis Mon compte ›

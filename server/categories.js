@@ -3,7 +3,9 @@
 // Les labels français sont générés depuis les slugs (accents restaurés + cas particuliers).
 
 const GROUPS = {
-  'bons-plans-conso': ['bons-plans', 'promos', 'ventes-flash', 'soldes', 'codes-promo', 'cashback', 'livraison-gratuite', 'baisse-de-prix', 'restock', 'disponibilite', 'precommandes', 'occasions', 'encheres', 'echantillons-gratuits', 'deals-du-jour'],
+  // 'bonnes-affaires' : catégorie CHAPEAU du groupe (tout ce qui fait économiser) — posée
+  // en plus du tag précis sur les sources concernées (migration en fin d'init.sql).
+  'bons-plans-conso': ['bonnes-affaires', 'bons-plans', 'promos', 'ventes-flash', 'soldes', 'codes-promo', 'cashback', 'livraison-gratuite', 'baisse-de-prix', 'restock', 'disponibilite', 'precommandes', 'occasions', 'encheres', 'echantillons-gratuits', 'deals-du-jour'],
   'shopping': ['high-tech', 'smartphones', 'composants-pc', 'gpu', 'consoles', 'sneakers', 'mode', 'beaute', 'electromenager', 'meubles', 'jouets', 'equipement-sportif'],
   'billetterie-sorties': ['billetterie', 'concerts', 'spectacles', 'festivals', 'cinema', 'theatre', 'expositions', 'musees', 'matchs', 'evenements-sportifs'],
   'voyages': ['voyages', 'vols', 'erreurs-de-prix', 'billets-train', 'hotels', 'campings', 'locations-vacances', 'croisieres', 'ferries', 'road-trip', 'visas', 'delais-passeport'],

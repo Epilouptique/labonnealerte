@@ -101,7 +101,15 @@
     listEl = document.getElementById('list');
     if (!listEl || !Array.isArray(sources)) return;
     unparkCard(); // sécurité : rend une carte éventuellement déplacée à #grid avant qu'il soit reconstruit
-    listEl.innerHTML = sources.map(function (s) { return rowHTML(s, mode); }).join('');
+    // Tri ALPHABÉTIQUE propre à la vue liste (nom, insensible casse/accents, français).
+    // On trie une COPIE : `sources` est le tableau PARTAGÉ avec les cartes — le muter
+    // changerait l'ordre des cartes. Le tri n'affecte que l'ORDRE des lignes ; la
+    // pagination/filtrage restent pilotés par les cartes (sync() apparie par
+    // data-source-id, sans dépendre de l'ordre) → les cartes sont inchangées.
+    var ordered = sources.slice().sort(function (a, b) {
+      return String(a.name || '').localeCompare(String(b.name || ''), 'fr', { sensitivity: 'base' });
+    });
+    listEl.innerHTML = ordered.map(function (s) { return rowHTML(s, mode); }).join('');
     built = true;
     openId = null;
     sync();

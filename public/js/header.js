@@ -97,6 +97,7 @@
           (logged ? '<button type="button" class="m-link" data-act="account">Mon compte</button>' : '') +
           '<a href="/soutenir">Nous soutenir</a>' +
           '<hr class="m-menu-sep">' +
+          '<a href="/forum">Forum</a>' +
           '<a href="/proposer">Espace développeurs</a>' +
           '<a href="' + (isHome ? '#openalert' : '/#openalert') + '" data-act="anchor">OpenAlert</a>' +
           '<a href="/mentions-legales">Mentions légales</a>' +
