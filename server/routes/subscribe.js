@@ -29,7 +29,15 @@ const DEFAULT_SOURCE = 'leboncoin-livraison';
 // telle quelle par la confirmation de tâche à échéance (routes/user-tasks.js).
 // ATTENTION : n'échappe pas ses interpolations — n'y passer que du texte de
 // confiance, ou l'échapper en amont (cf. escapeHtml dans routes/user-tasks.js).
-function htmlPage({ title, heading, message, tone = 'ok' }) {
+// `headExtra` : balises injectées dans le <head> (ex. un <script src> externe).
+// La CSP du site interdit les scripts inline ('script-src': 'self', cf. index.js) —
+// tout script passé ici DOIT être un fichier servi depuis /js/.
+// Palette alignée sur tokens.css (violet --amber #a567e3) : elle était restée sur
+// l'ancienne identité ambre, ce qui sortait de la charte les TROIS pages issues de
+// cette fonction (confirmation d'inscription, désabonnement, confirmation de tâche).
+// NB : thème via prefers-color-scheme — une page autonome ne peut pas lire le choix
+// html[data-theme] du site (localStorage) sans script.
+function htmlPage({ title, heading, message, tone = 'ok', headExtra = '' }) {
   const accent = tone === 'err' ? '#dc2626' : '#16a34a';
   return `<!DOCTYPE html>
 <html lang="fr">
@@ -37,30 +45,31 @@ function htmlPage({ title, heading, message, tone = 'ok' }) {
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>${title} — LaBonneAlerte</title>
+${headExtra}
 <style>
   :root { color-scheme: light dark; }
   body {
     margin: 0; min-height: 100vh;
     display: flex; align-items: center; justify-content: center;
     font-family: system-ui, -apple-system, sans-serif;
-    background: #faf8f5; color: #1c2128;
+    background: #fdfaff; color: #0f1419;
   }
   .card {
     max-width: 420px; margin: 24px; padding: 36px 32px; text-align: center;
-    background: #fff; border: 1px solid #ece7df; border-radius: 14px;
+    background: #fff; border: 1px solid #eaddf8; border-radius: 14px;
     box-shadow: 0 6px 20px rgba(28,33,40,0.06);
   }
   .mark { width: 44px; height: 44px; border-radius: 50%; margin: 0 auto 18px;
     background: ${accent}; opacity: 0.12; }
   h1 { font-size: 1.25rem; margin: 0 0 10px; }
-  p { color: #5b6570; margin: 0 0 22px; line-height: 1.6; }
+  p { color: #6b6459; margin: 0 0 22px; line-height: 1.6; }
   a.home { display: inline-block; text-decoration: none; font-weight: 500;
-    color: #fff; background: #d98e04; padding: 10px 20px; border-radius: 9px; }
+    color: #fff; background: #a567e3; padding: 10px 20px; border-radius: 9px; }
   @media (prefers-color-scheme: dark) {
-    body { background: #0f1419; color: #e6e9ed; }
-    .card { background: #171d26; border-color: #232b36; box-shadow: 0 6px 20px rgba(0,0,0,0.3); }
-    p { color: #97a1ad; }
-    a.home { background: #f5a623; color: #0f1419; }
+    body { background: #141218; color: #f2efe9; }
+    .card { background: #2e3440; border-color: #3a4150; box-shadow: 0 6px 20px rgba(0,0,0,0.3); }
+    p { color: #9aa3ad; }
+    a.home { background: #bd8ef0; color: #141218; }
   }
 </style>
 </head>

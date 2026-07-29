@@ -17,6 +17,7 @@ const decksRouter = require('./routes/decks');
 const skinsRouter = require('./routes/skins');
 const { apiRouter: lePointApiRouter } = require('./routes/le-point');
 const { pagesRouter: userTasksPagesRouter, apiRouter: userTasksApiRouter } = require('./routes/user-tasks');
+const forumRouter = require('./routes/forum');
 const { cleanupExpired } = require('./sessions');
 const { startPoller } = require('./poller');
 
@@ -323,6 +324,12 @@ app.get('/source/:id/statut', async (req, res) => {
     res.status(503).type('html').send('Service momentanément indisponible.');
   }
 });
+// Forum communautaire maison : pages HTML server-rendues (/forum) + écritures
+// JSON (auth via authenticate(token)) + endpoint compteur (/api/forum/...).
+// Monté à la racine ; les chemins /api/forum/* passent quand même par
+// l'apiLimiter global (app.use('/api', ...) posé plus haut).
+app.use('/', forumRouter);
+
 // Pages HTML (liens email) montées à la racine, après le static.
 app.use('/', pagesRouter);
 app.use('/', myAlertsPagesRouter);

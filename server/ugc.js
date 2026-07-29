@@ -92,6 +92,50 @@ function validateTaskLabel(raw) {
 
 function isValidEmoji(e) { return typeof e === 'string' && EMOJI_SET.has(e); }
 
+/* ------------------------------------------------------------------ */
+/* Forum : validation titre + corps de message.                        */
+/* ------------------------------------------------------------------ */
+
+// Titre de sujet : court, une seule ligne, URL INTERDITE (les titres-spam de
+// liens sont le vrai vecteur). Réutilise validateText tel quel avec un charset
+// élargi à la ponctuation courante d'un titre (?, !, :, …) mais SANS saut de
+// ligne — URL_LIKE reste appliqué par validateText.
+const ALLOWED_FORUM_TITLE = /^[\p{L}\p{N} '’\-.,?!:()°+&\p{Extended_Pictographic}]+$/u;
+function validateForumTitle(raw) {
+  return validateText(raw, { min: 5, max: 140, allowed: ALLOWED_FORUM_TITLE });
+}
+
+// Mots bloqués dans le CORPS (spam évident). Comparaison sur une forme
+// normalisée (casse/accents/séparateurs retirés) → « V-i-a-g-r-a » est attrapé.
+// Extensible SANS migration : ajouter une entrée ici suffit. Volontairement
+// court au démarrage ; les autres filets sont le rate-limit + le report/auto-masquage.
+const WATCHED_WORDS = [
+  'viagra', 'cialis', 'casino', 'porn', 'xxx', 'crypto-signal', 'seoservice',
+  'buyfollowers', 'escort', 'onlyfans',
+];
+
+// Corps de message : multi-lignes, ponctuation, longueur 1-5000. URLs TOLÉRÉES
+// (on N'applique PAS URL_LIKE) — le filet anti-spam est WATCHED_WORDS + le
+// rate-limit + le signalement/auto-masquage côté route. Jeu de caractères
+// délibérément large (retours à la ligne, ponctuation, symboles courants).
+const ALLOWED_FORUM_BODY = /^[\p{L}\p{N}\s'’\-.,?!:;()\[\]{}°+&%€$#@/\\*_"«»…\p{Extended_Pictographic}]+$/u;
+function validateForumBody(raw) {
+  if (raw == null) raw = '';
+  if (typeof raw !== 'string') return { ok: false, error: 'texte invalide' };
+  // Normalise les fins de ligne, borne les sauts multiples, trim les extrémités.
+  const s = String(raw).replace(/\r\n?/g, '\n').replace(/\n{4,}/g, '\n\n\n').trim();
+  if (s === '') return { ok: false, error: 'message requis' };
+  const len = cpLength(s);
+  if (len < 1) return { ok: false, error: 'message requis' };
+  if (len > 5000) return { ok: false, error: 'message trop long (max 5000)' };
+  if (!ALLOWED_FORUM_BODY.test(s)) return { ok: false, error: 'caractères non autorisés' };
+  const norm = normalizeForBan(s);
+  for (const w of WATCHED_WORDS) {
+    if (norm.includes(w)) return { ok: false, error: 'ce message a été bloqué (contenu non autorisé)' };
+  }
+  return { ok: true, value: s };
+}
+
 // Token de partage non devinable (22 caractères base64url ≈ 128 bits).
 function genShareToken() { return crypto.randomBytes(16).toString('base64url'); }
 // Id interne d'un deck (non exposé publiquement ; le partage passe par share_token).
@@ -107,5 +151,6 @@ module.exports = {
   DECK_EMOJIS, isValidEmoji,
   validateText, validateDisplayName, validateDeckName, validateDeckDescription,
   validateTaskLabel,
+  validateForumTitle, validateForumBody, WATCHED_WORDS,
   genShareToken, genDeckId, hashIp,
 };

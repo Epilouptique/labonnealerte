@@ -360,8 +360,9 @@ async function sendTaskDueReminder(recipient, task) {
       heading: 'Une échéance approche',
       intro: `<strong>${label}</strong> — ${quand}`,
       button: { url: confirmUrl, label: "C'est fait ✓" },
-      fallbackUrl: confirmUrl,
-      note: "En confirmant, l'échéance repart pour la même durée à partir d'aujourd'hui. Ce lien ne sert qu'une fois.",
+      // Pas de fallbackUrl : le lien contient un token de 64 caractères, la ligne de
+      // repli était plus longue que le reste de l'email pour un gain quasi nul.
+      note: "En confirmant, l'échéance repart pour la même durée à partir d'aujourd'hui.",
     }),
   };
   if (token) {
@@ -381,7 +382,55 @@ async function sendTaskDueReminder(recipient, task) {
   }
 }
 
+/**
+ * Notifie l'auteur d'un sujet qu'une nouvelle réponse a été postée.
+ * Calqué sur sendTaskDueReminder (même FROM/subject/emailShell/compteurs).
+ * @param {{email: string, token: ?string}} recipient
+ * @param {{topicTitle: string, topicUrl: string, replierName: ?string}} info
+ * @returns {Promise<{sent: number, failed: number}>}
+ */
+async function sendForumReplyNotification(recipient, info) {
+  const email = typeof recipient === 'string' ? recipient : recipient.email;
+  const token = typeof recipient === 'string' ? null : recipient.token;
+  if (!email || !info || !info.topicUrl) return { sent: 0, failed: 0 };
+
+  const title = esc(info.topicTitle || 'votre sujet');
+  const who = info.replierName ? esc(info.replierName) : 'Quelqu\'un';
+  const payload = {
+    from: FROM,
+    to: email,
+    subject: subject(`💬 Nouvelle réponse : ${info.topicTitle || 'votre sujet'}`),
+    text:
+      `${who} a répondu à votre sujet « ${info.topicTitle || 'votre sujet'} » sur le forum.\n\n` +
+      `Lire la réponse :\n${info.topicUrl}\n\n` +
+      `—\nVous recevez cet email car vous avez ouvert ce sujet.` +
+      MANAGE_TEXT,
+    html: emailShell({
+      heading: 'Nouvelle réponse sur le forum',
+      intro: `<strong>${who}</strong> a répondu à votre sujet « ${title} ».`,
+      button: { url: info.topicUrl, label: 'Lire la réponse →' },
+      fallbackUrl: info.topicUrl,
+      note: 'Vous recevez cet email car vous avez ouvert ce sujet sur le forum de La Bonne Alerte.',
+    }),
+  };
+  if (token) {
+    const unsubUrl = `${SITE_URL}/unsubscribe/${token}`;
+    payload.headers = {
+      'List-Unsubscribe': `<${unsubUrl}>`,
+      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+    };
+  }
+  try {
+    await resend.emails.send(payload);
+    await incEmailCounters();
+    return { sent: 1, failed: 0 };
+  } catch (err) {
+    console.error(`[mailer] Échec notif forum à ${email} :`, err.message);
+    return { sent: 0, failed: 1 };
+  }
+}
+
 module.exports = {
   sendConfirmation, sendPromoAlert, sendMagicLink, sendDeferredDigest,
-  sendTaskDueReminder,
+  sendTaskDueReminder, sendForumReplyNotification,
 };

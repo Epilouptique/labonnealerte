@@ -4378,3 +4378,54 @@ UPDATE sources SET params_schema = '[{"key":"agenda","label":"Adresse de votre a
 INSERT INTO source_states (source_id) SELECT 'veille-agenda'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'veille-agenda');
 UPDATE sources SET description_long = 'Collez l''adresse iCal de votre agenda (Google, Outlook, Apple) et choisissez votre préavis : la veille, 2, 3 ou 7 jours avant. Chaque événement n''est signalé qu''une fois, et jamais ceux déjà passés. Votre adresse reste privée.' WHERE id = 'veille-agenda';
+
+-- ================================================================
+-- FORUM COMMUNAUTAIRE (maison) — sujets + réponses + signalements.
+-- Même session que le site (aucun SSO), rendu server-side (/forum).
+-- Idempotent (migrate.js rejoue ce fichier). Voir server/routes/forum.js.
+-- ================================================================
+CREATE TABLE IF NOT EXISTS forum_topics (
+  id             BIGSERIAL PRIMARY KEY,
+  category       VARCHAR(20) NOT NULL
+                   CHECK (category IN ('discussion','propositions','dev','entraide','suggestions')),
+  title          VARCHAR(140) NOT NULL,
+  slug           VARCHAR(160) NOT NULL,
+  author_subscriber_id INTEGER NOT NULL REFERENCES subscribers(id),
+  source_id      VARCHAR(64) REFERENCES sources(id),         -- tag source, nullable
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_reply_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  reply_count    INTEGER NOT NULL DEFAULT 0,                 -- dénormalisé (cf. sources.likes_count)
+  locked         BOOLEAN NOT NULL DEFAULT false,
+  hidden         BOOLEAN NOT NULL DEFAULT false
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_forum_topics_slug   ON forum_topics (slug);
+CREATE INDEX IF NOT EXISTS idx_forum_topics_cat_recent   ON forum_topics (category, last_reply_at DESC);
+CREATE INDEX IF NOT EXISTS idx_forum_topics_source       ON forum_topics (source_id) WHERE source_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_forum_topics_recent       ON forum_topics (last_reply_at DESC);
+
+-- Le 1er message d'un sujet EST une ligne forum_posts (modération/report uniformes).
+CREATE TABLE IF NOT EXISTS forum_posts (
+  id             BIGSERIAL PRIMARY KEY,
+  topic_id       BIGINT NOT NULL REFERENCES forum_topics(id) ON DELETE CASCADE,
+  author_subscriber_id INTEGER NOT NULL REFERENCES subscribers(id),
+  body           TEXT NOT NULL,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  hidden         BOOLEAN NOT NULL DEFAULT false,
+  report_count   INTEGER NOT NULL DEFAULT 0                  -- dénormalisé
+);
+CREATE INDEX IF NOT EXISTS idx_forum_posts_topic ON forum_posts (topic_id, created_at ASC);
+
+-- Signalements : IP hachée (RGPD, jamais d'IP en clair), anti-doublon par (post, ip).
+CREATE TABLE IF NOT EXISTS forum_reports (
+  id             BIGSERIAL PRIMARY KEY,
+  post_id        BIGINT NOT NULL REFERENCES forum_posts(id) ON DELETE CASCADE,
+  reporter_ip_hash TEXT NOT NULL,
+  reporter_subscriber_id INTEGER REFERENCES subscribers(id),  -- nullable
+  reason         VARCHAR(40),                                 -- optionnel
+  reported_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_forum_reports_post_ip ON forum_reports (post_id, reporter_ip_hash);
+CREATE INDEX IF NOT EXISTS idx_forum_reports_post ON forum_reports (post_id);
+
+-- Rôle admin (modération forum) : posé manuellement à true pour le compte de Hugo.
+ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT false;
