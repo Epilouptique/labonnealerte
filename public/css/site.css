@@ -2454,6 +2454,12 @@ html[data-theme="dark"] .tint-11 .deck-motif-bg::after { background: color-mix(i
 .deck-card .ds-i0 .card-share,
 .deck-card .ds-i0 .flip-back,
 .deck-card .ds-i0 .card-share-face { pointer-events: auto; }
+/* « i » (En savoir plus) + verso : la carte de devant se retourne sur le DOS DU DECK
+   (description + categories + « Plus d'infos »), meme flip/apparence qu'un verso de carte.
+   Scope aux TUILES du kiosque (data-deck-tile) : les apercus de detail/formulaire gardent
+   un « i » inerte (leur verso resterait celui de la source d'apercu). */
+.deck-card[data-deck-tile] .ds-i0 .flip-btn,
+.deck-card[data-deck-tile] .ds-i0 .card-back { pointer-events: auto; }
 /* Le compteur de likes de la source n'a pas de sens pour un favori de deck → masque. */
 .deck-card .ds-i0 .like-n { display: none; }
 /* Survol du deck : ombre portee sur la carte de devant, comme .card.flip:hover. */

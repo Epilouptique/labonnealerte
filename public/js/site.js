@@ -469,7 +469,15 @@
     var flip = e.target.closest('.flip-btn');
     if (flip) {
       e.preventDefault(); e.stopPropagation();
-      var c = flip.closest('.card'); if (c) { c.classList.remove('face-share'); c.classList.add('flipped'); }
+      var c = flip.closest('.card');
+      if (c) {
+        c.classList.remove('face-share');
+        c.classList.add('flipped');
+        // Tuile-deck : le « i » montre le DOS DU DECK. On masque le ruban + les cartes du
+        // fond (meme etat propre que le partage) pour un retournement facon carte classique.
+        var dcf = c.closest('.deck-card');
+        if (dcf) dcf.classList.add('ds-sharing');
+      }
       return;
     }
     var back = e.target.closest('.flip-back');
@@ -484,7 +492,9 @@
         // Tuile-deck : reaffiche le ruban + les cartes du fond apres la rotation de retour.
         var dc = c2.closest('.deck-card');
         // Garde la face active cachant l'info pendant la rotation de retour (anti-flicker).
-        if (wasShare || wasDeck || wasTask) setTimeout(function () {
+        // `dc` couvre AUSSI le retour du verso « i » d'une tuile-deck (ni share ni deck ni
+        // task) : on doit alors reafficher le ruban + le fond (retrait de ds-sharing).
+        if (wasShare || wasDeck || wasTask || dc) setTimeout(function () {
           c2.classList.remove('face-share', 'face-deck', 'face-task');
           if (dc) dc.classList.remove('ds-sharing');
         }, REDUCE ? 0 : 520);
@@ -822,6 +832,13 @@
     for (var i = 0; i < ctrls.length; i++) {
       var ctrl = ctrls[i];
       var val = ctrl.value;
+      // Champ FACULTATIF laissé vide : on l'OMET, on n'invalide pas tout le formulaire.
+      // Sans ça, un second paramètre facultatif resté sur son placeholder bloquait
+      // l'abonnement entier — y compris le champ géo du premier paramètre, pourtant
+      // pré-rempli et prêt (régression constatée sur pollens après l'ajout de `taxon`).
+      // Le serveur applique alors son défaut (params.js n'exige que les champs requis).
+      var optional = ctrl.getAttribute('data-optional') === '1';
+      if (optional && !String(val || '').trim()) continue;
       if (ctrl.tagName === 'INPUT') {
         val = String(val || '').trim();
         var ok = !!val;
@@ -829,12 +846,15 @@
         if (ok && pat) { try { ok = new RegExp(pat, 'i').test(val); } catch (e) { ok = true; } }
         if (!ok) { ctrl.focus(); ctrl.style.borderColor = 'var(--amber)'; return null; }
         ctrl.style.borderColor = '';
-      } else if (!val) { // SELECT sans choix (placeholder « Choisir… »)
+      } else if (!val) { // SELECT REQUIS sans choix (placeholder « Choisir… »)
         return null;
       }
       params[ctrl.getAttribute('data-key')] = val;
       labels.push((ctrl.tagName === 'SELECT' && ctrl.options[ctrl.selectedIndex]) ? ctrl.options[ctrl.selectedIndex].text : val);
     }
+    // Tous les champs étaient facultatifs et vides → rien à soumettre (le serveur
+    // refuserait « aucun paramètre fourni »). On reste silencieux, comme avant.
+    if (!labels.length) return null;
     return { params: params, label: labels.join(' · ') };
   }
 
@@ -2103,9 +2123,13 @@
       if (c.author_top20) meta += '<span class="deck-badge-top20">Top 20</span>';
       if (c.total_likes > 0) meta += (meta ? ' ' : '') + '<span class="ds-ribbon-likes">❤ ' + esc(LBACards.formatCount(c.total_likes)) + '</span>';
       var cats = Array.isArray(c.categories) ? c.categories : [];
+      // href calcule AVANT le rendu : il alimente le verso « i » du deck (description +
+      // categories + « Plus d'infos → » vers la page du deck), en plus de la navigation.
+      var href = c.href || ('/collection/' + encodeURIComponent(c.id));
       var stack = LBADeckStack.html({
         name: c.name, tint: c.tint, emoji: c.emoji, count: c.card_count || 0,
-        cards: cards, meta: meta, cats: cats, mode: 'anon'
+        cards: cards, meta: meta, cats: cats, mode: 'anon',
+        description: c.description, href: href
       });
       // Data-attributs IDENTIQUES aux cartes → matches()/catsOf()/modes spéciaux
       // fonctionnent sans logique parallèle. data-source-id = id du deck (distinct des
@@ -2115,7 +2139,6 @@
       var searchTxt = normQ((c.name || '') + ' ' + cats.map(function (s) {
         return (window.LBACat && LBACat.label) ? LBACat.label(s) : s;
       }).join(' '));
-      var href = c.href || ('/collection/' + encodeURIComponent(c.id));
       // La tuile est un <div> (PAS un <a>) : les vraies cartes contiennent des <button>
       // (like/partage/i), interdits dans un <a>. La navigation se fait au clic via data-href.
       // Phase 3 : skin de deck equipe (public) -> classe additionnelle sur la tuile.
@@ -2156,7 +2179,9 @@
         // delegues (abonnement / favori / partage). Le reste de la tuile navigue.
         // .reco-label / .reco-x : l'etiquette « Recommandee » et sa croix (×) ne naviguent
         // pas — la croix doit ignorer la reco (handler delegue), pas ouvrir la page du deck.
-        if (e.target.closest('.ds-i0 .switch-row, .ds-i0 .card-like, .ds-i0 .card-share, .ds-i0 .flip-back, .ds-i0 .card-share-face, .reco-label')) return;
+        // .ds-i0 .flip-btn + .ds-i0 .card-back : le « i » retourne la tuile sur le verso deck,
+        // et le verso (tags, « Plus d'infos », retour) gere ses propres clics — pas de nav tuile.
+        if (e.target.closest('.ds-i0 .switch-row, .ds-i0 .card-like, .ds-i0 .card-share, .ds-i0 .flip-btn, .ds-i0 .flip-back, .ds-i0 .card-share-face, .ds-i0 .card-back, .reco-label')) return;
         window.location.href = t.getAttribute('data-href');
       });
       t.addEventListener('keydown', function (e) {

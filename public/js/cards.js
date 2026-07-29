@@ -180,14 +180,19 @@
         var sel = (hasDef && String(v.value) === String(def)) ? ' selected' : '';
         return '<option value="' + esc(v.value) + '"' + sel + '>' + esc(v.label) + '</option>';
       }).join('');
-      return '<select class="param-select" data-key="' + esc(schema.key) + '" aria-label="' + esc(schema.label) + '">' + opts + '</select>';
+      // data-optional : un champ facultatif laissé vide ne doit pas invalider tout le
+      // formulaire (cf. readParam dans site.js) — il est simplement omis, et le serveur
+      // applique son défaut.
+      var optAttr = schema.required === false ? ' data-optional="1"' : '';
+      return '<select class="param-select" data-key="' + esc(schema.key) + '"' + optAttr + ' aria-label="' + esc(schema.label) + '">' + opts + '</select>';
     }
     var type = schema.type === 'number' ? 'number' : 'text';
     var ph = schema.placeholder ? ' placeholder="' + esc(schema.placeholder) + '"' : '';
     var pat = schema.pattern ? ' pattern="' + esc(schema.pattern) + '"' : '';
     var val = def != null ? ' value="' + esc(def) + '"' : '';
+    var optIn = schema.required === false ? ' data-optional="1"' : '';
     return '<input class="param-input" type="' + type + '" data-key="' + esc(schema.key) + '"' +
-      ph + pat + val + ' aria-label="' + esc(schema.label) + '">';
+      ph + pat + val + optIn + ' aria-label="' + esc(schema.label) + '">';
   }
 
   // Switch « S'abonner » (OFF), présent dès le 1er rendu sur TOUTE carte paramétrée.
@@ -246,7 +251,25 @@
         })) d = null;
         return d;
       }
-      return field.type !== 'enum' ? (field.default || null) : null;
+      // Enum NON géo : on ne pré-sélectionne QUE si le champ est FACULTATIF
+      // (required === false) et porte un défaut valide.
+      // Pourquoi cette restriction : un champ REQUIS doit rester un choix explicite
+      // de l'utilisateur (carburant, rappel-conso, jours-feries, fin-de-vie-logicielle
+      // ont un défaut mais sont requis → comportement inchangé, ils continuent
+      // d'afficher « Choisir… »).
+      // Pourquoi c'est nécessaire : readParam() refuse TOUT le formulaire dès qu'un
+      // <select> est vide (site.js). Un champ facultatif laissé sur son placeholder
+      // bloquait donc l'abonnement ENTIER — y compris le champ géo pré-rempli du
+      // premier paramètre, qui semblait pourtant prêt. C'est la régression constatée
+      // sur pollens après l'ajout de `taxon` (et le même défaut existait sur
+      // veille-agenda avec `preavis`).
+      if (field.type === 'enum') {
+        if (field.required !== false) return null;
+        var dv = field.default;
+        var valid = dv != null && (field.values || []).some(function (v) { return String(v.value) === String(dv); });
+        return valid ? dv : null;
+      }
+      return field.default || null;
     }
 
     var chips = instances.length
