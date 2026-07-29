@@ -332,7 +332,24 @@
       var hasTask = Array.isArray(s.tasks) && s.tasks.length > 0;
       state = '<div class="state task"><span class="dot-idle"></span> ' +
         (hasTask ? 'Tâche suivie' : 'Tâche personnelle') + '</div>';
-      action = '<div class="task-hint">Retournez la carte pour créer et gérer votre tâche.</div>';
+      // Au moins une tâche : interrupteur de pause globale, MARKUP STRICTEMENT
+      // IDENTIQUE à celui des cartes paramétrées (.param-mute-row/.param-mute) → il
+      // est repris tel quel par le handler générique toggleMute() de site.js, qui
+      // poste vers /api/my-alerts/toggle-mute. Aucun code front nouveau, aucun CSS.
+      // Coché = relances actives ; décoché = en pause (aucune tâche supprimée,
+      // aucune donnée perdue). Aucune tâche → rien à mettre en pause : on garde
+      // le renvoi au verso.
+      if (hasTask) {
+        var muted = !!s.muted;
+        action = '<label class="switch-row param-mute-row">' +
+            '<span class="switch"><input type="checkbox" class="param-mute"' + (muted ? '' : ' checked') +
+              ' aria-label="Activer ou mettre en pause les relances de vos tâches">' +
+              '<span class="track"></span><span class="thumb"></span></span>' +
+            '<span class="switch-label' + (muted ? '' : ' on') + '">' + (muted ? 'En pause' : 'Abonné') + '</span>' +
+          '</label>';
+      } else {
+        action = '<div class="task-hint">Retournez la carte pour créer et gérer votre tâche.</div>';
+      }
     } else if (isParam(s)) {
       state = stateFor(s.state); // état de la/les instance(s) de l'utilisateur (le pire), sinon neutre
       action = paramFace(s, mode);
@@ -490,7 +507,17 @@
   function searchText(s, cats) {
     var parts = [s.name || '', s.subtitle || '', s.description || ''];
     cats.forEach(function (c) { parts.push(c); parts.push(catLabel(c)); });
-    return parts.join(' ').toLowerCase();
+    return normalizeSearch(parts.join(' '));
+  }
+
+  // Normalisation de recherche : minuscules, accents retirés (NFD + suppression des
+  // diacritiques) et caractères non alphanumériques ramenés à un espace. Appliquée
+  // IDENTIQUEMENT à l'index (data-search) et à la requête → « tache » trouve « tâche »,
+  // « l'eau » trouve « l eau ». Exposée pour site.js (index des tuiles-deck + filtrage).
+  function normalizeSearch(str) {
+    var s = String(str || '').toLowerCase();
+    if (s.normalize) s = s.normalize('NFD').replace(/[̀-ͯ]/g, '');
+    return s.replace(/[^a-z0-9]+/g, ' ').replace(/^ | $/g, '');
   }
 
   // s : source complète ; mode : 'anon' | 'connected'
@@ -543,6 +570,7 @@
   window.LBACards = {
     esc: esc, badgeFor: badgeFor, stateFor: stateFor, domainOf: domainOf, cardHTML: cardHTML, catLabel: catLabel,
     BACK_SVG: BACK_SVG, formatCount: formatCount, celebrateBurst: celebrateBurst,
+    normalizeSearch: normalizeSearch,
     // SVG partagés (réutilisés tels quels par la vue liste — pas de duplication de string).
     LIKE_SVG: LIKE_SVG, SHARE_SVG: SHARE_SVG, INFO_SVG: INFO_SVG
   };

@@ -302,12 +302,27 @@ apiRouter.post('/user-tasks', async (req, res) => {
       [auth.id, label.value, rawDate, value, unit, iv.days, iv.months, iv.years, announce,
        crypto.randomBytes(32).toString('hex')]
     );
+    // Ligne d'abonnement porteuse du drapeau de pause (subscriptions.muted, réutilisé
+    // tel quel via POST /api/my-alerts/toggle-mute — cf. init.sql, étape 6). Inerte
+    // pour le poller, qui exclut type 'user-task' du cycle.
+    // Best-effort : un échec ici ne doit pas annuler une tâche déjà créée — au pire
+    // le switch de pause reste indisponible jusqu'au prochain passage.
+    try {
+      await pool.query(
+        `INSERT INTO subscriptions (subscriber_id, source_id)
+         SELECT $1, id FROM sources WHERE type = 'user-task'
+         ON CONFLICT DO NOTHING`,
+        [auth.id]
+      );
+    } catch (e) {
+      console.warn('[user-tasks] ligne subscriptions non créée :', e.message);
+    }
     return res.status(201).json({ task: rows[0] });
   } catch (err) {
     // 23505 = violation d'unicité → idx_user_tasks_unique_label (subscriber_id, label)
     // WHERE active = true. Message clair plutôt que l'erreur PG brute.
     if (err && err.code === '23505') {
-      return res.status(409).json({ error: 'Vous suivez déjà une tâche portant ce nom' });
+      return res.status(409).json({ error: 'Vous suivez déjà une tâche identique' });
     }
     console.error('[user-tasks] Erreur POST /user-tasks :', err.message);
     return res.status(503).json({ error: 'Service indisponible' });

@@ -182,7 +182,8 @@ apiRouter.get('/my-alerts', async (req, res) => {
     const { rows } = await pool.query(
       `SELECT s.id, s.name, s.description, s.description_long, s.badge,
               COALESCE(st.state, 'inactive') AS state,
-              (sub.subscriber_id IS NOT NULL) AS subscribed
+              (sub.subscriber_id IS NOT NULL) AS subscribed,
+              sub.muted AS muted
          FROM sources s
          LEFT JOIN source_states st ON st.source_id = s.id
          LEFT JOIN subscriptions sub

@@ -33,8 +33,17 @@ const SELECT_DUE = `
          s.quiet_start, s.quiet_end, s.quiet_disabled
     FROM user_tasks ut
     JOIN subscribers s ON s.id = ut.subscriber_id
+    -- Pause globale de la carte pour cet abonné (subscriptions.muted, même drapeau
+    -- que toutes les autres cartes). La pause ne touche AUCUNE tâche : user_tasks.active
+    -- reste true, next_due continue d'avancer à chaque confirmation, seule la relance
+    -- est suspendue. Réversible à tout moment depuis le recto de la carte.
+    LEFT JOIN subscriptions sub
+           ON sub.subscriber_id = ut.subscriber_id
+          AND sub.params IS NULL
+          AND sub.source_id IN (SELECT id FROM sources WHERE type = 'user-task')
    WHERE ut.active = true
      AND ut.tracking_mode = 'time'
+     AND COALESCE(sub.muted, false) = false
      AND ut.next_due IS NOT NULL
      AND ut.next_due - ut.announce_days <= CURRENT_DATE
      AND (ut.last_notified_at IS NULL

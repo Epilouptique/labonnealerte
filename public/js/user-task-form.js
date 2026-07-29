@@ -19,7 +19,9 @@
 
   var UNITS = [
     { v: 'day', l: 'jour(s)' }, { v: 'week', l: 'semaine(s)' },
-    { v: 'month', l: 'mois' }, { v: 'year', l: 'an(s)' }
+    // 'mois' présélectionné : unité de loin la plus courante pour ce type de tâche.
+    // C'est un défaut d'UNITÉ, jamais de DURÉE — le nombre reste vide et obligatoire.
+    { v: 'month', l: 'mois', sel: true }, { v: 'year', l: 'an(s)' }
   ];
 
   function close() {
@@ -32,7 +34,7 @@
       return '<button type="button" class="utf-sugg">' + esc(s) + '</button>';
     }).join('');
     var units = UNITS.map(function (u) {
-      return '<option value="' + u.v + '">' + u.l + '</option>';
+      return '<option value="' + u.v + '"' + (u.sel ? ' selected' : '') + '>' + u.l + '</option>';
     }).join('');
     return '' +
       '<button type="button" class="share-modal-close" aria-label="Fermer">✕</button>' +
@@ -49,9 +51,9 @@
         '<fieldset class="utf-field utf-period">' +
           '<legend class="utf-lbl">Tous les…</legend>' +
           '<input type="number" class="utf-value" min="1" step="1" required ' +
-            'inputmode="numeric" aria-label="Nombre">' +
+            'inputmode="numeric" placeholder="ex : 6" aria-label="Nombre">' +
           '<select class="utf-unit" required aria-label="Unité">' +
-            '<option value="" disabled selected>Unité…</option>' + units +
+            units +
           '</select>' +
         '</fieldset>' +
         '<label class="utf-field"><span class="utf-lbl">Préavis (facultatif)</span>' +
@@ -80,7 +82,11 @@
     // réalisation » à venir n'a pas de sens (le serveur la refuse également).
     var anchor = box.querySelector('.utf-anchor');
     anchor.max = new Date().toISOString().slice(0, 10);
-    // AUCUNE valeur pré-remplie : ni date, ni périodicité, ni unité.
+    // Date pré-remplie à AUJOURD'HUI : défaut ergonomique neutre (on crée sa tâche
+    // le jour où on vient de la faire), librement modifiable, jamais dans le futur.
+    // À ne pas confondre avec une périodicité : le NOMBRE de la période reste vide,
+    // aucune durée n'est jamais devinée (règle anti-hallucination de la brique).
+    anchor.value = anchor.max;
 
     box.querySelector('.share-modal-close').addEventListener('click', close);
     backdrop.addEventListener('click', function (e) { if (e.target === backdrop) close(); });
@@ -110,11 +116,17 @@
     var btn = box.querySelector('.utf-submit');
     box.querySelector('.utf-error').hidden = true;
     var announceRaw = box.querySelector('.utf-announce').value;
+    // Garde-fou client : le <form> porte novalidate, donc `required` ne bloque PAS
+    // la soumission. Sans ce test, un champ vide partirait en NaN → null → 400. Le
+    // serveur le rejetterait correctement, mais autant le dire tout de suite et sans
+    // aller-retour réseau. Le placeholder « ex : 6 » n'est JAMAIS une valeur.
+    var rawValue = box.querySelector('.utf-value').value.trim();
+    if (rawValue === '') return showError(box, 'Indiquez la périodicité (par exemple 6 mois).');
     var payload = {
       token: LBASession.get(),
       label: box.querySelector('.utf-label').value,
       anchor_date: box.querySelector('.utf-anchor').value,
-      periodicity_value: parseInt(box.querySelector('.utf-value').value, 10),
+      periodicity_value: parseInt(rawValue, 10),
       periodicity_unit: box.querySelector('.utf-unit').value,
       announce_days: announceRaw === '' ? null : parseInt(announceRaw, 10)
     };

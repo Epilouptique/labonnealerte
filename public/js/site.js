@@ -7,6 +7,13 @@
 (function () {
   'use strict';
 
+  // Normalisation de recherche partagée avec cards.js (index data-search) : sans elle,
+  // l'index et la requête seraient normalisés différemment et « tache » ne trouverait rien.
+  function normQ(s) {
+    if (window.LBACards && LBACards.normalizeSearch) return LBACards.normalizeSearch(s);
+    return String(s || '').toLowerCase();
+  }
+
   /* ---------------- Thème ---------------- */
   var STORAGE_KEY = 'lba-theme';
   var root = document.documentElement;
@@ -1321,7 +1328,7 @@
   }
 
   function computeShow() {
-    var q = (qInput.value || '').trim().toLowerCase();
+    var q = normQ(qInput.value);
     var searching = q.length > 0 || cat !== 'all';
     var idx = 0, hiddenMore = 0;
     cards.forEach(function (c) {
@@ -1623,18 +1630,26 @@
     });
 
     var searchTimer = null;
+    // La recherche porte sur TOUT le kiosque : une nouvelle saisie non vide remet le
+    // filtre sur « Toutes » (selectChip applique déjà). Sélectionner une catégorie
+    // ENSUITE affine les résultats (la requête reste dans le champ). Champ vidé →
+    // on ne touche pas à la catégorie courante.
+    function runSearch() {
+      if (normQ(qInput.value) && cat !== 'all') selectChip('all');
+      else apply(true);
+    }
     qInput.addEventListener('input', function () {
       backToGridIfAccount();
       syncClear();
       clearTimeout(searchTimer);
-      searchTimer = setTimeout(function () { apply(true); }, 120);
+      searchTimer = setTimeout(runSearch, 120);
     });
     // Point 6 : bouton de recherche (déclencheur explicite, la recherche reste
     // instantanée à la frappe). Applique immédiatement le filtre courant.
     var searchGo = document.querySelector('.search .search-go');
     if (searchGo) searchGo.addEventListener('click', function () {
       clearTimeout(searchTimer);
-      apply(true);
+      runSearch();
       qInput.focus();
     });
 
@@ -1874,7 +1889,10 @@
           if (sc.instances.length) { sc.state = mine.state; sc.muted = mine.muted; }
         }
         // V3 : tâches à échéance (privées, issues de /my-alerts uniquement).
-        if (mine && sc.type === 'user-task') sc.tasks = mine.tasks || [];
+        if (mine && sc.type === 'user-task') {
+          sc.tasks = mine.tasks || [];
+          sc.muted = mine.muted === true; // pause globale des relances (recto)
+        }
       }
       return LBACards.cardHTML(sc, mode);
     }).join('');
@@ -1981,9 +1999,9 @@
       // ids de sources) → computeSpecialIds peut inclure les decks. data-deck-id = id du
       // deck pour l'adoption (POST /api/collections/:id/adopt, officiel OU perso public).
       // data-href = navigation (/collection/:id ou /deck/:token selon le type).
-      var searchTxt = ((c.name || '') + ' ' + cats.map(function (s) {
+      var searchTxt = normQ((c.name || '') + ' ' + cats.map(function (s) {
         return (window.LBACat && LBACat.label) ? LBACat.label(s) : s;
-      }).join(' ')).toLowerCase();
+      }).join(' '));
       var href = c.href || ('/collection/' + encodeURIComponent(c.id));
       // La tuile est un <div> (PAS un <a>) : les vraies cartes contiennent des <button>
       // (like/partage/i), interdits dans un <a>. La navigation se fait au clic via data-href.

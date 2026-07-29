@@ -27,13 +27,16 @@ const TIMEOUT_MS = 20_000; // le CSV national fait ~5-8 Mo
 const CACHE_TTL_MS = 3 * 60 * 60 * 1000; // 3h
 
 // Taxons polliniques (ordre indifférent) : clé de colonne WFS → libellé lisible.
+// `slug` = valeur STABLE et sans accent, utilisée comme valeur d'enum côté
+// paramètre d'abonnement (pollens.js). Ne JAMAIS la renommer : elle est stockée
+// telle quelle dans les params des abonnements existants.
 const TAXONS = [
-  { key: 'code_ambr', nom: 'ambroisie' },
-  { key: 'code_arm', nom: 'armoise' },
-  { key: 'code_aul', nom: 'aulne' },
-  { key: 'code_boul', nom: 'bouleau' },
-  { key: 'code_gram', nom: 'graminées' },
-  { key: 'code_oliv', nom: 'olivier' },
+  { key: 'code_ambr', slug: 'ambroisie', nom: 'ambroisie' },
+  { key: 'code_arm', slug: 'armoise', nom: 'armoise' },
+  { key: 'code_aul', slug: 'aulne', nom: 'aulne' },
+  { key: 'code_boul', slug: 'bouleau', nom: 'bouleau' },
+  { key: 'code_gram', slug: 'graminees', nom: 'graminées' },
+  { key: 'code_oliv', slug: 'olivier', nom: 'olivier' },
 ];
 
 const SOURCES = {
@@ -113,8 +116,14 @@ function aggregateAir(parsed, todayIso) {
   return { echeance: target, byDept };
 }
 
-// Agrège les POLLENS par département : dept → { level: indice max (1..6), taxon: libellé
-// du taxon responsable du max } sur l'échéance de référence.
+// Agrège les POLLENS par département sur l'échéance de référence :
+//   dept → { level, taxon, levels: { <slug>: indice max (1..6) } }
+// `level`/`taxon` = pire cas TOUS TAXONS CONFONDUS (comportement historique,
+// strictement préservé : c'est ce que consomme un abonné sans choix d'espèce).
+// `levels` = pire cas PAR TAXON, chacun calculé indépendamment sur les communes
+// du département. Nécessaire pour le choix d'espèce : un abonné « graminées » ne
+// doit pas être alerté parce que l'olivier est au rouge dans la même zone.
+// Aucun appel réseau supplémentaire — les colonnes par taxon sont déjà dans le CSV.
 function aggregatePollens(parsed, todayIso) {
   const { idx, rows } = parsed;
   if (idx.code_zone == null) throw new Error('colonnes pollens absentes');
@@ -123,12 +132,14 @@ function aggregatePollens(parsed, todayIso) {
   for (const r of rows) {
     if (r[idx.date_ech] !== target) continue;
     const dep = deptOfInsee(r[idx.code_zone]);
-    let level = 0; let taxon = null;
+    if (byDept[dep] == null) byDept[dep] = { level: 0, taxon: null, levels: {} };
+    const acc = byDept[dep];
     for (const t of TAXONS) {
       const v = parseInt(r[idx[t.key]], 10);
-      if (Number.isFinite(v) && v > level) { level = v; taxon = t.nom; }
+      if (!Number.isFinite(v)) continue;
+      if (acc.levels[t.slug] == null || v > acc.levels[t.slug]) acc.levels[t.slug] = v;
+      if (v > acc.level) { acc.level = v; acc.taxon = t.nom; }
     }
-    if (byDept[dep] == null || level > byDept[dep].level) byDept[dep] = { level, taxon };
   }
   return { echeance: target, byDept };
 }
