@@ -4430,6 +4430,14 @@ CREATE INDEX IF NOT EXISTS idx_forum_reports_post ON forum_reports (post_id);
 -- Rôle admin (modération forum) : posé manuellement à true pour le compte de Hugo.
 ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT false;
 
+-- Slug public STABLE d'une source pour le forum (tag @forum_slug + lien carte→forum).
+-- Généré UNE fois (scripts/backfill-forum-slug.js + insertion d'une nouvelle source
+-- via server/forum-slug.js), JAMAIS régénéré au changement de titre. La colonne reste
+-- NULL tant que le backfill n'a pas tourné ; les routes /forum/source/:slug replient
+-- alors sur sources.id. Unicité garantie (index partiel : NULL non contraint).
+ALTER TABLE sources ADD COLUMN IF NOT EXISTS forum_slug VARCHAR(64);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_sources_forum_slug ON sources (forum_slug) WHERE forum_slug IS NOT NULL;
+
 -- Catégorie chapeau « Bonnes affaires » (voir server/categories.js) : posée EN PLUS du tag
 -- précis sur toute source qui fait économiser (bons plans, soldes, promos, prix carburant…).
 -- Idempotent : n'ajoute rien si déjà présent, et respecte le plafond de 3 catégories.

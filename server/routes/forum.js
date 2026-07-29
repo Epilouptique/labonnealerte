@@ -95,6 +95,18 @@ async function requireAdmin(req, res) {
   return auth;
 }
 
+// Résout le paramètre d'URL d'une source vers son id CANONIQUE (= forum_topics.source_id).
+// Priorité au slug public stable `forum_slug`, repli sur `sources.id` → rétrocompat
+// totale (aucun lien par id cassé). Source inconnue : renvoie le paramètre tel quel
+// (la requête sur source_id donnera alors une liste vide, comme avant).
+async function resolveSourceId(param) {
+  const bySlug = await pool.query('SELECT id FROM sources WHERE forum_slug = $1', [param]);
+  if (bySlug.rows.length) return bySlug.rows[0].id;
+  const byId = await pool.query('SELECT id FROM sources WHERE id = $1', [param]);
+  if (byId.rows.length) return byId.rows[0].id;
+  return param;
+}
+
 /* ------------------------------------------------------------------ */
 /* Rendu HTML (template strings, style cohérent avec le site)          */
 /* ------------------------------------------------------------------ */
@@ -190,10 +202,11 @@ router.get('/forum/c/:category', async (req, res) => {
 router.get('/forum/source/:slug', async (req, res) => {
   const sid = req.params.slug;
   try {
+    const canonicalId = await resolveSourceId(sid); // forum_slug prioritaire, repli id
     const { rows } = await pool.query(
       `SELECT slug, title, category, source_id, reply_count, last_reply_at
          FROM forum_topics WHERE hidden = false AND source_id = $1
-        ORDER BY last_reply_at DESC LIMIT $2`, [sid, TOPICS_PER_PAGE]);
+        ORDER BY last_reply_at DESC LIMIT $2`, [canonicalId, TOPICS_PER_PAGE]);
     const list = rows.length ? rows.map(topicRow).join('') : '<p class="empty">Aucune discussion sur cette source pour le moment.</p>';
     res.type('html').send(page(`Discussions · ${sid} · Forum`,
       `<h1>Discussions : <span class="badge">@${escHtml(sid)}</span></h1>
@@ -241,9 +254,10 @@ router.get('/forum/t/:slug', async (req, res) => {
 // Compteur JSON pour un futur badge « N discussions » (requête légère).
 router.get('/api/forum/source/:slug/count', async (req, res) => {
   try {
+    const canonicalId = await resolveSourceId(req.params.slug); // forum_slug prioritaire, repli id
     const { rows } = await pool.query(
       `SELECT COUNT(*)::int AS count FROM forum_topics WHERE hidden = false AND source_id = $1`,
-      [req.params.slug]);
+      [canonicalId]);
     res.json({ count: rows[0].count });
   } catch (err) {
     console.error('[forum] GET count :', err.message);
