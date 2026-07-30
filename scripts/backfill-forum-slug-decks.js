@@ -1,63 +1,57 @@
-// scripts/backfill-forum-slug.js — JETABLE (one-off).
-// Renseigne sources.forum_slug pour TOUTES les sources qui ne l'ont pas encore,
+// scripts/backfill-forum-slug-decks.js — JETABLE (one-off).
+// Miroir strict de scripts/backfill-forum-slug.js, mais pour les DECKS (collections).
+// Renseigne collections.forum_slug pour tous les decks EXISTANTS qui ne l'ont pas encore,
 // via le module partagé server/forum-slug.js (règle déterministe validée).
 //
-// Ordre déterministe pour la résolution de collision : display_order ASC, puis
-// id ASC → la source la « plus haute » garde le slug nu, les suivantes reçoivent
-// un suffixe numérique (2, 3, …). Rejouable : ne touche QUE les lignes à
-// forum_slug NULL, et réserve les slugs DÉJÀ posés comme « pris » (donc un 2e
-// passage n'entre jamais en collision avec l'existant).
+// Espace de noms SÉPARÉ des sources : on ne réserve QUE les slugs de collections déjà
+// posés (un slug source et un slug deck peuvent coïncider — désambiguïsés par la route).
+// Ordre déterministe de résolution de collision : display_order ASC, puis id ASC.
+// Rejouable : ne touche QUE les lignes à forum_slug NULL, réserve les slugs déjà posés.
 //
-//   node scripts/backfill-forum-slug.js           (.env pointe la base : écrit)
-//   node scripts/backfill-forum-slug.js --check    (calcul + rapport, N'ÉCRIT RIEN)
+//   node scripts/backfill-forum-slug-decks.js           (.env pointe la base : écrit)
+//   node scripts/backfill-forum-slug-decks.js --check    (calcul + rapport, N'ÉCRIT RIEN)
 //
-// UPDATE paramétrés ($1/$2) → node-postgres échappe lui-même. Une seule
-// transaction (pattern skins.js : client dédié, BEGIN/COMMIT, ROLLBACK sur erreur).
-//
-// PROCÉDURE POUR UNE FUTURE SOURCE (pas de route de création dynamique : les
-// sources sont insérées à la main dans server/db/init.sql) :
-//   soit relancer ce script après l'ajout (il ne remplit que les NULL),
-//   soit poser forum_slug directement dans l'INSERT (valeur calculée avec la
-//   même règle) — ne JAMAIS le régénérer ensuite.
+// NB : les FUTURS decks reçoivent leur forum_slug à la création (server/routes/decks.js,
+// POST /decks et /decks/shared/:token/fork). Ce script ne sert qu'au rattrapage de
+// l'existant. Une seule transaction (pattern skins.js), UPDATE paramétrés ($1/$2).
 
 require('dotenv').config();
 const { pool } = require('../server/db');
 const { slugify, resolveCollision } = require('../server/forum-slug');
 
-// Mode calculé UNE fois et annoncé sans ambiguïté (une sortie identique entre
-// dry-run et écriture était le symptôme trompeur du diagnostic précédent).
 const WRITE = !process.argv.includes('--check');
 
 (async () => {
   let client;
   console.log('====================================================');
   console.log(WRITE ? 'MODE : ÉCRITURE (écrit en base)' : 'MODE : DRY-RUN (--check, aucune écriture)');
+  console.log('DECKS (collections)');
   console.log('====================================================');
   try {
-    // 1) Slugs DÉJÀ attribués (autres lignes, ou passage précédent) → réservés.
+    // 1) Slugs de DECKS déjà attribués (autres lignes / passage précédent) → réservés.
+    //    Espace séparé : on N'inclut PAS les slugs de sources.
     const existing = await pool.query(
-      'SELECT forum_slug FROM sources WHERE forum_slug IS NOT NULL'
+      'SELECT forum_slug FROM collections WHERE forum_slug IS NOT NULL'
     );
     const taken = new Set(existing.rows.map((r) => r.forum_slug));
 
-    // 2) Sources à renseigner, dans l'ordre déterministe de résolution.
+    // 2) Decks à renseigner, dans l'ordre déterministe de résolution.
     const todo = await pool.query(
-      `SELECT id, name FROM sources
+      `SELECT id, name FROM collections
         WHERE forum_slug IS NULL
         ORDER BY display_order ASC, id ASC`
     );
-    console.log('À renseigner : ' + todo.rows.length + ' source(s). Déjà posées : ' + taken.size + '.');
+    console.log('À renseigner : ' + todo.rows.length + ' deck(s). Déjà posées : ' + taken.size + '.');
 
     // 3) Calcul (collisions gérées via `taken`, muté au fur et à mesure).
     const plan = [];
-    for (const s of todo.rows) {
-      const base = slugify(s.name, s.id);
+    for (const d of todo.rows) {
+      const base = slugify(d.name, d.id);
       const slug = resolveCollision(base, taken);
-      taken.add(slug); // réserve pour les suivantes
-      plan.push({ id: s.id, name: s.name, base, slug, suffixed: slug !== base });
+      taken.add(slug);
+      plan.push({ id: d.id, name: d.name, base, slug, suffixed: slug !== base });
     }
 
-    // Rapport (utile en --check comme en écriture).
     const suffixed = plan.filter((p) => p.suffixed);
     console.log('Collisions résolues par suffixe : ' + suffixed.length);
     for (const p of suffixed) console.log('  ' + p.id + ' → ' + p.slug + '  (base "' + p.base + '" déjà prise)');
@@ -71,15 +65,14 @@ const WRITE = !process.argv.includes('--check');
       return;
     }
 
-    // 4) Écriture : une seule transaction. Garde `forum_slug IS NULL` dans le
-    //    WHERE → jamais d'écrasement d'un slug déjà posé (stabilité).
+    // 4) Écriture : une seule transaction. Garde `forum_slug IS NULL` → jamais d'écrasement.
     console.log('\n>>> ÉCRITURE en cours (transaction)… <<<');
     client = await pool.connect();
     await client.query('BEGIN');
     let n = 0;
     for (const p of plan) {
       const r = await client.query(
-        'UPDATE sources SET forum_slug = $1 WHERE id = $2 AND forum_slug IS NULL',
+        'UPDATE collections SET forum_slug = $1 WHERE id = $2 AND forum_slug IS NULL',
         [p.slug, p.id]
       );
       n += r.rowCount;
@@ -91,10 +84,9 @@ const WRITE = !process.argv.includes('--check');
         '(déjà remplies entre-temps, ou base différente de celle attendue ?).');
     }
 
-    // 5) AUTO-VÉRIFICATION post-COMMIT : compte réel dans LA base connectée.
-    //    Lève le doute « rien en base » (mismatch .env / base de vérification).
-    const check = await client.query('SELECT COUNT(*)::int AS n FROM sources WHERE forum_slug IS NOT NULL');
-    console.log('🔎 Vérif en base (connexion du script) : ' + check.rows[0].n + ' source(s) avec forum_slug non NULL.');
+    // 5) AUTO-VÉRIFICATION post-COMMIT sur LA base connectée.
+    const check = await client.query('SELECT COUNT(*)::int AS n FROM collections WHERE forum_slug IS NOT NULL');
+    console.log('🔎 Vérif en base (connexion du script) : ' + check.rows[0].n + ' deck(s) avec forum_slug non NULL.');
   } catch (e) {
     if (client) { try { await client.query('ROLLBACK'); console.error('ROLLBACK effectué (aucune écriture conservée).'); } catch (_) {} }
     console.error('❌ ÉCHEC :', e.stack || e.message);

@@ -505,6 +505,14 @@
     var statut = isLinked ? ''
       : '<a class="back-statut" href="/source/' + esc(s.id) + '/statut">Plus d\'infos →</a>';
 
+    // Lien discret vers les discussions forum de cette source (jamais de contenu
+    // utilisateur dans la carte, juste un lien de sortie). Toujours visible dès qu'un
+    // forum_slug existe (la liste vide invite à créer le 1er sujet). Résolution slug-ou-id
+    // gérée côté serveur (/forum/source/:slug). Même token visuel que .back-statut.
+    var forum = s.forum_slug
+      ? '<a class="back-statut back-forum" href="/forum/source/' + esc(s.forum_slug) + '">Discussions sur le forum →</a>'
+      : '';
+
     // « i » (verso) : description LONGUE si presente, sinon la courte (jamais de vide).
     // Visible sur toutes tailles d'ecran (le retournement fait office de popup partout).
     var longDesc = '<p class="card-long-desc">' + esc(s.description_long || s.description || '') + '</p>';
@@ -514,7 +522,7 @@
         '<button class="flip-back" type="button" aria-label="Retour" title="Retour">' + BACK_SVG + '</button>' +
         topRow(s) +
         longDesc +
-        tags + author + statut +
+        tags + author + statut + forum +
       '</div>';
   }
 

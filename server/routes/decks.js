@@ -11,11 +11,37 @@ const { validateParams } = require('../params');
 const { resolveInstances, recomputeDeckCategories } = require('./collections'); // réutilise phase 1
 const ugc = require('../ugc');
 const { award, getTop20Ids } = require('../points');
+const { slugify, slugBase, SLUG_MAX } = require('../forum-slug');
 
 const router = express.Router();
 const MAX_DECKS = 15;
 // Teinte dominante 1-11 (défaut 1 = violet). Toute valeur hors plage → 1.
 function parseTint(v) { const n = parseInt(v, 10); return (Number.isInteger(n) && n >= 1 && n <= 11) ? n : 1; }
+
+// forum_slug d'un deck (identifiant public STABLE : tag @forum_slug + lien carte→forum).
+// Généré UNE fois à la CRÉATION/FORK, JAMAIS régénéré au rename (stabilité). Espace de
+// noms séparé des sources → unicité garantie par uq_collections_forum_slug seul.
+// `runInsert(slug)` exécute l'INSERT réel avec ce forum_slug ; on RÉESSAIE sur violation
+// de la contrainte d'unicité (suffixe incrémenté), borné, puis repli sur slug(id) brut.
+// Réutilise slugify/slugBase de forum-slug.js (aucune logique de slug dupliquée).
+async function insertDeckWithForumSlug(name, id, runInsert) {
+  const base = slugify(name, id) || 'deck';
+  for (let n = 1; n <= 20; n++) {
+    const slug = n === 1 ? base : (base.slice(0, SLUG_MAX - String(n).length) + n);
+    try {
+      await runInsert(slug);
+      return slug;
+    } catch (err) {
+      // Réessaie UNIQUEMENT sur collision du forum_slug ; toute autre erreur remonte.
+      if (err && err.code === '23505' && err.constraint === 'uq_collections_forum_slug') continue;
+      throw err;
+    }
+  }
+  // Repli : slug(id) brut (l'id du deck est unique → collision improbable). Dernier essai.
+  const fallback = (slugBase(id) || 'deck').slice(0, SLUG_MAX);
+  await runInsert(fallback);
+  return fallback;
+}
 
 /* ---------------- Rate-limit mémoire : création/édition de deck ---------------- */
 // 10 créations+éditions / heure / compte (réutilise l'esprit du likeLimiter).
@@ -167,11 +193,12 @@ router.post('/decks', async (req, res) => {
     // Un token de partage est genere des la creation (page /deck/:token + adoption kiosque).
     const visibility = body.visibility === 'private' ? 'private' : 'public';
     const shareToken = ugc.genShareToken();
-    await pool.query(
-      `INSERT INTO collections (id, name, description, emoji, tint, owner_subscriber_id, visibility, share_token, display_order)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 100)`,
-      [id, name.value, desc.value || null, emoji, tint, auth.id, visibility, shareToken]
-    );
+    // forum_slug posé à la création (stable). Retry sur collision via helper partagé.
+    await insertDeckWithForumSlug(name.value, id, (forumSlug) => pool.query(
+      `INSERT INTO collections (id, name, description, emoji, tint, owner_subscriber_id, visibility, share_token, display_order, forum_slug)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 100, $9)`,
+      [id, name.value, desc.value || null, emoji, tint, auth.id, visibility, shareToken, forumSlug]
+    ));
     // Point fixe pour la creation d'un deck (une fois par deck, pas de check de vitalite).
     // Le fork (copie privee) n'en donne pas : ce n'est pas un acte de creation publique.
     await award(auth.id, 'DECK_CREATED', id);
@@ -218,6 +245,8 @@ router.patch('/decks/:id', async (req, res) => {
     if (body.visibility === 'public' || body.visibility === 'private') visibility = body.visibility;
     let shareToken = deck.share_token;
     if (visibility === 'public' && !shareToken) shareToken = ugc.genShareToken();
+    // forum_slug VOLONTAIREMENT absent de cet UPDATE : identifiant public stable,
+    // jamais régénéré au rename (mêmes règles que sources.forum_slug).
     await pool.query(
       `UPDATE collections SET name = $1, description = $2, emoji = $3, tint = $4,
               visibility = $5, share_token = $6, updated_at = NOW()
@@ -407,11 +436,12 @@ router.post('/decks/shared/:token/fork', async (req, res) => {
     if (count.rows[0].n >= MAX_DECKS) return res.status(409).json({ error: `Maximum ${MAX_DECKS} decks.` });
 
     const newId = ugc.genDeckId();
-    await pool.query(
-      `INSERT INTO collections (id, name, description, emoji, tint, owner_subscriber_id, visibility, display_order, forked_from_name)
-       VALUES ($1, $2, $3, $4, $5, $6, 'private', 100, $7)`,
-      [newId, orig.name, orig.description, orig.emoji, orig.tint || 1, auth.id, orig.author || null]
-    );
+    // Deck forké = nouvelle entité → son PROPRE forum_slug (indépendant de l'original).
+    await insertDeckWithForumSlug(orig.name, newId, (forumSlug) => pool.query(
+      `INSERT INTO collections (id, name, description, emoji, tint, owner_subscriber_id, visibility, display_order, forked_from_name, forum_slug)
+       VALUES ($1, $2, $3, $4, $5, $6, 'private', 100, $7, $8)`,
+      [newId, orig.name, orig.description, orig.emoji, orig.tint || 1, auth.id, orig.author || null, forumSlug]
+    ));
     // Copie indépendante des items (snapshot).
     await pool.query(
       `INSERT INTO collection_items (collection_id, source_id, default_params, position)

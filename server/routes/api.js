@@ -115,7 +115,7 @@ router.get('/sources', async (req, res) => {
     const { rows } = await pool.query(
       `SELECT s.id, s.name, s.subtitle, s.description, s.description_long, s.badge, s.type, s.link_url,
               s.categories, s.submitted_by_github, s.params_schema,
-              s.likes_count, s.created_at,
+              s.likes_count, s.created_at, s.forum_slug,
               CASE WHEN s.type = 'linked' THEN NULL
                    ELSE COALESCE(st.state, 'inactive') END AS state,
               (SELECT COUNT(*) FROM subscriptions sub
@@ -199,7 +199,7 @@ router.get('/favorites', async (req, res) => {
     const { rows } = await pool.query(
       `SELECT s.id, s.name, s.subtitle, s.description, s.description_long, s.badge, s.type, s.link_url,
               s.categories, s.submitted_by_github, s.params_schema,
-              s.likes_count, s.created_at,
+              s.likes_count, s.created_at, s.forum_slug,
               CASE WHEN s.type = 'linked' THEN NULL
                    ELSE COALESCE(st.state, 'inactive') END AS state,
               (SELECT COUNT(*) FROM subscriptions sub

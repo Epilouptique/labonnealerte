@@ -42,7 +42,7 @@ router.get('/collections', async (req, res) => {
     const { rows } = await pool.query(
       `SELECT c.id, c.name, c.description, c.emoji, c.tint, c.display_order,
               c.visibility, c.share_token, c.created_at, c.categories,
-              c.owner_subscriber_id,
+              c.owner_subscriber_id, c.forum_slug,
               (CASE WHEN $1::int IS NULL THEN false
                     ELSE EXISTS (SELECT 1 FROM collection_adoptions a2
                                   WHERE a2.collection_id = c.id AND a2.subscriber_id = $1)

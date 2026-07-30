@@ -4438,6 +4438,30 @@ ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAU
 ALTER TABLE sources ADD COLUMN IF NOT EXISTS forum_slug VARCHAR(64);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_sources_forum_slug ON sources (forum_slug) WHERE forum_slug IS NOT NULL;
 
+-- Slug public STABLE d'un DECK (collections) pour le forum — même règle/module que les
+-- sources (server/forum-slug.js), MAIS généré au RUNTIME à la création/fork du deck
+-- (POST /decks, /decks/shared/:token/fork), jamais régénéré au rename. Espace de noms
+-- SÉPARÉ des sources (unicité par table) : un slug source et un slug deck peuvent
+-- coïncider, désambiguïsés par la route (/forum/source vs /forum/deck) et la colonne
+-- cible du sujet. Backfill des decks existants : scripts/backfill-forum-slug-decks.js.
+ALTER TABLE collections ADD COLUMN IF NOT EXISTS forum_slug VARCHAR(64);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_collections_forum_slug ON collections (forum_slug) WHERE forum_slug IS NOT NULL;
+
+-- Cible DECK d'un sujet de forum : 2e colonne nullable, exclusive de source_id.
+-- FK propre vers collections(id) (VARCHAR(64), même type que sources.id). Le CHECK
+-- garantit qu'un sujet tague AU PLUS une cible (source OU deck, jamais les deux).
+ALTER TABLE forum_topics ADD COLUMN IF NOT EXISTS deck_id VARCHAR(64) REFERENCES collections(id);
+CREATE INDEX IF NOT EXISTS idx_forum_topics_deck ON forum_topics (deck_id) WHERE deck_id IS NOT NULL;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'forum_topics_one_target_chk'
+  ) THEN
+    ALTER TABLE forum_topics
+      ADD CONSTRAINT forum_topics_one_target_chk CHECK (source_id IS NULL OR deck_id IS NULL);
+  END IF;
+END $$;
+
 -- Catégorie chapeau « Bonnes affaires » (voir server/categories.js) : posée EN PLUS du tag
 -- précis sur toute source qui fait économiser (bons plans, soldes, promos, prix carburant…).
 -- Idempotent : n'ajoute rien si déjà présent, et respecte le plafond de 3 catégories.

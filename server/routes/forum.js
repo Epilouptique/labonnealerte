@@ -107,71 +107,204 @@ async function resolveSourceId(param) {
   return param;
 }
 
+// Miroir pour les DECKS (collections). Espace de noms séparé : forum_slug prioritaire,
+// repli sur collections.id, sinon le paramètre tel quel (liste vide).
+async function resolveDeckId(param) {
+  const bySlug = await pool.query('SELECT id FROM collections WHERE forum_slug = $1', [param]);
+  if (bySlug.rows.length) return bySlug.rows[0].id;
+  const byId = await pool.query('SELECT id FROM collections WHERE id = $1', [param]);
+  if (byId.rows.length) return byId.rows[0].id;
+  return param;
+}
+
 /* ------------------------------------------------------------------ */
-/* Rendu HTML (template strings, style cohérent avec le site)          */
+/* Rendu HTML (template strings ; identité visuelle du site via         */
+/* tokens.css + site.css — mêmes assets/scripts que les pages           */
+/* secondaires statiques, cf. public/favoris.html).                     */
 /* ------------------------------------------------------------------ */
-function page(title, inner) {
-  return `<!doctype html><html lang="fr"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+
+// Descriptions éditoriales des 5 catégories (ton du site : bref, chaleureux).
+const CAT_META = {
+  discussion:   { emoji: '💬', desc: 'Le coin détente : on parle de tout, sans ordre du jour.' },
+  propositions: { emoji: '💡', desc: 'Une source ou une alerte qui manque ? Proposez-la ici.' },
+  dev:          { emoji: '⚙️', desc: 'OpenAlert, API, contributions : la cuisine technique du projet.' },
+  entraide:     { emoji: '🤝', desc: 'Une question, un réglage qui coince ? On s\'entraide.' },
+  suggestions:  { emoji: '✨', desc: 'Vos idées pour améliorer le site, en vrac et bienvenues.' },
+};
+
+// Icônes trait 2px stroke currentColor (même style que les cartes du kiosque).
+const REPLY_SVG = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.9-.9L3 21l1.9-5.6A8.38 8.38 0 0 1 4 11.5 8.5 8.5 0 0 1 12.5 3 8.38 8.38 0 0 1 21 11.5z"/></svg>';
+const LOCK_SVG = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
+const FLAG_SVG = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>';
+
+// Date relative en français (helper local ; aucun util équivalent côté serveur vérifié).
+function relativeTime(d) {
+  const then = new Date(d).getTime();
+  const s = Math.max(0, Math.round((Date.now() - then) / 1000));
+  if (s < 60) return "à l'instant";
+  const m = Math.round(s / 60); if (m < 60) return `il y a ${m} min`;
+  const h = Math.round(m / 60); if (h < 24) return `il y a ${h} h`;
+  const j = Math.round(h / 24); if (j < 30) return `il y a ${j} j`;
+  return new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+// Layout commun (head + header injecté par header.js + footer + scripts partagés).
+function forumShell(title, inner, opts) {
+  opts = opts || {};
+  const bc = opts.breadcrumb ? `<nav class="forum-breadcrumb" aria-label="Fil d'Ariane">${opts.breadcrumb}</nav>` : '';
+  return `<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>${escHtml(title)}</title>
-<style>
-  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:760px;margin:0 auto;
-       padding:24px 16px 64px;color:#0f1419;background:#fdfaff;line-height:1.55}
-  a{color:#a567e3;text-decoration:none} a:hover{text-decoration:underline}
-  header{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px}
-  h1{font-size:22px;margin:0 0 4px;letter-spacing:-0.02em}
-  .cats{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 26px}
-  .cats a{background:#f1e8fb;padding:6px 12px;border-radius:999px;font-size:13px;font-weight:600}
-  .topic{padding:12px 0;border-bottom:1px solid #eee}
-  .topic .t-title{font-weight:600;font-size:16px}
-  .topic .t-meta{font-size:12px;color:#6b6459;margin-top:2px}
-  .post{padding:14px 0;border-bottom:1px solid #eee}
-  .post .p-meta{font-size:12px;color:#6b6459;margin-bottom:6px}
-  .badge{display:inline-block;background:#eae0fb;color:#6b4ea8;border-radius:6px;padding:1px 7px;font-size:11px;font-weight:600}
-  .muted{color:#8a8a92} .empty{color:#8a8a92;padding:24px 0}
-</style></head><body>
-<header><div><a href="/">← La Bonne Alerte</a></div><div class="muted" style="font-size:13px">Forum</div></header>
+<meta name="description" content="${escHtml(opts.desc || 'Le forum de la communauté La Bonne Alerte.')}">
+${opts.noindex ? '<meta name="robots" content="noindex">' : ''}
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="/css/fonts.css">
+<link rel="stylesheet" href="/css/tokens.css">
+<link rel="stylesheet" href="/css/site.css">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#fdfaff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1419" media="(prefers-color-scheme: dark)">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+</head>
+<body>
+<header>
+  <!-- Header injecté par js/header.js (source unique). Ancre minimale. -->
+  <div class="wrap nav"></div>
+</header>
+<main class="forum-main">
+${bc}
 ${inner}
-</body></html>`;
+</main>
+<footer>
+  La Bonne Alerte — gratuit, open-source (MIT), sans spam, rien de caché.<br>
+  <a href="/">Kiosque</a> · <a href="/a-propos">À propos</a> · <a href="/soutenir">Nous soutenir</a> · <a href="/mentions-legales">Mentions légales</a> · <a href="/confidentialite">Confidentialité</a> · <a href="/proposer">Espace développeur</a>
+</footer>
+<script src="/js/session.js"></script>
+<script src="/js/categories.js"></script>
+<script src="/js/theme.js"></script>
+<script src="/js/header.js"></script>
+<script src="/js/forum.js"></script>
+<script src="/js/pwa.js"></script>
+</body>
+</html>`;
 }
 
-function topicRow(t) {
-  const cat = CATEGORIES[t.category] || t.category;
-  const src = t.source_id ? ` · <span class="badge">@${escHtml(t.source_id)}</span>` : '';
-  const when = new Date(t.last_reply_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+// SELECT commun d'une liste de sujets (jointures forum_slug source/deck + auteur).
+const TOPIC_SELECT = `
+  SELECT ft.slug, ft.title, ft.category, ft.reply_count, ft.last_reply_at, ft.locked,
+         ft.source_id, ft.deck_id,
+         s.forum_slug AS source_slug, s.name AS source_name,
+         c.forum_slug AS deck_slug, c.name AS deck_name,
+         COALESCE(au.display_name, 'Membre') AS author
+    FROM forum_topics ft
+    JOIN subscribers au ON au.id = ft.author_subscriber_id
+    LEFT JOIN sources s ON s.id = ft.source_id
+    LEFT JOIN collections c ON c.id = ft.deck_id`;
+
+// Badge @forum_slug (violet) d'un sujet tagué, cliquable vers /forum/source|deck/<slug>.
+function slugBadge(t) {
+  if (t.source_id) {
+    const slug = t.source_slug || t.source_id;
+    return `<a class="forum-slug-badge" href="/forum/source/${escHtml(slug)}">@${escHtml(slug)}</a>`;
+  }
+  if (t.deck_id) {
+    const slug = t.deck_slug || t.deck_id;
+    return `<a class="forum-slug-badge" href="/forum/deck/${escHtml(slug)}">@${escHtml(slug)}</a>`;
+  }
+  return '';
+}
+
+// Carte de sujet (composant central) — objet .card cliquable.
+function topicCard(t) {
+  const catLabel = CATEGORIES[t.category] || t.category;
   const n = t.reply_count;
-  return `<div class="topic">
-    <div class="t-title"><a href="/forum/t/${escHtml(t.slug)}">${escHtml(t.title)}</a></div>
-    <div class="t-meta">${escHtml(cat)}${src} · ${n} réponse${n > 1 ? 's' : ''} · ${escHtml(when)}</div>
-  </div>`;
+  const lock = t.locked ? `<span class="forum-lock" title="Sujet verrouillé" aria-label="Sujet verrouillé">${LOCK_SVG}</span>` : '';
+  // <article> (pas <a>) : le titre et le badge @slug sont des liens FRÈRES → aucune
+  // ancre imbriquée (HTML invalide). La carte reste visuellement un bloc cliquable
+  // via le lien-titre en pleine largeur (::after étendu en CSS).
+  return `<article class="card topic-card forum-in">
+    <a class="topic-card-title" href="/forum/t/${escHtml(t.slug)}">${escHtml(t.title)}</a>${lock}
+    <div class="topic-card-meta">
+      <span class="forum-tag">${escHtml(catLabel)}</span>
+      ${slugBadge(t)}
+      <span class="tc-author">${escHtml(t.author)}</span>
+      <span class="tc-dot">·</span>
+      <span class="tc-time">${escHtml(relativeTime(t.last_reply_at))}</span>
+      <span class="tc-replies">${REPLY_SVG}${n}</span>
+    </div>
+  </article>`;
 }
 
-function categoriesNav() {
-  return '<div class="cats">' + Object.keys(CATEGORIES).map((slug) =>
-    `<a href="/forum/c/${slug}">${escHtml(CATEGORIES[slug])}</a>`).join('') + '</div>';
+function topicList(rows, emptyMsg) {
+  return rows.length
+    ? `<div class="forum-list">${rows.map(topicCard).join('')}</div>`
+    : `<p class="forum-empty">${escHtml(emptyMsg)}</p>`;
+}
+
+// CTA « Créer un sujet » (style bouton principal du site, .empty-btn) + contexte optionnel.
+function createBtn(query) {
+  const qs = query ? ('?' + query) : '';
+  return `<a class="empty-btn forum-create-btn" href="/forum/nouveau${qs}">＋ Créer un sujet</a>`;
+}
+
+function breadcrumb(parts) {
+  return parts.map((p, i) => {
+    const last = i === parts.length - 1;
+    return last || !p.href
+      ? `<span aria-current="page">${escHtml(p.label)}</span>`
+      : `<a href="${escHtml(p.href)}">${escHtml(p.label)}</a> <span class="bc-sep">›</span> `;
+  }).join('');
 }
 
 function html404(res, msg) {
-  return res.status(404).type('html').send(page('Introuvable',
-    `<h1>Introuvable</h1><p class="empty">${escHtml(msg || 'Cette page n\'existe pas.')}</p>
-     <p><a href="/forum">← Retour au forum</a></p>`));
+  return res.status(404).type('html').send(forumShell('Introuvable · Forum',
+    `<h1 class="forum-title">Introuvable</h1>
+     <p class="forum-empty">${escHtml(msg || 'Cette page n\'existe pas.')}</p>
+     <p><a class="empty-btn" href="/forum">← Retour au forum</a></p>`,
+    { noindex: true, breadcrumb: breadcrumb([{ label: 'Forum', href: '/forum' }, { label: 'Introuvable' }]) }));
 }
 
 /* ================================================================== */
 /* LECTURES PUBLIQUES (HTML)                                           */
 /* ================================================================== */
 
-// Accueil : catégories + derniers sujets actifs (non masqués).
+// Accueil : catégories en cartes + derniers sujets actifs en cartes.
 router.get('/forum', async (req, res) => {
   try {
-    const { rows } = await pool.query(
-      `SELECT slug, title, category, source_id, reply_count, last_reply_at
-         FROM forum_topics WHERE hidden = false
-        ORDER BY last_reply_at DESC LIMIT $1`, [TOPICS_PER_PAGE]);
-    const list = rows.length ? rows.map(topicRow).join('') : '<p class="empty">Aucun sujet pour le moment.</p>';
-    res.type('html').send(page('Forum · La Bonne Alerte',
-      `<h1>Forum</h1><p class="muted">Discussions de la communauté.</p>
-       ${categoriesNav()}<h2 style="font-size:15px">Sujets récents</h2>${list}`));
+    const counts = await pool.query(
+      `SELECT category, COUNT(*)::int AS n FROM forum_topics WHERE hidden = false GROUP BY category`);
+    const countMap = {};
+    counts.rows.forEach((r) => { countMap[r.category] = r.n; });
+
+    const recent = await pool.query(
+      `${TOPIC_SELECT} WHERE ft.hidden = false ORDER BY ft.last_reply_at DESC LIMIT $1`, [TOPICS_PER_PAGE]);
+
+    const catCards = Object.keys(CATEGORIES).map((slug) => {
+      const meta = CAT_META[slug] || { emoji: '•', desc: '' };
+      const n = countMap[slug] || 0;
+      return `<a class="card forum-cat-card forum-in" href="/forum/c/${slug}">
+        <div class="fcc-emoji" aria-hidden="true">${meta.emoji}</div>
+        <div class="fcc-body">
+          <div class="fcc-name">${escHtml(CATEGORIES[slug])}</div>
+          <div class="fcc-desc">${escHtml(meta.desc)}</div>
+        </div>
+        <div class="fcc-count">${n} sujet${n > 1 ? 's' : ''}</div>
+      </a>`;
+    }).join('');
+
+    res.type('html').send(forumShell('Forum · La Bonne Alerte',
+      `<div class="forum-head">
+         <h1 class="forum-title">Le <span class="hl">forum</span></h1>
+         ${createBtn('')}
+       </div>
+       <p class="forum-intro">Un coin pour échanger, proposer, s'entraider. Bienvenue.</p>
+       <div class="forum-cats-grid">${catCards}</div>
+       <h2 class="forum-h2">Sujets récents</h2>
+       ${topicList(recent.rows, 'Aucun sujet pour le moment — lancez le premier !')}`,
+      { breadcrumb: breadcrumb([{ label: 'Forum' }]) }));
   } catch (err) {
     console.error('[forum] GET /forum :', err.message);
     res.status(503).type('html').send('Service momentanément indisponible.');
@@ -185,37 +318,85 @@ router.get('/forum/c/:category', async (req, res) => {
   const page_ = Math.max(1, parseInt(req.query.page, 10) || 1);
   try {
     const { rows } = await pool.query(
-      `SELECT slug, title, category, source_id, reply_count, last_reply_at
-         FROM forum_topics WHERE hidden = false AND category = $1
-        ORDER BY last_reply_at DESC LIMIT $2 OFFSET $3`,
+      `${TOPIC_SELECT} WHERE ft.hidden = false AND ft.category = $1
+        ORDER BY ft.last_reply_at DESC LIMIT $2 OFFSET $3`,
       [cat, TOPICS_PER_PAGE, (page_ - 1) * TOPICS_PER_PAGE]);
-    const list = rows.length ? rows.map(topicRow).join('') : '<p class="empty">Aucun sujet dans cette catégorie.</p>';
-    res.type('html').send(page(`${CATEGORIES[cat]} · Forum`,
-      `<h1>${escHtml(CATEGORIES[cat])}</h1>${categoriesNav()}${list}`));
+    const meta = CAT_META[cat] || { desc: '' };
+    const pager = pagerHTML(`/forum/c/${cat}`, page_, rows.length);
+    res.type('html').send(forumShell(`${CATEGORIES[cat]} · Forum`,
+      `<div class="forum-head">
+         <h1 class="forum-title">${escHtml(CATEGORIES[cat])}</h1>
+         ${createBtn('cat=' + encodeURIComponent(cat))}
+       </div>
+       <p class="forum-intro">${escHtml(meta.desc || '')}</p>
+       ${topicList(rows, 'Aucun sujet dans cette catégorie — soyez le premier.')}
+       ${pager}`,
+      { breadcrumb: breadcrumb([{ label: 'Forum', href: '/forum' }, { label: CATEGORIES[cat] }]) }));
   } catch (err) {
     console.error('[forum] GET /forum/c :', err.message);
     res.status(503).type('html').send('Service momentanément indisponible.');
   }
 });
 
-// Sujets tagués à une source (cible du futur lien carte).
+// Sujets tagués à une source (cible du lien carte→forum).
 router.get('/forum/source/:slug', async (req, res) => {
   const sid = req.params.slug;
   try {
-    const canonicalId = await resolveSourceId(sid); // forum_slug prioritaire, repli id
+    const canonicalId = await resolveSourceId(sid);
+    const meta = await pool.query('SELECT name, forum_slug FROM sources WHERE id = $1', [canonicalId]);
+    const name = meta.rows.length ? meta.rows[0].name : sid;
+    const slug = (meta.rows.length && meta.rows[0].forum_slug) || sid;
     const { rows } = await pool.query(
-      `SELECT slug, title, category, source_id, reply_count, last_reply_at
-         FROM forum_topics WHERE hidden = false AND source_id = $1
-        ORDER BY last_reply_at DESC LIMIT $2`, [canonicalId, TOPICS_PER_PAGE]);
-    const list = rows.length ? rows.map(topicRow).join('') : '<p class="empty">Aucune discussion sur cette source pour le moment.</p>';
-    res.type('html').send(page(`Discussions · ${sid} · Forum`,
-      `<h1>Discussions : <span class="badge">@${escHtml(sid)}</span></h1>
-       <p><a href="/forum">← Forum</a></p>${list}`));
+      `${TOPIC_SELECT} WHERE ft.hidden = false AND ft.source_id = $1
+        ORDER BY ft.last_reply_at DESC LIMIT $2`, [canonicalId, TOPICS_PER_PAGE]);
+    res.type('html').send(forumShell(`Discussions · ${name} · Forum`,
+      `<div class="forum-head">
+         <h1 class="forum-title">${escHtml(name)}</h1>
+         ${createBtn('source=' + encodeURIComponent(slug))}
+       </div>
+       <p class="forum-intro">Discussions liées à <a class="forum-slug-badge" href="/forum/source/${escHtml(slug)}">@${escHtml(slug)}</a></p>
+       ${topicList(rows, 'Aucune discussion sur cette source pour le moment — ouvrez la première.')}`,
+      { breadcrumb: breadcrumb([{ label: 'Forum', href: '/forum' }, { label: name }]) }));
   } catch (err) {
     console.error('[forum] GET /forum/source :', err.message);
     res.status(503).type('html').send('Service momentanément indisponible.');
   }
 });
+
+// Sujets tagués à un DECK (miroir ; espace de noms séparé).
+router.get('/forum/deck/:slug', async (req, res) => {
+  const did = req.params.slug;
+  try {
+    const canonicalId = await resolveDeckId(did);
+    const meta = await pool.query('SELECT name, forum_slug FROM collections WHERE id = $1', [canonicalId]);
+    const name = meta.rows.length ? meta.rows[0].name : did;
+    const slug = (meta.rows.length && meta.rows[0].forum_slug) || did;
+    const { rows } = await pool.query(
+      `${TOPIC_SELECT} WHERE ft.hidden = false AND ft.deck_id = $1
+        ORDER BY ft.last_reply_at DESC LIMIT $2`, [canonicalId, TOPICS_PER_PAGE]);
+    res.type('html').send(forumShell(`Discussions · ${name} · Forum`,
+      `<div class="forum-head">
+         <h1 class="forum-title">${escHtml(name)}</h1>
+         ${createBtn('deck=' + encodeURIComponent(slug))}
+       </div>
+       <p class="forum-intro">Discussions liées au deck <a class="forum-slug-badge" href="/forum/deck/${escHtml(slug)}">@${escHtml(slug)}</a></p>
+       ${topicList(rows, 'Aucune discussion sur ce deck pour le moment — ouvrez la première.')}`,
+      { breadcrumb: breadcrumb([{ label: 'Forum', href: '/forum' }, { label: name }]) }));
+  } catch (err) {
+    console.error('[forum] GET /forum/deck :', err.message);
+    res.status(503).type('html').send('Service momentanément indisponible.');
+  }
+});
+
+// Pagination simple (préc./suiv.) — n = nb de lignes de la page courante.
+function pagerHTML(base, page_, n) {
+  if (page_ <= 1 && n < TOPICS_PER_PAGE) return '';
+  const prev = page_ > 1
+    ? `<a class="forum-pager-btn" href="${base}?page=${page_ - 1}">← Précédents</a>` : '';
+  const next = n >= TOPICS_PER_PAGE
+    ? `<a class="forum-pager-btn" href="${base}?page=${page_ + 1}">Suivants →</a>` : '';
+  return (prev || next) ? `<div class="forum-pager">${prev}<span class="forum-pager-page">Page ${page_}</span>${next}</div>` : '';
+}
 
 // Sujet + messages paginés (404 si masqué). Messages masqués filtrés.
 router.get('/forum/t/:slug', async (req, res) => {
@@ -223,7 +404,15 @@ router.get('/forum/t/:slug', async (req, res) => {
   const page_ = Math.max(1, parseInt(req.query.page, 10) || 1);
   try {
     const t = await pool.query(
-      `SELECT id, title, category, source_id, locked, hidden FROM forum_topics WHERE slug = $1`, [slug]);
+      `SELECT ft.id, ft.title, ft.category, ft.locked, ft.hidden,
+              ft.source_id, ft.deck_id,
+              s.forum_slug AS source_slug, c.forum_slug AS deck_slug,
+              COALESCE(au.display_name, 'Membre') AS author, ft.created_at
+         FROM forum_topics ft
+         JOIN subscribers au ON au.id = ft.author_subscriber_id
+         LEFT JOIN sources s ON s.id = ft.source_id
+         LEFT JOIN collections c ON c.id = ft.deck_id
+        WHERE ft.slug = $1`, [slug]);
     if (!t.rows.length || t.rows[0].hidden) return html404(res, 'Sujet introuvable.');
     const topic = t.rows[0];
     const p = await pool.query(
@@ -232,22 +421,124 @@ router.get('/forum/t/:slug', async (req, res) => {
         WHERE fp.topic_id = $1 AND fp.hidden = false
         ORDER BY fp.created_at ASC LIMIT $2 OFFSET $3`,
       [topic.id, POSTS_PER_PAGE, (page_ - 1) * POSTS_PER_PAGE]);
-    const posts = p.rows.map((post) => {
-      const when = new Date(post.created_at).toLocaleString('fr-FR',
-        { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-      return `<div class="post"><div class="p-meta">${escHtml(post.author)} · ${escHtml(when)}</div>
-        <div>${bodyToHtml(post.body)}</div></div>`;
-    }).join('') || '<p class="empty">Aucun message.</p>';
-    const src = topic.source_id ? ` · <span class="badge">@${escHtml(topic.source_id)}</span>` : '';
-    const lock = topic.locked ? ' · <span class="muted">🔒 verrouillé</span>' : '';
-    res.type('html').send(page(`${topic.title} · Forum`,
-      `<h1>${escHtml(topic.title)}</h1>
-       <p class="t-meta">${escHtml(CATEGORIES[topic.category] || topic.category)}${src}${lock}</p>
-       <p><a href="/forum/c/${escHtml(topic.category)}">← ${escHtml(CATEGORIES[topic.category] || 'Retour')}</a></p>
-       ${posts}`));
+
+    const posts = p.rows.map((post, i) => {
+      const cls = (page_ === 1 && i === 0) ? 'card post-card post-card-op forum-in' : 'card post-card forum-in';
+      return `<article class="${cls}">
+        <div class="post-meta">
+          <span class="post-author">${escHtml(post.author)}</span>
+          <span class="tc-dot">·</span>
+          <span class="post-time">${escHtml(relativeTime(post.created_at))}</span>
+          <button type="button" class="forum-report" data-post-id="${post.id}" title="Signaler ce message" aria-label="Signaler ce message">${FLAG_SVG}</button>
+        </div>
+        <div class="post-body">${bodyToHtml(post.body)}</div>
+      </article>`;
+    }).join('') || '<p class="forum-empty">Aucun message.</p>';
+
+    const catLabel = CATEGORIES[topic.category] || topic.category;
+    const replyZone = topic.locked
+      ? `<div class="forum-locked-banner">${LOCK_SVG} Ce sujet est verrouillé : les réponses sont closes.</div>`
+      : `<form id="forum-reply-form" class="forum-form" data-topic-id="${topic.id}">
+           <label class="forum-label" for="reply-body">Votre réponse</label>
+           <textarea id="reply-body" class="forum-textarea" maxlength="5000" required placeholder="Écrivez votre réponse…"></textarea>
+           <div class="forum-form-row">
+             <span class="forum-counter" data-for="reply-body">0 / 5000</span>
+             <button type="submit" class="empty-btn">Répondre</button>
+           </div>
+           <p class="forum-form-msg" role="alert" hidden></p>
+         </form>
+         <div class="forum-login-invite" hidden>
+           <p>Connectez-vous pour répondre à ce sujet.</p>
+           <a class="empty-btn" href="/connexion">Se connecter</a>
+         </div>`;
+
+    res.type('html').send(forumShell(`${topic.title} · Forum`,
+      `<article class="card topic-op-card">
+         <h1 class="forum-title forum-title-topic">${escHtml(topic.title)}</h1>
+         <div class="topic-card-meta">
+           <a class="forum-tag" href="/forum/c/${escHtml(topic.category)}">${escHtml(catLabel)}</a>
+           ${slugBadge(topic)}
+           <span class="tc-author">${escHtml(topic.author)}</span>
+           <span class="tc-dot">·</span>
+           <span class="tc-time">${escHtml(relativeTime(topic.created_at))}</span>
+           ${topic.locked ? `<span class="forum-lock">${LOCK_SVG} verrouillé</span>` : ''}
+         </div>
+       </article>
+       <div class="forum-posts">${posts}</div>
+       <section class="forum-reply">${replyZone}</section>`,
+      { breadcrumb: breadcrumb([
+          { label: 'Forum', href: '/forum' },
+          { label: catLabel, href: '/forum/c/' + topic.category },
+          { label: topic.title }]) }));
   } catch (err) {
     console.error('[forum] GET /forum/t :', err.message);
     res.status(503).type('html').send('Service momentanément indisponible.');
+  }
+});
+
+// Page de création d'un sujet (server-rendu). Le tag source/deck est peuplé
+// côté client via /api/forum/taggables (voir /js/forum.js). Pré-remplissage
+// possible via ?cat= / ?source= / ?deck= (le client résout le slug).
+router.get('/forum/nouveau', (req, res) => {
+  const preCat = isCategory(req.query.cat) ? req.query.cat : '';
+  const preSource = typeof req.query.source === 'string' ? req.query.source : '';
+  const preDeck = typeof req.query.deck === 'string' ? req.query.deck : '';
+  const catOptions = Object.keys(CATEGORIES).map((slug) =>
+    `<option value="${slug}"${slug === preCat ? ' selected' : ''}>${escHtml(CATEGORIES[slug])}</option>`).join('');
+  res.type('html').send(forumShell('Nouveau sujet · Forum',
+    `<h1 class="forum-title">Nouveau <span class="hl">sujet</span></h1>
+     <form id="forum-create-form" class="forum-form forum-create"
+           data-pre-source="${escHtml(preSource)}" data-pre-deck="${escHtml(preDeck)}">
+       <label class="forum-label" for="new-cat">Catégorie</label>
+       <select id="new-cat" class="forum-select" required>
+         <option value="" disabled${preCat ? '' : ' selected'}>Choisir une catégorie…</option>
+         ${catOptions}
+       </select>
+
+       <label class="forum-label" for="new-title">Titre</label>
+       <input id="new-title" class="forum-input" type="text" maxlength="140" required
+              placeholder="Un titre clair et concis">
+       <span class="forum-counter" data-for="new-title">0 / 140</span>
+
+       <label class="forum-label" for="new-tag">Lier à une source ou un deck <span class="forum-optional">(optionnel)</span></label>
+       <select id="new-tag" class="forum-select">
+         <option value="">— Aucun —</option>
+       </select>
+
+       <label class="forum-label" for="new-body">Message</label>
+       <textarea id="new-body" class="forum-textarea" maxlength="5000" required
+                 placeholder="Développez votre sujet…"></textarea>
+       <div class="forum-form-row">
+         <span class="forum-counter" data-for="new-body">0 / 5000</span>
+         <button type="submit" class="empty-btn">Publier le sujet</button>
+       </div>
+       <p class="forum-form-msg" role="alert" hidden></p>
+     </form>
+     <div class="forum-login-invite" hidden>
+       <p>Il faut un compte pour créer un sujet. C'est gratuit et sans mot de passe.</p>
+       <a class="empty-btn" href="/connexion">Se connecter</a>
+     </div>`,
+    { noindex: true, breadcrumb: breadcrumb([{ label: 'Forum', href: '/forum' }, { label: 'Nouveau sujet' }]) }));
+});
+
+// Liste des cibles taguables (sources activées + decks officiels/publics) pour
+// le <select> du formulaire de création. Lecture seule, léger.
+router.get('/api/forum/taggables', async (req, res) => {
+  try {
+    const s = await pool.query(
+      `SELECT id, name, forum_slug FROM sources WHERE enabled = true ORDER BY name ASC`);
+    const d = await pool.query(
+      `SELECT id, name, forum_slug FROM collections
+        WHERE (visibility = 'official' AND owner_subscriber_id IS NULL)
+           OR (visibility = 'public'   AND owner_subscriber_id IS NOT NULL)
+        ORDER BY name ASC`);
+    res.json({
+      sources: s.rows.map((r) => ({ id: r.id, name: r.name, forum_slug: r.forum_slug })),
+      decks: d.rows.map((r) => ({ id: r.id, name: r.name, forum_slug: r.forum_slug })),
+    });
+  } catch (err) {
+    console.error('[forum] GET /api/forum/taggables :', err.message);
+    res.status(503).json({ error: 'Service indisponible' });
   }
 });
 
@@ -261,6 +552,20 @@ router.get('/api/forum/source/:slug/count', async (req, res) => {
     res.json({ count: rows[0].count });
   } catch (err) {
     console.error('[forum] GET count :', err.message);
+    res.status(503).json({ error: 'Service indisponible' });
+  }
+});
+
+// Compteur JSON pour un DECK (miroir de la route source).
+router.get('/api/forum/deck/:slug/count', async (req, res) => {
+  try {
+    const canonicalId = await resolveDeckId(req.params.slug); // forum_slug prioritaire, repli id
+    const { rows } = await pool.query(
+      `SELECT COUNT(*)::int AS count FROM forum_topics WHERE hidden = false AND deck_id = $1`,
+      [canonicalId]);
+    res.json({ count: rows[0].count });
+  } catch (err) {
+    console.error('[forum] GET deck count :', err.message);
     res.status(503).json({ error: 'Service indisponible' });
   }
 });
@@ -281,12 +586,21 @@ router.post('/forum/t', async (req, res) => {
   const body = validateForumBody(req.body && req.body.body);
   if (!body.ok) return res.status(400).json({ error: 'Message : ' + body.error });
 
-  // source_id optionnel : doit exister dans sources.
+  // Cible optionnelle : source_id OU deck_id, jamais les deux (miroir du CHECK SQL).
   let sourceId = (req.body && req.body.source_id) || null;
+  let deckId = (req.body && req.body.deck_id) || null;
+  if (sourceId != null && deckId != null) {
+    return res.status(400).json({ error: 'Un sujet cible au plus une source OU un deck, pas les deux.' });
+  }
   if (sourceId != null) {
     sourceId = String(sourceId);
     const s = await pool.query('SELECT 1 FROM sources WHERE id = $1', [sourceId]);
     if (!s.rows.length) return res.status(400).json({ error: 'Source inconnue' });
+  }
+  if (deckId != null) {
+    deckId = String(deckId);
+    const d = await pool.query('SELECT 1 FROM collections WHERE id = $1', [deckId]);
+    if (!d.rows.length) return res.status(400).json({ error: 'Deck inconnu' });
   }
 
   const slug = slugify(title.value);
@@ -294,9 +608,9 @@ router.post('/forum/t', async (req, res) => {
   try {
     await client.query('BEGIN');
     const t = await client.query(
-      `INSERT INTO forum_topics (category, title, slug, author_subscriber_id, source_id)
-       VALUES ($1, $2, $3, $4, $5) RETURNING id, slug`,
-      [category, title.value, slug, auth.id, sourceId]);
+      `INSERT INTO forum_topics (category, title, slug, author_subscriber_id, source_id, deck_id)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, slug`,
+      [category, title.value, slug, auth.id, sourceId, deckId]);
     await client.query(
       `INSERT INTO forum_posts (topic_id, author_subscriber_id, body) VALUES ($1, $2, $3)`,
       [t.rows[0].id, auth.id, body.value]);

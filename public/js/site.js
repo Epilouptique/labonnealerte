@@ -1252,6 +1252,7 @@
   // Seuil de pagination par défaut : anonyme 6 (+ carte Proposer), connecté 8
   // cartes normales (+ la carte recommandée épinglée en 9e = 9 visibles).
   var INITIAL_ANON = 5, INITIAL_CONNECTED = 8, STEP = 9;
+  var STEP_LIST = 16; // vue liste : « Afficher plus » ajoute 16 sources (au lieu de 9)
   var cat = 'all', visibleLimit = INITIAL_ANON, secondaryOpen = false, currentMode = 'anon';
   var accountEmail = null; // email de la session connectée (pour le panneau compte)
   var accountDisplayName = null; // pseudo unifié (auto-rempli à la 1re connexion) — pilote « Bonjour » + avatar
@@ -1264,7 +1265,7 @@
     if (currentMode === 'connected' && cat === 'all' && isListView()) return INITIAL_LIST_ALL_CONNECTED;
     return currentMode === 'connected' ? INITIAL_CONNECTED : INITIAL_ANON;
   }
-  var cards = [], moreBtn = null, qInput = null, grid = null, addCard = null;
+  var cards = [], moreBtn = null, allBtn = null, qInput = null, grid = null, addCard = null;
   var sourcesData = []; // liste des sources (pour recalculer une recommandation à l'adoption)
   var decksData = [];   // tuiles-deck du kiosque (officiels + perso publics) — modes spéciaux
   // Exposition lecture seule pour la vue liste (list-view.js) : données + mode. La liste
@@ -1401,33 +1402,69 @@
       return '<button class="chip-f" type="button" data-cat="' + esc(slug) + '">' +
         esc(label) + ' <span class="n">' + count + '</span></button>';
     }
-    var prim = '<button class="chip-f on" type="button" data-cat="all">Toutes <span class="n">' + pool.length + '</span></button>';
-    if (mode === 'connected' && (!q || mineCount)) prim += chip('mine', 'Ma collection', mineCount);
-    // A6) Puces spéciales « Nouveautés » / « Les plus populaires » en tête (après Toutes/Mes alertes).
-    // Masquées sous recherche : elles ignorent la requête (top-N global), donc elles ne
-    // décriraient pas les résultats affichés.
-    if (!q) {
-      prim += '<button class="chip-f chip-special" type="button" data-cat="nouveautes">' + ICON_NOUVEAUTES + ' Nouveautés</button>';
-      prim += '<button class="chip-f chip-special" type="button" data-cat="selection">' + ICON_SELECTION + ' Les plus populaires</button>';
-    }
-    primary.forEach(function (s) { prim += chip(s, LBACat.label(s), counts[s]); });
-    if (secondary.length) prim += '<button class="chip-f chip-more-toggle" type="button" aria-label="Plus de catégories">+</button>';
-
-    var sec = secondary.map(function (s) { return chip(s, LBACat.label(s), counts[s]); }).join('');
     // La 2e ligne est fermée par défaut (CSS max-height:0), ouverte via .open.
     // Elle est rendue HORS de .toolbar pour ne pas décaler la barre de recherche (I).
     secondaryOpen = false;
-    chipsEl.innerHTML = '<div class="chips-row" id="chips-primary">' + prim + '</div>';
     var secWrap = document.getElementById('chips-secondary-wrap');
-    if (secWrap) secWrap.innerHTML = secondary.length
-      ? '<div class="chips-row chips-more" id="chips-secondary">' + sec + '</div>' : '';
+
+    function paint() {
+      var prim = '<button class="chip-f on" type="button" data-cat="all">Toutes <span class="n">' + pool.length + '</span></button>';
+      if (mode === 'connected' && (!q || mineCount)) prim += chip('mine', 'Ma collection', mineCount);
+      // A6) Puces spéciales « Nouveautés » / « Les plus populaires » en tête (après Toutes/Mes alertes).
+      // Masquées sous recherche : elles ignorent la requête (top-N global), donc elles ne
+      // décriraient pas les résultats affichés.
+      if (!q) {
+        prim += '<button class="chip-f chip-special" type="button" data-cat="nouveautes">' + ICON_NOUVEAUTES + ' Nouveautés</button>';
+        prim += '<button class="chip-f chip-special" type="button" data-cat="selection">' + ICON_SELECTION + ' Les plus populaires</button>';
+      }
+      primary.forEach(function (s) { prim += chip(s, LBACat.label(s), counts[s]); });
+      if (secondary.length) prim += '<button class="chip-f chip-more-toggle" type="button" aria-label="Plus de catégories">+</button>';
+      chipsEl.innerHTML = '<div class="chips-row" id="chips-primary">' + prim + '</div>';
+      if (secWrap) secWrap.innerHTML = secondary.length
+        ? '<div class="chips-row chips-more" id="chips-secondary">' + sec() + '</div>' : '';
+    }
+    function sec() { return secondary.map(function (s) { return chip(s, LBACat.label(s), counts[s]); }).join(''); }
+    paint();
+
+    // Desktop : le rail doit tenir sur UNE ligne. Les libellés/compteurs varient (arrivée
+    // des tuiles-deck, filtrage par recherche) et un plafond fixe de puces finit par
+    // déborder → le « + » repasse à la ligne et crée une rangée fantôme dans le header.
+    // On mesure et on renvoie la dernière puce primaire vers la 2e ligne jusqu'à ce que
+    // tout tienne (quelques itérations au pire, uniquement sur une largeur donnée).
+    if (!mobile) {
+      var guard = 0;
+      while (primary.length && guard++ < 12 && rowWraps()) {
+        secondary.unshift(primary.pop());
+        secondary = secondary.slice(0, 12);
+        paint();
+      }
+    }
+  }
+
+  // Le rail primaire déborde-t-il sur une 2e ligne ? (comparaison des tops : plus fiable
+  // que la somme des largeurs, qui ignore gaps et arrondis.)
+  function rowWraps() {
+    var row = document.getElementById('chips-primary');
+    if (!row) return false;
+    var items = row.querySelectorAll('.chip-f');
+    if (items.length < 2) return false;
+    var top0 = Math.round(items[0].getBoundingClientRect().top);
+    return Math.round(items[items.length - 1].getBoundingClientRect().top) > top0;
   }
 
   function computeShow() {
     var q = normQ(qInput.value);
     var searching = q.length > 0 || cat !== 'all';
     var idx = 0, hiddenMore = 0;
-    cards.forEach(function (c) {
+    // Vue liste : la pagination suit l'ordre ALPHABÉTIQUE (celui des lignes), pas l'ordre
+    // de la grille (popularité/display_order). Sans ça, « les 16 premières cartes » sont
+    // les 16 plus populaires, réparties de A à Z — la liste ne commence pas par un A et
+    // ne se lit pas d'une traite. On ne trie qu'un ORDRE DE PARCOURS : le DOM des cartes
+    // et l'ordre des lignes restent inchangés.
+    var order = isListView()
+      ? cards.slice().sort(function (a, b) { return cardName(a).localeCompare(cardName(b), 'fr', { sensitivity: 'base' }); })
+      : cards;
+    order.forEach(function (c) {
       var elig = matches(c, q);
       // Épinglées (ne consomment pas de créneau) : la reco, la carte de comblement, et les
       // tuiles-deck (elles ne comptent pas dans la pagination des alertes).
@@ -1442,6 +1479,16 @@
     });
     return { searching: searching, hiddenMore: hiddenMore };
   }
+  // Nom affiché d'une carte (titre du recto), mémorisé : sert au tri alphabétique de la
+  // pagination en vue liste. Les tuiles-deck n'ont pas de h3 → repli sur data-search.
+  function cardName(c) {
+    if (c._name == null) {
+      var h = c.querySelector('h3');
+      c._name = h ? h.textContent.trim() : (c.dataset.search || '');
+    }
+    return c._name;
+  }
+
   function setClasses() {
     cards.forEach(function (c) {
       c.classList.toggle('filtered', !c._elig);
@@ -1451,7 +1498,10 @@
   function updateMore(info) {
     if (!moreBtn) return;
     // A) Plus de compteur « (+X) » : le bouton dit simplement « Afficher plus d'alertes ».
-    moreBtn.style.display = (info.searching || info.hiddenMore === 0) ? 'none' : '';
+    var hide = (info.searching || info.hiddenMore === 0);
+    moreBtn.style.display = hide ? 'none' : '';
+    // « Toutes les alertes » : vue liste uniquement, et seulement s'il reste du caché.
+    if (allBtn) allBtn.style.display = (hide || !isListView()) ? 'none' : '';
   }
   function snapshot(list) { var m = new Map(); list.forEach(function (c) { m.set(c, c.getBoundingClientRect()); }); return m; }
 
@@ -1731,6 +1781,7 @@
   function setupKiosk(mode) {
     grid = document.getElementById('grid');
     moreBtn = document.getElementById('moreBtn');
+    allBtn = document.getElementById('allBtn');
     qInput = document.getElementById('q');
     if (!grid || !moreBtn || !qInput) return;
     cards = Array.prototype.slice.call(grid.querySelectorAll('.card[data-cats]'));
@@ -1755,7 +1806,7 @@
     if (clearBtn) clearBtn.addEventListener('click', function () {
       qInput.value = '';
       syncClear();
-      apply(true);      // affiche tout
+      runSearch();      // affiche tout ET restaure le rail complet de catégories
       qInput.focus();   // garde le focus dans le champ
     });
 
@@ -1801,7 +1852,15 @@
     var secWrap = document.getElementById('chips-secondary-wrap');
     if (secWrap) secWrap.addEventListener('click', onChipClick);
 
-    moreBtn.addEventListener('click', function () { visibleLimit += STEP; apply(true, null, true); });
+    // Vue liste : un cran de 16 (lignes compactes, on en digère plus d'un coup) ; grille : 9.
+    moreBtn.addEventListener('click', function () {
+      visibleLimit += isListView() ? STEP_LIST : STEP;
+      apply(true, null, true);
+    });
+    if (allBtn) allBtn.addEventListener('click', function () {
+      visibleLimit = cards.length; // tout : plus aucune carte en hidden-more
+      apply(true, null, true);
+    });
 
     apply(false); // initial : pagination sans animation
     markLikes();  // A1) marque les cœurs déjà aimés (localStorage)
@@ -2129,7 +2188,7 @@
       var stack = LBADeckStack.html({
         name: c.name, tint: c.tint, emoji: c.emoji, count: c.card_count || 0,
         cards: cards, meta: meta, cats: cats, mode: 'anon',
-        description: c.description, href: href
+        description: c.description, href: href, author: c.author, forum_slug: c.forum_slug
       });
       // Data-attributs IDENTIQUES aux cartes → matches()/catsOf()/modes spéciaux
       // fonctionnent sans logique parallèle. data-source-id = id du deck (distinct des
@@ -2193,6 +2252,12 @@
     // changement de categorie. matches() les masque hors « Toutes » (pas de data-cats), et
     // computeShow() les epingle (isReco) pour qu'elles ne comptent pas dans la pagination.
     cards = Array.prototype.slice.call(g.querySelectorAll('.card[data-cats], .deck-card[data-deck-tile]'));
+    // Les tuiles-deck portent des data-cats : les puces rendues AVANT leur arrivée avaient des
+    // compteurs incomplets. On les re-rend ici pour qu'elles décrivent toujours l'ensemble de
+    // `cards` — sinon la 1re recherche « corrigeait » les compteurs et élargissait le rail
+    // (le « + » basculant sur une 2e ligne au retour à « Toutes »).
+    renderChips(currentMode);
+    markActiveChip(cat);
     bindDeckSwitches();
     // Ordre unifie cartes+decks : les cartes portent deja un data-order (entier, pose au
     // rendu). On donne aux tuiles-deck un ordre FRACTIONNAIRE (ordre de la carte precedente
