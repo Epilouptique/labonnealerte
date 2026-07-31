@@ -13,6 +13,17 @@
 //   → [{ code:"03", nom:"Allier", niveauGraviteMax:"crise", ... }, ...]
 // Niveaux : vigilance | alerte | alerte_renforcee | crise. Anti-spam : on n'active
 // QU'À PARTIR de « alerte » (la simple vigilance est ignorée). MAJ quotidienne (J-1).
+//
+// ⚠️ 404 NOCTURNE (diagnostic 31/07/2026, rapports Robot 1 du 20 au 30/07) : l'endpoint
+// /api/departements est BIEN VIVANT (vérifié à la main : HTTP 200, 101 départements, mêmes
+// champs qu'à l'origine). Les 404 remontés par Robot 1 ne sont PAS un changement d'API :
+// ils tombent tous dans la MÊME heure (01h01 et 01h31 Paris, soit les 2 seuls cycles du
+// poller de cette heure — ~2 échecs/jour, jamais ailleurs dans la journée). C'est la
+// fenêtre de régénération quotidienne de VigiEau : la ressource disparaît quelques minutes
+// puis revient. Traitement : on garde le DERNIER résultat connu (cache périmé toléré) au
+// lieu de faire échouer le cycle — la donnée est quotidienne, un cache d'une nuit n'a aucun
+// coût de fraîcheur, et cela évite d'effacer/figer les états actifs. On ne lève une erreur
+// que si l'on n'a JAMAIS rien obtenu (démarrage à froid pendant la fenêtre).
 
 const fetchFn = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 const { DEPARTEMENTS } = require('../geo');
@@ -80,7 +91,15 @@ async function checkWithParams(paramsList) {
 
   // Un seul appel mutualisé, mis en cache : aucune corrélation au nombre d'abonnés.
   if (!cache.byCode || Date.now() - cache.at >= CACHE_TTL_MS) {
-    cache = { at: Date.now(), byCode: await fetchDepartements() };
+    try {
+      cache = { at: Date.now(), byCode: await fetchDepartements() };
+    } catch (err) {
+      // Fenêtre de régénération nocturne (404) ou incident réseau : on repart sur le
+      // dernier instantané connu plutôt que de faire échouer tout le cycle. Donnée
+      // quotidienne → aucune perte de fraîcheur réelle. Si rien en mémoire, on propage.
+      if (!cache.byCode) throw err;
+      console.warn(`[risque-secheresse] ${err.message} — dernier instantané VigiEau conservé (age ${Math.round((Date.now() - cache.at) / 60000)} min).`);
+    }
   }
   const byCode = cache.byCode;
 

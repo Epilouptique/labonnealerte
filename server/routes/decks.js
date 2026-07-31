@@ -524,7 +524,8 @@ router.post('/decks/shared/:token/report', async (req, res) => {
 
     // Idempotent par (deck, target, ip) : un signalant ne compte qu'une fois.
     await pool.query(
-      `INSERT INTO deck_reports (deck_id, target, ip_hash) VALUES ($1, $2, $3)`,
+      `INSERT INTO deck_reports (deck_id, target, ip_hash) VALUES ($1, $2, $3)
+       ON CONFLICT (deck_id, target, ip_hash) DO NOTHING`,
       [deckId, target, ipHash]
     );
     const distinct = await pool.query(

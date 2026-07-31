@@ -4481,3 +4481,28 @@ WHERE NOT ('bonnes-affaires' = ANY(categories))
       'cashback', 'livraison-gratuite', 'baisse-de-prix', 'restock', 'precommandes',
       'occasions', 'encheres', 'echantillons-gratuits', 'deals-du-jour', 'erreurs-de-prix',
       'prix-carburant', 'prix-occasion'];
+
+-- ================================================================
+-- deck_reports : UNICITE (deck_id, target, ip_hash) — 31/07/2026
+-- Le commentaire de la route POST /api/decks/shared/:token/report annonce un
+-- signalement « idempotent par (deck, target, ip) », mais l'INSERT n'avait aucun
+-- ON CONFLICT et rien ne l'appliquait en base : une meme IP pouvait empiler des
+-- lignes (jusqu'a 120/min, plafond de l'apiLimiter global). Le comptage restait
+-- juste (COUNT DISTINCT ip_hash) — c'est une croissance de table, pas une faille.
+-- Ordre obligatoire : dedoublonner AVANT de poser la contrainte, sinon l'ALTER
+-- echoue sur une base qui a deja des doublons.
+-- Idempotent : le DELETE ne trouve rien au 2e passage, le DO $$ ne repose rien.
+-- ================================================================
+DELETE FROM deck_reports a
+ USING deck_reports b
+ WHERE a.deck_id = b.deck_id
+   AND a.target  = b.target
+   AND a.ip_hash = b.ip_hash
+   AND a.id > b.id;
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'deck_reports_unique_signalant') THEN
+    ALTER TABLE deck_reports
+      ADD CONSTRAINT deck_reports_unique_signalant UNIQUE (deck_id, target, ip_hash);
+  END IF;
+END $$;
