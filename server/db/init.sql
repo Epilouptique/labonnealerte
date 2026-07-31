@@ -4430,6 +4430,15 @@ CREATE INDEX IF NOT EXISTS idx_forum_reports_post ON forum_reports (post_id);
 -- Rôle admin (modération forum) : posé manuellement à true pour le compte de Hugo.
 ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT false;
 
+-- @pseudo public STABLE d'un membre (page profil /u/:pseudo + auteur cliquable forum/deck).
+-- Dérivé du display_name via server/forum-slug.js (même règle que forum_slug), généré UNE
+-- fois (backfill scripts/backfill-pseudo.js + à la 1re pose du display_name via
+-- server/pseudo.js), JAMAIS régénéré au renommage (stabilité des liens /u/:pseudo).
+-- Repli u<id> si le display_name ne produit pas de slug (nom tout-emoji). NULL tant que
+-- le membre n'a pas de display_name → auteur affiché « Membre » non cliquable.
+ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS pseudo VARCHAR(64);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_subscribers_pseudo ON subscribers (pseudo) WHERE pseudo IS NOT NULL;
+
 -- Slug public STABLE d'une source pour le forum (tag @forum_slug + lien carte→forum).
 -- Généré UNE fois (scripts/backfill-forum-slug.js + insertion d'une nouvelle source
 -- via server/forum-slug.js), JAMAIS régénéré au changement de titre. La colonne reste

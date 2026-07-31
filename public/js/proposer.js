@@ -19,7 +19,7 @@
   function previewCard(m) {
     var stateHtml;
     if (m.state === 'active') {
-      stateHtml = '<div class="state active"><span class="dot-live"></span> Active en ce moment</div>';
+      stateHtml = '<div class="state active"><span class="dot-live"></span> Active</div>';
     } else {
       stateHtml = '<div class="state idle"><span class="dot-idle"></span> Rien à signaler</div>';
     }

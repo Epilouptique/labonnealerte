@@ -61,19 +61,35 @@
     }
     // Auteur/createur du deck (meme place et meme style que .back-author d'une carte) :
     // le pseudo public du createur, prefixe « @ ». Absent pour un deck officiel (author null).
+    // Cliquable vers la page profil /u/<pseudo> quand author_pseudo est fourni ; sinon
+    // texte simple (compte sans pseudo, ex. avant backfill).
+    var authorName = opts.author
+      ? (opts.author_pseudo
+          ? '<a class="back-author-name" href="/u/' + esc(opts.author_pseudo) + '">@' + esc(opts.author) + '</a>'
+          : '<span class="back-author-name">@' + esc(opts.author) + '</span>')
+      : '';
     var author = opts.author
-      ? '<div class="back-author">par <span class="back-author-name">@' + esc(opts.author) + '</span></div>' : '';
-    var more = opts.href
-      ? '<a class="back-statut" href="' + esc(opts.href) + '">Plus d\'infos →</a>' : '';
+      ? '<div class="back-author">par ' + authorName + '</div>' : '';
+    // « Plus d'infos → » (lien vers la page du deck) retiré : le badge @forum_slug
+    // (haut-gauche du verso, symétrique des cartes) fait office de lien « en savoir plus ».
     // Lien discret vers les discussions forum de ce deck (même logique que le verso carte :
     // lien de sortie seul, toujours visible dès qu'un forum_slug existe). /forum/deck/:slug
     // gère la résolution slug-ou-id côté serveur. Même token visuel que .back-statut.
     var forum = opts.forum_slug
-      ? '<a class="back-statut back-forum" href="/forum/deck/' + esc(opts.forum_slug) + '">Discussions sur le forum →</a>'
+      ? '<a class="back-statut back-forum" href="/forum/deck/' + esc(opts.forum_slug) + '">On en parle au forum →</a>'
+      : '';
+    // Badge @forum_slug en haut-GAUCHE du verso, à hauteur de flip-back — EXACTEMENT le même
+    // pattern que les cartes (.card-forum-badge, structure DOM identique : card-back en
+    // position absolue, flip-back en haut-droite). Mène à la liste des sujets du deck
+    // (/forum/deck/:slug) — sens deck→forum, identique aux cartes. Absent sans forum_slug.
+    var forumBadge = opts.forum_slug
+      ? '<a class="forum-slug-badge card-forum-badge" href="/forum/deck/' + esc(opts.forum_slug) +
+        '">@' + esc(opts.forum_slug) + '</a>'
       : '';
     return '<div class="card-face card-back">' +
       '<button class="flip-back" type="button" aria-label="Retour" title="Retour">' + back + '</button>' +
-      desc + cats + author + more + forum +
+      forumBadge +
+      desc + cats + author + forum +
     '</div>';
   }
 

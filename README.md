@@ -12,6 +12,14 @@ Des **sources d'alerte** (promos, météo, énergie, noms de domaine…) sont su
 
 Chaque source porte un **badge de confiance** — *vérifié* (source officielle ou relue) ou *communauté* (proposée par un tiers, non vérifiée) — et dispose d'une **page de statut publique** avec l'historique des déclenchements et 90 jours d'uptime.
 
+Toutes les cartes ne surveillent pas une source. La carte **Tâche à échéance** est une brique personnelle : on y déclare une échéance qui revient (vidange, contrôle technique, détartrage…) avec sa dernière réalisation et sa périodicité, et on reçoit une relance à l'approche. Un clic sur « c'est fait » — depuis l'email ou depuis la carte — repositionne l'échéance à partir du jour même : elle *glisse* au rythme réel. Ces tâches sont privées (jamais exposées publiquement) et hors du cycle de veille : aucune API n'est interrogée. Aucune périodicité n'est proposée par défaut — rien de réglementaire n'est présumé à la place de l'utilisateur.
+
+## Le forum & les profils publics
+
+Un **forum communautaire minimal** est intégré au site (**[/forum](https://labonnealerte.fr/forum)**) : sujets, réponses, et modération légère (signalements, masquage par un admin). Il est *maison* — pas de brique externe, servi en HTML rendu côté serveur comme le reste du site. Un sujet peut être rattaché à une source (ou à une collection de sources), et chaque carte/deck renvoie vers ses discussions : « On en parle au forum → ».
+
+Chaque membre reçoit un **pseudo public stable** (`@pseudo`, dérivé une seule fois de son nom affiché) et une **page profil publique** (`/u/<pseudo>`) qui agrège uniquement son contenu déjà public : ses collections publiques et ses sujets de forum. Rien de privé n'y transparaît (jamais d'email, d'abonnements, de préférences ni de points), et la page est en `noindex`.
+
 <!-- Capture d'écran du kiosque à ajouter ici plus tard. -->
 
 ## Les sources actuelles

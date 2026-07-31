@@ -3205,7 +3205,7 @@ a.forum-tag:hover { text-decoration: underline; }
 .forum-form-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 4px; }
 .forum-form-msg { color: var(--danger); font-size: 13px; font-weight: 600; }
 
-.forum-login-invite { background: var(--surface); border-radius: 18px; padding: 20px; text-align: center; }
+.forum-login-invite { background: var(--surface); border-radius: 18px; padding: 20px; text-align: center; margin-top: 20px; }
 .forum-login-invite p { color: var(--muted); margin-bottom: 12px; }
 .forum-locked-banner { display: flex; align-items: center; gap: 8px; justify-content: center;
   background: var(--surface); color: var(--muted); border-radius: 14px; padding: 14px; font-size: 14px; margin-top: 26px; }
@@ -3227,5 +3227,26 @@ a.forum-tag:hover { text-decoration: underline; }
 .forum-main a:focus-visible, .forum-main button:focus-visible,
 .forum-input:focus-visible, .forum-select:focus-visible, .forum-textarea:focus-visible {
   outline: 3px solid var(--amber); outline-offset: 2px; }
+
+/* Auteur cliquable (@pseudo) → couleur accent, sur-clic souligné. S'applique aux bylines
+   forum (.tc-author/.post-author + .forum-author) et au verso deck (a.back-author-name). */
+.forum-author, a.back-author-name { color: var(--amber); text-decoration: none; }
+.forum-author:hover, a.back-author-name:hover { text-decoration: underline; }
+
+/* Liens de la méta d'une carte-sujet (tag catégorie, badge @slug, auteur) : au-DESSUS de
+   l'overlay .topic-card-title::after (qui rend toute la carte cliquable) → chacun reste
+   cliquable vers sa propre cible. Sans ce z-index, seul le titre captait le clic. */
+.topic-card-meta a { position: relative; z-index: 1; }
+
+/* Point 1 : badge @forum_slug au verso d'une carte, en miroir de flip-back (haut-gauche vs
+   haut-droite, même hauteur). La description longue réserve déjà 25px en haut → pas de
+   chevauchement. Tronqué si le slug est long (évite de heurter flip-back). */
+.card-forum-badge { position: absolute; top: 14px; left: 14px; z-index: 2;
+  max-width: calc(100% - 64px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Decks du profil : grille RÉUTILISÉE de /favoris (.grid) + tuiles .deck-card identiques.
+   Seul ajout propre au profil : espacement/centrage du bouton « Afficher plus de decks »
+   (réutilise .more-btn pour le style). */
+.profile-decks-more { display: block; margin: 20px auto 0; }
 
 /* Perf mobile : aucun backdrop-filter utilisé dans le forum → rien à retirer < 620px. */

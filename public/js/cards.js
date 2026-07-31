@@ -34,7 +34,7 @@
 
   function stateFor(state) {
     if (state === 'active') {
-      return '<div class="state active"><span class="dot-live"></span> Active en ce moment</div>';
+      return '<div class="state active"><span class="dot-live"></span> Active</div>';
     }
     return '<div class="state idle"><span class="dot-idle"></span> Rien à signaler</div>';
   }
@@ -501,28 +501,37 @@
         'target="_blank" rel="noopener">@' + esc(s.submitted_by_github) + '</a></div>'
       : '';
 
-    // Lien vers la page de statut (pas pour les sources liées : doomname n'en a pas).
-    var statut = isLinked ? ''
-      : '<a class="back-statut" href="/source/' + esc(s.id) + '/statut">Plus d\'infos →</a>';
+    // « Plus d'infos → » (lien statut) retiré : le badge @forum_slug (haut-gauche du verso)
+    // fait désormais office de lien « en savoir plus » vers la source.
 
     // Lien discret vers les discussions forum de cette source (jamais de contenu
     // utilisateur dans la carte, juste un lien de sortie). Toujours visible dès qu'un
     // forum_slug existe (la liste vide invite à créer le 1er sujet). Résolution slug-ou-id
     // gérée côté serveur (/forum/source/:slug). Même token visuel que .back-statut.
     var forum = s.forum_slug
-      ? '<a class="back-statut back-forum" href="/forum/source/' + esc(s.forum_slug) + '">Discussions sur le forum →</a>'
+      ? '<a class="back-statut back-forum" href="/forum/source/' + esc(s.forum_slug) + '">On en parle au forum →</a>'
       : '';
 
     // « i » (verso) : description LONGUE si presente, sinon la courte (jamais de vide).
     // Visible sur toutes tailles d'ecran (le retournement fait office de popup partout).
     var longDesc = '<p class="card-long-desc">' + esc(s.description_long || s.description || '') + '</p>';
 
+    // Badge @forum_slug ancré en haut-GAUCHE du verso, à la hauteur de flip-back (qui reste
+    // en haut-droite) : les deux se font face sur la même ligne. Réutilise .forum-slug-badge
+    // (identité forum, pastille violette). Mène à la liste des sujets tagués de la source
+    // (/forum/source/:slug) — sens carte→forum, inchangé. Absent sans forum_slug.
+    var forumBadge = s.forum_slug
+      ? '<a class="forum-slug-badge card-forum-badge" href="/forum/source/' + esc(s.forum_slug) +
+        '">@' + esc(s.forum_slug) + '</a>'
+      : '';
+
     return '' +
       '<div class="card-face card-back">' +
         '<button class="flip-back" type="button" aria-label="Retour" title="Retour">' + BACK_SVG + '</button>' +
+        forumBadge +
         topRow(s) +
         longDesc +
-        tags + author + statut + forum +
+        tags + author + forum +
       '</div>';
   }
 

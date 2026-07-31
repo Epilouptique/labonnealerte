@@ -311,7 +311,7 @@
 
       var stEl = document.getElementById('src-state');
       if (source.type === 'linked') { stEl.className = 'state partner'; stEl.innerHTML = '<span class="dot-idle"></span> Service partenaire'; }
-      else if (source.state === 'active') { stEl.className = 'state active'; stEl.innerHTML = '<span class="dot-live"></span> Active en ce moment'; }
+      else if (source.state === 'active') { stEl.className = 'state active'; stEl.innerHTML = '<span class="dot-live"></span> Active'; }
       else { stEl.className = 'state idle'; stEl.innerHTML = '<span class="dot-idle"></span> Rien à signaler'; }
 
       if (source.subscriber_count >= 10) {

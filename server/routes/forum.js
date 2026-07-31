@@ -187,6 +187,7 @@ ${inner}
 <script src="/js/theme.js"></script>
 <script src="/js/header.js"></script>
 <script src="/js/forum.js"></script>
+${(opts.scripts || []).map((src) => `<script src="${src}"></script>`).join('\n')}
 <script src="/js/pwa.js"></script>
 </body>
 </html>`;
@@ -198,21 +199,38 @@ const TOPIC_SELECT = `
          ft.source_id, ft.deck_id,
          s.forum_slug AS source_slug, s.name AS source_name,
          c.forum_slug AS deck_slug, c.name AS deck_name,
-         COALESCE(au.display_name, 'Membre') AS author
+         c.share_token AS deck_token, c.owner_subscriber_id AS deck_owner,
+         COALESCE(au.display_name, 'Membre') AS author, au.pseudo AS author_pseudo
     FROM forum_topics ft
     JOIN subscribers au ON au.id = ft.author_subscriber_id
     LEFT JOIN sources s ON s.id = ft.source_id
     LEFT JOIN collections c ON c.id = ft.deck_id`;
 
-// Badge @forum_slug (violet) d'un sujet tagué, cliquable vers /forum/source|deck/<slug>.
+// Auteur affiché : @pseudo cliquable vers /u/:pseudo, sinon « Membre » non cliquable
+// (compte sans pseudo — ex. avant backfill / sans display_name). escHtml systématique.
+function authorByline(pseudo, cls) {
+  const k = cls || 'tc-author';
+  return pseudo
+    ? `<a class="${k} forum-author" href="/u/${escHtml(pseudo)}">@${escHtml(pseudo)}</a>`
+    : `<span class="${k}">Membre</span>`;
+}
+
+// Badge @forum_slug (violet) affiché SUR un sujet, cliquable vers la CARTE elle-même
+// (page statut de la source / page publique du deck), pas vers la liste des sujets forum
+// — on est déjà dans le contexte forum, ce badge sort vers la fiche. Le libellé reste le
+// @forum_slug ; seule la destination change. L'id/token canonique vient des jointures.
 function slugBadge(t) {
   if (t.source_id) {
     const slug = t.source_slug || t.source_id;
-    return `<a class="forum-slug-badge" href="/forum/source/${escHtml(slug)}">@${escHtml(slug)}</a>`;
+    return `<a class="forum-slug-badge" href="/source/${escHtml(t.source_id)}/statut">@${escHtml(slug)}</a>`;
   }
   if (t.deck_id) {
     const slug = t.deck_slug || t.deck_id;
-    return `<a class="forum-slug-badge" href="/forum/deck/${escHtml(slug)}">@${escHtml(slug)}</a>`;
+    // Deck perso public (propriétaire + token) → page /deck/:token ; deck officiel → /collection/:id.
+    const href = (t.deck_owner && t.deck_token)
+      ? `/deck/${escHtml(t.deck_token)}`
+      : `/collection/${escHtml(t.deck_id)}`;
+    return `<a class="forum-slug-badge" href="${href}">@${escHtml(slug)}</a>`;
   }
   return '';
 }
@@ -228,9 +246,9 @@ function topicCard(t) {
   return `<article class="card topic-card forum-in">
     <a class="topic-card-title" href="/forum/t/${escHtml(t.slug)}">${escHtml(t.title)}</a>${lock}
     <div class="topic-card-meta">
-      <span class="forum-tag">${escHtml(catLabel)}</span>
+      <a class="forum-tag" href="/forum/c/${escHtml(t.category)}">${escHtml(catLabel)}</a>
       ${slugBadge(t)}
-      <span class="tc-author">${escHtml(t.author)}</span>
+      ${authorByline(t.author_pseudo)}
       <span class="tc-dot">·</span>
       <span class="tc-time">${escHtml(relativeTime(t.last_reply_at))}</span>
       <span class="tc-replies">${REPLY_SVG}${n}</span>
@@ -407,7 +425,8 @@ router.get('/forum/t/:slug', async (req, res) => {
       `SELECT ft.id, ft.title, ft.category, ft.locked, ft.hidden,
               ft.source_id, ft.deck_id,
               s.forum_slug AS source_slug, c.forum_slug AS deck_slug,
-              COALESCE(au.display_name, 'Membre') AS author, ft.created_at
+              c.share_token AS deck_token, c.owner_subscriber_id AS deck_owner,
+              COALESCE(au.display_name, 'Membre') AS author, au.pseudo AS author_pseudo, ft.created_at
          FROM forum_topics ft
          JOIN subscribers au ON au.id = ft.author_subscriber_id
          LEFT JOIN sources s ON s.id = ft.source_id
@@ -416,7 +435,8 @@ router.get('/forum/t/:slug', async (req, res) => {
     if (!t.rows.length || t.rows[0].hidden) return html404(res, 'Sujet introuvable.');
     const topic = t.rows[0];
     const p = await pool.query(
-      `SELECT fp.id, fp.body, fp.created_at, COALESCE(s.display_name, 'Membre') AS author
+      `SELECT fp.id, fp.body, fp.created_at,
+              COALESCE(s.display_name, 'Membre') AS author, s.pseudo AS author_pseudo
          FROM forum_posts fp JOIN subscribers s ON s.id = fp.author_subscriber_id
         WHERE fp.topic_id = $1 AND fp.hidden = false
         ORDER BY fp.created_at ASC LIMIT $2 OFFSET $3`,
@@ -426,7 +446,7 @@ router.get('/forum/t/:slug', async (req, res) => {
       const cls = (page_ === 1 && i === 0) ? 'card post-card post-card-op forum-in' : 'card post-card forum-in';
       return `<article class="${cls}">
         <div class="post-meta">
-          <span class="post-author">${escHtml(post.author)}</span>
+          ${authorByline(post.author_pseudo, 'post-author')}
           <span class="tc-dot">·</span>
           <span class="post-time">${escHtml(relativeTime(post.created_at))}</span>
           <button type="button" class="forum-report" data-post-id="${post.id}" title="Signaler ce message" aria-label="Signaler ce message">${FLAG_SVG}</button>
@@ -458,7 +478,7 @@ router.get('/forum/t/:slug', async (req, res) => {
          <div class="topic-card-meta">
            <a class="forum-tag" href="/forum/c/${escHtml(topic.category)}">${escHtml(catLabel)}</a>
            ${slugBadge(topic)}
-           <span class="tc-author">${escHtml(topic.author)}</span>
+           ${authorByline(topic.author_pseudo)}
            <span class="tc-dot">·</span>
            <span class="tc-time">${escHtml(relativeTime(topic.created_at))}</span>
            ${topic.locked ? `<span class="forum-lock">${LOCK_SVG} verrouillé</span>` : ''}
@@ -538,6 +558,93 @@ router.get('/api/forum/taggables', async (req, res) => {
     });
   } catch (err) {
     console.error('[forum] GET /api/forum/taggables :', err.message);
+    res.status(503).json({ error: 'Service indisponible' });
+  }
+});
+
+// Page profil publique /u/:pseudo — AGRÉGATION de contenu DÉJÀ public uniquement :
+// decks publics + sujets de forum. JAMAIS email / abonnements / préférences / points /
+// rang / tokens. Résolution STRICTE par pseudo (aucun repli par id interne). noindex.
+// Les decks sont rendus en VRAIES tuiles-deck (LBADeckStack, identiques au kiosque) côté
+// client via /js/profile-decks.js, qui appelle GET /api/forum/u/:pseudo/decks + /api/sources.
+router.get('/u/:pseudo', async (req, res) => {
+  const pseudo = req.params.pseudo;
+  try {
+    const u = await pool.query(
+      'SELECT id, display_name, pseudo FROM subscribers WHERE pseudo = $1', [pseudo]);
+    if (!u.rows.length) return html404(res, 'Ce membre n\'existe pas (ou plus).');
+    const member = u.rows[0];
+    const name = member.display_name || 'Membre';
+
+    // Sujets de forum (non masqués) de ce membre, rendus en topicCard existants.
+    const topics = await pool.query(
+      `${TOPIC_SELECT} WHERE ft.hidden = false AND ft.author_subscriber_id = $1
+        ORDER BY ft.last_reply_at DESC LIMIT $2`, [member.id, TOPICS_PER_PAGE]);
+    const hasTopics = topics.rows.length > 0;
+
+    // Section decks : coquille masquée au rendu, révélée + peuplée par profile-decks.js si
+    // le membre a au moins un deck public. Grille RÉUTILISÉE telle quelle de /favoris
+    // (`<div class="grid" id="fav-grid">` → mêmes tuiles, même responsive). Bouton
+    // `.more-btn` (pattern du kiosque, masqué via style inline) pour révéler au-delà de la
+    // 1re ligne (4 decks). Le message « aucun contenu » (rendu seulement si aucun sujet)
+    // est masqué côté client dès que des decks apparaissent.
+    const decksSection = `<section id="profile-decks" data-pseudo="${escHtml(member.pseudo)}" hidden>
+        <h2 class="forum-h2">Ses decks</h2>
+        <div class="grid" id="fav-grid"></div>
+        <button type="button" class="more-btn profile-decks-more" style="display:none">Afficher plus de decks</button>
+      </section>`;
+    const topicsSection = hasTopics
+      ? `<h2 class="forum-h2">Ses sujets sur le forum</h2>${topicList(topics.rows, '')}` : '';
+    const emptyState = hasTopics ? ''
+      : '<p class="forum-empty" id="profile-empty">Ce membre n\'a pas encore de contenu public.</p>';
+
+    // Pas de fil d'ariane sur le profil (contrairement aux autres pages forum).
+    res.type('html').send(forumShell(`@${member.pseudo} · La Bonne Alerte`,
+      `<h1 class="forum-title">${escHtml(name)}</h1>
+       <p class="forum-intro"><span class="forum-slug-badge">@${escHtml(member.pseudo)}</span></p>
+       ${decksSection}
+       ${topicsSection}
+       ${emptyState}`,
+      { noindex: true, desc: `Profil public de @${member.pseudo} sur La Bonne Alerte.`,
+        scripts: ['/js/cards.js', '/js/deck-motifs.js', '/js/deck-stack.js', '/js/profile-decks.js'] }));
+  } catch (err) {
+    console.error('[forum] GET /u/:pseudo :', err.message);
+    res.status(503).type('html').send('Service momentanément indisponible.');
+  }
+});
+
+// Decks PUBLICS d'un membre (résolu STRICTEMENT par pseudo), même forme que /api/collections
+// pour un rendu client identique au kiosque (LBADeckStack). AUCUN champ privé (pas d'email, de
+// points, de rang, de owner_subscriber_id, ni de badge Top20). Conditions de visibilité
+// alignées sur le kiosque : perso + public + token de partage + au moins une carte activée.
+router.get('/api/forum/u/:pseudo/decks', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT c.id, c.name, c.description, c.emoji, c.tint, c.categories, c.forum_slug,
+              c.share_token,
+              '/deck/' || c.share_token AS href,
+              subr.display_name AS author, subr.pseudo AS author_pseudo,
+              (SELECT asset_ref FROM skins WHERE id = c.equipped_skin_id) AS deck_skin,
+              COUNT(s.id)::int AS card_count,
+              COALESCE(SUM(s.likes_count), 0)::int AS total_likes,
+              (SELECT COALESCE(json_agg(p.id), '[]'::json) FROM (
+                 SELECT s3.id FROM collection_items ci3
+                   JOIN sources s3 ON s3.id = ci3.source_id AND s3.enabled = true
+                  WHERE ci3.collection_id = c.id
+                  ORDER BY ci3.position DESC LIMIT 3) p) AS preview
+         FROM collections c
+         JOIN subscribers subr ON subr.id = c.owner_subscriber_id
+         LEFT JOIN collection_items ci ON ci.collection_id = c.id
+         LEFT JOIN sources s ON s.id = ci.source_id AND s.enabled = true
+        WHERE subr.pseudo = $1 AND c.visibility = 'public'
+          AND c.owner_subscriber_id IS NOT NULL AND c.share_token IS NOT NULL
+        GROUP BY c.id, subr.display_name, subr.pseudo
+        HAVING COUNT(s.id) > 0
+        ORDER BY c.created_at DESC LIMIT 60`,
+      [req.params.pseudo]);
+    res.json({ decks: rows });
+  } catch (err) {
+    console.error('[forum] GET /api/forum/u/:pseudo/decks :', err.message);
     res.status(503).json({ error: 'Service indisponible' });
   }
 });

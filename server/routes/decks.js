@@ -12,6 +12,7 @@ const { resolveInstances, recomputeDeckCategories } = require('./collections'); 
 const ugc = require('../ugc');
 const { award, getTop20Ids } = require('../points');
 const { slugify, slugBase, SLUG_MAX } = require('../forum-slug');
+const { ensurePseudo } = require('../pseudo');
 
 const router = express.Router();
 const MAX_DECKS = 15;
@@ -129,6 +130,9 @@ router.post('/my-alerts/display-name', async (req, res) => {
       throw e;
     }
     await pool.query('INSERT INTO display_name_changes (subscriber_id) VALUES ($1)', [auth.id]);
+    // @pseudo généré à la PREMIÈRE pose seulement (ensurePseudo poste WHERE pseudo IS NULL) ;
+    // jamais régénéré aux renommages → stabilité des liens /u/:pseudo. Best-effort.
+    try { await ensurePseudo(pool, auth.id, v.value); } catch (e) { /* secondaire */ }
     return res.status(200).json({ display_name: v.value });
   } catch (err) {
     console.error('[decks] Erreur POST /display-name :', err.message);

@@ -22,6 +22,7 @@ const https = require('https');
 const geoip = require('geoip-lite');
 const { validateDisplayName } = require('./ugc');
 const { isValidCountry, isValidDepartement } = require('./geo');
+const { ensurePseudo } = require('./pseudo');
 
 // Dérive un code département FR depuis un code postal (IPLocate le fournit exact).
 //  · Métropole : 2 premiers chiffres (75001→75, 05000→05).
@@ -99,7 +100,11 @@ async function trySetDisplayName(pool, id, hint) {
         'UPDATE subscribers SET display_name = $1 WHERE id = $2 AND display_name IS NULL RETURNING display_name',
         [v.value, id]
       );
-      if (upd.rows.length) return upd.rows[0].display_name; // posé
+      if (upd.rows.length) {
+        // @pseudo dérivé posé dans la foulée (best-effort, ne bloque pas l'autofill).
+        try { await ensurePseudo(pool, id, upd.rows[0].display_name); } catch (e) { /* secondaire */ }
+        return upd.rows[0].display_name; // posé
+      }
       // rows.length 0 → display_name n'était déjà plus NULL : on n'écrase pas.
       return null;
     } catch (e) {

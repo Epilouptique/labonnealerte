@@ -2188,7 +2188,7 @@
       var stack = LBADeckStack.html({
         name: c.name, tint: c.tint, emoji: c.emoji, count: c.card_count || 0,
         cards: cards, meta: meta, cats: cats, mode: 'anon',
-        description: c.description, href: href, author: c.author, forum_slug: c.forum_slug
+        description: c.description, href: href, author: c.author, author_pseudo: c.author_pseudo, forum_slug: c.forum_slug
       });
       // Data-attributs IDENTIQUES aux cartes → matches()/catsOf()/modes spéciaux
       // fonctionnent sans logique parallèle. data-source-id = id du deck (distinct des

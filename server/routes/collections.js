@@ -51,7 +51,7 @@ router.get('/collections', async (req, res) => {
               CASE WHEN c.owner_subscriber_id IS NULL
                    THEN '/collection/' || c.id
                    ELSE '/deck/' || c.share_token END AS href,
-              subr.display_name AS author,
+              subr.display_name AS author, subr.pseudo AS author_pseudo,
               (SELECT asset_ref FROM skins WHERE id = c.equipped_skin_id) AS deck_skin,
               COUNT(s.id)::int AS card_count,
               COALESCE(SUM(s.likes_count), 0)::int AS total_likes,
@@ -70,7 +70,7 @@ router.get('/collections', async (req, res) => {
         WHERE (c.visibility = 'official' AND c.owner_subscriber_id IS NULL)
            OR (c.visibility = 'public' AND c.owner_subscriber_id IS NOT NULL
                AND c.share_token IS NOT NULL AND subr.display_name IS NOT NULL)
-        GROUP BY c.id, subr.display_name
+        GROUP BY c.id, subr.display_name, subr.pseudo
         HAVING COUNT(s.id) > 0 OR c.owner_subscriber_id IS NULL
         ORDER BY (c.owner_subscriber_id IS NOT NULL), c.display_order ASC, c.created_at DESC, c.name ASC`,
       [authId]
