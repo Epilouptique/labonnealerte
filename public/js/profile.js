@@ -13,7 +13,7 @@
   var token = S.get();
   if (!token) return; // anonyme : pas de personnalisation
 
-  var state = { country: 'FR', departement: null, region: null, ville: null, interests: [], displayName: null, points: 0, rank: null, optout: false };
+  var state = { country: 'FR', departement: null, region: null, ville: null, interests: [], displayName: null, pseudo: null, points: 0, rank: null, optout: false };
   var geo = { countries: [], departements: [], regions: [] };
   var kioskCats = []; // slugs de catégories réellement utilisées par le kiosque
 
@@ -223,6 +223,15 @@
     box.innerHTML = html;
   }
 
+  // Mosaïque « Mon compte » : chaque rubrique a sa propre petite carte, donc son
+  // propre point de montage. Si un mount dédié manque (page sans mosaïque), on
+  // retombe sur #profile-mount pour ne rien perdre.
+  function paint(id, html) {
+    var el = document.getElementById(id);
+    if (el) { el.innerHTML = html; return; }
+    mount.insertAdjacentHTML('beforeend', html);
+  }
+
   function render() {
     mount.innerHTML =
       '<div class="acct-subhead">Personnaliser les alertes <span id="pref-feedback" class="pref-feedback" role="status"></span></div>' +
@@ -252,8 +261,10 @@
       '    <div class="notif-txt"><strong>Centres d\'intérêt</strong><span class="notif-sub">Vos thèmes remontent en tête du kiosque</span></div>' +
       '    <div class="pref-chips" id="pref-chips"></div>' +
       '  </div>' +
-      '</div>' +
-      // Phase 2 : nom public (pseudo) — signe les decks partagés, jamais l'email.
+      '</div>';
+
+    // Phase 2 : nom public (pseudo) — signe les decks partagés, jamais l'email.
+    paint('pseudo-mount',
       '<div class="acct-subhead">Mon pseudo <span id="pref-dn-msg" class="pref-feedback" role="status"></span></div>' +
       // J) Une SEULE notif-row : libellé à gauche, saisie + « Enregistrer » à droite,
       // au style du site (notif-sub explicatif supprimé).
@@ -264,9 +275,20 @@
       '      <input id="pref-dn" class="pref-dn-input" type="text" maxlength="25" placeholder="ex. Hugo des Alpes" value="' + esc(state.displayName || '') + '">' +
       '    </div>' +
       '  </div>' +
-      '</div>' +
-      // Points cosmetiques (phase 1) : affichage minimal, juste le solde (pas de detail
-      // du ledger). Purement statutaire/ludique, jamais convertible en argent.
+      // @pseudo public : identifiant STABLE posé une fois (jamais régénéré au
+      // renommage), c'est lui qui signe le forum et sert d'URL /u/:pseudo.
+      (state.pseudo
+        ? '  <div class="notif-row pref-at-row">' +
+          '    <div class="notif-txt"><strong>Mon identifiant public</strong>' +
+          '      <span class="notif-sub">Signe vos messages du forum et vos decks partagés.</span></div>' +
+          '    <a class="pref-at" href="/u/' + esc(state.pseudo) + '">@' + esc(state.pseudo) + '</a>' +
+          '  </div>'
+        : '') +
+      '</div>');
+
+    // Points cosmetiques (phase 1) : affichage minimal, juste le solde (pas de detail
+    // du ledger). Purement statutaire/ludique, jamais convertible en argent.
+    paint('points-mount',
       '<div class="acct-subhead">Mes points</div>' +
       '<div class="notif-card">' +
       '  <div class="notif-row">' +
@@ -285,7 +307,7 @@
       // Opt-out : décoché = vous participez (défaut). Coché = exclu du classement.
       '  <div class="notif-row">' +
       '    <div class="notif-txt"><strong>Ne pas participer au classement</strong>' +
-      '      <span class="notif-sub">Vous retire du calcul de rang et du badge Top 20</span></div>' +
+      '      <span class="notif-sub">Vous retire du calcul de rang</span></div>' +
       '    <button type="button" class="notif-toggle" id="pref-optout" role="switch" aria-label="Ne pas participer au classement"></button>' +
       '  </div>' +
       // Phase 3 : acces a la boutique de skins cosmetiques.
@@ -294,7 +316,7 @@
       '      <span class="notif-sub">Débloquez des skins avec vos points</span></span>' +
       '    <span class="notif-chevron" aria-hidden="true">→</span>' +
       '  </a>' +
-      '</div>';
+      '</div>');
 
     renderChips();
     refreshGeoSelects();
@@ -407,6 +429,7 @@
       state.ville = (me && me.ville) || null;
       state.interests = (me && me.interests) || [];
       state.displayName = (me && me.display_name) || null;
+      state.pseudo = (me && me.pseudo) || null; // @handle public, stable
       state.points = (me && me.points_balance) || 0;
       state.rank = me && me.rank != null ? me.rank : null; // null = opt-out ou sans pseudo
       state.optout = !!(me && me.leaderboard_optout);

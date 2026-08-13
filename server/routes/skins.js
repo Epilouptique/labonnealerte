@@ -28,9 +28,11 @@ router.get('/skins', async (req, res) => {
     const equippedDashboard = (me.rows[0] && me.rows[0].equipped_dashboard_skin_id) || null;
 
     // Catalogue actif + flag owned (LEFT JOIN sur la possession de l'appelant).
+    // cost = 0 => possede d'office : c'est le skin de base, acquis par tout le monde
+    // sans achat ni ligne user_skins (donc rien a backfiller pour les comptes existants).
     const { rows } = await pool.query(
       `SELECT s.id, s.type, s.name, s.cost, s.asset_ref,
-              (us.subscriber_id IS NOT NULL) AS owned
+              (us.subscriber_id IS NOT NULL OR s.cost = 0) AS owned
          FROM skins s
          LEFT JOIN user_skins us ON us.skin_id = s.id AND us.subscriber_id = $1
         WHERE s.active = true

@@ -372,7 +372,7 @@ router.get('/forum/source/:slug', async (req, res) => {
          <h1 class="forum-title">${escHtml(name)}</h1>
          ${createBtn('source=' + encodeURIComponent(slug))}
        </div>
-       <p class="forum-intro">Discussions liées à <a class="forum-slug-badge" href="/forum/source/${escHtml(slug)}">@${escHtml(slug)}</a></p>
+       <p class="forum-intro">Discussions liées à <a class="forum-slug-badge" href="/source/${escHtml(canonicalId)}/statut">@${escHtml(slug)}</a></p>
        ${topicList(rows, 'Aucune discussion sur cette source pour le moment — ouvrez la première.')}`,
       { breadcrumb: breadcrumb([{ label: 'Forum', href: '/forum' }, { label: name }]) }));
   } catch (err) {
@@ -386,9 +386,15 @@ router.get('/forum/deck/:slug', async (req, res) => {
   const did = req.params.slug;
   try {
     const canonicalId = await resolveDeckId(did);
-    const meta = await pool.query('SELECT name, forum_slug FROM collections WHERE id = $1', [canonicalId]);
+    // owner_subscriber_id + share_token : même règle de destination que slugBadge()
+    // (deck perso public → /deck/:token, deck officiel → /collection/:id).
+    const meta = await pool.query(
+      'SELECT name, forum_slug, owner_subscriber_id, share_token FROM collections WHERE id = $1', [canonicalId]);
     const name = meta.rows.length ? meta.rows[0].name : did;
     const slug = (meta.rows.length && meta.rows[0].forum_slug) || did;
+    const deckHref = (meta.rows.length && meta.rows[0].owner_subscriber_id && meta.rows[0].share_token)
+      ? `/deck/${escHtml(meta.rows[0].share_token)}`
+      : `/collection/${escHtml(canonicalId)}`;
     const { rows } = await pool.query(
       `${TOPIC_SELECT} WHERE ft.hidden = false AND ft.deck_id = $1
         ORDER BY ft.last_reply_at DESC LIMIT $2`, [canonicalId, TOPICS_PER_PAGE]);
@@ -397,7 +403,7 @@ router.get('/forum/deck/:slug', async (req, res) => {
          <h1 class="forum-title">${escHtml(name)}</h1>
          ${createBtn('deck=' + encodeURIComponent(slug))}
        </div>
-       <p class="forum-intro">Discussions liées au deck <a class="forum-slug-badge" href="/forum/deck/${escHtml(slug)}">@${escHtml(slug)}</a></p>
+       <p class="forum-intro">Discussions liées au deck <a class="forum-slug-badge" href="${deckHref}">@${escHtml(slug)}</a></p>
        ${topicList(rows, 'Aucune discussion sur ce deck pour le moment — ouvrez la première.')}`,
       { breadcrumb: breadcrumb([{ label: 'Forum', href: '/forum' }, { label: name }]) }));
   } catch (err) {

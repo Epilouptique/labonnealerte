@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Magic Card in CSS</title>
+
+    <link href="css/main.css" rel="stylesheet" type="text/css">
+  </head>
+
+  <body>
+    <div class="card-container">
+      <div class="card-background">
+        <div class="card-frame">
+
+          <div class="frame-header">
+            <h1 class="name">Séraphine de la Balance</h1>
+
+            <div class="mana-cost">
+              <i class="mana-cost-two ms ms-2"></i>
+              <i class="mana-cost-white ms ms-w"></i>
+              <i class="mana-cost-black ms ms-b"></i>
+            </div>
+          </div>
+          
+          <img src="images/frame-art.jpg" alt="card art" class="frame-art">
+
+          <div class="frame-type-line">
+            <h1 class="type">Créature : ange</h1>
+            <img src="images/icon-expansion.png" class="icon-expansion" alt="icon expansion">
+          </div>
+
+          <div class="frame-text-box">
+            
+            <div class="sun-background"></div>
+            
+            <p class="description ftb-inner-margin">Vol</p>
+
+            <p class="description"><i class="mana-white ms ms-w"></i> : La Séraphine de la Balance acquiert la vigilance jusqu'à la fin du tour.</p>
+            
+            <p class="description"><i class="mana-black ms ms-b"></i> : La Séraphine de la Balance acquiert le contact mortel jusqu'à la fin du tour.</p>
+            
+            <p class="description">Au-delà 2 
+              <span class="brackets-text">
+                (Quand cette créature meurt, créez deux jetons de créature 1/1 blanche et noire Esprit avec le vol.)
+              </span>
+            </p>
+          
+          </div>
+          <div class="power-toughness">4/3</div>
+
+          <div class="frame-bottom-info inner-margin">
+            <div class="fbi-left">
+              <p>205/259 M</p>
+              <p>RNA &#x2022; FR 
+                <img class="paintbrush-icon" src="images/icon-paintbrush.png" alt="paintbrush icon"> 
+                Magali Villeneuve</p>
+            </div>
+
+            <div class="fbi-center"></div>
+
+            <div class="fbi-right">
+              &#x99; &amp; &#169; 2019 Wizards of the Coast
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

@@ -18,6 +18,7 @@ const skinsRouter = require('./routes/skins');
 const { apiRouter: lePointApiRouter } = require('./routes/le-point');
 const { pagesRouter: userTasksPagesRouter, apiRouter: userTasksApiRouter } = require('./routes/user-tasks');
 const forumRouter = require('./routes/forum');
+const communityReportsRouter = require('./routes/community-reports');
 const { cleanupExpired } = require('./sessions');
 const { startPoller } = require('./poller');
 
@@ -150,6 +151,7 @@ app.use('/api', decksRouter);
 app.use('/api', skinsRouter);
 app.use('/api', lePointApiRouter);
 app.use('/api', userTasksApiRouter);
+app.use('/api', communityReportsRouter);
 app.use('/api/dev', devRouter);
 // Connexion OAuth (Google / GitHub) — redirections serveur.
 app.use('/auth', authRouter);
@@ -190,15 +192,25 @@ const FUSED_REDIRECTS = {
 app.get('/mes-decks', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'mes-decks.html'));
 });
+// Page « Nouveau deck » : meme SPA (mes-decks.html) ; decks.js detecte le chemin et ouvre
+// directement le formulaire de creation (le lien « Ajouter un deck » pointe ici).
+app.get('/mes-decks/nouveau', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'mes-decks.html'));
+});
 
 // Page « Boutique » (skins cosmetiques, phase 3) — contenu chargé côté client.
 app.get('/boutique', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'boutique.html'));
 });
 
-// D) Page « Mes favoris » — cartes aimées (serveur si connecté, localStorage sinon).
+// « Mes favoris » n'est plus une PAGE mais un FILTRE du kiosque (comme « Ma collection ») :
+// transition immédiate entre cartes, sans changement de page. La route est conservée en
+// REDIRECTION — les favoris étaient marquables en signet et le lien ❤ pointait ici depuis
+// le lancement. 302 VOLONTAIRE (pas 301) : une 301 se grave dans le cache des navigateurs,
+// donc irréversible côté visiteur si l'on rétablissait la page. public/favoris.html et
+// js/favoris*.js restent dans le dépôt mais ne sont plus atteignables par aucun lien.
 app.get('/favoris', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'favoris.html'));
+  res.redirect(302, '/?mode=favoris');
 });
 
 // Page publique d'un deck partagé : /deck/:token. SEO PRUDENT (anti-spam d'aperçu) :

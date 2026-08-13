@@ -247,6 +247,26 @@ router.post('/favorites/sync', async (req, res) => {
   }
 });
 
+// D) DELETE /api/favorites — retire un favori personnel de « Ma collection », SANS toucher
+// sources.likes_count (le compteur public de ❤). Distinct du DELETE /sources/:id/like :
+// « Ma collection » contient aussi des favoris posés AUTOMATIQUEMENT par un abonnement,
+// jamais « likés » → les décompter du compteur public fausserait les chiffres affichés.
+// Idempotent (0 ligne supprimée si déjà retiré). Corps : { token, source_id }.
+router.delete('/favorites', async (req, res) => {
+  const body = req.body || {};
+  const auth = await authenticate(body.token || req.query.token);
+  if (!auth) return res.status(401).json({ error: 'Session invalide ou expirée' });
+  const sourceId = body.source_id || req.query.source_id;
+  if (!sourceId || typeof sourceId !== 'string') return res.status(400).json({ error: 'source_id requis' });
+  try {
+    await pool.query('DELETE FROM favorites WHERE subscriber_id = $1 AND source_id = $2', [auth.id, sourceId]);
+    res.json({ removed: true, source_id: sourceId });
+  } catch (err) {
+    console.error('[api] Erreur DELETE /favorites :', err.message);
+    res.status(503).json({ error: 'DB unavailable' });
+  }
+});
+
 // B2) GET /api/sources/:id/links — liens de visibilité pro du déposant, pour la
 // page publique de la source UNIQUEMENT (jamais dans la liste /api/sources). Les
 // liens sont re-validés/assainis à l'affichage (défense en profondeur, même si le

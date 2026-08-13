@@ -19,8 +19,8 @@ body {
   background-size: 30px 30px;
 /* Fond constellations — pleine largeur, hauteur du hero */
  background-image:
-    var(--bg-decor),
-    radial-gradient(var(--dot) 1.2px, transparent 1.7px);
+    var(--bg-decor)
+   /* radial-gradient(var(--dot) 1.2px, transparent 1.7px)*/;
   background-size: cover, 30px 30px;
   background-position: bottom center, 0 0;
   background-repeat: no-repeat, repeat;
@@ -69,23 +69,131 @@ html[data-theme="light"] header { background: #ffffff; } /* thème clair : blanc
   font-weight: 800; font-size: 21px; letter-spacing: -0.5px;
   text-decoration: none; color: var(--ink);
 }
+/* Air à droite du logo : le sépare nettement de ce qui suit (bouton « Déposer » puis
+   barre de recherche). Desktop uniquement — en mobile (≤720px) le logo est centré par
+   `body.m-kiosk .brand`, une marge le décalerait. */
 .brand .a { color: var(--amber); padding-right: 2px; }
 .brand .fr { padding-left: 2px; color: var(--muted); font-weight: 700; }
 .brand .bang { position: relative; top: -25px; width: 10px; margin-left: 3px; }
 .brand .bang .bar { position: absolute; top: 2px; left: 1px; width: 5px; height: 13px; border-radius: 3px; background: var(--amber); }
 .brand .bang .dot { position: absolute; top: 19px; left: 1px; width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
 .brand .bang .dot::after { content: ""; position: absolute; inset: -1px; border-radius: 50%; border: 1.5px solid var(--green); animation: ping 2s ease-out infinite; }
-.nav-right { display: flex; gap: 20px; align-items: center; font-size: 14px; padding-left: 15px; }
+.nav-right { display: flex; gap: 40px; align-items: center; font-size: 14px; padding-left: 15px; }
 .nav-right a { color: var(--muted); text-decoration: none; font-weight: 500; }
 .nav-right a:hover { color: var(--ink); }
-/* D) Cœur « Mes favoris » du header (même famille que les icônes du header). */
-.fav-link { display: inline-flex; align-items: center; color: var(--muted); }
-.fav-link svg { display: block; }
-.fav-link:hover { color: var(--amber); }
-.fav-link:hover svg path { fill: currentColor; }
-/* 5) Cœur rempli (accent) quand des favoris existent. */
-.fav-link.has-fav { color: var(--amber); }
-.fav-link.has-fav svg path { fill: currentColor; }
+/* ===================== Icônes de .nav-right (cloche / cœur / compte) =====================
+   Famille unique : AUCUNE couleur de base (trait --muted), le remplissage violet
+   (--amber) monte progressivement DU BAS VERS LE HAUT au survol. Deux calques SVG
+   superposés : `.hd-ic-base` (trait, toujours visible) et `.hd-ic-fill` (plein,
+   révélé par un clip-path qui remonte). Chaque icône ajoute ensuite SON animation
+   propre (cloche qui penche, écho de contour du cœur, retournement de l'avatar). */
+.hd-link {
+  display: inline-flex; align-items: center; justify-content: center;
+  position: relative; color: var(--muted);
+  /*padding: 0 5px;*/ /* léger air de part et d'autre de chaque icône */
+  -webkit-tap-highlight-color: transparent;
+}
+/* Neutralise le `:hover { color: var(--ink) }` générique de .nav-right a :
+   la couleur de ces icônes est pilotée par les calques, pas par le lien. */
+.nav-right a.hd-link:hover { color: var(--muted); }
+
+.hd-ic { position: relative; display: block; width: 22px; height: 22px; }
+.hd-ic svg { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
+.hd-ic-base { color: var(--muted); }
+.hd-ic-fill {
+  color: var(--amber);
+  /* Remplissage masqué : le volet part du BAS (inset(top …)) et remonte au survol. */
+  clip-path: inset(100% 0 0 0);
+  transition: clip-path .42s cubic-bezier(.4, 0, .2, 1);
+}
+.hd-link:hover .hd-ic-fill,
+.hd-link:focus-visible .hd-ic-fill { clip-path: inset(0 0 0 0); }
+
+/* --- Cloche « Mes alertes » : penche de droite à gauche, assez vite. --- */
+.hd-ic-bell { transform-origin: 50% 12%; }
+.hd-link:hover .hd-ic-bell,
+.hd-link:focus-visible .hd-ic-bell { animation: hd-bell-ring .62s ease-in-out infinite; }
+@keyframes hd-bell-ring {
+  0%, 100% { transform: rotate(0deg); }
+  15%  { transform: rotate(13deg); }
+  35%  { transform: rotate(-11deg); }
+  55%  { transform: rotate(8deg); }
+  75%  { transform: rotate(-5deg); }
+  90%  { transform: rotate(2deg); }
+}
+
+/* --- Cœur « Mes favoris » : le contour déborde sur les côtés en s'estompant
+   (même vocabulaire que le halo « ping » du KPI, mais en forme de cœur).
+   Le contour est obtenu par un masque SVG *stroke only* : seule la silhouette
+   du tracé s'agrandit, l'intérieur reste vide. Deux échos décalés. */
+.hd-ic-heart {
+  --hd-heart-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z'/></svg>");
+}
+.hd-ic-heart::before,
+.hd-ic-heart::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: var(--amber); opacity: 0;
+  -webkit-mask: var(--hd-heart-mask) center / contain no-repeat;
+  mask: var(--hd-heart-mask) center / contain no-repeat;
+}
+.hd-link:hover .hd-ic-heart::before,
+.hd-link:focus-visible .hd-ic-heart::before { animation: hd-heart-echo 1.25s ease-out infinite; }
+.hd-link:hover .hd-ic-heart::after,
+.hd-link:focus-visible .hd-ic-heart::after { animation: hd-heart-echo 1.25s ease-out .62s infinite; }
+@keyframes hd-heart-echo {
+  0%   { transform: scale(1);    opacity: .6; }
+  100% { transform: scale(1.85); opacity: 0; }
+}
+
+/* NB : plus d'état « cœur rempli en permanence » quand des favoris existent — les trois
+   icônes du header sont STRICTEMENT sans couleur au repos, le violet n'apparaît qu'au
+   survol. (L'ancienne règle .fav-link.has-fav a été retirée pour cette raison.) */
+
+/* --- « Mon compte » : initiale du pseudo dans un cercle ; au survol le disque se
+   remplit de violet (bas → haut) PUIS se retourne pour révéler la roue de
+   paramètres. Deux faces en 3D, backface masquée. --- */
+.hd-avatar-link { text-decoration: none; }
+.hd-avatar {
+  position: relative; display: block; width: 30px; height: 30px;
+  perspective: 420px;
+}
+.hd-av-face {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  border-radius: 50%; overflow: hidden;
+  -webkit-backface-visibility: hidden; backface-visibility: hidden;
+  transition: transform .5s cubic-bezier(.4, 0, .2, 1);
+}
+.hd-av-front {
+  border: 1.5px solid var(--muted); color: var(--muted);
+  font-weight: 800; font-size: 13px; line-height: 1; transform: rotateY(0deg);
+}
+/* Le violet monte du bas (même grammaire que .hd-ic-fill). */
+.hd-av-front::before {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 0;
+  background: var(--amber); transition: height .42s cubic-bezier(.4, 0, .2, 1);
+}
+.hd-av-letter { position: relative; z-index: 1; transition: color .3s ease .12s; }
+.hd-av-back {
+  transform: rotateY(180deg);
+  border: 1.5px solid var(--amber); background: var(--amber); color: #fff;
+}
+.hd-av-back svg { display: block; width: 16px; height: 16px; }
+.hd-avatar-link:hover .hd-av-front::before,
+.hd-avatar-link:focus-visible .hd-av-front::before { height: 100%; }
+.hd-avatar-link:hover .hd-av-letter,
+.hd-avatar-link:focus-visible .hd-av-letter { color: #fff; }
+.hd-avatar-link:hover .hd-av-front,
+.hd-avatar-link:focus-visible .hd-av-front { transform: rotateY(-180deg); transition-delay: .22s; }
+.hd-avatar-link:hover .hd-av-back,
+.hd-avatar-link:focus-visible .hd-av-back { transform: rotateY(0deg); transition-delay: .22s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .hd-ic-fill { transition: none; }
+  .hd-link:hover .hd-ic-bell, .hd-link:focus-visible .hd-ic-bell,
+  .hd-link:hover .hd-ic-heart::before, .hd-link:hover .hd-ic-heart::after,
+  .hd-link:focus-visible .hd-ic-heart::before, .hd-link:focus-visible .hd-ic-heart::after { animation: none; }
+  .hd-av-face, .hd-av-front::before, .hd-av-letter { transition: none; }
+}
 /* .theme-btn : meme theme en background dans les deux thèmes. */
 .theme-btn {
   border: 1px solid var(--line); background: #e7e7e7; color: #141218;
@@ -99,25 +207,35 @@ html[data-theme="light"] header { background: #ffffff; } /* thème clair : blanc
   background: var(--amber); color: #fff; text-decoration: none;
   font-weight: 700; font-size: 13.5px; border-radius: 999px;
   padding: 9px 16px; white-space: nowrap; font-family: inherit;
-  transition: background .15s; margin-right: 10px;
+  /* Pas de marge propre : l'écart avec la barre de recherche est piloté par le layout
+     du header (voir le bloc ≥1024px), pas par une marge négative de compensation. */
+  transition: background .15s;
   /* Point 3) Largeur fixe = le libellé le plus long (« Déposer une alerte ») : le
      changement de texte (rotation avec « Ajouter un deck ») ne décale plus les
-     voisins du menu. Contenu centré dans cette largeur. */
-  min-width: 185px; justify-content: center;
+     voisins du menu. Le « + » est ANCRÉ À GAUCHE (justify-content: flex-start) et
+     ne bouge donc jamais d'un libellé à l'autre ; c'est le libellé qui se recentre
+     tout seul dans la place restante (.bd-label flex:1 + text-align:center). */
+  min-width: 185px; justify-content: flex-start;
 }
 .btn-deposit:hover { background: color-mix(in srgb, var(--amber) 88%, #000); color: #fff; }
-.btn-deposit .plus { font-size: 18px; line-height: 1; font-weight: 400; position: relative; top: -1px; }
+.btn-deposit .plus { flex: none; font-size: 18px; line-height: 1; font-weight: 400; position: relative; top: -1px; }
+.btn-deposit .bd-label { flex: 1 1 auto; text-align: center; }
+
+/* Réduction au « + » seul entre 722 et 1299px : voir le bloc « rotation » en fin de
+   feuille (il doit passer APRÈS `.btn-deposit .bd-label { display: inline-block }`). */
 
 /* ---------- hero ---------- */
+
 .hero { padding: 88px 0 48px; position: relative; }
+/*
 .hero::before {
-  content: ""; position: absolute; top: -120px; left: 50%; transform: translate(-50%, 0) scale(1);
+  content: ""; position: absolute; top: -120px; left: -640px; transform: translate(-50%, 0) scale(1);
   width: 640px; height: 420px; pointer-events: none;
   background: radial-gradient(closest-side, color-mix(in srgb, var(--amber) 50%, transparent), transparent 70%);
   filter: blur(10px); /* halo flou/nébuleux, doux */
-  animation: hero-halo 15s ease-in-out infinite;
-  will-change: transform, opacity; /* animé sur le compositor : pas de jank */
-}
+ /* animation: hero-halo 15s ease-in-out infinite;
+  will-change: transform, opacity; 
+}*/
 /* Point 9) Mouvement nébuleux : la nappe grandit/rétrécit ET dérive lentement,
    comme un nuage. Multi-étapes non linéaires (translate + scale + opacité), boucle
    fermée (0% = 100%) pour un enchaînement continu. Reste discret, même teinte amber.
@@ -132,7 +250,7 @@ html[data-theme="light"] header { background: #ffffff; } /* thème clair : blanc
 @media (prefers-reduced-motion: reduce) { .hero::before { animation: none; } }
 .hero > * { position: relative; }
 /* 1) Titre de page commun (hero + /mes-decks…) : une seule source de vérité. */
-.page-title { font-size: clamp(32px, 5.4vw, 52px); font-weight: 800; letter-spacing: -0.03em; line-height: 1.08; font-family: 'Baloo 2',sans-serif; text-align:center; padding: 40px 0 22px;}
+.page-title { font-size: clamp(32px, 5.4vw, 52px); font-weight: 800; letter-spacing: -0.03em; line-height: 1.08; font-family: 'Baloo 2',sans-serif; text-align:center; padding: 40px 0 22px;  text-shadow: 2px 1px 3px var(--muted);}
 .hero h1 .hl { color: var(--amber); }
 /* C) Bicoloration générale des H1 : 1er mot en --ink, le reste en violet (.hl).
    S'applique à toutes les pages (le .hl du hero n'était que local). */
@@ -161,7 +279,7 @@ h1 .hl { color: var(--amber); }
 .search {
   flex: 1; min-width: 220px; display: flex; align-items: center; gap: 10px;
   background: var(--surface); border-radius: 999px; padding: 11px 18px;
-  box-shadow: 0 1px 3px rgba(30, 20, 50, .08);
+ /* box-shadow: 0 1px 3px rgba(30, 20, 50, .08);*/
 }
 /* En mode nuit, l'ombre du champ est invisible : on rend sa bordure permanente
    (pas seulement au focus) pour qu'il reste bien délimité. */
@@ -182,19 +300,30 @@ html[data-theme="dark"] .search { border: 1px solid color-mix(in srgb, var(--mut
 .chips { display: flex; flex-direction: column; gap: 8px; }
 .chips-row { display: flex; gap: 8px; flex-wrap: wrap; }
 .chip-f {
-  border: none; background: var(--surface); color: var(--muted);
+  border: none; background: none; color: var(--muted);
   font: inherit; font-size: 13px; font-weight: 600;
-  border-radius: 999px; padding: 9px 16px; cursor: pointer;
+  border-radius: 999px; padding: 0px 16px; cursor: pointer;
 }
 .chip-f:hover { color: var(--ink); }
-.chip-f.on { background: var(--amber); color: #fff; }
+.chip-f.on { color: var(--amber); }
 .chip-f .n { opacity: .6; font-size: 11.5px; margin-left: 4px; }
 .chip-more-toggle { min-width: 38px; text-align: center; font-weight: 700; }
 /* A6) Puces spéciales « Nouveautés » / « La sélection » : accent discret. */
-.chip-f.chip-special { color: var(--amber); }
-.chip-f.chip-special:hover { color: var(--amber); }
-.chip-f.chip-special.on { background: var(--amber); color: #fff; }
+.chip-f.chip-special { }
+.chip-f.chip-special:hover { }
+.chip-f.chip-special.on { }
 
+/* Séparateur « · » entre les puces de catégories DU HEADER (rangées 2 et 3 de la home).
+   Posé en `::before` ABSOLU sur chaque puce sauf la première : il vit dans le `gap` de
+   .chips-row, donc il ne fait pas partie du bouton (pas de zone cliquable, pas de
+   décalage du libellé, aucun impact sur la puce active). Ailleurs que dans le header
+   (aucun usage aujourd'hui), les puces restent sans séparateur. */
+header .chips-row .chip-f { position: relative; }
+header .chips-row .chip-f + .chip-f::before {
+  content: "·";
+  position: absolute; left: -4px; top: 50%; transform: translate(-50%, -50%);
+  color: var(--muted); opacity: .5; font-weight: 700; pointer-events: none;font-size: 25px;
+}
 /* Focus : uniquement sur le conteneur de recherche, jamais sur l'input. */
 .search input:focus, .search input:focus-visible { outline: none; }
 
@@ -247,6 +376,10 @@ main#alertes { width: 100%; }
 /* Cartes masquées : pagination (hidden-more) et filtrage (filtered). */
 .card.hidden-more, .card.filtered,
 .deck-card.hidden-more, .deck-card.filtered { display: none; }
+/* Vue « Mes alertes » : carte désabonnée EN SURSIS (~1,5 s) avant de sortir — fondu doux,
+   annulation implicite en re-cliquant le switch (spécifique à cette vue, cf. scheduleMineRemoval). */
+.card.mine-leaving { opacity: .5; transition: opacity .3s ease; }
+@media (prefers-reduced-motion: reduce) { .card.mine-leaving { transition: none; } }
 
 /* Animation FLIP du filtrage : disparition (fade + scale) / apparition (fade in). */
 .card.card-leave { opacity: 0; transform: scale(.96); transition: opacity .2s ease, transform .2s ease; }
@@ -379,6 +512,34 @@ main#alertes { width: 100%; }
 .task-create.secondary { background: var(--amber-soft); color: var(--amber); }
 .task-create:hover { filter: brightness(1.08); }
 
+/* Carte communautaire (« Chat perdu ») : 5e face « Signaler », calquée sur la 5e face
+   'user-task' ci-dessus (.task-item/.task-label/.task-due/.task-zone/.tf-title
+   réutilisés tels quels — voir cards.js). Classes DÉDIÉES seulement là où le nom
+   .task-* est câblé à un comportement spécifique aux tâches (site.js/user-task-form.js)
+   qu'on ne veut pas déclencher par erreur ; le style, lui, reste partagé par sélecteur
+   groupé plutôt que dupliqué. */
+.community-report-toggle {
+  align-self: flex-start; border: none; cursor: pointer; text-decoration: none;
+  font-weight: 700; font-size: 12.5px; padding: 8px 16px; border-radius: 999px; display: inline-block;
+  background: var(--amber-soft); color: var(--amber); /* .secondary d'emblée : la liste prime */
+}
+.community-report-toggle:hover { filter: brightness(1.08); }
+/* Pas de croix de suppression sur un signalement (contrairement à .task-item d'une
+   tâche personnelle) : annule la réserve de marge posée pour elle. */
+.community-item.task-item .task-label { padding-right: 0; }
+.community-item-desc { font-size: 12.5px; color: var(--ink); }
+.community-spot {
+  align-self: flex-start; margin-top: 4px; border: none; cursor: pointer;
+  background: var(--amber); color: #fff; font-weight: 700; font-size: 12.5px;
+  padding: 7px 14px; border-radius: 999px; transition: filter .15s ease, opacity .15s ease;
+}
+.community-spot:hover { filter: brightness(1.08); }
+.community-spot:disabled { opacity: .55; cursor: default; }
+.community-spotted-tag { font-size: 12px; font-weight: 700; color: var(--violet, #a567e3); }
+html[data-theme="dark"] .community-spotted-tag { color: var(--violet-l, #bd8ef0); }
+.community-loading { font-size: 12.5px; color: var(--muted); }
+@media (prefers-reduced-motion: reduce) { .community-spot { transition: none; } }
+
 .utf-card { width: min(460px, 100%); }
 .utf-form { display: flex; flex-direction: column; gap: 14px; }
 .utf-field { display: flex; flex-direction: column; gap: 6px; border: none; padding: 0; margin: 0; }
@@ -426,12 +587,12 @@ main#alertes { width: 100%; }
    le bloc d'abonnement en dessous. Le clip garde le ratio et empeche tout
    chevauchement ; le texte complet reste au verso. */
 /* Disposition A : la description vit désormais dans .card-content (ancré en bas). */
-.grid .card-content > p, .deck-card .card-content > p { min-height: 0; overflow: hidden; }
+.grid .card-content p, .deck-card .card-content p { min-height: 0; overflow: hidden; }
 /* La description courte est desormais bornee a 120 caracteres EN BASE (CHECK) : le fondu
    (mask) est retire — la description s'affiche en entier sur la carte. Le -webkit-line-clamp
    ne reste qu'en GARDE-FOU (5 lignes, large) : il ne devrait plus jamais se declencher pour
    un texte <=120. Le texte detaille vit au verso (« i ») et sur /source/:id. */
-.grid .card-content > p > .card-desc, .deck-card .card-content > p > .card-desc {
+.grid .card-content p > .card-desc, .deck-card .card-content p > .card-desc {
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 5;
   overflow: hidden;
 }
@@ -473,9 +634,6 @@ main#alertes { width: 100%; }
    Conservé : plus utilisé par frontFace depuis l'étape 8 (remplacé par le bouton
    « Configurer »), gardé comme utilitaire de texte discret sur une face de carte. */
 .task-hint { font-size: 12.5px; color: var(--muted); line-height: 1.45; }
-/* Bouton « Configurer » du recto : .link-btn habille déjà un <button>
-   (font-family: inherit), mais display:block ne l'étire pas comme un <a>. */
-.task-config, .task-config-anon { width: 100%; cursor: pointer; }
 .sub-form { display: none; gap: 8px; }
 .card.open .sub-form { display: flex; }
 .card.open .sub-btn { display: none; }
@@ -497,7 +655,12 @@ main#alertes { width: 100%; }
   border: 2px dashed color-mix(in srgb, var(--amber) 45%, transparent);
   border-radius: 24px; background: transparent; box-shadow: none;
   align-items: center; justify-content: center; text-align: center; color: var(--muted);
-  gap: 8px; min-height: 190px; cursor: pointer; text-decoration: none;
+  gap: 8px; cursor: pointer; text-decoration: none;
+  font: inherit; /* variante <button> (ex. tuile « Ajouter une carte » /mes-decks) = même rendu que le <a> */
+  /* Même EMPREINTE qu'une carte (300×450) : sans width:100%, le margin-inline:auto de
+     .grid > .card fait rétrécir la tuile à la largeur de son texte (bug « tuile trop fine »).
+     align-self:start + aspect-ratio 2/3 empêchent l'étirement vertical sur une ligne haute. */
+  width: 100%; align-self: start; aspect-ratio: 2 / 3; min-height: 0;
 }
 .card.add .plus { font-size: 30px; font-weight: 300; color: var(--amber); }
 .card.add strong { color: var(--ink); }
@@ -691,14 +854,22 @@ body.loading > .page-loading {
   align-items: center; justify-content: center;
   font-size: 0; /* « Chargement… » gardé pour l'a11y, remplacé par le halo */
 }
-body.loading > .page-loading::before {
-  content: ""; width: 120px; height: 120px; border-radius: 50%;
-  background: radial-gradient(circle at center, color-mix(in srgb, var(--amber) 60%, transparent), transparent 68%);
-  animation: lba-halo-pulse-c 1.35s ease-in-out infinite;
+/* Loader « barres vigilance » (egaliseur en cascade) — remplace le halo pulse sur les
+   loaders STATIQUES (.page-loading, .src-loading, .cx-loading). La grille (.grid.grid-loading)
+   garde son halo ::after (cohabitation avec le JS qui reecrit ses enfants). Le texte
+   « Chargement… » reste present hors de .lba-bars (a11y, masque par font-size:0 de l'hote). */
+.lba-bars { display: flex; align-items: flex-end; justify-content: center; gap: 6px; height: 100px; }
+.lba-bars span {
+  width: 8px; border-radius: 3px; background: var(--amber);
+  transform-origin: bottom; animation: lba-bars 1s ease-in-out infinite;
 }
-@media (prefers-reduced-motion: reduce) {
-  body.loading > .page-loading::before { animation: none; opacity: .6; }
-}
+.lba-bars span:nth-child(1) { height: 40%;  animation-delay: 0s; }
+.lba-bars span:nth-child(2) { height: 70%;  animation-delay: .1s; background: color-mix(in srgb, var(--amber) 60%, transparent); }
+.lba-bars span:nth-child(3) { height: 100%; animation-delay: .2s; }
+.lba-bars span:nth-child(4) { height: 60%;  animation-delay: .3s; background: color-mix(in srgb, var(--amber) 60%, transparent); }
+.lba-bars span:nth-child(5) { height: 85%;  animation-delay: .4s; }
+@keyframes lba-bars { 0%, 100% { transform: scaleY(.4); } 50% { transform: scaleY(1); } }
+@media (prefers-reduced-motion: reduce) { .lba-bars span { animation: none; } }
 
 /* ===== Accessibilité : contrastes renforcés (body.high-contrast) =====
    Activé depuis « Mon compte » (toggle) ou la préférence locale lba-contrast.
@@ -876,23 +1047,15 @@ body {
 /* 7) Halo de chargement doux mais VISIBLE (esprit du halo .hero::before, couleurs plus
    soutenues) — REMPLACE le texte « Chargement… » (gardé pour l'a11y via font-size:0).
    Pages à données : mes-decks, favoris, collection, deck partagé, source (.src-loading),
-   connexion (.cx-loading), home (.grid.grid-loading). Respecte prefers-reduced-motion.
-   Deux keyframes : -c (élément en flux, scale seul) et la version translate (absolu). */
-@keyframes lba-halo-pulse-c {
-  0%, 100% { opacity: .35; transform: scale(.88); }
-  50%      { opacity: .72; transform: scale(1.12); }
-}
+   connexion (.cx-loading) : desormais les barres .lba-bars (voir plus haut). Seule la
+   home (.grid.grid-loading) garde ce halo ::after. Respecte prefers-reduced-motion. */
 @keyframes lba-halo-pulse {
   0%, 100% { opacity: .35; transform: translate(-50%, -50%) scale(.88); }
   50%      { opacity: .72; transform: translate(-50%, -50%) scale(1.12); }
 }
-.src-loading, .cx-loading { position: relative; font-size: 0; } /* texte -> a11y only, remplacé par le halo */
-.src-loading::before, .cx-loading::before {
-  content: ""; display: block; width: 104px; height: 104px; margin: 0 auto;
-  border-radius: 50%;
-  background: radial-gradient(circle at center, color-mix(in srgb, var(--amber) 62%, transparent), transparent 68%);
-  animation: lba-halo-pulse-c 1.35s ease-in-out infinite;
-}
+.src-loading, .cx-loading { position: relative; font-size: 0; } /* texte -> a11y only, remplacé par les barres */
+/* .src-loading / .cx-loading : le visuel est le conteneur .lba-bars (voir plus haut),
+   injecte dans le markup ; plus de halo ::before ici. */
 .grid.grid-loading { position: relative; }
 .grid.grid-loading::after {
   content: ""; position: absolute; left: 50%; top: 140px; width: 170px; height: 170px;
@@ -901,7 +1064,6 @@ body {
   animation: lba-halo-pulse 1.35s ease-in-out infinite;
 }
 @media (prefers-reduced-motion: reduce) {
-  .src-loading::before, .cx-loading::before { animation: none; opacity: .5; transform: none; }
   .grid.grid-loading::after { animation: none; opacity: .5; transform: translate(-50%, -50%); }
 }
 .src-head { position: relative; background: var(--surface); border-radius: 24px; padding: 28px; box-shadow: var(--shadow); }
@@ -1131,7 +1293,7 @@ body[data-mode="connected"] #stats { display: none; }
 .back-tags .tag:hover { background: var(--amber); color: var(--amber-soft); }
 
 /* I) conteneur de la 2e ligne de chips (hors toolbar) */
-.chips-secondary-wrap .chips-more.open { margin-bottom: 6px; }
+.chips-secondary-wrap .chips-more.open { margin-bottom: 6px; margin-top: 10px; }
 
 /* D) carte de recommandation */
 .card.add.reco-hidden { display: none; }
@@ -1182,7 +1344,6 @@ body[data-mode="connected"] #stats { display: none; }
 .card.face-task .card-back { display: none; }
 .card:not(.face-task) .card-task-face { display: none; }
 .tf-title { font-size: 14px; font-weight: 700; padding-right: 30px; color: var(--ink); }
-.tf-mute { margin: 0; }
 .share-face-title { font-size: 14px; font-weight: 700; padding-right: 30px; }
 .card-share-face .share-grid { grid-template-columns: repeat(4, 1fr); gap: 4px; }
 .card-share-face .share-opt { padding: 8px 2px; border-radius: 12px; }
@@ -1233,14 +1394,15 @@ body[data-mode="connected"] #stats { display: none; }
 .notif-row[hidden] { display: none; }
 .notif-txt strong { display: block; font-size: 15px; font-weight: 700; color: var(--ink); }
 .notif-sub { display: block; margin-top: 3px; font-size: 13px; color: var(--muted); line-height: 1.5; max-width: 420px; }
+/* Même style que .coll-adopt (bouton plein ambre, texte blanc, pastille arrondie, ombre). */
 .notif-btn {
-  flex: none; border: 1.5px solid var(--amber); background: transparent; color: var(--amber);
-  font: inherit; font-weight: 700; font-size: 14px; border-radius: 999px;
-  padding: 9px 18px; cursor: pointer; transition: background .15s, color .15s;
+  flex: none; background: var(--amber); color: #fff; border: none; cursor: pointer;
+  font-weight: 700; font-size: 1rem; padding: 12px 22px; border-radius: 999px;
+  box-shadow: var(--shadow); transition: transform .14s ease, filter .14s ease;
 }
-.notif-btn:hover { background: var(--amber-soft); }
+.notif-btn:hover { filter: brightness(1.05); transform: translateY(-1px); }
 .notif-btn.on { background: var(--amber); color: #fff; }
-.notif-btn:disabled { opacity: .6; cursor: default; }
+.notif-btn:disabled { opacity: .6; cursor: default; transform: none; }
 /* Interrupteur email */
 .notif-toggle {
   flex: none; position: relative; width: 46px; height: 27px; border: none; cursor: pointer;
@@ -1293,12 +1455,51 @@ body[data-mode="connected"] #stats { display: none; }
 #quiet-hours-row[hidden] { display: none; }
 
 /* ---------- panneau « Mon compte » (mode connecté) ---------- */
-.account-panel { margin: 6px auto 4rem; }
-.acct-card.card.flip { width: 100%; }
-.card-front.acct-front { min-height: 460px; padding: 30px 32px; }
-/* A) Verso « Mon historique » en colonne : la zone de scroll prend toute la
-   hauteur disponible de la card back (au lieu d'un max-height fixe). */
-.card-back.acct-back { padding: 30px 32px; background: var(--surface); display: flex; flex-direction: column; }
+.account-panel { margin: 6px auto 4rem; position: relative; }
+/* Mosaïque : plus de carte géante — chaque rubrique est une petite carte (.acct-tile)
+   posée dans une grille auto-fill, alignée en haut (hauteurs libres). */
+.acct-mosaic {
+  /* Respiration verticale entre rubriques, plus large que la gouttière latérale.
+     Variable car le calage maçonnerie (site.js) la relit : en .is-masonry le
+     row-gap CSS passe à 0 et l'écart est reporté dans le span de chaque tuile. */
+  --acct-row-gap: 50px;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr));
+  column-gap: 18px; row-gap: var(--acct-row-gap); align-items: start; padding-bottom: 6px;
+}
+.acct-tile {
+  background: var(--surface); border-radius: 24px; padding: 22px;
+  box-shadow: 0 1px 3px rgba(30, 20, 50, .06);
+  transition: box-shadow .2s; min-width: 0;
+}
+.acct-tile:hover { box-shadow: var(--shadow); }
+/* Une tuile peut occuper toute la largeur (historique). */
+.acct-tile-wide { grid-column: 1 / -1; }
+
+/* Vue compte : la grille reste une VRAIE grille (2-3 colonnes selon la largeur),
+   mais calée en MAÇONNERIE — les rubriques ont des hauteurs très inégales
+   (« Personnaliser les alertes » est longue, l'identité et « Notifications » sont
+   courtes) et, en rangées classiques, les tuiles courtes laissaient un grand vide
+   jusqu'à la rangée suivante. Technique : rangées fines (4px) + chaque tuile
+   occupe le nombre de rangées correspondant à sa hauteur (span posé par
+   layoutAcctMosaic() dans site.js). La classe .is-masonry n'est ajoutée que
+   lorsque le JS a mesuré : sans JS, la grille normale reste valide.
+   grid masonry natif n'étant pas encore supporté partout, on garde ce calage. */
+#acct-view-main .acct-mosaic.is-masonry {
+  grid-auto-rows: 4px; row-gap: 0;
+}
+#acct-view-main .acct-mosaic.is-masonry .acct-tile { align-self: start; }
+/* Dans une tuile, le .notif-card interne n'est plus une carte dans la carte :
+   il se fond (pas de fond ni d'ombre, padding latéral repris par la tuile). */
+.acct-tile .notif-card { background: transparent; box-shadow: none; border-radius: 0; padding: 0; }
+/* Identité : bloc centré, mise en avant douce. */
+.acct-tile-id { text-align: center; }
+.acct-tile-id .acct-avatar { margin-inline: auto; }
+.acct-collection-count {
+  display: inline-block; margin-top: 8px;
+  font-size: 13px; font-weight: 700; color: var(--amber); text-decoration: none;
+}
+.acct-collection-count:hover { text-decoration: underline; }
+.acct-collection-count[hidden] { display: none; }
 .acct-head .acct-name { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
 .acct-email { color: var(--muted); font-size: 14px; margin-top: 4px; word-break: break-all; }
 /* Avatar à initiale : teinte violette de la charte, propre en clair comme en sombre. */
@@ -1311,14 +1512,20 @@ body[data-mode="connected"] #stats { display: none; }
   box-shadow: 0 4px 14px rgba(165, 103, 227, .28);
   margin-bottom: 12px; user-select: none;
 }
-.acct-close {
-  position: absolute; top: 16px; right: 16px; z-index: 3;
-  border: none; background: transparent; color: var(--muted);
-  font-size: 17px; line-height: 1; cursor: pointer; padding: 6px; border-radius: 8px;
+/* Vues du panneau (compte / historique / nous soutenir) : empilées, une seule visible. */
+.acct-view { position: relative; }
+.acct-view[hidden] { display: none; }
+/* Retour depuis une vue secondaire (même repère visuel que le ↩ des cartes). */
+.acct-view-back {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; margin-bottom: 12px;
+  border: none; border-radius: 999px; cursor: pointer;
+  background: var(--surface); color: var(--muted); box-shadow: 0 1px 3px rgba(30, 20, 50, .06);
 }
-.acct-close:hover { color: var(--amber); }
-.acct-section { margin-top: 22px; }
+.acct-view-back:hover { color: var(--amber); }
 .acct-section .section-label { margin-bottom: 12px; }
+/* Pied du panneau : dernières actions, sous la mosaïque. */
+.acct-foot { margin-top: 22px; max-width: 340px; }
 /* B) Entrées de navigation au style notif-row (Mon historique, Proposer, Se déconnecter,
    Toutes les façons d'aider) : la ligne entière est cliquable, chevron à droite. */
 .notif-nav {
@@ -1330,23 +1537,9 @@ body[data-mode="connected"] #stats { display: none; }
 .notif-nav:hover .notif-chevron { color: var(--amber); }
 /* B) « Nous soutenir » : la rangée peut passer les boutons de don à la ligne sur mobile. */
 .acct-support-row { flex-wrap: wrap; }
-.acct-history-scroll { margin-top: 12px; flex: 1; min-height: 0; overflow-y: auto; }
-
-/* B1) Le × de fermeture est masqué au verso (comme le ⓘ des cartes). */
-.acct-card.flipped .acct-close { display: none; }
-
-/* Point 7) 3e face « Nous soutenir » : même mécanique 3D que la face « Partager »
-   des cartes de sources. Face absolue à rotateY(180deg), affichée via .acct-face-support
-   (la face historique est masquée pendant ce temps). */
-.acct-support-face {
-  position: absolute; inset: 0; transform: rotateY(180deg);
-  padding: 30px 32px; background: var(--surface);
-  display: flex; flex-direction: column; gap: 12px;
-}
-.acct-card.acct-face-support .card-back.acct-back { display: none; }
-.acct-card:not(.acct-face-support) .acct-support-face { display: none; }
-.acct-support-scroll { margin-top: 12px; flex: 1; min-height: 0; overflow-y: auto; }
-.acct-support-lead { color: var(--muted); font-size: 14px; line-height: 1.6; margin-bottom: 4px; }
+/* Historique : hauteur libre dans sa tuile, plafonnée pour rester lisible. */
+.acct-history-scroll { margin-top: 12px; max-height: 62vh; overflow-y: auto; }
+.acct-support-lead { color: var(--muted); font-size: 14px; line-height: 1.6; margin-bottom: 16px; }
 
 /* B2) Label fixe du panneau (hors du conteneur qui tourne) : style section-label,
    mais jamais renvoyé dans la marge gauche (pas la classe .section-label). */
@@ -1390,6 +1583,31 @@ body[data-mode="connected"] #stats { display: none; }
 .acct-src-status.ok { background: var(--green-soft); color: var(--green); }
 .acct-src-status.pending { background: var(--line); color: var(--muted); }
 
+/* Sélecteur segmenté à 3 positions (Apparence › Thème : Clair / Auto / Sombre).
+   Même vocabulaire visuel que .notif-toggle : piste discrète, position active en
+   ambre. Le segment porte la PRÉFÉRENCE, « Auto » compris. */
+.pref-seg {
+  flex: none; display: inline-flex; align-items: center; gap: 2px;
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+  border-radius: 999px; padding: 3px;
+}
+.pref-seg button {
+  border: none; background: transparent; cursor: pointer; font: inherit;
+  font-size: 13px; font-weight: 700; color: var(--muted);
+  border-radius: 999px; padding: 7px 14px; transition: background .15s, color .15s;
+}
+.pref-seg button:hover { color: var(--ink); }
+.pref-seg button.on { background: var(--amber); color: #fff; }
+@media (max-width: 620px) { .pref-seg button { padding: 7px 11px; font-size: 12.5px; } }
+
+/* @pseudo public (rubrique « Mon pseudo ») : identifiant stable, cliquable vers
+   la page profil publique /u/:pseudo. */
+.pref-at {
+  flex: none; font-weight: 700; font-size: 14px; color: var(--amber); text-decoration: none;
+  background: var(--amber-soft); border-radius: 999px; padding: 6px 14px;
+}
+.pref-at:hover { text-decoration: underline; }
+
 /* Composant boutons de don — partagé avec /soutenir (même style, désactivé). */
 .sup-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 .sup-btn {
@@ -1419,12 +1637,13 @@ body[data-mode="connected"] #stats { display: none; }
 }
 
 @media (max-width: 620px) {
-  .card-front.acct-front, .card-back.acct-back, .acct-support-face { padding: 24px 20px; }
+  .acct-mosaic { --acct-row-gap: 28px; column-gap: 12px; }
+  .acct-tile { padding: 20px 18px; border-radius: 20px; }
+  .acct-foot { max-width: none; }
   /* Anti-débordement du panneau compte sur mobile : aucun élément ne doit pousser
      la carte au-delà de l'écran. On laisse le texte rétrécir (min-width:0 → il passe
      à la ligne au lieu d'imposer sa largeur) et on empêche les selects d'imposer une
      largeur ; les contrôles restent à droite (pas de repli forcé). */
-  .account-panel .notif-card { padding: 6px 16px; }
   .account-panel .notif-txt { min-width: 0; }
   .account-panel .notif-sub { max-width: 100%; }
   .account-panel .quiet-range { min-width: 0; }
@@ -1505,12 +1724,40 @@ body[data-mode="connected"] #stats { display: none; }
 .param-remove:hover { color: var(--amber); }
 /* C3) Même gabarit qu'une .param-chip (rayon, padding, typo) mais FOND VIOLET pour
    la distinguer comme action d'ajout (et non comme une instance existante). */
-.param-add {
+/* V3 · « Configurer » (recto des cartes user-task) : MÊME pastille que « + ajouter »
+   des cartes paramétrées — les deux rectos ont désormais la même structure.
+   Sélecteur GROUPÉ et non réutilisation de la classe .param-add : celle-ci est câblée
+   à un handler qui ouvre le picker et masque le bouton (site.js) — l'emprunter ferait
+   disparaître « Configurer » au premier clic. */
+.param-add, .task-config, .task-config-anon, .community-submit {
   display: inline-flex; align-items: center; gap: 7px;
   background: var(--amber); color: #fff; border: none; cursor: pointer;
   border-radius: 999px; padding: 6px 11px; font: inherit; font-size: 12.5px; font-weight: 600;
 }
-.param-add:hover { filter: brightness(1.06); }
+.param-add:hover, .task-config:hover, .task-config-anon:hover, .community-submit:hover { filter: brightness(1.06); }
+.task-config-anon { text-decoration: none; } /* variante <a> (anonyme → /connexion) */
+
+/* Carte communautaire (« Chat perdu ») : formulaire empilé (commune, description,
+   lien, rayon, bouton), contrairement au .param-row générique en ligne — une
+   description tient mal sur une seule ligne. Le bouton .community-submit reprend
+   le style des autres actions d'une carte (.param-add/.task-config, ci-dessus). */
+.community-form { flex-direction: column; align-items: stretch; width: 100%; }
+/* .param-row impose display:flex (règle auteur) qui l'emporterait sur [hidden] (même
+   piège déjà résolu pour .param-form/.param-follow-row, cf. plus bas) : sans ce
+   rétablissement explicite, le sous-formulaire resterait visible en permanence malgré
+   l'attribut hidden posé par défaut (cards.js) et retiré/reposé par le bouton toggle. */
+.community-form[hidden] { display: none; }
+.community-ville, .community-desc, .community-link, .community-radius {
+  flex: 1 1 auto; width: 100%; min-width: 0; max-width: 100%; font: inherit; font-size: 13.5px;
+  color: var(--ink); background: var(--surface); border: 1px solid var(--line);
+  border-radius: 10px; padding: 10px 12px; resize: vertical;
+}
+.community-desc { min-height: 52px; }
+.community-radius { cursor: pointer; }
+.community-ville:focus, .community-desc:focus, .community-link:focus, .community-radius:focus {
+  outline: none; border-color: var(--amber);
+}
+.community-submit { align-self: flex-start; }
 /* Switch « S'abonner » d'une carte paramétrée : à droite du contrôle dans le picker,
    passe à la ligne sur carte étroite. Réutilise .switch/.switch-row existants. */
 .param-follow-row { flex: 0 0 auto; }
@@ -1588,6 +1835,14 @@ body[data-mode="connected"] #stats { display: none; }
   body.m-secondary.m-kiosk header .nav > .search {
     order: 2; flex: 1 1 auto; margin-left: 10px;
   }
+  /* Le rail de catégories injecté par header.js est un ajout DESKTOP : en mobile les
+     pages secondaires gardent leur en-tête à une seule ligne (hamburger + recherche),
+     les catégories restant accessibles par le menu plein écran.
+     `.m-secondary.m-kiosk` (et non `.m-secondary` seul) : il faut repasser devant
+     `body.m-kiosk header .nav .toolbar { display: block }` déclaré plus bas dans ce
+     même bloc — à spécificité égale, c'est la dernière règle qui gagnerait. */
+  body.m-secondary.m-kiosk header .nav .toolbar,
+  body.m-secondary.m-kiosk header .nav .chips-secondary-wrap { display: none; }
 
   /* Rangée 2 : recherche (loupe à gauche, pas de bouton — inchangé). */
   body.m-kiosk header .nav > .search { order: 3; flex: 1 1 100%; min-width: 0; margin: 0; }
@@ -1679,7 +1934,7 @@ body[data-mode="connected"] #stats { display: none; }
   body.m-kiosk header .nav-right { order: 2; flex: none; }
   body.m-kiosk header .nav > .search {
     order: 5; flex: 1 1 100%; max-width: none; min-width: 0; margin: 2px 0 0;
-    padding: 5px 5px 5px 18px; gap: 0;
+    padding: 3px 3px 5px 18px; gap: 0;
   }
   /* Point 2) Rangée 2 : puces de catégories, centrées, DANS le header. */
   body.m-kiosk header .nav .toolbar {
@@ -1714,12 +1969,28 @@ body[data-mode="connected"] #stats { display: none; }
 @media (min-width: 1024px) {
   /* Rangée 1 sur une seule ligne (recherche rejoint le logo/nav-right) ; les
      catégories restent en rangée 2 (flex-basis 100% → passent à la ligne). */
-  body.m-kiosk header .nav { height: auto; flex-wrap: wrap; gap: 10px 14px; padding: 10px 0; }
-  body.m-kiosk .brand { font-size: 35px; }
-  body.m-kiosk header .nav > .search {
-    order: 2; flex: 1 1 auto; max-width: 420px; min-width: 140px; margin: 0;
+  /* La recherche étant plafonnée (300px), il reste de l'espace libre dans la rangée :
+     avec le `justify-content: space-between` de .nav, cet excédent se répartissait
+     dans TOUS les interstices — d'où des écarts imprévisibles qu'on ne pouvait
+     rattraper qu'à coups de marges négatives. On passe donc en `flex-start` : les
+     écarts valent alors exactement le `gap` (+ marges explicites), et c'est
+     `.nav-right` qui absorbe tout le vide via `margin-left: auto` pour rester collé
+     au bord droit.
+     Écarts de la rangée 1, désormais déterministes :
+       logo → « Déposer »      = 26px (marge du logo) + 10px (gap)
+       « Déposer » → recherche = 10px (le gap seul)
+     NB : ne PAS donner `margin-right: auto` au logo — quand la rangée est bien
+     remplie il ne reste presque rien à distribuer et le logo se retrouve collé au
+     bouton. Une marge explicite tient dans tous les cas. */
+  body.m-kiosk header .nav {
+    height: auto; flex-wrap: wrap; gap: 10px; padding: 10px 0;
+    justify-content: flex-start;
   }
-  body.m-kiosk header .nav-right { order: 3; }
+  body.m-kiosk .brand { font-size: 35px; margin-right: 60px; }
+  body.m-kiosk header .nav > .search {
+    order: 2; flex: 1 1 auto; max-width: 300px; min-width: 140px; margin: 0;
+  }
+  body.m-kiosk header .nav-right { order: 3; margin-left: auto; }
   body.m-kiosk header .nav .toolbar { margin-top: 10px; }
 }
 
@@ -1767,6 +2038,53 @@ body[data-mode="connected"] #stats { display: none; }
      · le KPI n'apparaît QUE connecté (règle ci-dessous) — sinon retiré du flux,
        les voisins se réajustent naturellement (flex/gap), aucun trou. */
 body:not([data-mode="connected"]) .nav-right .kpi { display: none; }
+
+/* ===================== KPI du header = pastille de notification sur la cloche =====================
+   Dans le HEADER uniquement (le .kpi du hero garde sa forme de pilule), le compteur
+   « alertes actives » est relocalisé DANS le lien « Mes alertes » (mobile-header.js)
+   et devient une pastille verte chiffrée superposée à la cloche, façon notification.
+   - le halo vert qui s'agrandit (`ping`, mutualisé avec .dot-live) est conservé ;
+   - tout le reste (pastille ●, libellé au survol, overlay qui s'étire) disparaît ;
+   - 0 alerte active (data-active != "true") → pas de pastille du tout.
+   Sélecteurs préfixés `header` pour repasser devant les règles `body.m-kiosk .nav-right .kpi`
+   des media queries ≥721px / ≥1024px déclarées plus haut. */
+header .nav-right .mine-link .kpi {
+  /* Ancrée sur la cloche, pas sur la boîte du lien : `right` compense le padding
+     horizontal de 5px de .hd-link (sinon la pastille s'éloignerait de l'icône). */
+  position: absolute; top: -7px; right: -4px; z-index: 3;
+  margin: 0; padding: 0 4px; gap: 0;
+  min-width: 18px; height: 18px; border-radius: 999px;
+  background: var(--green); border: none; box-shadow: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 11px; line-height: 1; pointer-events: none;
+}
+header .nav-right .mine-link .kpi #kpi-num { color: #fff; font-weight: 700; }
+header .nav-right .mine-link .kpi #kpi-dot,
+header .nav-right .mine-link .kpi #kpi-text { display: none !important; }
+/* Halo qui s'agrandit — même keyframes que .dot-live, à l'échelle de la pastille. */
+header .nav-right .mine-link .kpi::after {
+  content: ""; position: absolute; inset: -1px; border-radius: 999px;
+  border: 1.5px solid var(--green); animation: ping 2s ease-out infinite;
+}
+/* Aucune alerte active → aucune pastille. */
+header .nav-right .mine-link .kpi:not([data-active="true"]) { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  header .nav-right .mine-link .kpi::after { animation: none; }
+}
+
+/* Connecté : « Mon compte » n'est plus une pilule accent mais un avatar rond — on
+   neutralise le fond/padding de .btn-login (y compris ses variantes mobiles déclarées
+   plus haut). Déclaré ici, en fin de feuille, pour passer après toutes les media queries. */
+.btn-login.hd-avatar-link,
+.nav-right a.btn-login.hd-avatar-link,
+.btn-login.hd-avatar-link:hover,
+.nav-right a.btn-login.hd-avatar-link:hover {
+  background: none; border: none; padding: 0px; margin: 0;
+  border-radius: 50%; color: var(--muted); line-height: 0;
+}
+/* `hidden` doit rester prioritaire sur le display:inline-flex de .hd-link
+   (session.js masque « Mes alertes » aux visiteurs anonymes). */
+.hd-link[hidden] { display: none; }
 
 /* « Bonjour <prénom> » (hero) ne s'affiche que sur la page principale : masqué dès
    que le panneau « Mon compte » (et ses faces historique/soutenir) est ouvert — ce
@@ -1923,7 +2241,7 @@ body.m-menu-open { overflow: hidden; }
 .coll-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .coll-adopt {
   background: var(--amber); color: #fff; border: none; cursor: pointer;
-  font-weight: 700; font-size: 1rem; padding: 12px 22px; border-radius: 11px;
+  font-weight: 700; font-size: 1rem; padding: 12px 22px; border-radius: 999px;
   box-shadow: var(--shadow); transition: transform .14s ease, filter .14s ease;
 }
 .coll-adopt:hover { filter: brightness(1.05); transform: translateY(-1px); }
@@ -1989,7 +2307,7 @@ body.m-menu-open { overflow: hidden; }
 .deck-create-btn { font-size: .95rem; padding: 11px 20px; }
 .deck-create-btn[disabled] { opacity: .5; cursor: not-allowed; pointer-events: none; }
 /* En-tête de la liste : libellé « Vos decks » + compteur de quota aligné à droite. */
-.deck-list-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.deck-list-head { display: flex; align-items: baseline; justify-content: flex-start; gap: 12px; }
 .deck-list-head .section-label { margin-bottom: 14px; }
 .deck-count { font-size: .82rem; font-weight: 600; color: var(--muted); white-space: nowrap; }
 .deck-count.full { color: var(--danger); }
@@ -2032,7 +2350,7 @@ body.m-menu-open { overflow: hidden; }
 }
 .deck-emoji-opt:hover { border-color: var(--amber); }
 .deck-emoji-opt.on { border-color: var(--amber); background: var(--amber-soft); transform: translateY(-1px); }
-.deck-form-actions { margin-top: 20px; }
+.deck-form-actions { margin-top: 20px; margin-bottom: 3rem; }
 .deck-form-msg { margin-top: 12px; font-weight: 600; font-size: .9rem; color: var(--muted); }
 .deck-form-msg.err { color: var(--danger); }
 .deck-form-msg.ok { color: var(--green); }
@@ -2047,6 +2365,11 @@ body.m-menu-open { overflow: hidden; }
 }
 .deck-delete-btn:hover { background: color-mix(in srgb, var(--danger) 10%, transparent); }
 .deck-card-wrap { display: flex; flex-direction: column; gap: 8px; }
+/* Cartes composant un deck (grille détail /mes-decks + graines du formulaire) : plafonnées à
+   300px et centrées comme les cartes du kiosque. Elles sont PETITES-ENFANTS de .grid (dans
+   .deck-card-wrap) → la règle .grid > .card ne les atteint pas ; sinon elles remplissent la
+   colonne (~385px, « cartes trop grosses »). */
+.deck-card-wrap > .card { max-width: 300px; margin-inline: auto; }
 .deck-remove {
   align-self: center; border: 1.5px solid var(--line); background: transparent; color: var(--muted);
   font: inherit; font-weight: 600; font-size: 13px; border-radius: 999px; padding: 7px 16px; cursor: pointer;
@@ -2119,6 +2442,28 @@ body.m-menu-open { overflow: hidden; }
 .deck-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 .deck-toast.err { background: var(--danger); color: #fff; }
 
+/* ===== /mes-decks : dashboard de decks (dépliage en place) ===== */
+/* Sortie animée des tuiles-deck voisines quand on en déplie une (calqué sur apply()). */
+.deck-leaving { transition: opacity .2s ease, transform .2s ease; opacity: 0; transform: scale(.97); pointer-events: none; }
+@media (prefers-reduced-motion: reduce) { .deck-leaving { transition: none; } }
+/* Tuile voisine retirée pendant le dépliage (l'attribut [hidden] est battu par .deck-card
+   /.card.add qui fixent display) → classe explicite. */
+.deck-gone { display: none !important; }
+/* En-tête : « ← Retour » (remplace le compteur en mode déplié) — MÊME style que .deck-count. */
+.deck-back-inline { background: none; border: none; cursor: pointer; padding: 0; font-size: .82rem; font-weight: 600; color: var(--muted); white-space: nowrap; }
+.deck-back-inline:hover { text-decoration: underline; }
+/* Tuile « Ajouter un deck » désactivée (quota atteint). */
+.deck-create-tile.is-full { opacity: .5; cursor: not-allowed; }
+/* Verso propriétaire (actions) dans le .card-back d'une tuile-deck : rangée d'actions
+   empilée pleine largeur (le card-back est étroit et défilable). Réutilise .coll-actions. */
+.deck-card .card-back { overflow-y: auto; }
+.deck-card .card-back .coll-actions { display: flex; flex-direction: column; gap: 6px; width: 100%; margin-top: 8px; }
+.deck-card .card-back .coll-actions > button { width: 100%; margin: 0; font-size: .9rem; padding: 8px 10px; }
+/* « Apparence » : liste des skins inline sous le bouton, façon paramètres (.param-row). */
+.deck-skin-inline { margin-top: 8px; }
+.deck-skin-inline .deck-skin-opt.on { outline: 2px solid var(--amber); outline-offset: 1px; }
+.deck-skin-inline .deck-skin-link { color: var(--amber); font-weight: 600; font-size: 13px; text-decoration: none; }
+
 /* ===================== PROPOSITIONS DE CARTES (deck) ===================== */
 .deck-suggest-block { margin-top: 28px; }
 .deck-suggest-toggle {
@@ -2128,10 +2473,18 @@ body.m-menu-open { overflow: hidden; }
 .deck-suggest-toggle .dst-caret { font-size: .8em; }
 .deck-suggest-body { margin-top: 12px; }
 .deck-suggest-more-wrap { text-align: center; margin-top: 14px;margin-bottom: 2rem; }
+/* En-tête des suggestions : label « Cartes suggérées » + champ de recherche à droite. */
+.deck-suggest-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
+.deck-suggest-head .section-label { margin: 0; }
+.deck-suggest-search {
+  flex: 0 1 260px; min-width: 160px; font: inherit; font-size: .92rem; color: var(--ink);
+  background: var(--surface); border: 1.5px solid var(--line); border-radius: 999px; padding: 8px 14px;
+}
+.deck-suggest-search:focus { outline: 2px solid var(--amber); outline-offset: 1px; border-color: var(--amber); }
 
-/* Carte proposée : on masque les contrôles d'abonnement (on compose, on ne suit
-   pas) et on affiche le bouton « Ajouter au deck » sous la carte. */
-.deck-suggest-add { display: block; width: 100%; margin-top: 8px; font-size: .92rem; padding: 10px; }
+/* Carte proposée : on masque les contrôles d'abonnement (on compose, on ne suit pas). Le
+   bouton « Ajouter au deck » est INCLUS DANS la carte, juste sous la description (.card-desc). */
+.deck-suggest-add { display: block; width: 100%; margin-top: 8px; font-size: .85rem; padding: 8px 10px; }
 .deck-suggest-wrap .switch-row,
 .deck-suggest-wrap .sub-form,
 .deck-suggest-wrap .param-status,
@@ -2141,14 +2494,33 @@ body.m-menu-open { overflow: hidden; }
 .deck-suggest-wrap .param-subform,
 .deck-suggest-wrap .sub-count { display: none !important; }
 
-/* ===================== Bouton « Déposer / Ajouter un deck » (rotation) ===================== */
-.btn-deposit .bd-label { display: inline-block; transition: transform .22s ease, opacity .22s ease; will-change: transform, opacity; }
-.btn-deposit .bd-label.bd-slide-out { transform: translateY(-70%); opacity: 0; }
-.btn-deposit .bd-label.bd-slide-in { animation: bd-slide-in .28s ease; }
-@keyframes bd-slide-in { from { transform: translateY(70%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-@media (prefers-reduced-motion: reduce) {
-  .btn-deposit .bd-label, .btn-deposit .bd-label.bd-slide-out, .btn-deposit .bd-label.bd-slide-in { transition: none; animation: none; transform: none; opacity: 1; }
+/* ===================== Bouton « Déposer une alerte » =====================
+   Libellé fixe : l'ancienne rotation « Ajouter un deck » (et ses animations
+   .bd-slide-in / .bd-slide-out) a été retirée. */
+.btn-deposit .bd-label { display: inline-block; }
+/* PC étroit (722–1299px) : la place manque pour logo + bouton + recherche + nav-right.
+   Le bouton se réduit au « + » seul (pastille ronde) ; le libellé passe dans l'infobulle
+   (attribut `title`, statique). Hors de cette plage : ≤721px =
+   header mobile (bouton hors flux), ≥1300px = libellé complet.
+   Déclaré ICI, après `.bd-label { display: inline-block }` ci-dessus, pour l'emporter. */
+@media (min-width: 722px) and (max-width: 1299px) {
+  .btn-deposit { min-width: 0; width: 36px; height: 36px; padding: 0; justify-content: center; }
+  .btn-deposit .bd-label { display: none; }
+  .btn-deposit .plus { top: 0; font-size: 20px; }
 }
+
+/* Rotation du H1 de /favoris (« Ma collection » / « Mes favoris » / … / « Mes favorites »).
+   ⚠️ Les keyframes `bd-slide-in` ci-dessous portent le nom hérité du bouton « Déposer »,
+   dont la rotation a été retirée : elles ne servent PLUS qu'ici (et à favoris-title.js,
+   qui pose les classes .bd-slide-out/.bd-slide-in). Ne pas les supprimer avec le reste. */
+@keyframes bd-slide-in { from { transform: translateY(70%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+.fav-title-label { display: inline-block; transition: transform .22s ease, opacity .22s ease; will-change: transform, opacity; }
+.fav-title-label.bd-slide-out { transform: translateY(-70%); opacity: 0; }
+.fav-title-label.bd-slide-in { animation: bd-slide-in .28s ease; }
+@media (prefers-reduced-motion: reduce) {
+  .fav-title-label, .fav-title-label.bd-slide-out, .fav-title-label.bd-slide-in { transition: none; animation: none; transform: none; opacity: 1; }
+}
+
 
 /* ===================== A1/A3) Menu mobile : face « Catégories » (flip) + icônes ===================== */
 .m-menu { perspective: 1400px; }
@@ -2364,12 +2736,12 @@ html[data-theme="dark"] .tint-11 .deck-motif-bg::after { background: color-mix(i
 /* Formulaire de deck : champs (nom + description) à gauche, aperçu à droite. */
 .deck-form-top { display: flex; gap: 18px; align-items: flex-start; margin-bottom: 6px; }
 .deck-form-fields { flex: 1 1 auto; min-width: 0; }
-/* Aperçu « Votre deck » : pile pleine taille bornée à une largeur de carte. */
-.deck-form-top .deck-preview-wrap { flex: 0 0 auto; align-self: flex-start; width: 230px; }
+/* Aperçu « Votre deck » : deck à taille NORMALE (largeur d'une carte = 300px, ratio 2/3). */
+.deck-form-top .deck-preview-wrap { flex: 0 0 auto; align-self: flex-start; width: 300px; max-width: 100%; }
 .deck-preview-wrap .deck-card { width: 100%; }
 @media (max-width: 560px) {
   .deck-form-top { flex-direction: column; }
-  .deck-form-top .deck-preview-wrap { width: min(230px, 70%); }
+  .deck-form-top .deck-preview-wrap { width: min(300px, 90%); }
 }
 
 /* Sélecteur de teinte (8 pastilles). */
@@ -2466,6 +2838,10 @@ html[data-theme="dark"] .tint-11 .deck-motif-bg::after { background: color-mix(i
    un « i » inerte (leur verso resterait celui de la source d'apercu). */
 .deck-card[data-deck-tile] .ds-i0 .flip-btn,
 .deck-card[data-deck-tile] .ds-i0 .card-back { pointer-events: auto; }
+/* /mes-decks : la tuile-deck se retourne sur son VERSO PROPRIETAIRE (actions) → verso
+   cliquable. La face partage / flip-back sont deja actives (regles .deck-card .ds-i0 …). */
+.deck-card[data-deck] .ds-i0 .card-back,
+.deck-card[data-deck] .ds-i0 .flip-btn { pointer-events: auto; }
 /* Le compteur de likes de la source n'a pas de sens pour un favori de deck → masque. */
 .deck-card .ds-i0 .like-n { display: none; }
 /* Survol du deck : ombre portee sur la carte de devant, comme .card.flip:hover. */
@@ -2511,9 +2887,22 @@ html[data-theme="dark"] .tint-11 .deck-motif-bg::after { background: color-mix(i
 }
 .ds-ribbon-name { display: block; font-weight: 700; font-size: 1rem; line-height: 1.15; letter-spacing: -.01em; overflow-wrap: anywhere; }
 .ds-ribbon-meta { display: block; font-size: .8rem; margin-top: 2px; color: color-mix(in srgb, var(--ink) 60%, transparent); }
+/* MOTIF choisi, discret, DERRIERE le texte du ruban (couleur --deck-motif de la teinte).
+   Le dessin ne s'applique QUE sur le ruban ; inséré sous l'encoche haute (2r) pour rester
+   dans la vague. Le contenu du ruban passe au-dessus (z-index:1). */
+.ds-ribbon-motif {
+  position: absolute; top: calc(2 * var(--r)); left: 3px; right: 3px; bottom: 3px; z-index: 0;
+  overflow: hidden; border-radius: 0 0 var(--r) var(--r);
+  color: var(--deck-motif); opacity: .3; pointer-events: none;
+}
+.ds-ribbon-motif svg { width: 100%; height: 100%; display: block; }
+.ds-ribbon-name, .ds-ribbon-meta, .ds-ribbon-cats { position: relative; z-index: 1; }
 /* Categories auto (top-3) sur le ruban : pastilles au style des tags de carte, LECTURE
    SEULE (jamais cliquables ici — elles decrivent le deck, elles ne filtrent pas). */
 .ds-ribbon-cats { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; margin-top: 5px; }
+/* (Ruban : centrage d'origine conserve pour TOUS les skins — le retour au ratio 2/3
+   des skins structures a restaure la geometrie des faces, l'ancrage bas du tour
+   precedent n'est plus necessaire.) */
 .ds-cat-tag {
   font-size: 10px; font-weight: 600; color: var(--amber); line-height: 1.3;
   background: var(--amber-soft); border-radius: 999px; padding: 3px 9px; border: none;
@@ -2639,6 +3028,7 @@ html[data-theme="dark"] .tint-11 .ds-ribbon {
    reprises telles quelles de la reference, centralisees en variables --tc-*
    pour rester swappables (motif par categorie a venir).
    ====================================================================== */
+   
 :root, html[data-theme="light"] {
   --tc-grad: linear-gradient(180deg, #f6effd 0%, #efe4fb 100%);
   --tc-edge: rgba(165, 103, 227, .45);
@@ -2661,6 +3051,7 @@ html[data-theme="dark"] .tint-11 .ds-ribbon {
   --fa-ring: #a567e3;
   --fa-green: #16a34a;
 }
+
 html[data-theme="dark"] {
   --tc-grad: linear-gradient(180deg, #241c38 0%, #171126 100%);
   --tc-edge: rgba(189, 142, 240, .5);
@@ -2786,7 +3177,7 @@ overflow: hidden;
 /* Pastille d'etat (verre depoli). .active reste vert (lu par cardIsActive). */
 .card-toprow .state {
   flex: 0 1 auto; min-width: 0;
-  border-radius: 999px; padding: 4px 10px; gap: 6px;
+  border-radius: 999px; padding: 9px 10px; gap: 6px;
   font-size: 11px; font-weight: 700; white-space: nowrap; overflow: hidden;
   background: var(--tc-glass); color: var(--tc-glass-fg);
   box-shadow: var(--tc-glass-shadow);
@@ -2802,13 +3193,13 @@ overflow: hidden;
 .card-toprow .card-icons .card-add-deck,
 .card-toprow .card-icons .flip-btn {
   position: static; top: auto; right: auto; margin: 0; padding: 0;
-  width: 26px; height: 26px; border-radius: 50%;
+  width: 35px; height: 35px; border-radius: 50%;
   display: inline-flex; align-items: center; justify-content: center;
   background: var(--tc-glass); color: var(--tc-glass-fg);
   box-shadow: var(--tc-glass-shadow);
   -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px);
 }
-.card-toprow .card-icons svg { width: 14px; height: 14px; }
+.card-toprow .card-icons svg { width: 17px; height: 17px; }
 /* Le « + deck » (action collection) ressort en violet ; les 3 autres restent neutres. */
 .card-toprow .card-icons .card-add-deck { color: var(--amber); }
 .card-toprow .card-icons .card-like:hover,
@@ -2832,7 +3223,7 @@ overflow: hidden;
   margin-top: 3px; font-size: 10.5px; font-weight: 700;
   text-transform: uppercase; letter-spacing: .07em; color: var(--amber);
 }
-.grid .card-content > p, .deck-card .card-content > p {
+.grid .card-content p, .deck-card .card-content p {
   flex: none; margin-top: 7px; font-size: 12px; color: var(--tc-desc);
 }
 .card-content .card-desc { font-size: 13px; color: var(--tc-desc); }
@@ -2903,43 +3294,967 @@ overflow: hidden;
 
 /* ===================== Phase 3 : boutique de skins (squelette) ===================== */
 /* Mise en page de /boutique. */
-.shop-main { padding-bottom: 40px; }
+/* width:100% : MEME fix shrink-to-fit que main#alertes / .decks-main / .favoris-main.
+   Sans lui, body flex-column + .wrap{margin:auto} desactive le stretch -> le main
+   retrecit a son contenu et auto-fill s'effondre (grille trop fine, cartes rabotees). */
+.shop-main { padding-bottom: 40px; width: 100%; }
 .shop-balance { margin: 6px 0 16px; color: var(--muted); }
 .shop-balance strong { color: var(--ink); font-variant-numeric: tabular-nums; }
-.shop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
-.shop-card { border: 1.5px solid var(--line); border-radius: 16px; padding: 12px; background: var(--bg); }
-.shop-card.is-equipped { border-color: var(--amber); }
-.shop-card-type { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
-.shop-card-name { font-weight: 700; margin: 2px 0 10px; }
-.shop-card-action .sup-btn { width: 100%; }
-.shop-owned { font-size: 13px; color: var(--muted); }
-/* Apercu : swatch neutre par defaut, surcharge par skin ci-dessous. */
-.shop-preview { height: 72px; border-radius: 12px; margin-bottom: 10px; background: color-mix(in srgb, var(--ink) 6%, transparent); }
+/* GRILLE : strictement les memes colonnes que le kiosque (.grid) -> meme largeur de
+   carte. Chaque tuile est elle-meme un .grid (le CSS carte est integralement scope
+   « .grid .card-* ») portant la classe de skin ; on neutralise donc sa mise en page
+   de grille pour qu'elle se comporte comme une simple cellule. */
+.shop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); gap: 18px; align-content: start; }
+.shop-grid > .shop-item { display: block; padding: 0; width: 100%; }
+.shop-grid > .shop-item > .card { max-width: 300px; margin-inline: auto; }
+@media (max-width: 620px) {
+  .shop-grid { grid-template-columns: repeat(1, minmax(0, 1fr)); gap: 12px; }
+  .shop-grid > .shop-item > .card { max-width: none; }
+}
+/* Skin equipe : liseré ambre autour de la carte (etat, pas decoration de skin). */
+.shop-item.is-equipped > .card,
+.shop-item.is-equipped > .deck-card { outline: 2px solid var(--amber); outline-offset: 3px; border-radius: 16px; }
+/* Le bouton d'achat/equipement prend la place du switch d'abonnement. */
+.shop-act { display: flex; }
+.shop-act .sup-btn { width: 100%; justify-content: center; }
+/* Deux rayons : « Skins de cartes » / « Skins de decks ». */
+.shop-h2 { font-family: 'Baloo 2', sans-serif; font-size: 22px; margin: 26px 0 2px; }
+/* Skins de DECK : la tuile est celle du kiosque (.grid > .deck-card + LBADeckStack),
+   AUCUN CSS specifique — le wrapper .shop-item porte deja .grid, donc la geometrie
+   (carte de devant, eventail, ancrage du ruban) est exactement celle des tuiles-deck.
+   Seule exception : la tuile n'est pas un lien ici, et le bouton injecte a la place du
+   switch est un vrai bouton -> curseur normal plutot que la main de la tuile-lien. */
+.shop-item > .deck-card, .shop-item > .deck-card * { cursor: default; }
+.shop-item .ds-i0 .shop-act .sup-btn { cursor: pointer; }
+.shop-item .ds-i0 .shop-act .sup-btn[disabled] { cursor: default; }
 
-/* --- Placeholders des 4 skins. PROVISOIRE : couleur/motif CSS pur, remplacables par
-   les vrais assets de Hugo SANS migration (meme classe asset_ref). Chaque skin pose
-   --skin-accent, reutilise en cascade sur les cartes/tuiles equipees plus bas. --- */
+/* --- Teintes des skins du seed de phase 3. --skin-accent EST le rendu d'un skin de
+   DECK (lisere autour de la tuile, cf. plus bas) -> menthe / or-royal sont fonctionnels
+   et restent au catalogue. aurore / nuit-etoilee etaient de type 'dashboard', ou ce
+   lisere n'a jamais rien habille : retires le 04/08/2026 (active=false, cf. init.sql) ;
+   leur teinte est conservee ici pour un compte qui les equiperait encore. --- */
 .skin-aurore { --skin-accent: #d9b8ff; }
 .skin-nuit-etoilee { --skin-accent: #3a4a80; }
 .skin-menthe { --skin-accent: #7fe3c0; }
 .skin-or-royal { --skin-accent: #e3c567; }
 
-.shop-preview.skin-aurore { background: linear-gradient(135deg, #ffd6f0, #d9b8ff, #bfe0ff); }
-.shop-preview.skin-nuit-etoilee {
-  background-color: #1b2450;
-  background-image: radial-gradient(circle at 20% 30%, #ffffff88 1px, transparent 1px);
-  background-size: 14px 14px;
-}
-.shop-preview.skin-menthe { background: linear-gradient(135deg, #d6fff0, #7fe3c0); }
-.shop-preview.skin-or-royal { background: linear-gradient(135deg, #fff6d6, #e3c567); box-shadow: inset 0 0 0 2px #caa63f; }
-
 /* --- Branchement du rendu : le skin equipe est une classe additionnelle qui porte
    --skin-accent ; on materialise juste un liseré (placeholder visible) le temps que les
    vrais visuels arrivent. Dashboard = classe sur #grid (cascade sur .card). Deck =
    classe sur la tuile kiosque et sur la vue detail. --- */
-#grid[class*="skin-"] .card { box-shadow: inset 0 0 0 2px var(--skin-accent, transparent); }
-.deck-card[class*="skin-"] { box-shadow: 0 0 0 2px var(--skin-accent, transparent); }
+#grid[class*="skin-"] .card,
+.shop-item[class*="skin-"] .card { box-shadow: inset 0 0 0 2px var(--skin-accent, transparent); }
+/* Skin de DECK : le lisere entourait la TUILE (rectangle englobant invisible derriere
+   la pile) -> quasiment pas vu. Il ceinture desormais CHACUNE des 3 cartes de la pile,
+   eventail compris : c'est la seule surface reellement visible d'une tuile-deck.
+   L'anneau est ajoute EN TETE des ombres d'elevation de .grid .card-front, qui sont
+   reprises telles quelles (une seule propriete box-shadow : les redeclarer est
+   obligatoire, sinon l'elevation saute). */
+.deck-card[class*="skin-"] .ds-face .card-front {
+  box-shadow:
+    0 0 0 3px var(--skin-accent, transparent),
+    0 2px 6px rgba(30, 20, 50, .10),
+    0 14px 34px rgba(30, 20, 50, .13);
+}
 #deck-view[class*="skin-"] .card { box-shadow: inset 0 0 0 2px var(--skin-accent, transparent); }
+
+/* --- Skins de deck « RUBAN » (04/08/2026). Deuxieme famille de skins de deck : au lieu
+   d'un lisere autour des cartes, ils recolorent LE RUBAN — la piece la plus visible d'une
+   tuile-deck. Ils ne surchargent que le fond du ruban ; la teinte tint-N choisie par
+   l'auteur du deck continue de piloter tout le reste (motif, ruban des decks sans skin).
+   Ils ne definissent PAS --skin-accent : l'effet EST le ruban, pas un lisere de plus.
+   SPECIFICITE : le fond du ruban est reecrit en entier par .tint-11 (degrade arc-en-ciel,
+   0,2,0) et par html[data-theme="dark"] .tint-11 (0,3,1). Pour rester prioritaire sur
+   N'IMPORTE QUELLE teinte, on redeclare ici la recette de fond de .ds-ribbon a l'identique
+   (seule --deck-bg change) sous deux selecteurs qui couvrent les deux cas, ce bloc etant
+   place APRES eux dans le fichier. Toute evolution de .ds-ribbon doit etre repercutee ici.
+   Fond volontairement CLAIR dans les deux themes (c'est le produit vendu) -> la couleur du
+   texte est fixee en dur, sinon --ink la rendrait illisible en sombre. --- */
+html .skin-ruban-blanc .ds-ribbon,
+html[data-theme="dark"] .skin-ruban-blanc .ds-ribbon { --deck-bg: #f4edfb; --ds-ribbon-ink: #2a2140; }
+html .skin-ruban-bleu .ds-ribbon,
+html[data-theme="dark"] .skin-ruban-bleu .ds-ribbon { --deck-bg: #dbe9fb; --ds-ribbon-ink: #1c2b45; }
+
+html .skin-ruban-blanc .ds-ribbon, html[data-theme="dark"] .skin-ruban-blanc .ds-ribbon,
+html .skin-ruban-bleu .ds-ribbon, html[data-theme="dark"] .skin-ruban-bleu .ds-ribbon {
+  color: var(--ds-ribbon-ink);
+  background:
+    radial-gradient(100% 50% at right, var(--ds-ribbon-shadow) 98%, transparent 101%) 0 var(--_g),
+    radial-gradient(100% 50% at left, var(--ds-ribbon-shadow) 98%, transparent 101%) 100% var(--_g),
+    conic-gradient(at var(--r) calc(2 * var(--r)), transparent 25%, var(--deck-bg) 0) 0 0 / calc(100% - var(--r)) 100%;
+}
+html .skin-ruban-blanc .ds-ribbon-meta, html[data-theme="dark"] .skin-ruban-blanc .ds-ribbon-meta,
+html .skin-ruban-bleu .ds-ribbon-meta, html[data-theme="dark"] .skin-ruban-bleu .ds-ribbon-meta {
+  color: color-mix(in srgb, var(--ds-ribbon-ink) 62%, transparent);
+}
+
+/* =====================================================================
+   STRUCTURE NEUTRE (socle des skins « en cadre »). cards.js emet UNE structure
+   unique enrichie ; par defaut ces ajouts sont INERTES pour ne RIEN changer au
+   full-art ni aux 5 teintes (contrainte n°1) :
+   - .card-art (wrapper motif+voile) = display:contents -> fullart/veil restent
+     positionnes exactement comme avant (containing block = .card-front).
+   - .card-seal (x2, marques generiques) et .card-attacks (bloc Dresseur) =
+     display:none -> hors flux, aucun impact visuel/layout.
+   Les skins structures (plus bas) rebasculent ces elements a l'affichage. --- */
+.card-front > .card-art { display: contents; }
+.card-front .card-seal { display: none; }
+.card-front .card-attacks { display: none; }
+.card-front .card-foot { display: none; }
+/* Elements neutres reutilises par L'Assemblee (anatomie carte a collectionner) :
+   badge d'edition (ligne de type), encart stat chevauchant (compteur de likes) et
+   fine ligne d'info technique -> hors flux par defaut (aucun impact full-art/teintes). */
+.card-front .card-edition,
+.card-front .card-stat,
+.card-front .card-fineprint { display: none; }
+/* Zone d'action : transparente par defaut (les enfants restent des flex-items de
+   .card-content -> full-art/teintes INCHANGES). Les skins structures la rendent visible. */
+.card-front .card-action { display: contents; }
+/* Boite de texte (description + action regroupees) : transparente par defaut (meme
+   principe que .card-action) -> p et card-action restent des enfants effectifs de
+   .card-content, full-art/teintes INCHANGES. Les skins structures (L'Assemblee =
+   .frame-text-box) la rebasculent en boite reelle. NB : les selecteurs .card-content p
+   sont en DESCENDANT (pas « > p ») pour rester valides a travers ce wrapper. */
+.card-front .card-textbox { display: contents; }
+
+/* =====================================================================
+   TEINTES DU FULL-ART (5 skins boutique : Or / Prisme / Braise / Ocean /
+   Aurore). Recolorations PURES du skin par defaut « disposition A » : meme
+   DOM .card-front, meme animation « radar calme » (.fa-c1..4 / .fa-dot),
+   ZERO markup, ZERO keyframe dediee. Un skin = une classe qui REDEFINIT les
+   variables full-art (--tc-grad / --tc-motif-stroke / --fa-ring / --tc-edge
+   / --tc-veil) heritees jusqu'a .card-front. Le VERT d'alerte ne change
+   JAMAIS (--green / --fa-green / .tc-dot intacts). --skin-accent:transparent
+   neutralise le lisere placeholder generique (le vrai lisere = .card-edge
+   recolore via --tc-edge). Scope-agnostique : la classe portee sur #grid
+   (dashboard), .deck-card (tuile) ou #deck-view cascade pareil sur .card-front,
+   donc ces skins se rendent aussi a l'echelle reduite d'un deck-stack (recolor
+   seul, aucun risque de mise en page). prefers-reduced-motion : deja couvert
+   par le bloc radar par defaut (memes classes .fa-*), rien a ajouter. --- */
+
+/* — Or — */
+.skin-fullart-or {
+  --skin-accent: transparent;
+  --tc-grad: linear-gradient(180deg, #fdf6e8, #f6e8c8);
+  --tc-motif-stroke: #c9973f; --fa-ring: #c9973f;
+  --tc-edge: rgba(201,151,63,.55); --tc-edge-in: rgba(201,151,63,.22);
+  --tc-veil: linear-gradient(180deg, rgba(253,246,232,0) 26%, rgba(253,246,232,.86) 54%, rgba(253,246,232,.98) 78%);
+}
+.skin-fullart-or .card-content .card-subtitle { color: #b07f2c; }
+html[data-theme="dark"] .skin-fullart-or {
+  --tc-grad: linear-gradient(180deg, #332a16, #241d0e);
+  --tc-motif-stroke: #e2b45f; --fa-ring: #e2b45f;
+  --tc-edge: rgba(226,180,95,.55); --tc-edge-in: rgba(226,180,95,.22);
+  --tc-veil: linear-gradient(180deg, rgba(36,29,14,0) 26%, rgba(36,29,14,.86) 54%, rgba(36,29,14,.97) 78%);
+}
+html[data-theme="dark"] .skin-fullart-or .card-front { color: #f5edda; }
+html[data-theme="dark"] .skin-fullart-or .card-content .card-subtitle { color: #e2b45f; }
+
+/* — Braise — */
+.skin-fullart-braise {
+  --skin-accent: transparent;
+  --tc-grad: linear-gradient(180deg, #fdeeea, #f8d9d0);
+  --tc-motif-stroke: #c96a55; --fa-ring: #c96a55;
+  --tc-edge: rgba(201,106,85,.5); --tc-edge-in: rgba(201,106,85,.2);
+  --tc-veil: linear-gradient(180deg, rgba(253,238,234,0) 26%, rgba(253,238,234,.86) 54%, rgba(253,238,234,.98) 78%);
+}
+.skin-fullart-braise .card-content .card-subtitle { color: #b25642; }
+html[data-theme="dark"] .skin-fullart-braise {
+  --tc-grad: linear-gradient(180deg, #3a2018, #26140f);
+  --tc-motif-stroke: #e08a72; --fa-ring: #e08a72;
+  --tc-edge: rgba(224,138,114,.5); --tc-edge-in: rgba(224,138,114,.2);
+  --tc-veil: linear-gradient(180deg, rgba(38,20,16,0) 26%, rgba(38,20,16,.86) 54%, rgba(38,20,16,.97) 78%);
+}
+html[data-theme="dark"] .skin-fullart-braise .card-content .card-subtitle { color: #e08a72; }
+
+/* — Ocean — */
+.skin-fullart-ocean {
+  --skin-accent: transparent;
+  --tc-grad: linear-gradient(180deg, #eaf2fb, #d8e6f6);
+  --tc-motif-stroke: #5b7db8; --fa-ring: #5b7db8;
+  --tc-edge: rgba(91,125,184,.5); --tc-edge-in: rgba(91,125,184,.2);
+  --tc-veil: linear-gradient(180deg, rgba(234,242,251,0) 26%, rgba(234,242,251,.86) 54%, rgba(234,242,251,.98) 78%);
+}
+.skin-fullart-ocean .card-content .card-subtitle { color: #48679c; }
+html[data-theme="dark"] .skin-fullart-ocean {
+  --tc-grad: linear-gradient(180deg, #18243a, #0f1726);
+  --tc-motif-stroke: #7fa3d8; --fa-ring: #7fa3d8;
+  --tc-edge: rgba(127,163,216,.5); --tc-edge-in: rgba(127,163,216,.2);
+  --tc-veil: linear-gradient(180deg, rgba(14,22,38,0) 26%, rgba(14,22,38,.86) 54%, rgba(14,22,38,.97) 78%);
+}
+html[data-theme="dark"] .skin-fullart-ocean .card-content .card-subtitle { color: #7fa3d8; }
+
+/* — Aurore (distinct du skin legacy « skin-aurore ») — */
+.skin-fullart-aurore {
+  --skin-accent: transparent;
+  --tc-grad: linear-gradient(180deg, #fdeef7, #f6d9ec);
+  --tc-motif-stroke: #c58ab0; --fa-ring: #c58ab0;
+  --tc-edge: rgba(197,138,176,.5); --tc-edge-in: rgba(197,138,176,.2);
+  --tc-veil: linear-gradient(180deg, rgba(253,238,247,0) 26%, rgba(253,238,247,.86) 54%, rgba(253,238,247,.98) 78%);
+}
+.skin-fullart-aurore .card-content .card-subtitle { color: #a86c93; }
+html[data-theme="dark"] .skin-fullart-aurore {
+  --tc-grad: linear-gradient(180deg, #3a1830, #26101f);
+  --tc-motif-stroke: #d8a6c4; --fa-ring: #d8a6c4;
+  --tc-edge: rgba(216,166,196,.5); --tc-edge-in: rgba(216,166,196,.2);
+  --tc-veil: linear-gradient(180deg, rgba(38,16,30,0) 26%, rgba(38,16,30,.86) 54%, rgba(38,16,30,.97) 78%);
+}
+html[data-theme="dark"] .skin-fullart-aurore .card-content .card-subtitle { color: #d8a6c4; }
+
+/* — Prisme — motif multicolore (anneaux de teintes differentes) + lisere
+   irise conic. Le vert d'alerte reste le vert ; seules les couleurs de REPOS
+   des anneaux different (le radar ramene chacun au vert a tour de role). */
+.skin-fullart-prisme {
+  --skin-accent: transparent;
+  --tc-grad: linear-gradient(150deg, #fbeef6, #eef2fb 45%, #eefaf3);
+  --tc-motif-stroke: #a567e3; --fa-ring: #a567e3;
+  --tc-edge: rgba(165,103,227,.55); --tc-edge-in: rgba(165,103,227,.22);
+  --tc-veil: linear-gradient(180deg, rgba(252,247,253,0) 26%, rgba(252,247,253,.86) 54%, rgba(252,247,253,.98) 78%);
+}
+.skin-fullart-prisme .card-content .card-subtitle { color: #a567e3; }
+.skin-fullart-prisme .fullart .fa-c2 { stroke: #c58ab0; --fa-ring: #c58ab0; }
+.skin-fullart-prisme .fullart .fa-c3 { stroke: #5b7db8; --fa-ring: #5b7db8; }
+.skin-fullart-prisme .fullart .fa-c4 { stroke: #5fa8a4; --fa-ring: #5fa8a4; }
+html[data-theme="dark"] .skin-fullart-prisme {
+  --tc-grad: linear-gradient(150deg, #241c38, #1a2238 45%, #182e28);
+  --tc-motif-stroke: #bd8ef0; --fa-ring: #bd8ef0;
+  --tc-edge: rgba(189,142,240,.55); --tc-edge-in: rgba(189,142,240,.22);
+  --tc-veil: linear-gradient(180deg, rgba(23,17,38,0) 26%, rgba(23,17,38,.86) 54%, rgba(23,17,38,.97) 78%);
+}
+html[data-theme="dark"] .skin-fullart-prisme .fullart .fa-c2 { stroke: #d8a6c4; --fa-ring: #d8a6c4; }
+html[data-theme="dark"] .skin-fullart-prisme .fullart .fa-c3 { stroke: #7fa3d8; --fa-ring: #7fa3d8; }
+html[data-theme="dark"] .skin-fullart-prisme .fullart .fa-c4 { stroke: #7fd8c0; --fa-ring: #7fd8c0; }
+/* Lisere irise : conic + mask-composite (ring seul). Guarde par @supports —
+   sans mask-composite, on retombe sur le double-lisere violet standard
+   (--tc-edge/-in ci-dessus), jamais un rectangle plein qui masquerait la carte. */
+@supports ((mask-composite: exclude) or (-webkit-mask-composite: xor)) {
+  /* Le prefixe `html` (0,3,1) doit battre la bordure de base .grid/.deck-card
+     .card-front .card-edge (0,3,0) ET la regle d'apercu (0,3,0) — sinon lisere
+     double. Hors @supports (fallback), rien de tout ca : le lisere violet
+     standard --tc-edge s'affiche normalement. */
+  html .skin-fullart-prisme .card-front .card-edge {
+    border: none;
+    background: conic-gradient(from 40deg, #e8b4c8, #c4a8e8, #a8cbe8, #a8e8d0, #e8e0a8, #e8b4c8);
+    padding: 1.6px;
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+  }
+  html .skin-fullart-prisme .card-front .card-edge::after { display: none; }
+}
+
+/* =====================================================================
+   SKINS STRUCTURES (4) — « structure unique ». S'appuient sur la structure
+   neutre enrichie (.card-art / .card-top+.card-seal / .card-attacks) : cards.js
+   emet TOUJOURS le meme markup, ces skins ne font que du CSS scope par la classe
+   posee sur #grid ou .deck-card (aucune branche de rendu, aucun re-render).
+   INVARIANTS : les 4 icones (like/share/+deck/i) restent en absolu haut-droite
+   (deja le cas, decision actee) ; l'etat .state reste en overlay haut-gauche
+   (coherent avec le full-art). Chaque skin a SA propre animation d'etat actif,
+   jamais partagee ; neutralisee par prefers-reduced-motion (bloc en fin). ---- */
+.skin-ecole-classique .card-front,
+.skin-arcane .card-front,
+.skin-assemblee .card-front,
+.skin-dresseur .card-front { display: grid; overflow: hidden; }
+/* REGLE 2/3 PARTOUT : les structures gardent l'aspect-ratio:2/3 herite de la base
+   (comme full-art/teintes), dans TOUS les contextes (grille, decks, boutique) -> geometrie
+   homogene. Le debordement (cartes paramétrées multi-chips, descriptions longues) est gere
+   par DEGRADATION en CSS pur : les regions FLEXIBLES (fenetre d'art, boite de texte) sont
+   en minmax(0,...) et cedent la place ; la zone d'action (chips/select/switch/etat) est en
+   `auto` -> jamais tronquee. La description/ambiance se clippe par le bas (overflow:hidden
+   des boites de texte : l'ambiance ::after part avant la description). Voir chaque skin. */
+.skin-ecole-classique .card-content,
+.skin-arcane .card-content,
+.skin-assemblee .card-content,
+.skin-dresseur .card-content { display: contents; }
+/* Etat en overlay haut-gauche (les icones sont deja en absolu haut-droite). */
+.skin-ecole-classique .card-toprow,
+.skin-arcane .card-toprow,
+.skin-assemblee .card-toprow,
+.skin-dresseur .card-toprow { position: absolute; top: 10px; left: 12px; right: 12px; z-index: 6; display: flex; align-items: center; }
+/* Icones poussees a DROITE (margin-left:auto tient meme quand l'etat est masque, ex. Dresseur). */
+.skin-ecole-classique .card-icons,
+.skin-arcane .card-icons,
+.skin-assemblee .card-icons,
+.skin-dresseur .card-icons { margin-left: auto; }
+/* Le voile plein-carte n'a de sens qu'en pleine image : masque sur les cadres. */
+.skin-ecole-classique .card-front .card-veil,
+.skin-arcane .card-front .card-veil,
+.skin-assemblee .card-front .card-veil,
+.skin-dresseur .card-front .card-veil { display: none; }
+/* .card-art redevient une boite : le motif s'y confine (fenetre d'art / medaillon). */
+.skin-ecole-classique .card-art,
+.skin-arcane .card-art,
+.skin-assemblee .card-art,
+.skin-dresseur .card-art { display: block; position: relative; overflow: hidden; }
+/* Motif CLAIR dans les fenetres d'art (fond violet) — sinon violet-sur-violet invisible. */
+.skin-ecole-classique .card-front .card-art .fullart,
+.skin-assemblee .card-front .card-art .fullart,
+.skin-dresseur .card-front .card-art .fullart { color: #f0e8fb; }
+/* Le SVG plein-carte est portrait : dans une fenetre large il faut l'afficher a sa
+   hauteur naturelle, ancre en haut -> le radar + la ligne sismique deviennent visibles. */
+.skin-ecole-classique .card-front .card-art .fullart svg,
+.skin-assemblee .card-front .card-art .fullart svg,
+.skin-dresseur .card-front .card-art .fullart svg { height: auto; }
+/* Chips + boutons des paramétrées : flux qui passe a la ligne, jamais empile. */
+.skin-ecole-classique .card-action .param-row, .skin-arcane .card-action .param-row,
+.skin-assemblee .card-action .param-row, .skin-dresseur .card-action .param-row {
+  display: flex; flex-wrap: wrap; gap: 5px; align-items: center; width: 100%;
+}
+/* Compteur d'abonnes masque sur les skins structures (absent de la reference). */
+.skin-ecole-classique .sub-count, .skin-arcane .sub-count,
+.skin-assemblee .sub-count, .skin-dresseur .sub-count { display: none; }
+
+/* --- L'Ecole classique --- */
+.skin-ecole-classique .card-front {
+  grid-template-areas: "name" "art" "type" "text" "chips" "foot";
+  grid-template-rows: auto minmax(0, 88px) auto minmax(0, 1fr) auto auto; gap: 6px;
+  padding: 36px 16px 12px; background: linear-gradient(160deg,#efe4fb,#e2d2f5); color: var(--ink);
+}
+/* Chips a TAILLE CLASSIQUE dans la boite parcheminee : c'est la zone de texte (flexible,
+   minmax(0,1fr)) qui cede quand les chips s'accumulent, jamais le switch (grid-area foot,
+   auto) -> ordre de sacrifice respecte (fonctionnel > description). */
+.skin-ecole-classique .card-front .card-edge { inset: 9px; border: 2.5px solid #b493dd; box-shadow: inset 0 0 0 1.5px #fff; border-radius: 12px; }
+.skin-ecole-classique .card-front .card-edge::after { display: none; }
+.skin-ecole-classique .card-top {
+  grid-area: name; background: #fff; border: 1.5px solid #cbb3e8; border-radius: 9px;
+  padding: 6px 10px; display: flex; align-items: center; gap: 6px; box-shadow: 0 1px 2px rgba(30,20,50,.12); z-index: 2;
+}
+.skin-ecole-classique .card-top h3 { font-family: 'Baloo 2', sans-serif; font-size: 14px; font-weight: 800; line-height: 1.05; flex: 1 1 auto; }
+/* Sceau « ! » masque : place a droite de la plaque, il tomberait sous les icones
+   haut-droite -> artefact « a moitie couvert ». Mieux vaut l'absence nette. */
+.skin-ecole-classique .card-front .card-seal { display: none; }
+.skin-ecole-classique .card-art {
+  grid-area: art; border: 1.5px solid #cbb3e8; border-radius: 9px;
+  background: linear-gradient(180deg,#d9c4f2,#b795e0); color: #f3ecfc; z-index: 2;
+}
+.skin-ecole-classique .card-art::after {
+  content: ""; position: absolute; inset: -20%; z-index: 1;
+  background: linear-gradient(115deg,transparent 34%,rgba(255,255,255,.55) 50%,transparent 66%); transform: translateX(-130%);
+}
+.skin-ecole-classique .card-front .card-subtitle {
+  grid-area: type; background: #fff; border: 1.5px solid #cbb3e8; border-radius: 8px; padding: 4px 9px;
+  font-size: 10.5px; font-weight: 700; color: var(--muted); text-transform: none; letter-spacing: 0;
+  display: flex; align-items: center; z-index: 2;
+}
+.skin-ecole-classique .card-front .card-subtitle::after { content: ""; width: 11px; height: 11px; background: var(--amber); border-radius: 2px; transform: rotate(45deg); margin-left: auto; flex: none; }
+.skin-ecole-classique .card-content p {
+  grid-area: text; background: #fdfaf4; border: 1.5px solid #cbb3e8; border-radius: 9px; padding: 8px 10px;
+  font-size: 11.3px; color: #4a4440; line-height: 1.38; z-index: 2; margin: 0;
+  overflow: hidden; min-height: 0;
+}
+.skin-ecole-classique .card-desc { -webkit-line-clamp: 3; }
+.skin-ecole-classique .card-content p::after {
+  content: "« La terre parle avant les journaux. »"; display: block; margin-top: 6px; font-size: 10.3px; font-style: italic; color: var(--muted);
+}
+/* Chips DANS la boite parcheminee (cf. maquette brouillon.png), switch en bas HORS boite.
+   .card-action redevient transparent (display:contents) pour placer param-row (chips+ajouter+
+   select) et switch-row dans des grid-areas distinctes. */
+.skin-ecole-classique .card-action { display: contents; }
+.skin-ecole-classique .param-row {
+  grid-area: chips; margin: -6px 0 0; z-index: 2;
+  background: #fdfaf4; border: 1.5px solid #cbb3e8; border-top: none; border-radius: 0 0 9px 9px;
+  padding: 2px 10px 8px; display: flex; flex-wrap: wrap; gap: 5px; align-items: center;
+}
+.skin-ecole-classique .switch-row, .skin-ecole-classique .sub-form { grid-area: foot; z-index: 2; }
+/* Boite jointe : des qu'un param existe, le p perd son bord/radius bas pour se souder aux chips. */
+.skin-ecole-classique .card-front:has(.param-row) .card-content p { border-bottom: none; border-radius: 9px 9px 0 0; }
+/* FONDU (P1 Arcane + P3 Ecole, factorise) : quand la boite de texte deborde (overflow:hidden),
+   la derniere ligne s'estompe au lieu d'etre tranchee net. Le mask est permanent mais invisible
+   quand tout tient (la zone de fondu recouvre le padding-bas). */
+/*.skin-ecole-classique .card-content p,*/
+.skin-arcane .card-content p {
+  -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 1.4em), transparent 100%);
+          mask-image: linear-gradient(180deg, #000 calc(100% - 1.4em), transparent 100%);
+}
+/* animation « le sceau & le reflet » */
+@keyframes sk-ec-seal { 0%,100%{ box-shadow: 0 0 0 0 rgba(165,103,227,0);} 4%{ box-shadow: 0 0 0 6px rgba(165,103,227,.30);} 9%{ box-shadow: 0 0 0 0 rgba(165,103,227,0);} }
+@keyframes sk-ec-sweep { 0%,9%{ transform: translateX(-130%);} 22%{ transform: translateX(130%);} 100%{ transform: translateX(130%);} }
+.skin-ecole-classique .card-front:has(.state.active) .card-seal:first-of-type { animation: sk-ec-seal 6.2s ease-in-out infinite; }
+.skin-ecole-classique .card-front:has(.state.active) .card-art::after { animation: sk-ec-sweep 6.2s ease-in-out infinite; }
+/* nuit */
+html[data-theme="dark"] .skin-ecole-classique .card-front { background: linear-gradient(160deg,#2c2148,#1d1633); color: #f0eaf8; }
+html[data-theme="dark"] .skin-ecole-classique .card-front .card-edge { border-color: #6d51a0; box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.14); }
+html[data-theme="dark"] .skin-ecole-classique .card-top,
+html[data-theme="dark"] .skin-ecole-classique .card-front .card-subtitle { background: #352a52; border-color: #6d51a0; color: #e8dff7; }
+html[data-theme="dark"] .skin-ecole-classique .card-content p { background: #262038; border-color: #6d51a0; color: #d8cfeb; }
+html[data-theme="dark"] .skin-ecole-classique .param-row { background: #262038; border-color: #6d51a0; }
+html[data-theme="dark"] .skin-ecole-classique .card-content p::after { color: #b3a6cf; }
+html[data-theme="dark"] .skin-ecole-classique .card-seal:first-of-type { background: var(--violet-l, #bd8ef0); color: #1c1428; }
+html[data-theme="dark"] .skin-ecole-classique .card-art { border-color: #6d51a0; background: linear-gradient(180deg,#4d3a78,#33255c); }
+
+/* --- L'Arcane (pleine image, medaillon centre) --- */
+.skin-arcane .card-front {
+  grid-template-areas: "med" "num" "title" "desc" "foot"; grid-template-rows: minmax(0, 120px) auto auto minmax(0, 1fr) auto;
+  justify-items: center; text-align: center; gap: 4px; padding: 40px 26px 22px; background: #fbf7ef; color: var(--ink);
+}
+.skin-arcane .card-front .card-veil { display: none; }
+.skin-arcane .card-front .card-edge { inset: 8px; border: 1.5px solid var(--violet); border-radius: 12px; }
+.skin-arcane .card-front .card-edge::after { content: ""; position: absolute; inset: 3px; border: 1px solid rgba(165,103,227,.4); border-radius: 9px; }
+.skin-arcane .card-toprow { top: 14px; left: 16px; }
+/* medaillon = .card-art rond ; anneau pointille = ::before (rotation) ; motif = fullart ; point = .fa-dot */
+.skin-arcane .card-art {
+  /* Medaillon responsive : remplit la hauteur de sa ligne (minmax 0-120) en restant
+     circulaire (aspect-ratio 1) -> se retrecit sans deborder quand les chips serrent. */
+  grid-area: med; height: 100%; width: auto; aspect-ratio: 1 / 1; max-height: 116px;
+  border-radius: 50%; align-self: center; justify-self: center;
+  border: 2px solid var(--violet); background: radial-gradient(circle at 50% 38%,#f3ecfc,#e6d8f6); z-index: 2;
+}
+.skin-arcane .card-art .fullart { color: var(--violet); transform: scale(.7); }
+.skin-arcane .card-art::before { content: ""; position: absolute; inset: 5px; border-radius: 50%; border: 1px dashed rgba(165,103,227,.55); z-index: 3; }
+/* Titre + badge-ic en flux INLINE centre (comme le skin de base : le badge suit le
+   titre) -> le badge reste colle a la fin du titre, meme quand il passe sur 2 lignes ;
+   le filet ::after (display:block) passe dessous. */
+.skin-arcane .card-top { grid-area: title; display: block; text-align: center; }
+.skin-arcane .card-top h3 { display: inline; font-family: 'Baloo 2', sans-serif; font-size: 18px; font-weight: 800; line-height: 1.15; }
+.skin-arcane .card-top .badge-ic { display: inline-flex; vertical-align: middle; margin: 0 0 2px 5px; }
+.skin-arcane .card-seal { display: none; }
+.skin-arcane .card-front .card-subtitle {
+  grid-area: num; font-family: 'Baloo 2', sans-serif; font-weight: 800; font-size: 12px; color: var(--muted);
+  letter-spacing: .22em; text-transform: uppercase;
+}
+/* Filet sous le titre : force un retour a la ligne (flex-basis:100%) puis peint une
+   barre de 54px CENTREE via un background centre -> reste 54px sans casser le wrap. */
+.skin-arcane .card-top::after { content: ""; display: block; width: 54px; height: 2px; margin: 7px auto 0; background: var(--violet); border-radius: 2px; }
+.skin-arcane .card-content p { grid-area: desc; font-size: 11.6px; color: var(--muted); margin: 0; overflow: hidden; min-height: 0; }
+.skin-arcane .card-content p::after { content: "« Que du signal »"; display: block; margin-top: 8px; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--violet); font-weight: 700; }
+.skin-arcane .card-action { grid-area: foot; justify-self: stretch; display: flex; flex-direction: column; gap: 6px; align-items: center; }
+/* animation « la boussole » */
+@keyframes sk-ar-turn { to { transform: rotate(360deg); } }
+.skin-arcane .card-front:has(.state.active) .card-art::before { animation: sk-ar-turn 26s linear infinite; }
+.skin-arcane .card-front:has(.state.active) .card-art .fa-dot { animation: fa-blip 5.6s ease-in-out infinite; }
+.skin-arcane .card-front:has(.state.active) .card-art .fa-c1,
+.skin-arcane .card-front:has(.state.active) .card-art .fa-c2,
+.skin-arcane .card-front:has(.state.active) .card-art .fa-c3,
+.skin-arcane .card-front:has(.state.active) .card-art .fa-c4 { animation: none; } /* la boussole ne fait pas de radar */
+/* nuit */
+html[data-theme="dark"] .skin-arcane .card-front { background: #1c1730; color: #f0eaf8; }
+html[data-theme="dark"] .skin-arcane .card-front .card-edge { border-color: var(--violet-l, #bd8ef0); }
+html[data-theme="dark"] .skin-arcane .card-front .card-edge::after { border-color: rgba(189,142,240,.4); }
+html[data-theme="dark"] .skin-arcane .card-art { border-color: var(--violet-l, #bd8ef0); background: radial-gradient(circle at 50% 38%,#332a52,#241c40); }
+html[data-theme="dark"] .skin-arcane .card-art .fullart { color: var(--violet-l, #bd8ef0); }
+html[data-theme="dark"] .skin-arcane .card-art::before { border-color: rgba(189,142,240,.55); }
+html[data-theme="dark"] .skin-arcane .card-front .card-subtitle, html[data-theme="dark"] .skin-arcane .card-content p { color: #b9addb; }
+
+/* --- L'Assemblee — anatomie « carte a collectionner » (d'apres reference/magic-card-css :
+   bandeau de nom + ligne de type en plaques dorees biseautees, fenetre d'art a filet
+   metallique, boite de texte claire a 2 paragraphes, encart chevauchant force/endurance,
+   fine ligne d'info technique). AUCUN asset/police/symbole/texte du jeu d'origine : seules
+   l'anatomie generique du genre et les techniques CSS (degrades, ombres decalees, formes)
+   sont reprises, avec la palette et le vocabulaire de LaBonneAlerte. Bord de carte NOIR. --- */
+.skin-assemblee .card-front {
+  grid-template-areas: "name" "art" "type" "text" "info";
+  /* L'ART est la rangee FLEXIBLE (minmax 64px..1fr) : il absorbe l'espace libre quand la
+     boite de texte est courte (image plus grande) et cede quand elle s'allonge (multi-chips).
+     La rangee "text" est en `auto` -> la boite epouse son contenu, plus d'espace mort. */
+  grid-template-rows: auto minmax(64px, 1fr) auto auto auto; gap: 6px;
+  padding: 22px 15px 13px; background: linear-gradient(170deg,#efe8d6,#ddd2bb); color: #2e2a24;
+}
+/* Cadre exterieur NOIR conserve + filet parchemin interne. */
+.skin-assemblee .card-front .card-edge { inset: 0px; border: 12px solid #000; box-shadow: inset 0 0 0 1.5px #cfc09a, inset 0 0 0 3px rgba(0,0,0,.12); border-radius: 10px; }
+.skin-assemblee .card-front .card-edge::after { display: none; }
+/* Bandeau de nom : plaque doree biseautee (spec ref), titre a gauche, pastilles a l'extreme
+   droite. border-radius:25px/50px -> forme de plaque ovale caracteristique. */
+.skin-assemblee .card-top {
+  grid-area: name; background: linear-gradient(25deg, rgb(177,162,110), rgb(238,221,169), rgb(165,151,102));
+  border-radius: 25px/50px; padding: 3px 12px; padding-right: 104px; margin: 0 3px;
+  display: flex; align-items: center; box-shadow: -1px 2px 0 rgba(0,0,0,.32), inset 0 1px 1px rgba(255,255,255,.5); z-index: 2;
+}
+.skin-assemblee .card-top h3 { font-family: 'Baloo 2', sans-serif; font-size: 13.5px; font-weight: 800; color: #2b2410; flex: 1 1 auto; text-shadow: 0 1px 0 rgba(255,255,255,.35); }
+.skin-assemblee .card-seal { display: none; }
+.skin-assemblee .card-top .badge-ic { display: none; } /* le badge migre sur la ligne de type */
+/* Pastilles fonctionnelles a l'EXTREME DROITE du bandeau (position du « cout de mana ») :
+   ♥ · partage · +deck · i · etat. Traitement « pion de jeu de plateau » : fond clair mat +
+   ombre decalee noire SANS blur (effet relief), d'apres la spec ref (.mana-cost-two). */
+.skin-assemblee .card-toprow { top: 24px; left: 18px; right: 24px; height: 18px; justify-content: flex-end; gap: 2px; pointer-events: none; }
+.skin-assemblee .card-icons { margin-left: 0; gap: 2px; pointer-events: auto; }
+.skin-assemblee .card-toprow .state { order: 5; pointer-events: auto; }
+.skin-assemblee .card-toprow .card-icons .card-like,
+.skin-assemblee .card-toprow .card-icons .card-share,
+.skin-assemblee .card-toprow .card-icons .card-add-deck,
+.skin-assemblee .card-toprow .card-icons .flip-btn,
+.skin-assemblee .card-toprow .state {
+  width: 17px; height: 17px; min-width: 17px; border-radius: 50%; padding: 0; flex: none; margin: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: #f8f8e2; /* violet clair mat = pastille d'action */
+  box-shadow: -1.5px 2.5px 0 0 #000; /* jeton en relief (pas de blur) */
+  color: #3a2c5c; -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+.skin-assemblee .card-toprow .card-icons svg { width: 11px; height: 11px; }
+.skin-assemblee .card-toprow .card-like .like-n { display: none; } /* juste le coeur */
+/* Pastille d'ETAT : jeton gris neutre au repos (point de depart ref #d5d1d1), VERT si actif. */
+.skin-assemblee .card-toprow .state { font-size: 0; background: #d5d1d1; }
+.skin-assemblee .card-toprow .state .dot-idle, .skin-assemblee .card-toprow .state .dot-live { display: none; }
+.skin-assemblee .card-toprow .state.active { background: var(--green); }
+/* Fenetre d'art : bande franche, filet metallique (border-image blanc->noir, spec ref). */
+.skin-assemblee .card-art { grid-area: art; margin: 0 3px; border: 3px solid; border-image-source: linear-gradient(85deg,#fff,#000); border-image-slice: 1; box-shadow: 0 0 0 2px #1c1e18; background: linear-gradient(165deg,#8e5fcb,#5b3a94); color: #efe6fb; z-index: 2; }
+/* Ligne de type : meme plaque doree que le bandeau de nom ; type a gauche, BADGE d'edition
+   (.card-edition, officiel/verifie/communaute) a l'EXTREME DROITE (symbole d'edition/rarete). */
+.skin-assemblee .card-front .card-subtitle {
+  grid-area: type; background: linear-gradient(25deg, rgb(177,162,110), rgb(238,221,169), rgb(165,151,102));
+  border-radius: 25px/50px; margin: 0 3px; padding: 2px 11px;
+  font-size: 10px; font-weight: 700; color: #2b2410; text-transform: none; letter-spacing: 0;
+  display: flex; align-items: center; z-index: 2; box-shadow: -1px 2px 0 rgba(0,0,0,.28);
+}
+.skin-assemblee .card-edition { display: inline-flex; align-items: center; justify-content: center; margin-left: auto; width: 15px; height: 15px; flex: none; color: #2b2410; }
+.skin-assemblee .card-edition svg { width: 13px; height: 13px; }
+.skin-assemblee .card-edition.official, .skin-assemblee .card-edition.verified { color: #6b4c00; }
+/* Boite de texte claire texturee (spec ref) : elle englobe DESCRIPTION + params/switch,
+   d'un seul bloc (le decor de conteneur vit sur .card-textbox, plus sur le <p>). Colonne
+   flex : la description (flexible) cede/clippe d'abord, la zone d'action (params/switch) est
+   preservee (ordre de sacrifice). La citation d'ambiance ::after ferme la boite en bas.
+   position:relative -> ancre l'encart chevauchant (.card-stat, enfant du <p>). */
+.skin-assemblee .card-textbox {
+  grid-area: text; position: relative; display: flex; flex-direction: column; gap: 5px;
+  margin: 0 3px;   background: linear-gradient(0.25turn, #f7f7f0, #d5d2c7);
+  border: 1px solid #b6a678; box-shadow: 0 0 0 2px #1c1e18; border-radius: 3px;
+  padding: 7px 10px 9px; /*overflow: hidden;*/ min-height: 0; z-index: 2;
+}
+/* Le <p> ne porte plus que le texte (couleur/typo), sans fond ni bordure propres. */
+.skin-assemblee .card-textbox p { flex: 0 1 auto; min-height: 0; overflow: hidden; margin: 0; font-size: 11px; color: #40382a; line-height: 1.4; }
+.skin-assemblee .card-desc { -webkit-line-clamp: 3; }
+.skin-assemblee .card-textbox::after { content: "« Le sol murmure a qui sait poser l'oreille. »"; flex: none; margin-top: 2px; padding-top: 6px; border-top: 1px solid rgba(150,120,80,.4); font-size: 10.3px; font-style: italic; color: #7a6f58; }
+/* Ordre de sacrifice (decorum en premier) : sur les cartes parametrees (chips/ajouter), la
+   citation d'ambiance cede la place pour que la zone fonctionnelle (params + switch) tienne
+   entierement dans la boite au ratio 2/3. La description clippe ensuite si besoin. */
+.skin-assemblee .card-front:has(.param-row) .card-textbox::after { display: none; }
+/* Encart CHEVAUCHANT (force/endurance de la ref) : 2e affichage decoratif du compteur de
+   likes, a cheval sur le coin bas-droit de la boite de texte, coins nets, cadre dore. */
+.skin-assemblee .card-stat {
+  display: block; position: absolute; right: -7px; bottom: -11px; z-index: 5;
+  min-width: 26px; text-align: center; padding: 0 7px;
+  font-family: 'Baloo 2', sans-serif; font-weight: 800; font-size: 12px; line-height: 18px; color: #2b2410;
+  background: rgb(194,175,114); border: 3px solid rgb(210,193,140); border-radius: 2px;
+  box-shadow: -2px 2px 4px rgba(0,0,0,.5), inset -1px 1px 2px rgba(0,0,0,.35), inset 1px -1px 2px rgba(255,255,255,.6);
+}
+.skin-assemblee .card-stat::before { content: "\2665\00a0"; font-size: 9px; }
+/* Fine ligne d'info technique tout en bas (spec ref .frame-bottom-info). */
+.skin-assemblee .card-fineprint { display: block; grid-area: info; margin: 0 6px; font-size: 8px; letter-spacing: .04em; color: rgba(60,50,30,.6); text-align: left; }
+/* Chips/select : petite pastille de « cout » decorative accolee devant « + ajouter »
+   (facon symbole de cout en debut de ligne de capacite activee). Purement decoratif. */
+/* Chips + « + ajouter » packes sur les memes lignes (les chips remontent dans le flex de
+   .param-row) -> economise des rangees dans la boite au ratio 2/3, le switch reste visible.
+   N'affecte que la mise en page, pas l'apparence des chips. */
+.skin-assemblee .param-chips { display: contents; }
+/* Le « + » de « + ajouter » vient se loger DANS une pastille (jeton) : le cercle est
+   positionne en absolu sous le premier glyphe, le « + » (texte du bouton) se peint par-dessus
+   -> impression d'un « + » serti dans la pastille de cout. */
+.skin-assemblee .param-add { position: relative; z-index: 0; padding-left: 13px; }
+/* z-index:-1 -> la pastille se peint AU-DESSUS du fond du bouton mais SOUS le texte
+   (le « + » reste visible, serti dans le jeton). */
+.skin-assemblee .param-add::before {
+  content: ""; position: absolute; left: 6px; top: 50%; transform: translateY(-50%);
+  width: 15px; height: 15px; border-radius: 50%; background: #c9b8ec;
+  box-shadow: -1px 1.5px 0 0 #000; z-index: -1; pointer-events: none;
+}
+/* .card-action : posee A L'INTERIEUR de la boite (plus de grid-area:foot propre). Apparence
+   des chips/boutons/switch INCHANGEE, seul leur emplacement (dans la boite) change. */
+.skin-assemblee .card-action { z-index: 2; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+/* animation « l'invocation » : la pastille d'ETAT (verte) s'allume, puis le badge d'edition scintille. */
+@keyframes sk-as-cost { 0%,100%{ box-shadow: -1.5px 2.5px 0 0 #000;} 5%{ box-shadow: -1.5px 2.5px 0 0 #000, 0 0 9px 2px rgba(22,163,74,.8);} 10%{ box-shadow: -1.5px 2.5px 0 0 #000;} }
+@keyframes sk-as-sym { 0%,100%{ filter: none;} 5%{ filter: drop-shadow(0 0 5px rgba(165,103,227,.9));} 10%{ filter: none;} }
+.skin-assemblee .card-front:has(.state.active) .card-toprow .state { animation: sk-as-cost 6s ease-in-out infinite .3s; }
+.skin-assemblee .card-front:has(.state.active) .card-edition { animation: sk-as-sym 6s ease-in-out infinite 2.1s; }
+/* nuit : le cadre et le fond suivent le theme ; les plaques dorees et la boite de texte
+   restent claires (comme une vraie carte -> lisibilite conservee dans les deux themes). */
+html[data-theme="dark"] .skin-assemblee .card-front { background: linear-gradient(170deg,#2a2438,#1b1626); color: #efe9f8; }
+html[data-theme="dark"] .skin-assemblee .card-front .card-edge { border-color: #000; box-shadow: inset 0 0 0 1.5px #cfc09a, inset 0 0 0 3px rgba(0,0,0,.4); }
+html[data-theme="dark"] .skin-assemblee .card-fineprint { color: rgba(240,234,220,.55); }
+/* La boite englobe desormais les params/switch : en theme sombre elle passe en fond SOMBRE
+   pour que les chips/select/switch (styles clair-sur-sombre du theme) restent lisibles
+   (une boite parcheminee claire les ecraserait). Description/citation repassent en clair. */
+html[data-theme="dark"] .skin-assemblee .card-textbox { background: linear-gradient(0.25turn,#2a2340,#211b33); border-color: #5e4f80; box-shadow: 0 0 0 2px #000; }
+html[data-theme="dark"] .skin-assemblee .card-textbox p { color: #d5cbe8; }
+html[data-theme="dark"] .skin-assemblee .card-textbox::after { color: #a89bc4; border-top-color: rgba(200,180,255,.22); }
+
+/* --- Le Dresseur (v2 : jaune plein texture, plus de plaque de nom ni de PV) ---
+   Refonte complete d'apres dresseur-v2-reference.html. Les valeurs de la reference
+   (320px de large) sont transposees au gabarit du site (264px, ratio 2/3) par un
+   facteur ~0.82 sur la geometrie ; la typo suit un facteur plus doux (~0.87) pour
+   rester lisible dans une carte deux fois plus dense en texte. Toujours 100% CSS
+   sur le DOM neutre : aucune branche de rendu, aucun element ajoute. */
+.skin-dresseur .card-front {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "state title icons"
+    "art   art   art"
+    "dept  dept  dept"
+    "atk   atk   atk"
+    "act   act   act";
+  /* Fenetre d'art en POURCENTAGE de la hauteur de carte (36% ≈ 175/480 de la reference)
+     plutot qu'en px : la geometrie reste fidele quelle que soit la largeur reelle
+     (grille 230→300px, decks, apercu boutique) au meme ratio 2/3. */
+  /* La rangee « Signal » HUGE son contenu (minmax(0,auto) : elle grandit avec l'espace
+     disponible jusqu'a la hauteur du texte, et clippe/fond au-dela) ; tout le mou restant
+     va a la zone d'action, ou le switch est ancre en bas. Resultat : chips collees sous la
+     description (comme la reference) et switch en pied de carte, sans espace mort au milieu.
+     Ordre de sacrifice : la zone d'action (auto/1fr, min auto) n'est jamais tronquee.
+     Fenetre d'art : 36% de la hauteur de carte (≈ 175/480 de la reference) + 50px demandes
+     en plus. Les rangees suivantes se decalent d'elles-memes, le switch reste ancre en bas. */
+  grid-template-rows: auto minmax(0, calc(36% + 50px)) auto auto 1fr;
+  gap: 5px 7px; align-items: center;
+  padding: 9px 9px 10px;
+  color: #241a05;
+  /* fond : 5 radial-gradient tachetes superposes au degrade diagonal (ref .tc) */
+  background:
+    radial-gradient(ellipse 116px 82px at 15% 12%, rgba(255,255,255,.35), transparent 60%),
+    radial-gradient(ellipse 132px 99px at 85% 30%, rgba(140,95,0,.22), transparent 60%),
+    radial-gradient(ellipse 148px 116px at 25% 78%, rgba(140,95,0,.18), transparent 62%),
+    radial-gradient(ellipse 124px 91px at 90% 88%, rgba(255,255,255,.22), transparent 60%),
+    radial-gradient(ellipse 165px 132px at 60% 55%, rgba(255,240,180,.25), transparent 65%),
+    linear-gradient(155deg,#ffd94d 0%,#ffc72c 45%,#f0af00 100%);
+}
+/* Le header n'est plus un overlay : .card-toprow devient transparent (display:contents)
+   pour que ses deux enfants (etat, groupe d'icones) deviennent des items de la grille et
+   encadrent le titre — pastille | titre | icones sur une seule ligne, sans toucher au DOM. */
+.skin-dresseur .card-toprow { display: contents; position: static; }
+/* Seule delimitation restante : filet gris fin en retrait (plus de bord noir epais). */
+.skin-dresseur .card-front .card-edge {
+  inset: 8px; border: 1px solid rgba(90,90,90,.55); background: none; box-shadow: none;
+  border-radius: 10px; z-index: 6; pointer-events: none;
+}
+.skin-dresseur .card-front .card-edge::after { display: none; }
+/* Pastille d'etat metallisee (meme degrade brosse que la ligne de departement), au-dessus
+   du filet. Le libelle du site (« Rien à signaler » / « Active ») est remplace visuellement
+   par « Inactif » / « Actif » (ref) — le texte reel reste dans le DOM pour l'a11y. */
+.skin-dresseur .card-toprow .state {
+  grid-area: state; position: relative; z-index: 7; justify-self: start;
+  margin-left: -3px; padding: 3px 8px; border-radius: 999px; flex: none; gap: 0;
+  font-size: 7.6px; font-weight: 800; font-style: italic; text-transform: uppercase;
+  letter-spacing: .02em; white-space: nowrap; color: #3a3a3a;
+  background: linear-gradient(115deg,#e8e8ea 0%,#c7c8cc 30%,#f4f4f6 50%,#b9bac0 72%,#e2e3e6 100%);
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.6), inset 0 -1px 1px rgba(0,0,0,.15);
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+.skin-dresseur .card-toprow .state.idle, .skin-dresseur .card-toprow .state.active { font-size: 0; }
+.skin-dresseur .card-toprow .state.idle::after { content: "Inactif"; }
+.skin-dresseur .card-toprow .state.active::after { content: "Actif"; }
+.skin-dresseur .card-toprow .state.idle::after, .skin-dresseur .card-toprow .state.active::after {
+  font-size: 7.6px; letter-spacing: .02em;
+}
+.skin-dresseur .card-toprow .state .dot-idle, .skin-dresseur .card-toprow .state .dot-live { display: none; }
+.skin-dresseur .card-toprow .state.active { color: #0f5c26; background: linear-gradient(115deg,#bfe8c9,#8fd7a3,#bfe8c9); }
+/* Titre nu, pose directement sur le jaune (plus de plaque, plus de « PV »). */
+.skin-dresseur .card-top { grid-area: title; display: flex; align-items: center; gap: 5px; min-width: 0; }
+.skin-dresseur .card-top h3 {
+  font-family: 'Baloo 2', sans-serif; font-size: 13.5px; font-weight: 800; line-height: 1.08;
+  color: #241a05; min-width: 0;
+  /* La ligne d'en-tete est etroite (pastille + 4 jetons) : un titre long se limite a
+     2 lignes au lieu de repousser la fenetre d'art vers le bas. */
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+}
+.skin-dresseur .card-top .badge { display: none; }
+.skin-dresseur .card-top .badge-ic { flex: none; }
+.skin-dresseur .card-top .badge-ic svg { width: 13px; height: 13px; }
+.skin-dresseur .card-seal { display: none; }
+/* Les 4 boutons fonctionnels en jetons ronds jaunes biseautes (triple ombre : interne
+   claire haute, interne sombre basse, portee externe). */
+.skin-dresseur .card-icons { grid-area: icons; margin-left: 0; gap: 2px; }
+.skin-dresseur .card-toprow .card-icons .card-like,
+.skin-dresseur .card-toprow .card-icons .card-share,
+.skin-dresseur .card-toprow .card-icons .card-add-deck,
+.skin-dresseur .card-toprow .card-icons .flip-btn {
+  width: 21px; height: 21px; color: #5a4408;
+  background: linear-gradient(160deg,#ffe27a,#f0b400);
+  box-shadow: inset 0 1.5px 1.5px rgba(255,255,255,.75),
+              inset 0 -2px 3px rgba(120,70,0,.5),
+              0 1px 2px rgba(0,0,0,.3);
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+.skin-dresseur .card-toprow .card-icons svg { width: 12px; height: 12px; }
+/* Etat « liké » : coeur plein violet (le binding existant .card-like.liked est conserve,
+   seule la couleur du jeton change ; .ic-like passe deja en fill:currentColor). */
+.skin-dresseur .card-toprow .card-icons .card-add-deck { color: #5a4408; }
+.skin-dresseur .card-toprow .card-icons .card-like.liked { color: var(--violet, #a567e3); }
+/* Fenetre d'art agrandie, liseré creme. Le motif full-art est inchange. */
+.skin-dresseur .card-art {
+  grid-area: art; align-self: stretch; height: 100%;
+  border: 3px solid #fffdf5; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,.25);
+  background: linear-gradient(180deg,#e2d0f7,#b795e0); color: #f3ecfc; z-index: 2;
+}
+/* Ligne de departement : languette metal brosse qui CHEVAUCHE le bas de la fenetre d'art. */
+.skin-dresseur .card-front .card-subtitle {
+  grid-area: dept; position: relative; z-index: 3;
+  margin: -17px 12px 0; border-radius: 6px; padding: 3px 10px;
+  font-size: 9px; font-weight: 700; font-style: italic; text-align: center; color: #3a3a3a;
+  text-transform: none; letter-spacing: 0; display: block;
+  background: linear-gradient(115deg,#e8e8ea 0%,#c7c8cc 30%,#f4f4f6 50%,#b9bac0 72%,#e2e3e6 100%);
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.6), inset 0 -1px 1px rgba(0,0,0,.15);
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+}
+/* La description passe dans l'effet d'attaque (visuel). On la garde dans le DOM en
+   sr-only pour l'accessibilite (l'effet d'attaque est aria-hidden = echo visuel). */
+.skin-dresseur .card-content p {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+/* Rangee « Signal » : pips A GAUCHE du nom sur la meme ligne, degats a droite, effet
+   en dessous sur toute la largeur. .card-atkbody devient transparent pour que ses deux
+   enfants rejoignent la grille de la rangee (aucun element DOM ajoute). */
+.skin-dresseur .card-attacks {
+  display: block; grid-area: atk; align-self: start; overflow: hidden; min-height: 0; padding: 0 4px;
+}
+.skin-dresseur .card-atk {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: "en nom dmg" "eff eff eff";
+  align-items: center; gap: 3px 7px; padding: 0; border: none;
+}
+.skin-dresseur .card-atkbody { display: contents; }
+.skin-dresseur .card-en { grid-area: en; display: flex; gap: 3px; flex: none; }
+/* Pips : disques translucides bombes portant une etoile pleine noire (image CSS, pas de
+   SVG ajoute au DOM). Jamais verts hors etat actif. */
+.skin-dresseur .card-pip {
+  width: 14px; height: 14px; border-radius: 50%; flex: none;
+  background: rgba(255,255,255,.6);
+  box-shadow: inset 0 -2px 2px rgba(0,0,0,.18), 0 1px 1px rgba(255,255,255,.4);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%231a1408' d='M12 2l2.9 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.1-1.01z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: center; background-size: 9px 9px;
+}
+.skin-dresseur .card-atkname { grid-area: nom; font-family: 'Baloo 2', sans-serif; font-weight: 800; font-size: 12.5px; color: #241a05; }
+.skin-dresseur .card-dmg { grid-area: dmg; font-family: 'Baloo 2', sans-serif; font-weight: 800; font-size: 12.5px; color: #241a05; flex: none; margin: 0; }
+/* Effet = vraie description de la source (aucun texte invente). ORDRE DE SACRIFICE : c'est
+   la description qui cede, jamais la zone fonctionnelle. Le nombre de lignes est borne par
+   -webkit-line-clamp (meme mecanisme de troncature que .card-desc ailleurs sur le site) et
+   se resserre des que des chips occupent le bas de la carte. */
+.skin-dresseur .card-atkeff {
+  grid-area: eff; font-size:12px; color: #4a3c10; line-height: 1.4; margin-top: 1px; min-width: 0;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 6; overflow: hidden;
+}
+.skin-dresseur .card-front:has(.param-row) .card-atkeff { -webkit-line-clamp: 4; }
+.skin-dresseur .card-front:has(.param-chip) .card-atkeff { -webkit-line-clamp: 3; }
+/* 3 chips ou plus : la description se resserre encore d'un cran (la fenetre d'art, flexible,
+   rend le reste de l'espace). */
+.skin-dresseur .card-front:has(.param-chips .param-chip:nth-child(3)) .card-atkeff { -webkit-line-clamp: 2; }
+/* Le pied « faiblesse / resistance / retraite » disparait : absent de la reference v2
+   (l'espace revient a la fenetre d'art). Reste inerte dans le DOM. */
+.skin-dresseur .card-foot { display: none; }
+/* Zone d'action pleine largeur (chips + « + ajouter » + select + switch), meme padding
+   lateral que la rangee d'attaque pour respirer par rapport aux bords. */
+.skin-dresseur .card-action {
+  grid-area: act; align-self: stretch; height: 100%;
+  display: flex; flex-direction: column; gap: 5px; align-items: flex-start; padding: 0 4px 1px;
+}
+/* L'interrupteur (abonnement / pause) est ancre en BAS de la carte ; ce qui le precede
+   (chips, « + ajouter », select) reste colle sous la description. Deux cas : carte simple
+   (le switch ouvre la zone -> on le pousse) et carte paramétrée (la rangee de chips ouvre
+   la zone -> c'est elle qui repousse tout le reste vers le bas). */
+.skin-dresseur .card-action > .switch-row:first-child { margin-top: auto; }
+.skin-dresseur .card-action > .param-row:first-child { margin-bottom: auto; }
+/* Chips / « + ajouter » : pilules translucides posees directement sur le jaune. */
+.skin-dresseur .param-chip {
+  background: rgba(255,253,245,.85); color: #3a2e08; font-size: 10.5px; font-weight: 700;
+  padding: 3px 6px 3px 9px; gap: 5px; box-shadow: 0 1px 2px rgba(0,0,0,.12);
+}
+.skin-dresseur .param-chip .pc-dot { width: 6px; height: 6px; }
+.skin-dresseur .param-remove { color: #6b5a1c; font-size: 12px; }
+.skin-dresseur .param-add, .skin-dresseur .task-config, .skin-dresseur .task-config-anon {
+  background: rgba(255,253,245,.6); color: #5a4a12; font-style: italic;
+  font-size: 10.5px; font-weight: 700; padding: 3px 9px; box-shadow: 0 1px 2px rgba(0,0,0,.1);
+}
+.skin-dresseur .param-select, .skin-dresseur .param-input, .skin-dresseur .dyn-search {
+  font-size: 11.5px; padding: 6px 9px; background: rgba(255,253,245,.9); border-color: rgba(120,90,10,.3); color: #3a2e08;
+}
+.skin-dresseur .switch-row { gap: 8px; }
+/* VOCABULAIRE DU SKIN : « Abonné » → « Attrapé », « Non abonné » / « S'abonner » →
+   « En liberté », « En pause » → « Se repose ». Substitution 100% CSS pilotee par la classe
+   .switch-label.on (que TOUS les repeints JS basculent deja : setLabel/toggleMute/
+   setParamStatus/tuiles-deck) -> aucun handler touche, et ca vaut pour les cartes comme
+   pour les tuiles-deck (la classe de skin vit sur #grid ET .deck-card). Le libelle reel
+   reste dans le DOM (font-size:0) pour les lecteurs d'ecran, comme la pastille d'etat. */
+.skin-dresseur .switch-label { font-size: 0; font-weight: 800; color: #4a3c10; }
+.skin-dresseur .switch-label::after { font-size: 11.5px; }
+.skin-dresseur .switch-label:not(.on)::after { content: "En liberté"; }
+.skin-dresseur .switch-label.on::after { content: "Attrapé"; }
+.skin-dresseur .param-mute-row .switch-label:not(.on)::after { content: "Se repose"; }
+.skin-dresseur .switch-label.on { color: var(--green); }
+/* :not(:checked) — sinon la piste repeinte ecraserait le vert de l'etat abonne. */
+.skin-dresseur .switch input:not(:checked) ~ .track { background: rgba(255,255,255,.4); border-color: rgba(120,90,10,.25); }
+.skin-dresseur .switch .thumb { background: #fffdf5; }
+/* Etat actif : le point central + les cercles du motif full-art gardent le radar de base
+   (.fa-dot / .fa-c1..4, deja pilote par .card-front:has(.state.active)) — aucune animation
+   nouvelle. Seul s'y ajoute le premier pip, qui s'allume en vert (keyframes historique de
+   ce skin, valeurs mises a jour pour le nouveau pip). */
+@keyframes sk-dr-en {
+  0%,100% { background-color: rgba(255,255,255,.6); box-shadow: inset 0 -2px 2px rgba(0,0,0,.18), 0 1px 1px rgba(255,255,255,.4); }
+  5%      { background-color: var(--green); box-shadow: 0 0 7px rgba(22,163,74,.6); }
+  11%     { background-color: rgba(255,255,255,.6); box-shadow: inset 0 -2px 2px rgba(0,0,0,.18), 0 1px 1px rgba(255,255,255,.4); }
+}
+.skin-dresseur .card-front:has(.state.active) .card-pip.p1 { animation: sk-dr-en 5.8s ease-in-out infinite .5s; }
+.skin-dresseur .card-front:has(.state.active) .card-pip.p2 { animation: sk-dr-en 5.8s ease-in-out infinite 1.3s; }
+.skin-dresseur .card-front:has(.state.active) .card-pip.p3 { animation: sk-dr-en 5.8s ease-in-out infinite 2.1s; }
+/* nuit : meme texture tachetee, jaune assombri ; pastilles/chips en anthracite translucide. */
+html[data-theme="dark"] .skin-dresseur .card-front {
+  color: #f3e6b8;
+  background:
+    radial-gradient(ellipse 116px 82px at 15% 12%, rgba(255,255,255,.18), transparent 60%),
+    radial-gradient(ellipse 132px 99px at 85% 30%, rgba(0,0,0,.30), transparent 60%),
+    radial-gradient(ellipse 148px 116px at 25% 78%, rgba(0,0,0,.28), transparent 62%),
+    radial-gradient(ellipse 124px 91px at 90% 88%, rgba(255,255,255,.12), transparent 60%),
+    radial-gradient(ellipse 165px 132px at 60% 55%, rgba(255,225,140,.14), transparent 65%),
+    linear-gradient(155deg,#a97c12 0%,#8a640d 45%,#6b4d09 100%);
+}
+html[data-theme="dark"] .skin-dresseur .card-front .card-edge { border-color: rgba(230,225,210,.35); }
+html[data-theme="dark"] .skin-dresseur .card-top h3 { color: #f6ecc8; }
+html[data-theme="dark"] .skin-dresseur .card-toprow .card-icons .card-like,
+html[data-theme="dark"] .skin-dresseur .card-toprow .card-icons .card-share,
+html[data-theme="dark"] .skin-dresseur .card-toprow .card-icons .card-add-deck,
+html[data-theme="dark"] .skin-dresseur .card-toprow .card-icons .flip-btn {
+  background: linear-gradient(160deg,#c99a1e,#8a640d); color: #f3e6b8;
+  box-shadow: inset 0 1.5px 1.5px rgba(255,255,255,.35), inset 0 -2px 3px rgba(0,0,0,.55), 0 1px 2px rgba(0,0,0,.4);
+}
+html[data-theme="dark"] .skin-dresseur .card-toprow .card-icons .card-add-deck { color: #f3e6b8; }
+html[data-theme="dark"] .skin-dresseur .card-toprow .card-icons .card-like.liked { color: var(--violet-l, #bd8ef0); }
+html[data-theme="dark"] .skin-dresseur .card-toprow .state,
+html[data-theme="dark"] .skin-dresseur .card-front .card-subtitle {
+  color: #e7e7ea;
+  background: linear-gradient(115deg,#4a4a50 0%,#2f2f34 30%,#5c5c62 50%,#26262a 72%,#45454b 100%);
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.15), inset 0 -1px 1px rgba(0,0,0,.35);
+}
+html[data-theme="dark"] .skin-dresseur .card-toprow .state.active { color: #eafff1; background: linear-gradient(115deg,#1c6b37,#2f8f4d,#1c6b37); }
+html[data-theme="dark"] .skin-dresseur .card-art { border-color: #3a2e12; }
+html[data-theme="dark"] .skin-dresseur .card-atkname, html[data-theme="dark"] .skin-dresseur .card-dmg { color: #f6ecc8; }
+html[data-theme="dark"] .skin-dresseur .card-atkeff { color: #e2d3a0; }
+/* Etoile creme sur pip sombre (la reference garde l'etoile noire en nuit : invisible sur
+   fond anthracite — on l'eclaircit, seul ecart assume par rapport a la ref). */
+html[data-theme="dark"] .skin-dresseur .card-pip {
+  background-color: rgba(0,0,0,.28);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23f6ecc8' d='M12 2l2.9 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.1-1.01z'/%3E%3C/svg%3E");
+}
+html[data-theme="dark"] .skin-dresseur .param-chip { background: rgba(0,0,0,.28); color: #f3e6b8; }
+html[data-theme="dark"] .skin-dresseur .param-remove { color: #e2d3a0; }
+html[data-theme="dark"] .skin-dresseur .param-add,
+html[data-theme="dark"] .skin-dresseur .task-config, html[data-theme="dark"] .skin-dresseur .task-config-anon { background: rgba(0,0,0,.18); color: #e2d3a0; }
+html[data-theme="dark"] .skin-dresseur .param-select, html[data-theme="dark"] .skin-dresseur .param-input,
+html[data-theme="dark"] .skin-dresseur .dyn-search { background: rgba(0,0,0,.3); border-color: rgba(255,255,255,.2); color: #f3e6b8; }
+html[data-theme="dark"] .skin-dresseur .switch-label { color: #e2d3a0; }
+html[data-theme="dark"] .skin-dresseur .switch input:not(:checked) ~ .track { background: rgba(0,0,0,.35); border-color: rgba(255,255,255,.18); }
+html[data-theme="dark"] .skin-dresseur .switch .thumb { background: #f6ecc8; }
+html[data-theme="dark"] .skin-dresseur .switch-row::before { color: #a89bc4; }
+@keyframes sk-dr-en-dk {
+  0%,100% { background-color: rgba(0,0,0,.28); box-shadow: inset 0 -2px 2px rgba(0,0,0,.18), 0 1px 1px rgba(255,255,255,.2); }
+  5%      { background-color: var(--green); box-shadow: 0 0 7px rgba(22,163,74,.6); }
+  11%     { background-color: rgba(0,0,0,.28); box-shadow: inset 0 -2px 2px rgba(0,0,0,.18), 0 1px 1px rgba(255,255,255,.2); }
+}
+html[data-theme="dark"] .skin-dresseur .card-front:has(.state.active) .card-pip.p1 { animation-name: sk-dr-en-dk; }
+html[data-theme="dark"] .skin-dresseur .card-front:has(.state.active) .card-pip.p2 { animation-name: sk-dr-en-dk; }
+html[data-theme="dark"] .skin-dresseur .card-front:has(.state.active) .card-pip.p3 { animation-name: sk-dr-en-dk; }
+
+/* --- FACES ARRIERE accordees au skin, cartes ET decks (la classe skin vit sur #grid/
+   .deck-card, donc .skin-x .card-back couvre les deux contextes). On ne retouche que la
+   surface + le cadre (box-shadow inset) + la couleur de texte : le contenu reste identique.
+
+   LES QUATRE FACES, PAS SEULEMENT LE « i ». Une carte a jusqu'a 4 faces arriere — verso
+   d'info (.card-back, bouton « i »), partage (.card-share-face), ajout a un deck
+   (.card-deck-face) et gestion des taches des cartes v3 (.card-task-face, « configurer »).
+   Elles partagent toutes le meme habillage neutre (bloc « Versos » plus haut : --tc-grad
+   + double lisere) ; un skin qui ne repeignait que .card-back laissait donc les 3 autres
+   en tenue generique. Chaque skin liste desormais les 4 faces. --- */
+.skin-ecole-classique .card-back, .skin-ecole-classique .card-share-face,
+.skin-ecole-classique .card-deck-face, .skin-ecole-classique .card-task-face { background: linear-gradient(160deg,#efe4fb,#e2d2f5); color: var(--ink); box-shadow: inset 0 0 0 2.5px #b493dd, inset 0 0 0 4px #fff; }
+.skin-arcane .card-back, .skin-arcane .card-share-face,
+.skin-arcane .card-deck-face, .skin-arcane .card-task-face { background: #fbf7ef; color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--violet); }
+.skin-assemblee .card-back, .skin-assemblee .card-share-face,
+.skin-assemblee .card-deck-face, .skin-assemblee .card-task-face { background: linear-gradient(170deg,#efe8d6,#ddd2bb); color: #2e2a24; box-shadow: inset 0 0 0 2px #2c2822, inset 0 0 0 3.5px #cfc09a; }
+/* Dresseur : les faces arriere reprennent le jaune TEXTURE du recto v2 (le jaune plat de
+   l'ancienne version detonnait a cote du nouveau recto) et son unique filet gris fin. */
+.skin-dresseur .card-back, .skin-dresseur .card-share-face,
+.skin-dresseur .card-deck-face, .skin-dresseur .card-task-face {
+  color: #241a05; box-shadow: none; border-color: transparent;
+  background:
+    radial-gradient(ellipse 116px 82px at 15% 12%, rgba(255,255,255,.35), transparent 60%),
+    radial-gradient(ellipse 132px 99px at 85% 30%, rgba(140,95,0,.22), transparent 60%),
+    radial-gradient(ellipse 148px 116px at 25% 78%, rgba(140,95,0,.18), transparent 62%),
+    radial-gradient(ellipse 124px 91px at 90% 88%, rgba(255,255,255,.22), transparent 60%),
+    radial-gradient(ellipse 165px 132px at 60% 55%, rgba(255,240,180,.25), transparent 65%),
+    linear-gradient(155deg,#ffd94d 0%,#ffc72c 45%,#f0af00 100%);
+}
+/* Meme filet que le recto (1px gris, inset 8px) : on recycle le ::after des versos. */
+.skin-dresseur .card-back::after, .skin-dresseur .card-share-face::after,
+.skin-dresseur .card-deck-face::after, .skin-dresseur .card-task-face::after {
+  inset: 8px; border-radius: 10px; border-color: rgba(90,90,90,.55);
+}
+/* Titres des 4 faces : la regle neutre les force a var(--ink) — on rend la main au skin. */
+.skin-assemblee .card-back h3, .skin-dresseur .card-back h3,
+.skin-assemblee .card-share-face .share-face-title, .skin-dresseur .card-share-face .share-face-title,
+.skin-assemblee .card-deck-face .cdf-title, .skin-dresseur .card-deck-face .cdf-title,
+.skin-assemblee .card-task-face .tf-title, .skin-dresseur .card-task-face .tf-title { color: inherit; }
+/* nuit : les faces arriere suivent les variantes sombres de chaque skin (pas de tache claire). */
+html[data-theme="dark"] .skin-ecole-classique .card-back, html[data-theme="dark"] .skin-ecole-classique .card-share-face,
+html[data-theme="dark"] .skin-ecole-classique .card-deck-face, html[data-theme="dark"] .skin-ecole-classique .card-task-face { background: linear-gradient(160deg,#2c2148,#1d1633); color: #f0eaf8; box-shadow: inset 0 0 0 2.5px #6d51a0; }
+html[data-theme="dark"] .skin-arcane .card-back, html[data-theme="dark"] .skin-arcane .card-share-face,
+html[data-theme="dark"] .skin-arcane .card-deck-face, html[data-theme="dark"] .skin-arcane .card-task-face { background: #1c1730; color: #f0eaf8; box-shadow: inset 0 0 0 1.5px var(--violet-l,#bd8ef0); }
+html[data-theme="dark"] .skin-assemblee .card-back, html[data-theme="dark"] .skin-assemblee .card-share-face,
+html[data-theme="dark"] .skin-assemblee .card-deck-face, html[data-theme="dark"] .skin-assemblee .card-task-face { background: linear-gradient(170deg,#2a2438,#1b1626); color: #efe9f8; box-shadow: inset 0 0 0 2px #54476e; }
+html[data-theme="dark"] .skin-dresseur .card-back, html[data-theme="dark"] .skin-dresseur .card-share-face,
+html[data-theme="dark"] .skin-dresseur .card-deck-face, html[data-theme="dark"] .skin-dresseur .card-task-face {
+  color: #f3e6b8; box-shadow: none; border-color: transparent;
+  background:
+    radial-gradient(ellipse 116px 82px at 15% 12%, rgba(255,255,255,.18), transparent 60%),
+    radial-gradient(ellipse 132px 99px at 85% 30%, rgba(0,0,0,.30), transparent 60%),
+    radial-gradient(ellipse 148px 116px at 25% 78%, rgba(0,0,0,.28), transparent 62%),
+    radial-gradient(ellipse 124px 91px at 90% 88%, rgba(255,255,255,.12), transparent 60%),
+    radial-gradient(ellipse 165px 132px at 60% 55%, rgba(255,225,140,.14), transparent 65%),
+    linear-gradient(155deg,#a97c12 0%,#8a640d 45%,#6b4d09 100%);
+}
+html[data-theme="dark"] .skin-dresseur .card-back::after, html[data-theme="dark"] .skin-dresseur .card-share-face::after,
+html[data-theme="dark"] .skin-dresseur .card-deck-face::after, html[data-theme="dark"] .skin-dresseur .card-task-face::after {
+  border-color: rgba(230,225,210,.35);
+}
+/* Contenu des faces arriere du Dresseur : les libelles neutres (--muted, gris-violet) sont
+   calibres pour les surfaces du theme, pas pour le jaune/brun de ce skin -> ils suivent la
+   couleur de la face (contraste correct dans les deux themes). Les liens/pastilles gardent
+   leur accent (repere d'action), seul le texte de service est repris. */
+.skin-dresseur .card-share-face .share-lbl, .skin-dresseur .card-share-face .share-ic,
+.skin-dresseur .card-deck-face .dam-item, .skin-dresseur .card-long-desc { color: inherit; }
+
+/* ============================================================================
+   EFFET HOLOGRAPHIQUE « Dresseur » — TECHNIQUE inspiree de reference/pokemon-cards-css
+   (couches de degrades + mix-blend-mode pilotees par la position du curseur, cf. leur
+   .card__shine/.card__glare). Re-implemente en vanilla (aucun asset/JS de leur repo repris).
+   SCOPE STRICT : #grid.skin-dresseur .card-art uniquement -> jamais les decks (.deck-card),
+   la boutique (.shop-item), le full-art, les 5 teintes, ni les 3 autres skins.
+   Reflet nacre MOBILE au survol (desktop, pilote par --mx/--my/--holo depuis holo.js, UN
+   seul listener delegue), leger sheen STATIQUE au repos et sur mobile/tactile. Palette
+   jaune/violet/blanc (aucun vert : reserve a l'etat actif). ------------------------------- */
+#grid.skin-dresseur .card-front { --mx: 50%; --my: 50%; --holo: 0; }
+#grid.skin-dresseur .card-art::before,
+#grid.skin-dresseur .card-art::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: inherit; z-index: 4;
+}
+/* Reflet diagonal nacre (bandes jaune/violet/blanc) : leger au repos (.1), renforce au survol.
+   La position du degrade suit le curseur (--mx/--my) -> le reflet « bouge ». */
+#grid.skin-dresseur .card-art::after {
+  z-index: 5;
+  background: repeating-linear-gradient(110deg,
+    rgba(255,255,255,0) 0%, rgba(255,241,186,.55) 7%, rgba(201,151,236,.42) 13%,
+    rgba(255,255,255,.6) 19%, rgba(255,241,186,0) 27%);
+  background-size: 220% 220%;
+  background-position: var(--mx) var(--my);
+  mix-blend-mode: color-dodge;
+  filter: brightness(.92) contrast(1.5) saturate(.85);
+  opacity: calc(.1 + var(--holo) * .5);
+  transition: opacity .3s ease;
+}
+/* Glare radial ponctuel qui suit le curseur : invisible au repos (--holo:0), apparait au survol. */
+#grid.skin-dresseur .card-art::before {
+  background: radial-gradient(circle at var(--mx) var(--my),
+    rgba(255,255,255,.5), rgba(255,255,255,.12) 38%, rgba(0,0,0,.22) 78%);
+  mix-blend-mode: overlay;
+  opacity: var(--holo);
+  transition: opacity .3s ease;
+}
+
+/* prefers-reduced-motion : neutralise toutes les animations des skins structures */
+@media (prefers-reduced-motion: reduce) {
+  .skin-ecole-classique .card-seal, .skin-ecole-classique .card-art::after,
+  .skin-arcane .card-art::before, .skin-arcane .card-art .fa-dot,
+  .skin-assemblee .card-toprow .state, .skin-assemblee .card-edition,
+  .skin-dresseur .card-pip { animation: none !important; }
+  /* Holo Dresseur fige au sheen statique (le glare mobile est desactive, holo.js ne tourne pas). */
+  #grid.skin-dresseur .card-art::before { opacity: 0 !important; }
+  #grid.skin-dresseur .card-art::after { transition: none !important; }
+}
 
 /* Selecteur « Skin » dans la gestion d'un deck (/mes-decks). */
 .deck-skin-row { margin-top: 10px; }
@@ -2957,19 +4272,8 @@ overflow: hidden;
    Aucune règle ne touche la vue cartes : #grid n'est masqué QUE en data-view=list.
    ================================================================ */
 
-/* Bascule de vue (toolbar). */
-.view-toggle {
-  flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
-  width: 38px; height: 38px; border-radius: 10px; border: 1px solid var(--line);
-  background: transparent; color: var(--muted); cursor: pointer; margin-left: 6px;
-  transition: color .15s, border-color .15s, background .15s;
-}
-.view-toggle:hover { color: var(--ink); border-color: var(--ink); }
-.view-toggle .vt-cards { display: none; }
-.view-toggle .vt-list { display: inline-flex; }
-.view-toggle.is-list { color: var(--amber); border-color: var(--amber); }
-.view-toggle.is-list .vt-list { display: none; }
-.view-toggle.is-list .vt-cards { display: inline-flex; }
+/* (Le bouton .view-toggle de la toolbar a été supprimé — le mode d'affichage se règle
+   depuis « Mon compte › Apparence ». Ses styles sont retirés avec lui.) */
 
 /* Bascule d'affichage : une seule vue visible à la fois. */
 .list { display: none; }
@@ -3009,7 +4313,7 @@ overflow: hidden;
 .lrow[hidden] { display: none; }
 
 /* Ligne : lecture gauche→droite (titre/sous-titre), actions à droite. */
-.lrow-head { display: flex; align-items: center; gap: 12px; padding: 11px 16px; }
+.lrow-head { display: flex; align-items: center; gap: 12px; padding: 11px 16px; border-bottom: 1px solid var(--dot);}
 .lrow-main {
   flex: 1 1 auto; min-width: 0; display: flex; align-items: baseline; gap: 10px;
   background: none; border: 0; padding: 0; cursor: pointer; text-align: left; color: inherit; font: inherit;
@@ -3047,7 +4351,7 @@ overflow: hidden;
 .lrow-manage:hover, .lrow-link:hover { border-color: var(--amber); }
 
 /* Accordéon (une seule ligne ouverte). */
-.lrow-exp { padding: 0 16px 14px 16px; font-size: .92em; color: var(--ink); }
+.lrow-exp { padding: 16px 16px 16px 16px; font-size: .92em; color: var(--ink); }
 .lrow-exp[hidden] { display: none; }
 .lrow-desc { margin: 0; color: var(--muted); }
 .lrow-loading, .lrow-muted { color: var(--muted); font-size: .9em; }
@@ -3076,14 +4380,33 @@ overflow: hidden;
 .lrow-exp .card.in-list-exp .card-share-face,
 .lrow-exp .card.in-list-exp .card-deck-face,
 .lrow-exp .card.in-list-exp .card-task-face { display: none; }
+/* EXCEPTION user-task : la 5e face porte TOUTE la gestion des tâches (liste,
+   « C'est fait ✓ », croix, « + une autre tâche »). La masquer laissait la vue liste
+   sans aucun chemin vers les échéances (dette n°1 du fil V3). Comme .card-inner est
+   figé (transform:none) dans le volet, le flip ne tourne pas : on rejoue la bascule
+   en display, pilotée par la MÊME classe .face-task que la vue cartes — donc par le
+   même handler .task-config / .flip-back de site.js, sans une ligne de JS en plus.
+   Ciblé sur .card-usertask-face : la face des cartes 'community' reste masquée. */
+.lrow-exp .card.in-list-exp.face-task .card-usertask-face {
+  display: flex; position: relative; inset: auto; transform: none; overflow: visible;
+  background: none; /* le volet fournit déjà son fond */
+}
+.lrow-exp .card.in-list-exp.face-task .card-front { display: none; }
+/* Pas de flèche « Retour » dans le volet : le recto d'une carte user-task ne porte que
+   « + configurer » (dont le seul rôle est d'ouvrir cette face) et l'interrupteur de
+   pause, déjà représenté par le switch de la ligne — y revenir n'offre rien. On ferme
+   la ligne pour sortir, et unparkCard() rend la carte à la grille sur son recto. */
+.lrow-exp .card.in-list-exp .card-usertask-face .flip-back { display: none; }
+/* Le titre « Mes échéances » fait doublon avec le nom de la source, déjà en tête de ligne. */
+.lrow-exp .card.in-list-exp .card-usertask-face .tf-title { display: none; }
 .lrow-exp .card.in-list-exp .fullart,
 .lrow-exp .card.in-list-exp .card-veil,
 .lrow-exp .card.in-list-exp .card-edge,
 .lrow-exp .card.in-list-exp .card-toprow,
 .lrow-exp .card.in-list-exp .card-content > .card-top,
 .lrow-exp .card.in-list-exp .card-content > .card-subtitle,
-.lrow-exp .card.in-list-exp .card-content > p,
-.lrow-exp .card.in-list-exp .card-content > .sub-count { display: none; }
+.lrow-exp .card.in-list-exp .card-content p,
+.lrow-exp .card.in-list-exp .card-content .sub-count { display: none; }
 .lrow-exp .card.in-list-exp .card-content { padding: 0; }
 /* Abonné : l'interrupteur pause/reprise du volet est représenté par le switch de la
    ligne fermée → on le masque ici pour éviter le doublon. */

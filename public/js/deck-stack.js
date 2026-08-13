@@ -80,10 +80,13 @@
       : '';
     // Badge @forum_slug en haut-GAUCHE du verso, à hauteur de flip-back — EXACTEMENT le même
     // pattern que les cartes (.card-forum-badge, structure DOM identique : card-back en
-    // position absolue, flip-back en haut-droite). Mène à la liste des sujets du deck
-    // (/forum/deck/:slug) — sens deck→forum, identique aux cartes. Absent sans forum_slug.
-    var forumBadge = opts.forum_slug
-      ? '<a class="forum-slug-badge card-forum-badge" href="/forum/deck/' + esc(opts.forum_slug) +
+    // position absolue, flip-back en haut-droite). Mène a la PAGE DU DECK (opts.href, deja
+    // calcule par l'appelant : /collection/:id ou /deck/:token), PAS a la liste des sujets
+    // forum — meme regle que les cartes et que slugBadge() cote serveur : le badge @slug
+    // conduit toujours a l'objet lui-meme. Le lien « On en parle au forum → » ci-dessus
+    // reste la seule sortie vers les discussions. Absent sans forum_slug.
+    var forumBadge = (opts.forum_slug && opts.href)
+      ? '<a class="forum-slug-badge card-forum-badge" href="' + esc(opts.href) +
         '">@' + esc(opts.forum_slug) + '</a>'
       : '';
     return '<div class="card-face card-back">' +
@@ -114,18 +117,23 @@
   }
 
   // opts : { name, tint, emoji, count, cards:[srcObj,…] (recent d'abord, <=3), meta?, mode?,
-  //          cats?, description?, href? }
-  // description + href (fournis par les tuiles-deck du kiosque) activent le VERSO DECK sur la
-  // carte de devant : le « i » la retourne sur description + categories + « Plus d'infos → ».
-  // Sans href, la carte de devant garde le verso de la source d'apercu (« i » inerte via CSS).
+  //          cats?, description?, href?, backHTML? }
+  // backHTML (prioritaire) OU description+href activent le VERSO DECK sur la carte de devant :
+  //  - backHTML : verso arbitraire fourni par l'appelant (ex. verso proprietaire /mes-decks) ;
+  //  - href     : verso public auto (description + categories + « Plus d'infos → »), kiosque.
+  // Sans ni l'un ni l'autre, la carte de devant garde le verso de la source d'apercu (inerte).
   function html(opts) {
     opts = opts || {};
     var cards = (opts.cards || []).filter(Boolean).slice(0, 3);
     var count = opts.count || 0;
     var inner;
-    // Verso deck (uniquement quand l'appelant fournit un lien : tuiles-deck du kiosque). Les
-    // apercus sans href (detail, formulaire) gardent le verso de la source (« i » inerte via CSS).
-    var deckBack = opts.href ? deckBackHTML(opts) : '';
+    // Verso de la carte de DEVANT, par priorite :
+    //  1) opts.backHTML  : verso fourni tel quel par l'appelant (ex. /mes-decks = verso
+    //     PROPRIETAIRE avec actions S'abonner/Partager/Modifier/Supprimer/Apparence) ;
+    //  2) opts.href      : verso PUBLIC auto (description + categories + « Plus d'infos »),
+    //     tuiles-deck du kiosque ;
+    //  3) sinon          : verso de la source d'apercu conserve (« i » inerte via CSS).
+    var deckBack = opts.backHTML || (opts.href ? deckBackHTML(opts) : '');
     if (!cards.length) {
       // Deck vide (0 carte) : visuel generique conserve (carte teintee + motif « paquet »).
       inner = '<div class="ds-face ds-i0 ds-empty">' +
@@ -138,8 +146,10 @@
     // Nom optionnel : sur les pages de detail, le <h1> porte deja le nom (name:'').
     var nameHtml = opts.name ? '<span class="ds-ribbon-name">' + esc(opts.name) + '</span>' : '';
     // Ruban en forme de vague : la forme/les plis viennent du background CSS (.ds-ribbon),
-    // plus de triangles .ds-fold en markup.
+    // plus de triangles .ds-fold en markup. Le MOTIF (dessin choisi) et la TEINTE (couleur)
+    // ne s'appliquent QU'ICI, sur le ruban : couche motif discrete derriere le texte.
     var ribbon = '<span class="ds-ribbon">' +
+        '<span class="ds-ribbon-motif" aria-hidden="true">' + motifSvg(opts.emoji) + '</span>' +
         nameHtml +
         '<span class="ds-ribbon-meta">' + meta + '</span>' +
         catsHTML(opts.cats) +

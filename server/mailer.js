@@ -13,6 +13,17 @@ const PROMO_URL = 'https://www.leboncoin.fr/service/bons-plans';
 const MYALERTS_URL = 'https://labonnealerte.fr/connexion';
 const ACCENT = '#a567e3';
 
+// Titre « labonnealerte.fr » du bandeau violet, en BLANC. Il était écrit en texte nu dans
+// un <span> : les clients mail (Gmail, Apple Mail, Outlook) détectent un nom de domaine et
+// l'auto-transforment en lien, avec LEUR couleur (bleu/violet visité) — le style du <span>
+// ne s'applique pas au <a> qu'ils fabriquent. On pose donc nous-mêmes un <a> explicite :
+// il n'y a plus rien à auto-détecter, et la couleur est la nôtre. La classe permet en plus
+// à BRAND_LINK_CSS de rattraper les clients qui recolorent les liens malgré l'inline.
+const BRAND_LINK = `<a href="${SITE_URL}" target="_blank" class="brand-link" `
+  + `style="color:#ffffff;text-decoration:none">labonnealerte.fr</a>`;
+const BRAND_LINK_CSS = '<style>a.brand-link,a.brand-link:visited,a.brand-link:hover'
+  + '{color:#ffffff !important;text-decoration:none !important}</style>';
+
 // Préfixe de marque commun à TOUS les sujets d'emails : garantit la reconnaissance
 // de l'émetteur même si le nom d'affichage du From est tronqué (mobile).
 const subject = (s) => `LaBonneAlerte · ${s}`;
@@ -166,7 +177,7 @@ function alertEmailHtml(info, target, statusUrl, hhmm) {
     ? `${esc(info.message)} · détectée à ${hhmm}`
     : `Alerte déclenchée · détectée à ${hhmm}`;
   return `<!DOCTYPE html>
-<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${BRAND_LINK_CSS}</head>
 <body style="margin:0;padding:0;background:#f4edfb">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4edfb;padding:28px 14px">
     <tr><td align="center">
@@ -174,7 +185,7 @@ function alertEmailHtml(info, target, statusUrl, hhmm) {
              style="max-width:600px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 18px rgba(30,20,50,.08)">
         <tr><td style="background:${ACCENT};padding:16px 24px">
           <table role="presentation" width="100%"><tr>
-            <td style="font-family:Arial,Helvetica,sans-serif;font-size:17px;font-weight:800"><span style="color:#ffffff !important;text-decoration:none">labonnealerte.fr</span></td>
+            <td style="font-family:Arial,Helvetica,sans-serif;font-size:17px;font-weight:800">${BRAND_LINK}</td>
             <td align="right"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#22c55e"></span></td>
           </tr></table>
         </td></tr>
@@ -284,11 +295,11 @@ async function sendDeferredDigest(recipient, items = []) {
   }).join('');
 
   const html = `<!DOCTYPE html>
-<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${BRAND_LINK_CSS}</head>
 <body style="margin:0;padding:0;background:#f4edfb">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4edfb;padding:28px 14px"><tr><td align="center">
     <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 18px rgba(30,20,50,.08)">
-      <tr><td style="background:${ACCENT};padding:16px 24px;font-family:Arial,Helvetica,sans-serif;font-size:17px;font-weight:800"><span style="color:#fff">labonnealerte.fr</span></td></tr>
+      <tr><td style="background:${ACCENT};padding:16px 24px;font-family:Arial,Helvetica,sans-serif;font-size:17px;font-weight:800">${BRAND_LINK}</td></tr>
       <tr><td style="padding:26px 28px 8px;font-family:Arial,Helvetica,sans-serif;color:#0f1419">
         <h1 style="margin:0 0 10px;font-size:20px;font-weight:800">${heading}</h1>
         <p style="margin:0 0 8px;font-size:14px;color:#4a4a52;line-height:1.6">${intro}</p></td></tr>

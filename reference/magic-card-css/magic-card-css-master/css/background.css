@@ -1,0 +1,11 @@
+.card-background {
+    background-image: url(../images/background-gold.jpg);
+    background-repeat: no-repeat;
+    background-size: cover;
+    height: 510px;
+    margin: 18px 18px 0 18px;
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
+    border-bottom-left-radius: 8%;
+    border-bottom-right-radius: 8%;  
+}

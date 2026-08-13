@@ -26,10 +26,10 @@
 </header>
 
 <!-- Halo de l'écran de chargement commun (visible tant que body.loading). -->
-<div class="page-loading" role="status" aria-live="polite">Chargement…</div>
+<div class="page-loading" role="status" aria-live="polite"><div class="lba-bars" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>Chargement…</div>
 
 <main class="wrap shop-main">
-  <div id="shop-loading" class="src-loading">Chargement…</div>
+  <div id="shop-loading" class="src-loading"><div class="lba-bars" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>Chargement…</div>
 
   <div id="shop-anon" class="decks-anon" hidden>
     <h1 class="page-title">La <span class="hl">boutique</span></h1>
@@ -42,7 +42,16 @@
     <p class="src-desc">Des skins purement cosmétiques, débloqués avec les points gagnés sur le site. Jamais d'argent réel.</p>
     <div class="shop-balance">Votre solde : <strong id="shop-balance">0</strong> points</div>
     <div id="shop-msg" class="coll-adopt-msg" role="status" hidden></div>
-    <div id="shop-grid" class="shop-grid"></div>
+
+    <section id="shop-sec-dashboard" hidden>
+      <h2 class="shop-h2">Skins de cartes</h2>
+      <div id="shop-grid" class="shop-grid"></div>
+    </section>
+
+    <section id="shop-sec-deck" hidden>
+      <h2 class="shop-h2">Skins de decks</h2>
+      <div id="shop-grid-deck" class="shop-grid"></div>
+    </section>
   </section>
 </main>
 
@@ -53,6 +62,12 @@
 
 <script src="/js/page-loading.js"></script>
 <script src="/js/session.js"></script>
+<!-- Apercu des skins de DECK : vraie tuile-deck (pile de 3 cartes + ruban), donc les
+     memes dependances que /favoris — categories.js + cards.js alimentent LBADeckStack. -->
+<script src="/js/categories.js"></script>
+<script src="/js/cards.js"></script>
+<script src="/js/deck-motifs.js"></script>
+<script src="/js/deck-stack.js"></script>
 <script src="/js/boutique.js"></script>
 <script src="/js/hero-letters.js"></script>
 <script src="/js/theme.js"></script>

@@ -26,6 +26,20 @@ function worstState(states) {
   return worst;
 }
 
+// Favori automatique : tout abonnement actif (source simple, instance paramétrée, adoption
+// de deck) ajoute AUSSI la source à `favorites` (idempotent, ON CONFLICT sur la PK
+// (subscriber_id, source_id)). Best-effort : un échec ici ne doit jamais faire échouer
+// l'abonnement. Le DÉSABONNEMENT ne retire JAMAIS le favori — c'est le but : retrouver
+// dans « Ma collection » ce dont on s'est désabonné.
+async function addFavorite(subscriberId, sourceId) {
+  try {
+    await pool.query(
+      `INSERT INTO favorites (subscriber_id, source_id) VALUES ($1, $2)
+       ON CONFLICT (subscriber_id, source_id) DO NOTHING`,
+      [subscriberId, sourceId]);
+  } catch (e) { console.error('[favorites] auto-add :', e.message); }
+}
+
 const apiRouter = express.Router();
 const pagesRouter = express.Router();
 
@@ -258,8 +272,9 @@ apiRouter.get('/my-alerts', async (req, res) => {
 
     // Préférences : email activé, appareils push, et personnalisation d'affichage.
     const prefs = await pool.query(
-      `SELECT s.email_enabled, s.country, s.departement, s.region, s.ville, s.interests, s.display_name,
+      `SELECT s.email_enabled, s.country, s.departement, s.region, s.ville, s.interests, s.display_name, s.pseudo,
               s.points_balance, s.leaderboard_optout, s.quiet_start, s.quiet_end, s.quiet_disabled, s.view_mode,
+              s.hide_community_reports,
               (SELECT asset_ref FROM skins WHERE id = s.equipped_dashboard_skin_id) AS dashboard_skin,
               (SELECT COUNT(*)::int FROM push_subscriptions p WHERE p.subscriber_id = s.id) AS push_endpoints_count
          FROM subscribers s WHERE s.id = $1`,
@@ -275,9 +290,11 @@ apiRouter.get('/my-alerts', async (req, res) => {
     // un champ vidé manuellement n'est pas re-rempli, et cet appel reste idempotent.
     if (pr.display_name == null || pr.country == null || pr.departement == null || pr.region == null || pr.ville == null) {
       await applyAutofill(pool, auth.id, { nameHint: deriveDisplayNameFromEmail(auth.email), ip: clientIp(req) });
-      const re = await pool.query('SELECT display_name, country, departement, region, ville FROM subscribers WHERE id = $1', [auth.id]);
+      // `pseudo` est relu ici aussi : applyAutofill le pose en même temps que le
+      // display_name (ensurePseudo), il serait sinon null au tout premier chargement.
+      const re = await pool.query('SELECT display_name, pseudo, country, departement, region, ville FROM subscribers WHERE id = $1', [auth.id]);
       if (re.rows[0]) {
-        pr.display_name = re.rows[0].display_name; pr.country = re.rows[0].country;
+        pr.display_name = re.rows[0].display_name; pr.pseudo = re.rows[0].pseudo; pr.country = re.rows[0].country;
         pr.departement = re.rows[0].departement; pr.region = re.rows[0].region; pr.ville = re.rows[0].ville;
       }
     }
@@ -289,11 +306,19 @@ apiRouter.get('/my-alerts', async (req, res) => {
     // le solde). Calcule a la volee ; jamais expose a un tiers (route perso, auth).
     const rank = pr.leaderboard_optout ? null : await getRank(auth.id);
 
+    // Favoris (« Ma collection ») de ce compte : ids de source, pour que le cœur soit rempli
+    // sur TOUTE carte du kiosque (home/mine/liste), pas seulement sur /favoris. Inclut les
+    // favoris posés AUTOMATIQUEMENT à l'abonnement (jamais « likés » localement). Une requête
+    // légère plutôt qu'un appel /api/favorites par carte.
+    const favRows = await pool.query('SELECT source_id FROM favorites WHERE subscriber_id = $1', [auth.id]);
+    const favorites = favRows.rows.map((r) => r.source_id);
+
     // On renvoie le token de session (potentiellement issu de l'échange du magic
     // token) pour que le client mette à jour son localStorage.
     return res.status(200).json({
       email: auth.email,
       sources: rows,
+      favorites: favorites,
       token: auth.sessionToken,
       email_enabled: emailEnabled,
       push_endpoints_count: pushCount,
@@ -303,6 +328,10 @@ apiRouter.get('/my-alerts', async (req, res) => {
       ville: pr.ville || null,
       interests: pr.interests || [],
       display_name: pr.display_name || null,
+      // @pseudo public STABLE (jamais régénéré au renommage, cf. server/pseudo.js) :
+      // c'est l'identité affichée sur le forum et l'URL /u/:pseudo. null tant qu'il
+      // n'a pas été posé (pas encore de display_name).
+      pseudo: pr.pseudo || null,
       // Solde de points cosmetiques (phase 1) : juste le nombre, pas de detail du ledger.
       points_balance: pr.points_balance || 0,
       // Phase 2 : rang prive (null si opt-out/sans pseudo) + etat de participation.
@@ -316,6 +345,8 @@ apiRouter.get('/my-alerts', async (req, res) => {
       quiet_disabled: pr.quiet_disabled === true,
       // Mode d'affichage du kiosque (préférence de compte, sync multi-appareils).
       view_mode: pr.view_mode === 'list' ? 'list' : 'cards',
+      // Cartes communautaires (« Chat perdu » et famille à venir) masquées du kiosque.
+      hide_community_reports: pr.hide_community_reports === true,
     });
   } catch (err) {
     console.error('[my-alerts] Erreur GET /my-alerts :', err.message);
@@ -518,6 +549,27 @@ apiRouter.post('/my-alerts/quiet-hours', async (req, res) => {
 });
 
 /* ------------------------------------------------------------------ */
+/* POST /api/my-alerts/community-reports-visibility — masque/affiche   */
+/* les cartes communautaires (« Chat perdu » et famille à venir) du     */
+/* kiosque. Corps : { token, hide_community_reports: boolean }.        */
+/* ------------------------------------------------------------------ */
+apiRouter.post('/my-alerts/community-reports-visibility', async (req, res) => {
+  const { token, hide_community_reports } = req.body || {};
+  if (typeof hide_community_reports !== 'boolean') {
+    return res.status(400).json({ error: 'hide_community_reports invalide' });
+  }
+  try {
+    const auth = await authenticate(token);
+    if (!auth) return res.status(401).json({ error: 'Session invalide ou expirée' });
+    await pool.query('UPDATE subscribers SET hide_community_reports = $1 WHERE id = $2', [hide_community_reports, auth.id]);
+    return res.status(200).json({ hide_community_reports });
+  } catch (err) {
+    console.error('[my-alerts] Erreur POST /community-reports-visibility :', err.message);
+    return res.status(503).json({ error: 'Service indisponible' });
+  }
+});
+
+/* ------------------------------------------------------------------ */
 /* POST /api/logout — supprime la session courante.                    */
 /* ------------------------------------------------------------------ */
 apiRouter.post('/logout', async (req, res) => {
@@ -578,6 +630,8 @@ apiRouter.post('/my-alerts/toggle', async (req, res) => {
       );
       // Abonnement neuf : points (une fois par source a vie), non bloquant.
       if (ins.rowCount > 0) await award(auth.id, 'ALERT_SUBSCRIBED', source_id);
+      // Ajoute la source à « Ma collection » (favoris) — idempotent, best-effort.
+      await addFavorite(auth.id, source_id);
     } else {
       await pool.query(
         'DELETE FROM subscriptions WHERE subscriber_id = $1 AND source_id = $2',
@@ -667,6 +721,9 @@ apiRouter.post('/my-alerts/toggle-param', async (req, res) => {
       );
       // Abonnement neuf : points (une fois par source a vie, tous params confondus), non bloquant.
       if (ins.rowCount > 0) await award(auth.id, 'ALERT_SUBSCRIBED', source_id);
+      // Ajoute la source à « Ma collection » (favoris) — idempotent, best-effort. Par-source
+      // (jamais par-instance) : une seule ligne favorites même avec plusieurs params.
+      await addFavorite(auth.id, source_id);
       // DoomName : enregistre le domaine pour surveillance (best-effort, non bloquant ;
       // le poller réessaie à chaque cycle si l'appel échoue).
       if (source_id === 'doomname' && canonical.domaine) trackDomain(canonical.domaine);

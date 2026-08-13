@@ -44,6 +44,15 @@
   // (ex. doomname, linked → external) garde un `link_url` résiduel non effacé — s'y fier
   // afficherait « Configurer → » au lieu du switch, en divergence avec la vue cartes.
   function isLinked(s) { return s.type === 'linked'; }
+  // V3 · « tâche à échéance glissante » : pas de params_schema, donc isParam() est faux,
+  // mais la SÉMANTIQUE du contrôle est celle d'une carte paramétrée (des instances qu'on
+  // ajoute/retire + une pause globale), pas celle d'un abonnement broadcast. On l'aligne
+  // donc sur le patron paramétré partout où c'est la sémantique qui compte : switch de la
+  // ligne fermée, sync(), ouverture du volet. Voir hasBlocks() ci-dessous.
+  function isUserTask(s) { return s.type === 'user-task'; }
+  // Familles dont le corps de ligne déplie la VRAIE carte (B1) au lieu d'une description,
+  // et dont le switch signifie « actif » (≥1 instance ET non en pause) et non « abonné ».
+  function hasBlocks(s) { return isParam(s) || isUserTask(s); }
 
   // SVG partagés avec les cartes (aucune duplication de string : exposés par LBACards).
   function ic(name) { return (window.LBACards && LBACards[name]) || ''; }
@@ -66,7 +75,10 @@
       //    pas au sync suivant. Le détail (choix de valeur, ajout/retrait d'instances) se
       //    gère dans le volet déplié (carte réelle).
       var on;
-      if (isParam(s)) {
+      if (isUserTask(s)) {
+        // Même règle, autre porteur d'instances : `tasks` au lieu de `instances`.
+        on = mode === 'connected' && Array.isArray(s.tasks) && s.tasks.length > 0 && !s.muted;
+      } else if (isParam(s)) {
         on = mode === 'connected' && Array.isArray(s.instances) && s.instances.length > 0 && !s.muted;
       } else {
         on = mode === 'connected' && !!s.subscribed;
@@ -152,8 +164,11 @@
       if (rowSw) {
         var src = srcOf(id) || {};
         var on;
-        if (isParam(src)) {
-          // Paramétré : ACTIF = abonné (≥1 instance) ET non en pause (param-mute coché).
+        if (hasBlocks(src)) {
+          // Paramétré ET user-task : ACTIF = abonné (≥1 instance / ≥1 tâche) ET non en
+          // pause (param-mute coché). Pour user-task le .param-mute vit sur le recto et
+          // n'existe QUE s'il y a au moins une tâche — l'absence de case vaut donc « pas
+          // en pause », exactement comme pour une carte paramétrée sans contrôle de pause.
           var sub = card.dataset.subscribed === '1';
           var muteCb = card.querySelector('.param-mute');
           on = sub && (!muteCb || muteCb.checked);
@@ -174,16 +189,34 @@
   // le prefill géo et l'état restent natifs (c'est la carte réelle, pas une copie).
   // Le prefill dyn-enum a déjà été déclenché par site.js au rendu du grid ; le nœud
   // conservant son état, aucun re-déclenchement n'est nécessaire ici.
+  // La carte parquée est mutée par SES PROPRES handlers (site.js : ajout/retrait
+  // d'instance, pause, création/suppression de tâche, « C'est fait ✓ »), y compris de
+  // façon asynchrone et hors de #list (la modale de création vit sur <body>). Plutôt
+  // que de deviner un délai, on observe le nœud parqué : toute mutation resynchronise
+  // le switch de la ligne. sync() n'écrit QUE dans la ligne (jamais dans la carte) →
+  // aucune boucle possible.
+  var parkObserver = null;
+  function watchParked(card) {
+    if (!window.MutationObserver) return;
+    parkObserver = new MutationObserver(function () { sync(); });
+    parkObserver.observe(card, { childList: true, subtree: true, attributes: true,
+      attributeFilter: ['data-subscribed', 'checked', 'class'] });
+  }
   function parkCardInto(id, body) {
     var card = gridCard(id); if (!card) return false;
     parkedCard = { card: card, parent: card.parentNode, next: card.nextSibling };
     card.classList.add('in-list-exp');
     body.appendChild(card);
+    watchParked(card);
     return true;
   }
   function unparkCard() {
+    if (parkObserver) { parkObserver.disconnect(); parkObserver = null; }
     if (!parkedCard) return;
     var p = parkedCard; parkedCard = null;
+    // La carte retourne à la grille sur son RECTO : sans ça, une carte quittée alors
+    // que la 5e face était ouverte réapparaîtrait dans #grid en mode « Mes échéances ».
+    p.card.classList.remove('flipped', 'face-task', 'face-share', 'face-deck');
     p.card.classList.remove('in-list-exp');
     if (!p.parent) return;
     // Remise EXACTE à sa position d'origine ; si le repère a disparu (grille reconstruite
@@ -291,7 +324,19 @@
         body.innerHTML = '';
         if (!parkCardInto(id, body)) {
           body.innerHTML = '<span class="lrow-muted">Carte indisponible.</span>';
+          return;
         }
+        // user-task : ce qui est actionnable vit sur la 5e face, pas sur le recto (qui ne
+        // porte que « + configurer »). On l'ouvre d'emblée — même classe .face-task que la
+        // vue cartes, donc même CSS, et le .flip-back de la face ramène au recto — pour
+        // que le volet montre directement les échéances, comme un volet paramétré montre
+        // directement ses chips. Ne concerne QUE user-task : .card-usertask-face est la
+        // seule 5e face dévoilée en vue liste.
+        // Garde-fou : en anonyme taskFace() ne rend RIEN — sans ce test, .face-task
+        // masquerait le recto pour ne dévoiler aucune face (volet vide). L'anonyme reste
+        // donc sur le recto et son lien « + configurer » → /connexion.
+        var c = gridCard(id);
+        if (c && c.querySelector('.card-usertask-face')) c.classList.add('face-task');
       });
     }
 
@@ -335,7 +380,7 @@
       if (e.target.closest('.in-list-exp')) return;
       // Corps de ligne : paramétrée → params inline (B1) ; sinon description courte.
       if (e.target.closest('.lrow-main')) {
-        if (isParam(s)) openParams(row, id);
+        if (hasBlocks(s)) openParams(row, id);
         else toggleKind(row, 'desc', '<p class="lrow-desc">' + esc(s.description || 'Pas de description.') + '</p>');
       }
     });
@@ -352,7 +397,7 @@
       //  · OFF depuis « actif »       → pause (mute all), non destructif (jamais un retrait
       //                                 d'instance ; le vrai désabonnement reste via les ✕).
       var srcP = srcOf(id) || {};
-      if (isParam(srcP)) {
+      if (hasBlocks(srcP)) {
         if (document.body.getAttribute('data-mode') !== 'connected') {
           input.checked = false; openParams(row, id); return; // anonyme : passe par le picker
         }
@@ -367,8 +412,15 @@
             input.checked = false; // pas abonné : on ne peut pas abonner sans valeur → déplier
             openParams(row, id);
             setTimeout(function () {
-              var c = gridCard(id);
-              var ctrl = c && c.querySelector('.dyn-search, .param-select, .param-input');
+              var c = gridCard(id); if (!c) return;
+              // user-task : « abonner » n'a de sens qu'avec une échéance. On ouvre donc
+              // LA MÊME modale que la vue cartes (user-task-form.js), sur la carte réelle
+              // parquée dans le volet — aucun formulaire de liste à maintenir en parallèle.
+              if (isUserTask(srcP)) {
+                if (window.LBATaskForm && LBATaskForm.open) LBATaskForm.open(c);
+                return;
+              }
+              var ctrl = c.querySelector('.dyn-search, .param-select, .param-input');
               if (ctrl) ctrl.focus();
             }, 80);
           }

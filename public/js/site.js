@@ -15,21 +15,52 @@
   }
 
   /* ---------------- Thème ---------------- */
+  /* Trois préférences possibles : 'light', 'dark' et 'auto' (défaut). En 'auto' le
+     thème SUIT le réglage du système (prefers-color-scheme) et réagit à ses
+     changements en direct ; un choix explicite le fige et gagne toujours.
+     La valeur 'auto' est volontairement équivalente à « rien de stocké » pour les
+     pages qui chargent theme.js : leur init ne reconnaît que light/dark et retombe
+     donc sur le système — même résultat, aucune divergence à maintenir. */
   var STORAGE_KEY = 'lba-theme';
   var root = document.documentElement;
-  function preferredTheme() {
+  var darkMQ = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+  function systemTheme() { return darkMQ && darkMQ.matches ? 'dark' : 'light'; }
+  function themePref() {
     var saved = null;
     try { saved = localStorage.getItem(STORAGE_KEY); } catch (e) {}
-    if (saved === 'light' || saved === 'dark') return saved;
-    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    return (saved === 'light' || saved === 'dark') ? saved : 'auto';
+  }
+  function preferredTheme() {
+    var p = themePref();
+    return p === 'auto' ? systemTheme() : p;
   }
   applyTheme(preferredTheme());
   function applyTheme(t) { root.setAttribute('data-theme', t); }
+
+  window.getThemePref = themePref;
+  // Pose la préférence ('light' | 'dark' | 'auto') et applique le thème résolu.
+  window.setThemePref = function (p) {
+    if (p !== 'light' && p !== 'dark') p = 'auto';
+    try {
+      if (p === 'auto') localStorage.removeItem(STORAGE_KEY);
+      else localStorage.setItem(STORAGE_KEY, p);
+    } catch (e) {}
+    applyTheme(preferredTheme());
+    return p;
+  };
+  // Suivi en direct du thème système (utile surtout en 'auto' : bascule nuit d'iOS
+  // ou d'Android sans recharger). Un choix explicite n'est jamais écrasé.
+  if (darkMQ) {
+    var onSystemTheme = function () { if (themePref() === 'auto') applyTheme(systemTheme()); };
+    if (darkMQ.addEventListener) darkMQ.addEventListener('change', onSystemTheme);
+    else if (darkMQ.addListener) darkMQ.addListener(onSystemTheme); // Safari < 14
+  }
+
   var themeDeg = 0;
   window.toggleTheme = function () {
+    // Bascule explicite (bouton ◐ du header mobile) : sort de 'auto' à dessein.
     var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-    applyTheme(next);
-    try { localStorage.setItem(STORAGE_KEY, next); } catch (e) {}
+    window.setThemePref(next);
     // Volet I : petite rotation rotateY du bouton (sauf reduced-motion).
     var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     var btn = document.querySelector('.theme-btn');
@@ -131,6 +162,11 @@
   function likeAdd(id) { var s = likesSet(); if (s.indexOf(id) === -1) { s.push(id); likesSave(s); } }
   function likeRemove(id) { var s = likesSet(); var i = s.indexOf(id); if (i !== -1) { s.splice(i, 1); likesSave(s); } }
 
+  // Favoris SERVEUR (« Ma collection ») du compte connecté : ids de source renvoyés par
+  // /api/my-alerts. Alimente le cœur rempli sur TOUTE carte, y compris les favoris posés
+  // automatiquement à l'abonnement (jamais « likés » en localStorage). Vide en anonyme.
+  var serverFavs = {};
+
   // Favoris de DECK (le cœur de la carte de devant d'une tuile-deck) : stockes a part
   // (lba-deck-favorites, ids de collection), car un deck n'est pas une source. La page
   // /favoris les affiche en tuiles-deck (voir favoris.js).
@@ -139,6 +175,27 @@
   function isDeckFav(id) { return deckFavSet().indexOf(id) !== -1; }
   function deckFavToggle(id) { var s = deckFavSet(); var i = s.indexOf(id); if (i === -1) s.push(id); else s.splice(i, 1); deckFavSave(s); return i === -1; }
   function isLiked(id) { return likesSet().indexOf(id) !== -1; }
+
+  // Identifiant de favori d'une tuile-deck : DÉRIVÉ DU data-href, exactement comme le fait
+  // le gestionnaire du cœur ci-dessous. À garder identique des deux côtés (un deck perso a
+  // un href /deck/:token que le replace ne touche pas) — sinon le cœur écrit une clé que le
+  // filtre ne relit pas.
+  function deckFavKey(tile) {
+    return decodeURIComponent((tile.getAttribute('data-href') || '').replace('/collection/', ''));
+  }
+
+  // Filtre « Mes favoris » (cat === 'favoris', cf. matches()) : remplace l'ancienne page
+  // /favoris par une catégorie du kiosque, au même titre que « Ma collection ». Source de
+  // vérité identique au cœur : likes locaux + favoris serveur pour une carte, liste de
+  // decks favoris pour une tuile — aucun état parallèle.
+  function cardIsFav(c) {
+    if (c.classList.contains('deck-card')) {
+      var dk = deckFavKey(c);
+      return !!dk && isDeckFav(dk);
+    }
+    var id = c.getAttribute('data-source-id');
+    return !!id && (isLiked(id) || !!serverFavs[id]);
+  }
 
   // D) Remontée one-shot des favoris locaux vers le serveur (une fois par session
   // d'onglet). Idempotent côté serveur ; rattrape les likes posés avant la table
@@ -170,7 +227,9 @@
     document.querySelectorAll('.card .like-btn').forEach(function (btn) {
       var card = btn.closest('.card'); if (!card) return;
       var id = card.getAttribute('data-source-id');
-      if (id && isLiked(id)) setLikeUI(btn, true);
+      // Cœur rempli = liké en local (anonyme/tous) OU favori serveur (connecté). Un favori
+      // auto-posé à l'abonnement (jamais liké localement) apparaît ainsi rempli partout.
+      if (id && (isLiked(id) || serverFavs[id])) setLikeUI(btn, true);
     });
   }
 
@@ -183,36 +242,61 @@
     // pas la source d'apercu. Bascule visuelle immediate.
     var deckCard = card.closest('.deck-card');
     if (deckCard) {
-      var dslug = decodeURIComponent((deckCard.getAttribute('data-href') || '').replace('/collection/', ''));
+      var dslug = deckFavKey(deckCard);
       if (!dslug) return;
       setLikeUI(btn, deckFavToggle(dslug));
+      refreshCollectionCount();
+      if (cat === 'favoris') apply(true); // dans le filtre Favoris, la tuile dé-likée sort
       return;
     }
     var id = card.getAttribute('data-source-id'); if (!id) return;
     if (btn.disabled) return;
     var liked = btn.classList.contains('liked');
     var cur = parseInt(btn.dataset.likes, 10) || 0;
-    var next = liked ? Math.max(cur - 1, 0) : cur + 1;
-    // Optimiste : bascule l'UI immédiatement.
-    setLikeUI(btn, !liked, next);
-    if (liked) likeRemove(id); else likeAdd(id);
-    btn.disabled = true;
-    // D) Connecté : on transmet le token → le like/unlike met aussi à jour les favoris
-    // serveur. Anonyme : pas de token, les favoris restent dans lba-likes (localStorage).
     var tok = (window.LBASession && LBASession.get && LBASession.get()) || null;
-    var opts = liked ? { method: 'DELETE' } : { method: 'POST' };
-    var url = '/api/sources/' + encodeURIComponent(id) + '/like';
-    if (tok) {
-      if (liked) { url += '?token=' + encodeURIComponent(tok); }
-      else { opts.headers = { 'Content-Type': 'application/json' }; opts.body = JSON.stringify({ token: tok }); }
+
+    if (liked) {
+      // RETRAIT de « Ma collection » : ne touche JAMAIS likes_count (le compteur public de ❤).
+      // Un favori peut avoir été posé automatiquement à l'abonnement, jamais « liké » → le
+      // décompter fausserait le compteur. Optimiste : cœur vidé, compteur INCHANGÉ.
+      setLikeUI(btn, false, cur);
+      likeRemove(id);            // localStorage (anonyme + marqueur)
+      delete serverFavs[id];     // n'est plus re-marqué au re-rendu
+      if (tok) {
+        // Connecté : suppression du favori serveur via la route dédiée (pas /like).
+        btn.disabled = true;
+        fetch('/api/favorites', {
+          method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: tok, source_id: id })
+        }).catch(function () {
+          setLikeUI(btn, true, cur); likeAdd(id); serverFavs[id] = true; // rollback
+          refreshCollectionCount();
+        }).then(function () { btn.disabled = false; });
+      }
+      // Anonyme : pas de favori serveur → retrait purement local, aucun appel, aucun likes_count.
+      // Dans le filtre « Mes favoris », la carte dé-likée sort de la grille (FLIP) — retrait
+      // IMMÉDIAT, pas de sursis : le sursis reste spécifique à « Mes alertes ».
+      refreshCollectionCount();
+      if (cat === 'favoris') apply(true);
+      return;
     }
+
+    // AJOUT : inchangé — POST /like incrémente likes_count (+ insère le favori si connecté).
+    var next = cur + 1;
+    setLikeUI(btn, true, next);
+    likeAdd(id);
+    if (tok) serverFavs[id] = true;
+    refreshCollectionCount();
+    btn.disabled = true;
+    var opts = { method: 'POST' };
+    var url = '/api/sources/' + encodeURIComponent(id) + '/like';
+    if (tok) { opts.headers = { 'Content-Type': 'application/json' }; opts.body = JSON.stringify({ token: tok }); }
     fetch(url, opts)
       .then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.json(); })
-      .then(function (d) { if (d && typeof d.likes_count === 'number') setLikeUI(btn, !liked, d.likes_count); })
+      .then(function (d) { if (d && typeof d.likes_count === 'number') setLikeUI(btn, true, d.likes_count); })
       .catch(function () {
-        // Rollback complet (UI + localStorage) en cas d'échec.
-        setLikeUI(btn, liked, cur);
-        if (liked) likeAdd(id); else likeRemove(id);
+        setLikeUI(btn, false, cur); likeRemove(id); delete serverFavs[id]; // rollback
+        refreshCollectionCount();
       })
       .then(function () { btn.disabled = false; });
   });
@@ -578,6 +662,9 @@
       if (!res.ok) throw new Error('http ' + res.status);
       // Succès : on met à jour l'appartenance interne + tout ce qui en dépend.
       card.dataset.subscribed = desired ? '1' : '0';
+      // Vue « Mes alertes » : désabonnement → sursis avant disparition ; ré-abonnement (y
+      // compris un re-clic pendant le sursis) → annule le retrait programmé. (cf. scheduleMineRemoval)
+      if (cat === 'mine') { if (desired) cancelMineRemoval(card); else scheduleMineRemoval(card); }
       refreshMineDependent();
       if (desired) {
         celebrate(card); // célébration seulement à l'abonnement
@@ -625,6 +712,11 @@
     var lbl = card.querySelector('.param-mute-row .switch-label');
     function paint(m) { if (lbl) { lbl.textContent = m ? 'En pause' : 'Abonné'; lbl.classList.toggle('on', !m); } }
     paint(muted);
+    // Vue « Mes alertes » : mettre en pause fait sortir la carte (même sursis que le
+    // désabonnement) ; reprendre pendant le sursis annule. L'abonnement reste réel
+    // (data-subscribed inchangé) — seule la visibilité mine dépend du muted. Optimiste :
+    // on relit l'état courant du switch via syncMineGrace.
+    syncMineGrace(card);
     input.disabled = true;
     try {
       var res = await fetch('/api/my-alerts/toggle-mute', {
@@ -634,6 +726,7 @@
       if (!res.ok) throw new Error('http ' + res.status);
     } catch (e) {
       input.checked = !input.checked; paint(!input.checked); // rollback
+      syncMineGrace(card); // rollback : ré-aligne le sursis sur l'état réel rétabli
     } finally {
       input.disabled = false;
       if (window.LBAListView) LBAListView.sync(); // reflète pause/reprise sur le switch de la vue liste
@@ -693,7 +786,9 @@
         var create = zone.querySelector('.task-create');
         if (create) { create.textContent = 'Créer ma tâche'; create.classList.remove('secondary'); }
         if (card) {
-          var mute = card.querySelector('.card-task-face .param-mute-row');
+          // Le switch est sur le RECTO (structure identique aux cartes v2), pas sur
+          // la face tâches.
+          var mute = card.querySelector('.card-front .param-mute-row');
           if (mute) mute.remove();
           var st = card.querySelector('.card-front .state.task');
           if (st) st.innerHTML = '<span class="dot-idle"></span> Tâche personnelle';
@@ -871,6 +966,7 @@
       var data = await res.json();
       addChip(card, data.params || params, data.label || label);
       card.dataset.subscribed = '1';
+      if (cat === 'mine') cancelMineRemoval(card); // re-souscription pendant un sursis → annule le retrait
       setParamStatus(card, true);
       ensureMuteSwitch(card); // interrupteur pause/reprise disponible tout de suite
       // Doublon corrigé : une fois abonné, l'interrupteur pause/reprise du bas est LE
@@ -902,6 +998,138 @@
     finally { if (btn) btn.disabled = false; }
   }
 
+  /* ---- Carte communautaire (« Chat perdu ») — REFONTE : le formulaire vit sur la
+     5e face (« Signaler »), plus sur le recto. Le recto lui-même est une carte
+     broadcast classique (switch standard, cf. cards.js) : rien à câbler ici pour
+     l'abonnement, toggleConnected() s'en charge déjà comme pour toute autre carte
+     simple. Ce bloc ne gère que : ouverture de la 5e face (chargement de la liste),
+     bascule du sous-formulaire, soumission, et « Je l'ai vu » par instance. ---- */
+
+  // Rendu de la liste (ou état vide/erreur) dans .community-list.
+  function renderCommunityList(card, rows) {
+    var list = card.querySelector('.community-list');
+    if (!list) return;
+    if (!rows || !rows.length) {
+      list.innerHTML = '<div class="community-loading">Aucun signalement actif près de chez vous pour l’instant.</div>';
+      return;
+    }
+    list.innerHTML = rows.map(function (r) { return LBACards.communityReportItem(r); }).join('');
+  }
+
+  // Chargée à CHAQUE ouverture de la 5e face (pas de cache) : la liste dépend du
+  // rayon/commune du profil, calculé côté serveur à la volée (GET /api/community-reports).
+  async function loadCommunityReports(card) {
+    var list = card.querySelector('.community-list');
+    if (list) list.innerHTML = '<div class="community-loading">Chargement…</div>';
+    try {
+      var res = await fetch('/api/community-reports?token=' + encodeURIComponent(LBASession.get()), {
+        headers: { Accept: 'application/json' },
+      });
+      if (!res.ok) throw new Error('http');
+      var rows = await res.json();
+      renderCommunityList(card, Array.isArray(rows) ? rows : []);
+    } catch (e) {
+      if (list) list.innerHTML = '<div class="community-loading">Impossible de charger les signalements — réessayez.</div>';
+    }
+  }
+
+  // Carte communautaire : un seul POST couvre création ET adhésion — le serveur seul
+  // sait s'il existe déjà une instance active pour la commune saisie (dédup par
+  // commune). Description/Lien ne sont exigés par le serveur QUE s'il n'y a pas
+  // d'instance existante ; laissés vides sur une commune déjà signalée, ils sont
+  // simplement ignorés (pas de pré-check dédié côté client, cf. cards.js/communityFace).
+  async function submitCommunityReport(card, btn) {
+    var villeEl = card.querySelector('.community-ville');
+    var ville = villeEl ? villeEl.value.trim() : '';
+    if (!ville) {
+      if (villeEl) { villeEl.focus(); villeEl.style.borderColor = 'var(--amber)'; }
+      return;
+    }
+    if (villeEl) villeEl.style.borderColor = '';
+    if (document.body.getAttribute('data-mode') !== 'connected') { window.location.href = '/connexion'; return; }
+    var descEl = card.querySelector('.community-desc');
+    var linkEl = card.querySelector('.community-link');
+    var radiusEl = card.querySelector('.community-radius');
+    btn.disabled = true;
+    try {
+      var res = await fetch('/api/community-reports', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token: LBASession.get(), ville: ville,
+          description: descEl ? descEl.value.trim() : '',
+          link: linkEl ? linkEl.value.trim() : '',
+          radius_km: radiusEl ? radiusEl.value : undefined,
+        }),
+      });
+      var data = await res.json().catch(function () { return {}; });
+      if (res.status === 401) { LBASession.clear(); note(card, 'Session expirée, reconnectez-vous', 'err'); return; }
+      if (!res.ok) { note(card, data.error || 'Réessaie plus tard', 'err'); return; }
+      var communeNom = (data.report && data.report.commune_nom) || ville;
+      note(card, data.joined
+        ? 'Vous suivez déjà le signalement actif de ' + communeNom + '.'
+        : 'Signalement créé pour ' + communeNom + '. Il expire dans 7 jours.', 'ok');
+      if (villeEl) villeEl.value = '';
+      if (descEl) descEl.value = '';
+      if (linkEl) linkEl.value = '';
+      var form = card.querySelector('.community-form');
+      if (form) form.hidden = true; // referme le sous-formulaire après soumission réussie
+      celebrate(card);
+      loadCommunityReports(card); // rafraîchit la liste (la nouvelle/rejointe instance y apparaît)
+    } catch (e) { note(card, 'Réessaie plus tard', 'err'); }
+    finally { btn.disabled = false; }
+  }
+
+  // Ouverture de la 5e face (même bouton .task-config que 'user-task' → flip déjà
+  // câblé plus haut ; ce handler, distinct, ne fait QUE déclencher le chargement de
+  // la liste — un second marqueur .community-config évite tout court-circuit avec
+  // une éventuelle carte 'user-task').
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest('button.community-config');
+    if (!btn) return;
+    if (btn.closest('.deck-card')) return;
+    var card = btn.closest('.card'); if (!card) return;
+    loadCommunityReports(card);
+  });
+
+  // Bascule du sous-formulaire de création/adhésion (masqué par défaut).
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest('.community-report-toggle');
+    if (!btn) return;
+    if (btn.closest('.deck-card')) return;
+    e.preventDefault();
+    var card = btn.closest('.card'); if (!card) return;
+    var form = card.querySelector('.community-form'); if (!form) return;
+    var willShow = !!form.hidden;
+    form.hidden = !willShow;
+    if (willShow) { var v = form.querySelector('.community-ville'); if (v) v.focus(); }
+  });
+
+  // « Je l'ai vu » par instance — idempotent côté serveur (PK composite), ferme
+  // automatiquement l'instance au 3e signalant distinct (le serveur renvoie le
+  // statut à jour, reflété ici sans re-fetch de toute la liste).
+  document.addEventListener('click', async function (e) {
+    var btn = e.target.closest('.community-spot');
+    if (!btn) return;
+    if (btn.closest('.deck-card')) return;
+    var item = btn.closest('.community-item'); if (!item) return;
+    var id = item.getAttribute('data-report-id'); if (!id) return;
+    e.preventDefault();
+    btn.disabled = true;
+    try {
+      var res = await fetch('/api/community-reports/' + encodeURIComponent(id) + '/spot', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: LBASession.get() }),
+      });
+      var data = await res.json().catch(function () { return null; });
+      if (!res.ok) throw new Error('http');
+      btn.outerHTML = '<span class="community-spotted-tag">Déjà signalé ✓</span>';
+      if (data && data.status === 'resolved') {
+        var due = item.querySelector('.task-due');
+        if (due) due.textContent = 'Résolu — merci !';
+      }
+    } catch (err) { btn.disabled = false; }
+  });
+
   async function removeParam(card, chip) {
     var params;
     try { params = JSON.parse(chip.getAttribute('data-params')); } catch (e) { return; }
@@ -915,20 +1143,25 @@
       var c = card.querySelector('.param-chips');
       if (c && !c.querySelector('.param-chip')) {
         card.dataset.subscribed = '0';
-        // Désabonnement TOTAL : on retire l'interrupteur pause/reprise et on rétablit
-        // l'état « non abonné » (libellé pour les non-géo ; le switch S'abonner du picker
-        // suffit pour les géo).
-        var mute = card.querySelector('.param-mute-row'); if (mute) mute.remove();
-        var add = card.querySelector('.param-add'); if (add) add.remove();
-        // Désabonnement TOTAL : on rétablit l'état « premier abonnement » → le switch
-        // « S'abonner » du picker redevient visible (il avait été masqué à l'abonnement),
-        // seul moyen de re-souscrire une valeur géo pré-remplie sans la re-sélectionner.
-        var followRow = card.querySelector('.param-follow-row');
-        if (followRow) { followRow.hidden = false; var fcb = followRow.querySelector('.param-follow-cb'); if (fcb) fcb.checked = false; }
-        // Le picker (contrôle + switch S'abonner) redevient l'état « non abonné » pour
-        // les deux familles → plus de libellé « Non abonné » séparé à recréer.
-        togglePicker(card, true);
+        // En vue « Mes alertes », un désabonnement TOTAL entre en SURSIS (~1,5 s) avant de
+        // disparaître. On NE réinitialise PAS l'UI « premier abonnement » tant que dure le
+        // sursis : sinon le switch « S'abonner » ré-affiché (DÉSACTIVÉ pour les non-géo)
+        // clignoterait dans « Mes alertes » pendant le délai. On fige donc l'UI « abonnée »
+        // (interrupteur pause conservé) ; la carte est retirée du DOM à l'expiration.
+        var inMineGrace = (cat === 'mine');
+        if (!inMineGrace) {
+          // Désabonnement TOTAL (hors vue mine) : on retire l'interrupteur pause/reprise et on
+          // rétablit l'état « premier abonnement » → le switch « S'abonner » du picker redevient
+          // visible (masqué à l'abonnement), seul moyen de re-souscrire une valeur géo pré-remplie.
+          var mute = card.querySelector('.param-mute-row'); if (mute) mute.remove();
+          var add = card.querySelector('.param-add'); if (add) add.remove();
+          var followRow = card.querySelector('.param-follow-row');
+          if (followRow) { followRow.hidden = false; var fcb = followRow.querySelector('.param-follow-cb'); if (fcb) fcb.checked = false; }
+          togglePicker(card, true);
+        }
       }
+      // Désabonnement TOTAL dans la vue « Mes alertes » → sursis avant disparition.
+      if (cat === 'mine' && card.dataset.subscribed !== '1') scheduleMineRemoval(card);
       refreshMineDependent();
       if (window.LBAListView) LBAListView.sync(); // reflète le désabonnement d'instance sur la vue liste
     } catch (e) { /* silencieux */ }
@@ -957,6 +1190,9 @@
       // Combobox dynamic-enum : focus sur le champ VISIBLE (.dyn-search), pas l'input caché.
       var ctrl = card.querySelector('.dyn-search, .param-select, .param-input');
       if (ctrl) ctrl.focus();
+    } else if (e.target.closest('.community-submit')) {
+      e.preventDefault();
+      submitCommunityReport(card, e.target.closest('.community-submit'));
     }
   });
 
@@ -1220,22 +1456,81 @@
 
   // Recalcule tout ce qui dépend de la liste des abonnements, sans rechargement :
   // compteur du chip « Mes alertes », KPI perso, et re-filtrage si « mine » actif.
+  // Une carte est-elle EN PAUSE (muted) ? Seules les cartes à interrupteur pause/reprise
+  // (paramétrées géo/non-géo + tâches) portent un `.param-mute` : présent ET décoché = en pause.
+  // Les cartes simples (broadcast) n'en ont pas → jamais « muted ».
+  function isMuted(c) {
+    var m = c.querySelector('.param-mute');
+    return !!m && !m.checked;
+  }
+  // Prédicat UNIQUE de sortie de « Mes alertes » : une carte quitte la vue mine si elle n'est
+  // plus abonnée (désabonnement v1) OU si elle est en pause (mute v2). L'abonnement reste réel
+  // dans les deux cas côté base pour une carte en pause (data-subscribed reste '1') — c'est la
+  // VISIBILITÉ du filtre qui tient compte du muted, pas l'état d'abonnement.
+  function mineHidden(c) { return c.dataset.subscribed !== '1' || isMuted(c); }
+
+  // ⚠️ SURSIS DE DISPARITION — SPÉCIFIQUE À LA VUE « mine » (« Mes alertes »), NE PAS
+  // GÉNÉRALISER. EXCEPTION ASSUMÉE (même esprit que le cron dédié « ne pas copier ailleurs »
+  // du poller) : dans CE filtre uniquement, une carte qu'on vient de désabonner OU de mettre en
+  // pause reste visible ~1,5 s avant de sortir, offrant une annulation IMPLICITE — re-cliquer le
+  // switch (réabonner) ou reprendre (unmute) pendant le sursis annule la disparition. Pas de
+  // bouton d'annulation dédié, pas de `disabled` (le switch reste pleinement fonctionnel pendant
+  // le délai). Les AUTRES vues retirent/masquent leurs cartes immédiatement : ne pas copier-coller
+  // ce mécanisme ailleurs sans réflexion.
+  var MINE_GRACE_MS = 1500;
+  function scheduleMineRemoval(card) {
+    if (cat !== 'mine') return;             // réservé au filtre « Mes alertes »
+    card._mineGrace = true;                 // reste éligible (visible) pendant le sursis
+    card.classList.add('mine-leaving');     // repère visuel doux (fondu atténué)
+    clearTimeout(card._mineTimer);
+    card._mineTimer = setTimeout(function () {
+      card._mineTimer = null;
+      card._mineGrace = false;
+      card.classList.remove('mine-leaving');
+      // Toujours hors « mine » à l'expiration (désabonnée OU en pause) → retrait réel (FLIP de
+      // apply). Si l'utilisateur a changé de filtre entre-temps, apply(true) reste cohérent.
+      if (mineHidden(card)) apply(true);
+    }, MINE_GRACE_MS);
+  }
+  // Aligne le sursis mine sur l'état RÉEL de la carte (relit data-subscribed + muted) : programme
+  // le retrait si la carte doit quitter « mine », l'annule sinon. Utilisé par la pause/reprise.
+  function syncMineGrace(card) {
+    if (cat !== 'mine') return;
+    if (mineHidden(card)) scheduleMineRemoval(card); else cancelMineRemoval(card);
+  }
+  function cancelMineRemoval(card) {
+    if (card._mineTimer) { clearTimeout(card._mineTimer); card._mineTimer = null; }
+    card._mineGrace = false;
+    card.classList.remove('mine-leaving');
+  }
+
+  /* Panneau « Mon compte » : nombre de cartes EN FAVORIS (« Ma collection »), pas
+     d'alertes suivies. Même prédicat que le filtre ?mode=favoris (cardIsFav) → le
+     chiffre annoncé est exactement ce que le clic affiche. Les cartes paginées
+     restent dans le DOM (.hidden-more), le compte est donc complet. */
+  function refreshCollectionCount() {
+    var el = document.getElementById('acct-collection-count');
+    if (!el) return;
+    var n = cards.filter(cardIsFav).length;
+    el.textContent = n > 0
+      ? (n + (n > 1 ? ' cartes dans ma collection' : ' carte dans ma collection'))
+      : 'Aucune carte dans ma collection pour l\'instant';
+    el.hidden = false;
+  }
+
   function refreshMineDependent() {
     var mineCount = cards.filter(function (c) { return c.dataset.subscribed === '1'; }).length;
     var mineChipN = document.querySelector('.chip-f[data-cat="mine"] .n');
     if (mineChipN) mineChipN.textContent = mineCount;
 
-    // Panneau « Mon compte » : nombre de cartes dans la collection de l'utilisateur.
-    var collCountEl = document.getElementById('acct-collection-count');
-    if (collCountEl) {
-      collCountEl.textContent = mineCount > 0
-        ? (mineCount + (mineCount > 1 ? ' cartes dans ma collection' : ' carte dans ma collection'))
-        : 'Aucune carte dans ma collection pour l\'instant';
-      collCountEl.hidden = false;
-    }
+    refreshCollectionCount();
 
+    // Le compteur (= la pastille de notification de la cloche) DOIT utiliser le même
+    // prédicat que la vue « Mes alertes » : `mineHidden` (désabonnée OU en pause).
+    // Sinon une carte mise en pause disparaît du filtre mais continue d'être comptée
+    // dans la pastille — l'utilisateur voit « 2 » alors que sa liste est vide.
     var mineActive = cards.filter(function (c) {
-      return c.dataset.subscribed === '1' && cardIsActive(c);
+      return !mineHidden(c) && cardIsActive(c);
     }).length;
     updateKPIMine(mineActive);
 
@@ -1248,7 +1543,7 @@
   // A3) Icônes SVG (même famille que SHARE_SVG/INFO_SVG : trait 2px, linecap round,
   // 16px, currentColor) pour remplacer les emoji 🆕/✨ des puces spéciales.
   var ICON_NOUVEAUTES = '<svg class="chip-ic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.2l1.7 4L18 8.9l-4.3 1.7L12 14.9l-1.7-4.3L6 8.9l4.3-1.7z"/><path d="M18.5 14.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z"/></svg>';
-  var ICON_SELECTION = '<svg class="chip-ic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 3.5h11a1 1 0 0 1 1 1V20l-6.5-4.2L5.5 20V4.5a1 1 0 0 1 1-1z"/></svg>';
+  var ICON_SELECTION = '<svg class="chip-ic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.6l2.6 5.3 5.9.9-4.25 4.15 1 5.85L12 17l-5.25 2.75 1-5.85L3.5 9.8l5.9-.9z"/></svg>';
   // Seuil de pagination par défaut : anonyme 6 (+ carte Proposer), connecté 8
   // cartes normales (+ la carte recommandée épinglée en 9e = 9 visibles).
   var INITIAL_ANON = 5, INITIAL_CONNECTED = 8, STEP = 9;
@@ -1364,7 +1659,8 @@
   function matches(c, q) {
     var okCat;
     if (cat === 'all') okCat = true;
-    else if (cat === 'mine') okCat = c.dataset.subscribed === '1';
+    else if (cat === 'mine') okCat = !mineHidden(c); // abonnée ET non en pause
+    else if (cat === 'favoris') okCat = cardIsFav(c); // cartes ET tuiles-deck aimées (ex-page /favoris)
     else if (isSpecial(cat)) okCat = !!(specialIds && specialIds[c.getAttribute('data-source-id')]);
     else okCat = catsOf(c).indexOf(cat) !== -1;
     var okQ = !q || (c.dataset.search || '').indexOf(q) !== -1;
@@ -1372,7 +1668,8 @@
   }
 
   // Puces : [Toutes] [Mes alertes si connecté] [3-4 catégories les + peuplées] [+ 2e ligne].
-  function renderChips(mode) {
+  // (plus de paramètre `mode` : le rail est identique connecté et anonyme.)
+  function renderChips() {
     var chipsEl = document.getElementById('chips');
     if (!chipsEl) return;
     // Sous recherche : les puces ne décrivent QUE les résultats — comptes calculés sur les
@@ -1390,10 +1687,12 @@
     window.LBAKioskCats = slugs.map(function (s) { return { slug: s, label: LBACat.label(s), count: counts[s] }; });
     // Mobile (≤720px) : rail horizontal unique — TOUTES les catégories dans la 1re
     // ligne (pas de « + » ni de 2e ligne). Desktop : 7 puces visibles ≥1024px (sinon 5)
-    // avant le « + ». Total visible = Toutes [+ Mes alertes] + primary.
+    // avant le « + ». Total visible = Toutes + primary.
+    // Le plafond ne dépend PLUS de l'état de connexion (30/07) : il réservait une place
+    // à la puce « Ma collection », retirée du rail — le lien de nav-right la remplace.
     var mobile = !!(window.matchMedia && window.matchMedia('(max-width: 720px)').matches);
     var wide = !!(window.matchMedia && window.matchMedia('(min-width: 1024px)').matches);
-    var primaryN = mobile ? slugs.length : (mode === 'connected' ? (wide ? 5 : 3) : (wide ? 6 : 4));
+    var primaryN = mobile ? slugs.length : (wide ? 6 : 4);
     var primary = slugs.slice(0, primaryN);
     var secondary = mobile ? [] : slugs.slice(primaryN, primaryN + 8);
     var mineCount = pool.filter(function (c) { return c.dataset.subscribed === '1'; }).length;
@@ -1409,13 +1708,15 @@
 
     function paint() {
       var prim = '<button class="chip-f on" type="button" data-cat="all">Toutes <span class="n">' + pool.length + '</span></button>';
-      if (mode === 'connected' && (!q || mineCount)) prim += chip('mine', 'Ma collection', mineCount);
+      // « Ma collection » RETIRÉE du rail de catégories (30/07) : le lien reste dans
+      // nav-right, seul point d'entrée. Le filtre data-cat="mine" reste supporté
+      // (handlers, libellé, refreshMineDependent) — plus aucune puce ne le déclenche.
       // A6) Puces spéciales « Nouveautés » / « Les plus populaires » en tête (après Toutes/Mes alertes).
       // Masquées sous recherche : elles ignorent la requête (top-N global), donc elles ne
       // décriraient pas les résultats affichés.
       if (!q) {
         prim += '<button class="chip-f chip-special" type="button" data-cat="nouveautes">' + ICON_NOUVEAUTES + ' Nouveautés</button>';
-        prim += '<button class="chip-f chip-special" type="button" data-cat="selection">' + ICON_SELECTION + ' Les plus populaires</button>';
+        prim += '<button class="chip-f chip-special" type="button" data-cat="selection">' + ICON_SELECTION + ' Populaires</button>';
       }
       primary.forEach(function (s) { prim += chip(s, LBACat.label(s), counts[s]); });
       if (secondary.length) prim += '<button class="chip-f chip-more-toggle" type="button" aria-label="Plus de catégories">+</button>';
@@ -1466,6 +1767,9 @@
       : cards;
     order.forEach(function (c) {
       var elig = matches(c, q);
+      // Sursis vue « mine » : une carte en cours de retrait reste éligible (donc visible)
+      // pendant son délai de grâce, le temps d'une annulation par re-clic (cf. scheduleMineRemoval).
+      if (cat === 'mine' && c._mineGrace) elig = true;
       // Épinglées (ne consomment pas de créneau) : la reco, la carte de comblement, et les
       // tuiles-deck (elles ne comptent pas dans la pagination des alertes).
       var isReco = c.classList.contains('card-reco') || c.classList.contains('card-filler')
@@ -1490,9 +1794,14 @@
   }
 
   function setClasses() {
+    // Vue « Mes alertes » : les cartes ACTIVES (une alerte est en cours) remontent en tête de
+    // grille via CSS order (-1), sans toucher au DOM ni à l'ordre des autres vues. L'ordre
+    // relatif au sein de chaque groupe (actives / calmes) est préservé. Hors mine : order neutre.
+    var mineView = (cat === 'mine');
     cards.forEach(function (c) {
       c.classList.toggle('filtered', !c._elig);
       c.classList.toggle('hidden-more', c._elig && !c._show);
+      c.style.order = (mineView && cardIsActive(c)) ? '-1' : '';
     });
   }
   function updateMore(info) {
@@ -1512,12 +1821,19 @@
     return list;
   }
 
-  // Empty-state du filtre « mine » (aucune alerte suivie).
+  // Empty-state des filtres personnels « mine » et « favoris » (aucune carte à montrer).
+  // Même bloc, libellé adapté : le bouton « Découvrir le kiosque » convient aux deux.
   function updateMineEmpty() {
     var el = document.getElementById('mine-empty');
     if (!el || !grid) return;
     var anyElig = cards.some(function (c) { return c._elig; });
-    var show = (cat === 'mine') && !anyElig;
+    var show = (cat === 'mine' || cat === 'favoris') && !anyElig;
+    if (show) {
+      var p = el.querySelector('p');
+      if (p) p.textContent = (cat === 'favoris')
+        ? 'Aucun favori pour l\'instant — touchez le ❤ d\'une carte pour la retrouver ici.'
+        : 'Aucune alerte suivie pour l\'instant.';
+    }
     el.hidden = !show;
     grid.style.display = show ? 'none' : '';
   }
@@ -1765,11 +2081,11 @@
       var clr = document.querySelector('.search .search-clear');
       if (clr) clr.hidden = !q.length;
       did = true;
-      renderChips(currentMode); // ?q= depuis une autre page : puces limitées aux résultats
+      renderChips(); // ?q= depuis une autre page : puces limitées aux résultats
       markActiveChip(cat);
     }
     var catParam = params.get('cat'); // A1) filtre catégorie depuis le menu d'une autre page
-    if (mode === 'nouveautes' || mode === 'selection' || mode === 'mine') {
+    if (mode === 'nouveautes' || mode === 'selection' || mode === 'mine' || mode === 'favoris') {
       selectChip(mode); // applique déjà le filtre (avec la recherche courante)
     } else if (catParam) {
       selectChip(catParam);
@@ -1787,7 +2103,7 @@
     cards = Array.prototype.slice.call(grid.querySelectorAll('.card[data-cats]'));
     addCard = grid.querySelector('.card.add:not(.reco-hidden)'); // Proposer masquée en mode connecté
     visibleLimit = initialLimit(); // 6 (anon) ou 8 (connecté, + reco épinglée)
-    renderChips(mode);
+    renderChips();
 
     var meb = document.getElementById('mine-empty-btn');
     if (meb) meb.addEventListener('click', function () { if (qInput) qInput.value = ''; selectChip('all'); });
@@ -1817,7 +2133,7 @@
     // on ne touche pas à la catégorie courante.
     function runSearch() {
       var want = normQ(qInput.value) ? 'all' : cat; // nouvelle recherche → retour à « Toutes »
-      renderChips(mode);                            // puces limitées aux catégories des résultats
+      renderChips();                                // puces limitées aux catégories des résultats
       if (cat !== want) selectChip(want);           // applique déjà (et remarque la puce)
       else { markActiveChip(cat); apply(true); }
     }
@@ -1897,6 +2213,21 @@
           selectChip('mine');
           scrollToGrid();
         }
+      });
+    });
+  }
+
+  // Lien ❤ du header : la page /favoris est REMPLACÉE par un filtre du kiosque (même
+  // mécanique que « Ma collection »). Sur la home on filtre sur place, quel que soit
+  // l'état de connexion (les favoris existent aussi en anonyme, via localStorage) ;
+  // ailleurs le href /?mode=favoris fait le trajet. Apparence du lien inchangée.
+  function bindFavLinks() {
+    document.querySelectorAll('.fav-link').forEach(function (a) {
+      a.addEventListener('click', function (e) {
+        e.preventDefault();
+        if (window.LBAAccount && window.LBAAccount.close) window.LBAAccount.close();
+        selectChip('favoris');
+        scrollToGrid();
       });
     });
   }
@@ -2031,6 +2362,9 @@
           mode = 'connected';
           email = s.data.email;
           (s.data.sources || []).forEach(function (x) { subMap[x.id] = x.subscribed; mineMap[x.id] = x; });
+          // Favoris serveur (« Ma collection ») → cœur rempli sur toute carte (markLikes).
+          serverFavs = {};
+          (s.data.favorites || []).forEach(function (id) { serverFavs[id] = true; });
           profile.country = s.data.country || null;
           profile.departement = s.data.departement || null;
           profile.region = s.data.region || null;
@@ -2112,8 +2446,13 @@
 
     document.body.setAttribute('data-mode', mode);
     if (mode === 'connected') {
-      // D) KPI personnalisé : actives parmi les abonnements.
-      var mineActive = sources.filter(function (s) { return subMap[s.id] && s.state === 'active'; }).length;
+      // D) KPI personnalisé : actives parmi les abonnements. Les abonnements EN PAUSE
+      // (muted) sont exclus, comme dans la vue « Mes alertes » et dans
+      // refreshMineDependent() — sinon la pastille de la cloche compte des alertes que
+      // l'utilisateur ne voit plus dans sa liste.
+      var mineActive = sources.filter(function (s) {
+        return subMap[s.id] && s.state === 'active' && !(mineMap[s.id] && mineMap[s.id].muted);
+      }).length;
       updateKPIMine(mineActive);
       // Salutation à la place du h1 : « Bonjour <prénom en accent> ».
       // D) Titre dynamique animé : initialise « Bonjour <prénom> » (sans animation
@@ -2137,6 +2476,7 @@
     applyUrlParams(); // Lot 5) ?q=<terme> et ?mode=nouveautes|selection|mine depuis les autres pages
     applyTaskConfirmed(); // V3) retour depuis le lien email de confirmation d'échéance
     bindMineLinks();
+    bindFavLinks();
     bindBrandTop();
     if (mode === 'connected') bindAccount();
     // Point 4 : arrivée depuis une autre page via « Mon compte » (lien /#mon-compte) →
@@ -2256,7 +2596,7 @@
     // compteurs incomplets. On les re-rend ici pour qu'elles décrivent toujours l'ensemble de
     // `cards` — sinon la 1re recherche « corrigeait » les compteurs et élargissait le rail
     // (le « + » basculant sur une 2e ligne au retour à « Toutes »).
-    renderChips(currentMode);
+    renderChips();
     markActiveChip(cat);
     bindDeckSwitches();
     // Ordre unifie cartes+decks : les cartes portent deja un data-order (entier, pose au
@@ -2458,7 +2798,8 @@
   function titleForMode(slug) {
     if (slug === 'nouveautes') return 'Les nouvelles';
     if (slug === 'selection') return 'Les plus populaires';
-    if (slug === 'mine') return 'Ma collection';
+    if (slug === 'mine') return 'Mes alertes';
+    if (slug === 'favoris') return 'Mes favoris';
     if (slug === 'all' || !slug) return heroName ? ('Bonjour ' + heroName) : 'Bonjour';
     return (window.LBACat && LBACat.label) ? LBACat.label(slug) : slug; // catégorie normale
   }
@@ -2502,6 +2843,8 @@
     if (nameEl) nameEl.textContent = nm ? 'Bonjour ' + nm : 'Mon compte';
     if (emailEl) emailEl.textContent = accountEmail || '';
     renderAvatar(nm);
+    // Même initiale dans l'avatar « Mon compte » du header (pseudo prioritaire sur l'email).
+    if (LBASession.setAvatarInitial) LBASession.setAvatarInitial(nm || accountEmail);
   }
 
   // Avatar à initiale : première lettre du pseudo (sinon de l'email), teinte violette
@@ -2554,57 +2897,118 @@
     window.scrollTo({ top: 0, behavior: REDUCE ? 'auto' : 'smooth' });
   }
 
+  // Mosaïque : le panneau compte n'est plus une carte flip mais trois vues
+  // empilées (compte / historique / nous soutenir) ; on affiche l'une, on masque
+  // les autres.
+  // La bascule reprend EXACTEMENT la transition de swap() (fondu sortant puis
+  // fondu + léger glissement entrant) déjà utilisée pour grille ↔ panneau compte.
+  // `instant` : ouverture/fermeture du panneau, où l'état est posé sans animation
+  // (c'est swap() du panneau lui-même qui anime).
+  function showAcctView(name, instant) {
+    var views = ['main', 'history', 'support'].map(function (v) {
+      return { name: v, el: document.getElementById('acct-view-' + v) };
+    }).filter(function (v) { return !!v.el; });
+    var next = views.filter(function (v) { return v.name === name; })[0];
+    var cur = views.filter(function (v) { return !v.el.hidden; })[0];
+    if (!next) return;
+    if (instant || !cur || cur === next) {
+      views.forEach(function (v) { v.el.hidden = (v !== next); });
+      return;
+    }
+    views.forEach(function (v) { if (v !== cur && v !== next) v.el.hidden = true; });
+    swap(cur.el, next.el);
+    // La mosaïque ne se mesure pas tant qu'elle est hidden : on recale au retour.
+    if (next.name === 'main') setTimeout(layoutAcctMosaic, REDUCE ? 0 : 200);
+  }
+
+  /* Calage maçonnerie de la mosaïque du compte (voir .is-masonry dans site.css).
+     Les rangées font 4px : chaque tuile occupe autant de rangées que sa hauteur,
+     donc la tuile suivante remonte au lieu d'attendre la fin de la rangée. */
+  var ACCT_ROW = 4;
+  function layoutAcctMosaic() {
+    var m = document.querySelector('#acct-view-main .acct-mosaic');
+    if (!m || !m.offsetParent) return; // panneau fermé : rien à mesurer
+    var cs = getComputedStyle(m);
+    var cols = (cs.gridTemplateColumns || '').split(' ').filter(Boolean).length;
+    // L'écart vertical vient de --acct-row-gap : en maçonnerie le row-gap CSS est
+    // à 0 (les rangées de 4px doivent être jointives), donc on le réintègre ici.
+    var gap = parseFloat(cs.getPropertyValue('--acct-row-gap')) || 0;
+    // Une seule colonne (mobile) : la grille normale suffit, pas de span à poser.
+    if (cols < 2) {
+      m.classList.remove('is-masonry');
+      m.querySelectorAll('.acct-tile').forEach(function (t) { t.style.gridRowEnd = ''; });
+      return;
+    }
+    m.classList.add('is-masonry');
+    m.querySelectorAll('.acct-tile').forEach(function (t) {
+      if (t.hidden) { t.style.gridRowEnd = ''; return; }
+      var h = t.getBoundingClientRect().height;
+      t.style.gridRowEnd = 'span ' + Math.ceil((h + gap) / ACCT_ROW);
+    });
+  }
+
+  // Les rubriques sont peuplées de façon asynchrone (push/profile/quiet/sources) et
+  // changent de hauteur au fil des interactions (chips, lignes dépliées) : on
+  // observe les tuiles plutôt que de recalculer à l'aveugle.
+  function watchAcctMosaic() {
+    var m = document.querySelector('#acct-view-main .acct-mosaic');
+    if (!m) return;
+    layoutAcctMosaic();
+    window.addEventListener('resize', layoutAcctMosaic);
+    if (!window.ResizeObserver) return;
+    var ro = new ResizeObserver(function () { layoutAcctMosaic(); });
+    m.querySelectorAll('.acct-tile').forEach(function (t) { ro.observe(t); });
+  }
+
   function openAccount() {
     var main = document.getElementById('alertes');
     var panel = document.getElementById('account-panel');
     if (!main || !panel || currentMode !== 'connected' || !panel.hidden) return;
     fillAccountHeader();
-    var card = document.getElementById('acct-card');
-    if (card) card.classList.remove('flipped', 'acct-face-support'); // toujours ouvrir sur le recto
+    showAcctView('main', true); // toujours ouvrir sur la vue compte (sans animation propre)
     setAccountLabel('Mon compte');
     document.body.classList.add('account-open');
     swap(main, panel);
+    // La mosaïque n'est mesurable qu'une fois le panneau affiché par swap().
+    setTimeout(layoutAcctMosaic, REDUCE ? 0 : 200);
   }
 
   function closeAccount() {
     var main = document.getElementById('alertes');
     var panel = document.getElementById('account-panel');
     if (!main || !panel || panel.hidden) return;
-    var card = document.getElementById('acct-card');
-    if (card) card.classList.remove('flipped', 'acct-face-support');
+    showAcctView('main', true);
     setAccountLabel('Mon compte');
     document.body.classList.remove('account-open');
     swap(panel, main);
   }
 
   function bindAccount() {
-    var card = document.getElementById('acct-card');
+    var panel = document.getElementById('account-panel');
     var toHist = document.getElementById('acct-to-history');
-    // Point 6 : « Mon historique » → flip + remontée en haut de page (voir le début).
-    if (toHist && card) toHist.addEventListener('click', function () {
-      card.classList.remove('acct-face-support');
-      card.classList.add('flipped');
+    // Point 6 : « Mon historique » → vue historique + remontée en haut de page.
+    if (toHist) toHist.addEventListener('click', function () {
+      showAcctView('history');
       setAccountLabel('Mon historique');
       scrollAcctTop();
     });
-    // Point 7 : « Toutes les façons d'aider » → 3e face « Nous soutenir » (flip).
+    // Point 7 : « Toutes les façons d'aider » → vue « Nous soutenir ».
     var toSupport = document.getElementById('acct-to-support');
-    if (toSupport && card) toSupport.addEventListener('click', function () {
-      card.classList.add('flipped', 'acct-face-support');
+    if (toSupport) toSupport.addEventListener('click', function () {
+      showAcctView('support');
       setAccountLabel('Nous soutenir');
       scrollAcctTop();
     });
-    // Le ↩ de chaque face est géré par le handler global .flip-back (retour au recto) :
-    // on remet le label sur « Mon compte » et on retire la 3e face (après la rotation,
-    // pour éviter tout flicker de la face historique).
-    if (card) card.querySelectorAll('.flip-back').forEach(function (fb) {
+    // Le ↩ de chaque vue secondaire ramène à la vue compte.
+    if (panel) panel.querySelectorAll('[data-acct-back]').forEach(function (fb) {
       fb.addEventListener('click', function () {
+        showAcctView('main');
         setAccountLabel('Mon compte');
-        setTimeout(function () { card.classList.remove('acct-face-support'); }, REDUCE ? 0 : 520);
+        scrollAcctTop();
       });
     });
-    var close = document.getElementById('acct-close');
-    if (close) close.addEventListener('click', closeAccount);
+    // Fermeture : par le bouton « Revenir à ma collection » (le ✕ flottant a été
+    // retiré — il se posait sur une tuile de la mosaïque).
     var backGrid = document.getElementById('acct-back-grid');
     if (backGrid) backGrid.addEventListener('click', closeAccount);
     var lo = document.getElementById('acct-logout');
@@ -2614,6 +3018,8 @@
     if (del) del.addEventListener('click', function () { LBASession.deleteAccount(); });
     // G) Charge « Mes sources » (espace développeur embryonnaire).
     loadMySources();
+    // Calage maçonnerie (et resync à chaque changement de hauteur d'une tuile).
+    watchAcctMosaic();
   }
 
   /* ---------------- G) Mes sources (recto du panneau compte) ---------------- */

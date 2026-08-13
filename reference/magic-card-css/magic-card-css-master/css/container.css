@@ -1,0 +1,11 @@
+.card-container {
+    border: 1px solid black;
+    width: 420px;
+    height: 600px;
+    margin: 0 auto;
+    margin-top: 2rem;
+    border-radius: 25px;
+    box-sizing: border-box;
+    box-shadow: -8px 9px 16px -3px gray;
+    background: #171314;
+}

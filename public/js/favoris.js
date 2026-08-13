@@ -56,10 +56,50 @@
     } catch (e) { /* non bloquant */ }
   }
 
+  // Retrait d'un favori-SOURCE (connecté) avec sursis ~1,5 s, RÉUTILISANT le vocabulaire
+  // .mine-leaving du kiosque : au 1er clic sur le cœur, la carte se grise et reste visible ;
+  // re-cliquer le cœur pendant le délai ANNULE (rien n'a encore été supprimé en base). À
+  // l'expiration seulement : DELETE /api/favorites (ne touche PAS likes_count) + retrait DOM.
+  function toggleFavRemoval(card, btn) {
+    if (!card || !btn) return;
+    if (card._favTimer) {
+      // Re-clic pendant le sursis → annulation (aucune écriture DB n'a eu lieu).
+      clearTimeout(card._favTimer); card._favTimer = null;
+      card.classList.remove('mine-leaving');
+      btn.classList.add('liked'); btn.setAttribute('aria-pressed', 'true');
+      return;
+    }
+    var id = card.getAttribute('data-source-id'); if (!id) return;
+    var token = window.LBASession && LBASession.get(); if (!token) return;
+    card.classList.add('mine-leaving');
+    btn.classList.remove('liked'); btn.setAttribute('aria-pressed', 'false');
+    card._favTimer = setTimeout(function () {
+      card._favTimer = null;
+      fetch('/api/favorites', {
+        method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: token, source_id: id })
+      }).catch(function () { /* best-effort */ });
+      card.classList.remove('mine-leaving');
+      card.remove();
+      var hasAny = gridEl.querySelector('.card, .deck-card');
+      if (!hasAny && emptyEl) emptyEl.hidden = false;
+    }, 1500);
+  }
+
   // Handler local : cœur d'une tuile-deck = retire des favoris ; clic ailleurs = navigation.
   if (gridEl) gridEl.addEventListener('click', function (e) {
     var tile = e.target.closest('.deck-card[data-deck-tile]');
-    if (!tile) return;
+    if (!tile) {
+      // Carte-source (hors tuile-deck) : le cœur RETIRE le favori de « Ma collection ».
+      // Connecté uniquement (la table favorites vit côté compte). On court-circuite le
+      // handler like de site.js (qui, lui, décrémente likes_count via DELETE /like).
+      var favBtn = e.target.closest('.card .card-like');
+      if (favBtn && MODE === 'connected') {
+        e.preventDefault(); e.stopPropagation();
+        toggleFavRemoval(favBtn.closest('.card'), favBtn);
+      }
+      return;
+    }
     if (e.target.closest('.ds-i0 .card-like')) {
       e.preventDefault(); e.stopPropagation();
       var slug = decodeURIComponent((tile.getAttribute('data-href') || '').replace('/collection/', ''));

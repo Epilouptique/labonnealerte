@@ -136,6 +136,31 @@ function validateForumBody(raw) {
   return { ok: true, value: s };
 }
 
+/* ------------------------------------------------------------------ */
+/* Lien externe (carte communautaire « Chat perdu ») : liste BLANCHE de */
+/* domaines, à l'inverse du reste du fichier (liste noire de mots). Un */
+/* champ Lien est facultatif mais, s'il est renseigné, doit pointer    */
+/* vers un service de signalement d'animaux perdus reconnu.            */
+/* ------------------------------------------------------------------ */
+const ALLOWED_LINK_DOMAINS = [
+  'i-cad.fr', 'filalapat.fr', 'spa.asso.fr', '30millionsdamis.fr',
+];
+
+// Valide une URL de lien optionnel contre ALLOWED_LINK_DOMAINS (domaine exact ou
+// sous-domaine). Vide/absent → { ok:true, value:null } (champ facultatif).
+function validateLink(raw) {
+  if (raw == null || String(raw).trim() === '') return { ok: true, value: null };
+  const s = String(raw).trim();
+  if (cpLength(s) > 300) return { ok: false, error: 'lien trop long (max 300)' };
+  let url;
+  try { url = new URL(s); } catch (e) { return { ok: false, error: 'lien invalide' }; }
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') return { ok: false, error: 'lien invalide' };
+  const host = url.hostname.toLowerCase();
+  const allowed = ALLOWED_LINK_DOMAINS.some((d) => host === d || host.endsWith('.' + d));
+  if (!allowed) return { ok: false, error: 'domaine non autorisé pour ce lien' };
+  return { ok: true, value: url.toString() };
+}
+
 // Token de partage non devinable (22 caractères base64url ≈ 128 bits).
 function genShareToken() { return crypto.randomBytes(16).toString('base64url'); }
 // Id interne d'un deck (non exposé publiquement ; le partage passe par share_token).
@@ -151,6 +176,7 @@ module.exports = {
   DECK_EMOJIS, isValidEmoji,
   validateText, validateDisplayName, validateDeckName, validateDeckDescription,
   validateTaskLabel,
-  validateForumTitle, validateForumBody, WATCHED_WORDS,
+  validateForumTitle, validateForumBody, WATCHED_WORDS, ALLOWED_FORUM_BODY,
+  validateLink, ALLOWED_LINK_DOMAINS,
   genShareToken, genDeckId, hashIp,
 };

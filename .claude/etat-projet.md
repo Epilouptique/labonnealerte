@@ -83,9 +83,27 @@ Faits (fil précédent) : cartes mobile (.wrap media query), pref-chips pleine l
 Faits (ce fil) : hero padding petits smartphones (≤400px) ; page /source responsive (manifeste JSON scrollable, .src-head compact) ; croix .src-back collection remontée mobile ; header une ligne hors home (body.m-secondary) ; /le-point aligné (header standard injecté, h1 centré, labels de section « En ce moment »/« À venir » qui se chevauchaient en ≥1280px corrigés) ; menu mobile : ligne thème retirée ; Mon compte réorganisé — section « Apparence » (thème clair/sombre + « Renforcer les contrastes »), liens morts « Mes decks »/« Proposer une source » retirés de Divers.
 ✅ RÉSOLU — MENU MOBILE SCROLL : le flip Menu⇄Catégories était un preserve-3d (couche 3D composée → contenu figé au scroll). Converti en glissement 2D translateX (m-menu-flip sans preserve-3d, m-menu-face = conteneur scrollable overflow-y:auto). Le flip 3D des CARTES kiosque (.card-inner) est intact.
 ✅ RÉSOLU — PARTAGE /mes-decks : decks.js utilise window.LBAShare.openModal (grande modale unifiée collection/deck), plus de lien brut.
-ACCESSIBILITÉ : body.high-contrast (toggle Mon compte › Apparence, persistance localStorage lba-contrast, appliqué site-wide via theme.js/site.js). Règles CSS de contraste renforcé implémentées (overrides --muted/--line/--amber en light ET dark, ajustements par composant).
+ACCESSIBILITÉ : body.high-contrast (toggle Mon compte › Apparence, persistance localStorage lba-contrast, appliqué site-wide via theme.js/site.js). ⚠️ La section « Apparence » a été refondue le 03/08 (thème à 3 états clair/auto/sombre) — voir le fil dédié. Règles CSS de contraste renforcé implémentées (overrides --muted/--line/--amber en light ET dark, ajustements par composant).
 À vérifier post-déploiement : iss-passages en conditions réelles (un soir à Gap).
 Pages de chargement : PAS de page unique — états locaux par page (.grid-loading home, .src-loading mes-decks/favoris/collection/deck), halo animé, reduced-motion respecté.
+
+## Fil « Mon compte » — refonte mosaïque (03/08/2026)
+
+PAGE ENTIÈREMENT REMISE À PLAT, périmètre strictement front (aucune table touchée ; une seule ligne serveur, cf. @pseudo).
+
+MISE EN PAGE : la carte géante `.acct-card` (flip 3 faces) est SUPPRIMÉE. Titre `<h1 class="page-title" data-hero-done="1">` aligné sur les autres pages, puis une MOSAÏQUE de petites cartes `.acct-tile` — une par rubrique : Identité, Notifications, Personnaliser les alertes, Mon pseudo, Mes points, Heures de veille, Mes sources (conditionnelle), Nous soutenir, Apparence, Divers. Les `.notif-card` internes se fondent dans leur tuile (plus de carte-dans-la-carte).
+
+CONSÉQUENCE ASSUMÉE DU DÉCOUPAGE — le flip 3D ne survivait pas à l'éclatement : historique et « Nous soutenir » deviennent deux VUES sœurs (`#acct-view-history`, `#acct-view-support`) commutées par `showAcctView()`, qui réutilise `swap()` (la transition déjà employée pour grille ⇄ panneau). CSS mort retiré (`.acct-front`, `.acct-back`, `.acct-support-face`, `.acct-face-support`). Le ✕ flottant est retiré (il se posait sur une tuile) : fermeture par « ← Revenir à ma collection », le header, le logo, ou toute interaction recherche/catégories.
+
+MAÇONNERIE (`layoutAcctMosaic()`, site.js + `.is-masonry`) : les rubriques ont des hauteurs très inégales, une grille en rangées laissait un grand vide sous les tuiles courtes. La grille reste une VRAIE grille (auto-fill 340px), mais rangées de 4px + `grid-row-end: span N` calculé par tuile → chaque carte se cale sous la précédente de SA colonne. `ResizeObserver` par tuile (les rubriques se peuplent en asynchrone et changent de hauteur), + `resize`, + retour depuis une vue secondaire. Retiré sous 2 colonnes (mobile) ; sans JS la grille normale reste valide. **Tentative écartée : `columns` CSS** (rendait une colonne unique dans notre contexte). Écart vertical piloté par `--acct-row-gap` (50px desktop / 28px mobile) — variable OBLIGATOIRE car en maçonnerie le `row-gap` CSS est à 0 et l'écart est réinjecté dans le span.
+
+profile.js — RENDU ÉCLATÉ en 3 montages (`#profile-mount`, `#pseudo-mount`, `#points-mount`) via un helper `paint(id, html)` avec repli sur `#profile-mount`. Même `state`, mêmes handlers (récupérés par id global), aucun second cycle de rendu.
+
+@PSEUDO AFFICHÉ (seule modif serveur du fil) : `subscribers.pseudo` n'était pas exposé au client. Ajouté au SELECT et à la réponse de `GET /api/my-alerts` — **et relu après `applyAutofill`**, qui le pose en même temps que le display_name (sinon null au tout premier chargement). Rendu sous « Mon pseudo » en ligne « Mon identifiant public », lien `/u/:pseudo`. Libellé distinct du champ du dessus À DESSEIN : le handle est posé UNE fois et n'est jamais régénéré au renommage (server/pseudo.js).
+
+THÈME À 3 ÉTATS (Apparence) : `light` / `dark` / **`auto` (défaut)**, sélecteur segmenté `.pref-seg` remplaçant l'interrupteur binaire. `auto` = AUCUNE valeur stockée — équivalence volontaire pour que les pages chargeant theme.js (qui ne reconnaît que light/dark et retombe sur le système) donnent le même résultat sans logique dupliquée. **Ce qui manquait vraiment** : le thème système n'était lu qu'au chargement — écouteur `matchMedia('(prefers-color-scheme: dark)')` ajouté dans site.js ET theme.js (repli `addListener` Safari < 14), qui ne réapplique QUE si la préférence est `auto`. API : `window.getThemePref()` / `window.setThemePref()`. `toggleTheme()` (bouton ◐ menu mobile) conservé et sort d'auto à dessein. Le segment peint la PRÉFÉRENCE, pas le thème résolu (sinon « Auto » jamais visible comme sélectionné).
+
+AUTRES : compteur « Ma collection » CORRIGÉ — il comptait les abonnements (`data-subscribed`), il compte désormais les FAVORIS via `cardIsFav`, prédicat identique au filtre `?mode=favoris` ; rafraîchi à chaque action du cœur, rollbacks réseau inclus ; devenu un lien vers `/?mode=favoris`. « Sur cet appareil » (push) passe du bouton « Activer » à un `.notif-toggle`, comme « Par email ». `acct-delete-link` déplacé dans la rubrique Divers.
 
 ## Chantier cartes & decks (fil clôturé 25/07/2026)
 
@@ -104,7 +122,7 @@ DECKS — CATÉGORIES, FILTRAGE, RECO : cf. « Chantier cartes & decks » (b) mi
 SYSTÈME DE POINTS COSMÉTIQUES (4 phases) — points de gamification, cosmétiques SEULEMENT (aucun avantage fonctionnel, cohérent ADN gratuit/anti-abus) :
 - Phase 1 : points_ledger (append-only, anti-doublon par contrainte unique), subscribers.points_balance ; 4 événements (DECK_ADOPTED, ALERT_SUBSCRIBED, DECK_CREATED, DECK_ADOPTED_BY_OTHERS) ; helper points.js défensif.
 - Phase 2 : rang PRIVÉ (jamais de classement public exposé — même prudence que /le-point) ; badge « Top 20 » (violet #a567e3, token à créer si réutilisé) sur decks publics ; opt-out RGPD RÉEL (exclusion du calcul, pas juste masquage) ; cache 2 min façon /le-point.
-- Phase 3 : boutique /boutique, tables skins/user_skins, achat TRANSACTIONNEL (jamais de solde négatif) ; équipement au niveau dashboard ET par deck ; 4 skins PLACEHOLDER (CSS pur, remplaçables sans migration — en attente des illustrations réelles de Hugo pour remplacer asset_ref).
+- Phase 3 : boutique /boutique, tables skins/user_skins, achat TRANSACTIONNEL (jamais de solde négatif) ; équipement au niveau dashboard ET par deck ; 4 skins placeholder d'origine (aurore/nuit-etoilee/menthe/or-royal, swatch plat, conservés). **9 VRAIS SKINS ajoutés depuis (cf. section « Fil skins de cartes ») : 5 teintes + 4 structurés, 100 % CSS, aucune image.**
 - Complément : bouton « équiper un skin » directement depuis « Mes decks » (pas seulement la boutique).
 
 VUE LISTE DENSE (nouvelle vue alternative) : COMPLÉMENT, pas remplacement du système de cartes — une ligne = une alerte sur desktop, objectif lisibilité/quantité (vs ludique/marketing). Exclut les tuiles-deck. Toggle PERSISTANT = préférence de COMPTE (subscribers.view_mode, 'cards'|'list', CHECK strict, DEFAULT 'cards') synchronisée entre appareils pour un connecté ; localStorage seul pour l'anonyme (aucun POST). Contrôle DOUBLE bidirectionnellement synchronisé : toolbar du kiosque ET Mon compte › Apparence. Accordéon GLOBAL (une seule ligne étendue à la fois) : clic ligne → description courte ; clic « i » → contenu page statut (uptime + timeline, remplace la description) ; clic « partager » → options inline (remplacent l'affichage). ZÉRO logique métier dupliquée : cœur/abonnement/partage/i FORWARDÉS aux mêmes handlers que les cartes (délégation DOM sur document, indépendante de la structure carte) — nouveaux modules public/js/view-mode.js (source de vérité data-view sur <html> + persistance) et public/js/list-view.js (rendu = projection des cartes de #grid qui restent l'unique source de vérité, sync() miroir), aucun second moteur de filtre (une seule source, site.js). Nouveau POST /api/my-alerts/view-mode dédié (auth). Modifiés : site.js (LBAKiosk, adoptAccount, render+sync), appearance.js (contrôle « Vue liste »), index.html (#view-toggle, #list, includes), site.css (~96 l.). Migration : subscribers.view_mode (ALTER idempotent + CHECK).
@@ -125,7 +143,7 @@ POINTS EN SUSPENS (fil 27/07, prochain fil ou plus tard) :
 - Reco decks dans pickReco : ~~DIFFÉRÉ~~ LIVRÉE (fil 30/07, diffs en revue — cf. section « Fil reco decks & verso deck »). Item reco généralisé source|deck, classement commun sans quota, adopted via ?token= optionnel sur GET /api/collections, adoption par l'endpoint existant, résolution DOM étendue aux tuiles-deck.
 - Communauté / réseaux sociaux / forum / alertes perso (« mon chien a disparu ») : à peine ouverts, tension avec l'ADN anti-spam — à cadrer en déclinaison V3 « community » (pré-modération, charte), pas un canal libre.
 - Promo Leboncoin : observation en cours ; brancher la vraie alerte après quelques vendredis de données.
-- Boutique de skins : 4 placeholders CSS en attente des illustrations réelles de Hugo (asset_ref).
+- Boutique de skins : 4 placeholders d'origine (swatch plat) toujours en attente d'illustrations Hugo ; les 9 vrais skins (5 teintes + 4 structurés) sont livrés en CSS pur (cf. « Fil skins de cartes »).
 - Points mineurs signalés, non traités : SNCF_API_KEY absente de l'environnement Railway (var à configurer, pas du code) ; pannes-hydro-quebec version bisversion.json illisible (bug source isolé).
 
 ## Fil "reco decks & verso deck" (30/07/2026, non déployé — diffs en revue, Hugo pousse/redéploie)
@@ -141,6 +159,25 @@ RECO DECKS DANS pickReco (LIVRÉE — lève le point « DIFFÉRÉ » des fils 25
 VERSO DES TUILES-DECK (le « i » retourne la tuile, comme une carte) : la carte de devant se retourne sur un DOS DE DECK — description du deck + catégories + auteur (`par @pseudo`, decks perso ; absent pour officiels) + « Plus d'infos → » vers la page du deck. MÊME structure/CSS/animation que le verso d'une carte classique (backFace) : on REMPLACE le `.card-back` de la source d'aperçu par un verso deck, borne stable `card-back`→`card-share-face` (ordre cardHTML front→back→share, robuste aux div imbriquées). Scope aux TUILES du kiosque (`.deck-card[data-deck-tile]` pointer-events auto sur `.ds-i0 .flip-btn`/`.card-back`) : les aperçus détail/formulaire gardent un « i » inerte. Ruban + éventail masqués pendant le flip (réutilise l'état `ds-sharing` du partage) ; handler flip-back élargi pour retirer ds-sharing au retour ; skip-list de navigation de la tuile étendue (`.ds-i0 .flip-btn`, `.ds-i0 .card-back`).
 
 PÉRIMÈTRE : fichiers touchés = server/routes/collections.js (token optionnel + adopted), public/js/site.js (pickReco, réconciliation, DOM généralisé, flip handlers, opts deck), public/js/deck-stack.js (deckBackHTML + swap du verso), public/js/cards.js (inchangé fonctionnellement — réutilisé), public/css/site.css (pointer-events tuiles, .back-author-name, .deck-card.card-reco). Aucune migration, aucune dépendance, aucune variable d'environnement nouvelle. Vérifs : node --check + harnais Node confirmant le swap du verso (description deck, faces partage/recto intactes, cartes du fond non modifiées).
+
+## Fil "skins de cartes — 9 skins boutique" (non déployé — diffs en revue, migrate à faire ; itéré sur plusieurs tours)
+
+**9 VRAIS SKINS** posés sur le mécanisme boutique existant (`skins`/`user_skins`, `asset_ref` = **token de classe CSS** posé sur `#grid` [dashboard] ou `.deck-card` [deck] ; aucune image, remplaçables sans migration). Seed idempotent `dashboard` dans init.sql (**migrate à faire**). Prix : teintes 30-60, structurés 100-150 (modèle existant). skins-reference.html (racine, non versionné) = spec des 4 structurés, **à supprimer quand validé**.
+
+- **5 TEINTES** (`fullart-or/prisme/braise/ocean/aurore`) : recolorations PURES du skin full-art par défaut — MÊME DOM `.card-front`, MÊME animation « radar calme », seules des VARIABLES CSS changent (`--tc-grad/--tc-motif-stroke/--fa-ring/--tc-edge/--tc-veil` + accent sous-titre). Le VERT d'alerte ne change JAMAIS. Prisme = anneaux multicolores + liseré irisé conic (mask-composite, **fallback @supports** = liseré violet standard sinon rectangle plein qui masquerait la carte). Zéro JS, zéro keyframe, zéro markup.
+- **4 STRUCTURÉS** (`ecole-classique/arcane/assemblee/dresseur` = « L'école classique / L'Arcane / L'Assemblée / Le Dresseur ») : approche **STRUCTURE UNIQUE**. `cards.js` émet TOUJOURS un template neutre enrichi (`.card-art` enveloppe motif+voile ; `.card-top`+2 `.card-seal` ; `.card-attacks` ; `.card-foot` ; `.card-action` enveloppe l'action), tout `display:none/contents` par défaut → **aucune branche de rendu, aucun re-render** ; les skins ne font que du CSS scopé par la classe. Chaque skin = frame/plaque/fenêtre d'art/couleurs propres + UNE animation d'état actif (sceau&reflet / boussole / invocation / la charge), jamais partagée, neutralisée par prefers-reduced-motion.
+
+CONTRAINTE N°1 (prouvée, non supposée) : full-art + 5 teintes **PIXEL-IDENTIQUES** avant/après l'enrichissement du template — harnais Playwright, hash SHA-256 égaux clair+sombre, animations figées (le faux positif initial était la phase du point vert animé). À RELANCER si cards.js retouché.
+
+PIÈGES & DÉCISIONS D'ARCHI (à retenir) :
+- **Spécificité** : la base `.grid .card-front .X` (0,3,0) bat un naïf `.skin-X .X` (0,2,0) → tous les sélecteurs structurés qui touchent `.card-edge/.card-veil/.card-subtitle/.card-front` sont scopés sous `.card-front` (0,3,0, victoire par ordre source). Bug typique symptôme : panneau crème du Dresseur par-dessus le contenu (z-index base gagnait).
+- **RATIO 2/3 PARTOUT (règle finale)** : une tentative de croissance `height:auto/min-height:360` (pour loger les cartes paramétrées) a été **ANNULÉE** car elle déformait les tuiles-deck (faces au 2/3). Les 4 structurés gardent `aspect-ratio:2/3` dans TOUS les contextes (grille, decks, boutique). Le **débordement** (paramétrées multi-chips, descriptions longues) est géré par **DÉGRADATION CSS PURE** : régions flexibles (fenêtre d'art, boîte de texte, médaillon, attaques) en `grid-template-rows: … minmax(0,…) …` + `overflow:hidden` → la description/ambiance se clippe PAR LE BAS (l'ambiance `::after` part avant la description) ; la **ZONE D'ACTION** (chips/« +ajouter »/select/switch/état/icônes) est en ligne `auto` → **JAMAIS tronquée**. Ordre de sacrifice : décoratif (ambiance, pied Dresseur, médaillon Arcane rendu responsive `height:100%;aspect-ratio:1`) → description → jamais le fonctionnel. **Aucune classe JS nécessaire.**
+- **Dresseur = contenu RÉEL** : `attacksHTML(s)` (cards.js) émet la VRAIE description de la source en « effet d'attaque » (1 rangée, nom neutre « Signal », dégâts = likes réels, masqués si 0). AUCUNE chaîne sismique en dur (bug initial : constante figée « Détection/Onde sismique » sur toutes les cartes). `.card-desc` réel reste dans le DOM en **sr-only** (a11y : l'effet d'attaque est `aria-hidden` = écho visuel). PV/espèce = sous-titre réel repositionné ; « PV 120 » décoratif générique (non-sismique) assumé.
+- **DECKS SKINNÉS** : le skin dashboard (`#grid`) s'applique AUSSI aux aperçus des tuiles-deck (`faceHTML` → `LBACards.cardHTML` → vrais `.card-front`). Décision INVERSÉE en cours de route (d'abord exclus via un scope `> .card`, puis **inclus** — « les decks sont des assemblages de cartes »). Le 2/3 garantit une géométrie de tuile **identique au défaut** (hauteurs mesurées toutes égales, 345px à 230px de large). Ruban de deck = **centrage d'origine** conservé (un ancrage-bas testé puis retiré, inutile une fois le 2/3 rétabli).
+- **Boutique** : aperçu = **VRAI RENDU** (pas d'image figée). Teintes en `.has-card` (mini carte-front 2/3, radar réel animé) ; structurés en `.has-card-full` (vraie carte à géométrie naturelle scalée par `transform:scale` depuis `transform-origin:top-left` dans une boîte fixe DE LA TAILLE SCALÉE — sinon la boîte pleine taille débordait/clippait au centrage).
+- **Icônes** (like/share/+deck/i) restent en **absolu haut-droite** (décision actée) ; l'état est en overlay haut-gauche (sauf Dresseur : retiré du haut, l'état vit dans « retraite »).
+
+FICHIERS : public/js/cards.js (template neutre + `attacksHTML(s)` + wrapper `.card-action`), public/css/site.css (gros bloc : défauts neutres inertes, 5 teintes, 4 structurés jour/nuit, dégradation 2/3, aperçus boutique), public/js/boutique.js (aperçus vrai-rendu), server/db/init.sql (seed 9 skins dashboard idempotent). **À FAIRE : `node server/db/migrate.js` (seed), puis déploiement app.** Micro-lot nettoyage UI noté en mémoire (pastille d'état parfois tronquée [pré-existant] + retrait handler reveal mobile inerte).
 
 ## Fil "V3 — tâche à échéance glissante" (30/07/2026 ; carte activée en base de TEST, prod à confirmer)
 
@@ -166,7 +203,36 @@ PAUSE : `subscriptions.muted` RÉUTILISÉ tel quel (toggle-mute est générique 
 
 DIVERS : `htmlPage` (subscribe.js) passée en CHARTE VIOLETTE (elle était restée sur l'ancienne palette ambre `#d98e04`/`#faf8f5` — les pages /confirm et /unsubscribe étaient hors charte depuis la bascule, personne ne l'avait vu) + nouveau paramètre optionnel `headExtra`. `sendTaskDueReminder` (mailer.js, via emailShell) : `fallbackUrl` retiré (le lien de repli portait un token de 64 caractères). Script `scripts/test-user-task-notify.js` (déclencheur manuel du job, `pool.end()` en finally — sans lui le shell Railway ne rend jamais la main). ⚠️ ENVOIE DE VRAIS EMAILS.
 
-DETTES OUVERTES (toutes non bloquantes) : (1) **VUE LISTE — PRIORITAIRE** : list-view.js ne passe pas par cardHTML → en `view_mode: 'list'` il n'existe AUCUN chemin vers les tâches (aggravé par le passage sur la 5e face : avant, le verso classique les portait) ; (2) mode `counter` sans UI de relevé, colonne counter_target morte ; (3) `htmlPage` n'échappe pas ses interpolations (escapeHtml local dans user-tasks.js — à mutualiser au 2e appelant qui injectera du variable) ; (4) pas de plafond d'affichage des tâches sur la face (défilement natif comme seul filet) ; (5) push non branché sur « c'est fait » ; (6) pas de relance de retard (choix produit) ; (7) pas de TTL sur confirm_token (choix produit) ; (8) titre « Mes échéances » en dur — à généraliser à la 2e carte de ce type, pas avant ; (9) pause invisible depuis la face tâches (risque « j'ai mis en pause et j'oublie », à réévaluer si rapporté) ; (10) mes-decks.html charge user-task-form.js par uniformité alors que ses cartes sont des aperçus `pointer-events:none`.
+DETTES OUVERTES (toutes non bloquantes) : (1) ~~VUE LISTE — PRIORITAIRE~~ **RÉSOLUE le 05/08/2026** (voir ci-dessous « vue liste — tâche à échéance ») ; (2) mode `counter` sans UI de relevé, colonne counter_target morte ; (3) `htmlPage` n'échappe pas ses interpolations (escapeHtml local dans user-tasks.js — à mutualiser au 2e appelant qui injectera du variable) ; (4) pas de plafond d'affichage des tâches sur la face (défilement natif comme seul filet) ; (5) push non branché sur « c'est fait » ; (6) pas de relance de retard (choix produit) ; (7) pas de TTL sur confirm_token (choix produit) ; (8) titre « Mes échéances » en dur — à généraliser à la 2e carte de ce type, pas avant ; (9) pause invisible depuis la face tâches (risque « j'ai mis en pause et j'oublie », à réévaluer si rapporté) ; (10) mes-decks.html charge user-task-form.js par uniformité alors que ses cartes sont des aperçus `pointer-events:none`.
+
+## Fil "vue liste — tâche à échéance" (05/08/2026, non déployé — diffs en revue ; solde la dette n°1 du fil V3)
+
+PRINCIPE : **aucune logique métier ajoutée**. On étend à `user-task` le patron liste qui existait déjà pour les cartes paramétrées — le « parking de carte » (B1) : le corps de ligne déplie le **nœud DOM réel** de la carte de #grid dans `.lrow-exp`, donc tous les handlers de site.js (délégués sur `document`) et la modale user-task-form.js continuent d'opérer nativement. Zéro formulaire de liste, zéro fetch dupliqué.
+
+- **list-view.js** : ajout de `isUserTask()` et d'un prédicat commun `hasBlocks() = isParam() || isUserTask()`, substitué aux trois `isParam()` qui testaient la SÉMANTIQUE (switch de la ligne fermée, sync(), ouverture du volet) et non le schéma. Un `user-task` n'a pas de `params_schema`, mais son contrôle a exactement le sens d'une carte paramétrée : **actif = ≥1 instance ET non en pause**, OFF = pause (jamais un retrait destructif). Seule différence de porteur : `s.tasks` au lieu de `s.instances`.
+- Switch ON depuis « aucune tâche » : impossible d'abonner sans échéance → on déplie et on ouvre **la modale de la vue cartes** (`LBATaskForm.open`) sur la carte parquée.
+- La 5e face est ouverte d'emblée à l'ouverture du volet (classe `.face-task`, la même qu'en vue cartes) : le recto ne porte que « + configurer », qui ne servirait qu'à ouvrir cette face. Garde-fou anonyme : `taskFace()` ne rend rien hors connexion, on ne pose donc `.face-task` que si `.card-usertask-face` existe.
+- **MutationObserver** sur la carte parquée (posé par `parkCardInto`, coupé par `unparkCard`) : toute mutation de la carte resynchronise le switch de la ligne. Remplace les `setTimeout(sync, 400)` à l'aveugle pour les mutations asynchrones et hors de #list (la modale vit sur `<body>`). Pas de boucle possible : `sync()` n'écrit que dans la LIGNE. `unparkCard()` retire aussi `flipped/face-*` pour que la carte revienne à la grille sur son recto.
+- **cards.js** : une seule ligne — marqueur ADDITIF `.card-usertask-face` sur la 5e face de `taskFace()`. Structure et classes inchangées (skins compris). Nécessaire parce que les cartes `community` réutilisent `.card-task-face` : la vue liste dévoile la face des tâches, pas celle des signalements.
+- **site.css** : exception à `.lrow-exp .card.in-list-exp .card-task-face { display: none }`, ciblée `.card-usertask-face`. Comme `.card-inner` est figé (`transform: none`) dans le volet, le flip ne tourne pas — on rejoue la bascule **en display**, pilotée par la même classe `.face-task`, donc par les mêmes handlers. `.flip-back` et `.tf-title` masqués dans le volet (doublons du nom de ligne / retour vers un recto sans contenu).
+
+RESTE : la carte `community` n'a toujours **aucun chemin en vue liste** (traitée comme broadcast simple). Le patron ci-dessus s'y applique tel quel — il suffira d'ajouter `isCommunity` à `hasBlocks()` et une exception CSS symétrique — mais ce fil ne l'a délibérément pas fait, la refonte V3 de Chat perdu n'étant pas encore validée manuellement.
+
+## Fil "cartes communautaires — Chat perdu" (04-05/08/2026 ; NON déployé, NON migré, rendu recto/verso PAS ENCORE validé manuellement)
+
+DEUXIÈME FAMILLE DE CARTES SANS VEILLE après `user-task`, mais mécanique inverse : là où une tâche à échéance est PRIVÉE (une ligne user_tasks par compte), une carte communautaire est un contenu **PARTAGÉ entre tous les abonnés d'une même zone**. Premier (et seul) type : `chat-perdu`, `sources.type = 'community'`, badge `community`, catégorie `communaute`, display_order 500. La ligne `sources` est VIRTUELLE : gabarit de picker + entrée de catalogue, jamais de ligne `source_states`, jamais de fichier dans server/sources/.
+
+Déroulé du fil : cadrage → schéma → routes → tests lot 1 → client lot 2a → refonte V3 recto/verso.
+
+SCHÉMA (init.sql, idempotent) : **community_reports** (BIGSERIAL, type, commune_nom/commune_insee, lat/lon, radius_km, description, link, author_subscriber_id, created_at, expires_at, extensions_count, status CHECK `active|resolved|expired`) + index partiel `(type, status) WHERE status='active'` ; **community_report_spots** et **community_report_subscriptions** (PK composite `(report_id, subscriber_id)` → dédup naturelle, pas de contrainte unique séparée) ; `subscribers.hide_community_reports BOOLEAN NOT NULL DEFAULT false`. `params_schema` de la ligne catalogue = un seul paramètre `ville` de type `commune-coords` (v2 = un seul paramètre) : description/lien/rayon sont saisis À PART par la route, hors params_schema.
+
+ROUTES (server/routes/community-reports.js, monté `app.use('/api', …)` dans index.js) : `GET /api/community-reports` (instances visibles pour le profil = abonnements directs + tout profil dans le `radius_km` de l'instance, sauf `hide_community_reports`), `POST /api/community-reports` (**crée l'instance si première commune, sinon REJOINT celle qui existe** — la dédup par commune est décidée côté serveur, le client ne pré-teste rien), `POST /:id/spot` (« Repéré », idempotent par PK composite, **clôt l'instance à 3**), `POST /:id/extend` (auteur seul, **max 3 prolongations**), `POST /:id/resolve` (auteur seul). Constantes : expiration 7 j, rayon borné 10–50 km (défaut 15). Géo par `sources/lib/commune-insee` + nouveau `sources/lib/geo-distance.js` (`distanceKm`).
+
+JOB (server/community-reports-expire.js, `runCommunityReportsExpire(pool)`) : **3e cron du projet**, `0 4 * * *`. Il ne notifie PERSONNE — il passe en `expired` les instances `active` dont `expires_at` est dépassé. L'auteur évite la clôture en prolongeant avant l'échéance.
+
+FRONT (refonte V3) : le recto adopte **exactement la structure de `user-task`** — `<div class="param-row">` portant le bouton, PUIS le switch. Le bouton « Signaler » réutilise **la même classe `.task-config`** (+ `.community-config` comme second marqueur, pour le fetch dédié) → le handler générique de flip de site.js ouvre la 5e face sans câblage supplémentaire. La 5e face réutilise `.card-task-face`/`.tf-title`/`.task-zone` telles quelles ; elle porte la liste des signalements (`communityReportItem`, items en `.task-item.community-item`) et un bouton `.community-report-toggle` qui déplie le sous-formulaire (commune, description, lien, rayon), masqué par défaut. **Cette carte n'a PAS d'abonnement propre** : c'est une carte broadcast classique, le switch standard (switchRow/toggleConnected, POST /api/my-alerts/toggle) EST « être alerté ». État recto = `.state.task` « Rien à signaler », jamais `.state.active` (même raison que user-task : `:has(.state.active)` anime le motif full-art et alimente le KPI « mes alertes actives »).
+
+RESTE À FAIRE / À TESTER : migrate non lancé, code non déployé. **Le rendu recto/verso issu de la refonte V3 n'a pas encore été validé manuellement** à la date de cette mise à jour ; les tests du lot 1 portaient sur les routes, pas sur le rendu client. Dette identifiée en propre : la carte `community` n'a **aucun chemin en vue liste** (même trou que `user-task` avant le fil ci-dessous — list-view.js la traite aujourd'hui comme une carte broadcast simple, sans accès aux signalements).
 
 ## Fil "forum maison & profils publics" (30/07/2026, déployé sauf mention)
 
@@ -225,6 +291,81 @@ EN ATTENTE (Hugo, hors code) : node server/db/migrate.js (nouvelles tables/colon
 **PROSPECTION « risques saisonniers » (29/07)** — 5 pistes explorées, 2 retenues (météo des forêts, pollens ci-dessus), 3 écartées : **AlerteCyber** (doublon démontré de `cert-fr-alertes` déjà en prod : mêmes failles WordPress/SharePoint avec **3 à 8 j de retard**, aucun flux structuré, `lastmod` du sitemap inutilisable car pollués par une migration en masse) ; **Pollinariums Sentinelles** (web.alertepollens.org = site vitrine, alertes par e-mail aux inscrits, aucun état public — les « 9 espèces » relèvent de ce réseau, PAS du référentiel Atmo qui en compte exactement 6) ; **Alerte Enlèvement** (site mono-page, toutes les URL retombent sur l'accueil, aucun état « alerte en cours » à surveiller — et le dispositif est PAR CONSTRUCTION une diffusion massive TV/radio/FR-Alert : une carte opt-in serait plus lente et moins couvrante, contraire au positionnement « le signal que personne d'autre ne pousse »). Eaux de baignade : reportée, cf. section Dette.
 
 **rappel-conso / catégorie automobile (27/07)** — VÉRIFICATION SEULE, aucun code changé : la catégorie « automobiles et moyens de déplacement » était déjà présente et strictement conforme aux 10 facettes de l'API (match exact, accents compris). Le gap `GRAVE` découvert à cette occasion est en section Dette.
+
+## Fil "header — icônes, badge & menu unique" (03/08/2026, non déployé — diffs en revue)
+
+Fil entièrement front (`public/js/header.js`, `session.js`, `mobile-header.js`, `site.js`,
+`view-mode.js`, `index.html`, `css/site.css`) + `docs/header-spec.md` mis à jour au fil de l'eau.
+
+**FAMILLE D'ICÔNES `.hd-link` / `.hd-ic` (nav-right)** — `nav-right` desktop = `🛍 boutique` ·
+`🔔 mes alertes` · `♥ favoris` · `Se connecter | avatar`. Grammaire commune : **aucune couleur
+au repos** (trait `--muted`), le violet `--amber` **monte du bas vers le haut au survol**
+(deux calques SVG superposés, `.hd-ic-base` au trait + `.hd-ic-fill` révélé par un
+`clip-path: inset()` qui remonte) ; padding horizontal 5px. Animations propres : la **cloche
+penche** (`hd-bell-ring`), le **contour du cœur déborde en s'estompant** (`hd-heart-echo`,
+masque SVG *stroke only* — même vocabulaire que le halo `ping` du KPI), l'**avatar se
+retourne** sur une roue de paramètres. Le **sac boutique** est en `strokeOnly` : seul le
+dessin se colore, l'intérieur ne se remplit pas. `prefers-reduced-motion` neutralise tout.
+Markup = SOURCE UNIQUE dans header.js (`BELL_HTML`/`HEART_HTML`/`BAG_HTML`, exposés via
+`window.LBAHeader.ICONS`) + **copie miroir statique dans index.html** (la home garde son
+header) — commentaire de rappel des deux côtés, toute retouche doit être répercutée.
+Supprimé au passage : l'état « cœur rempli en permanence » quand des favoris existent
+(`markFavHeart` + `.fav-link.has-fav`).
+
+**« Mon compte » = AVATAR À INITIALE** (session.js) : 1re lettre du pseudo, sinon de l'email,
+dans un cercle qui se remplit de violet puis se retourne sur une roue. Initiale **mise en
+cache local** (`lba-initial`) pour que les pages appelant `renderHeader(null)` affichent la
+bonne lettre sans clignotement ; `LBASession.setAvatarInitial(name)` exposé et appelé par
+`fillAccountHeader` (le pseudo prime sur l'email). État anonyme = pilule texte « Se connecter »
+inchangée (l'avatar est démonté).
+
+**KPI DU HEADER = PASTILLE DE NOTIFICATION** : `mobile-header.js` dépose le `.kpi` **dans le
+lien `.mine-link`** (et non plus en fin de `.nav-right`) ; le CSS en fait un rond vert chiffré
+superposé à la cloche. Halo `ping` conservé ; `#kpi-dot`, `#kpi-text` et l'overlay qui
+s'étirait au survol disparaissent ; `data-active != "true"` (0 alerte) → aucune pastille.
+Le `.kpi` du hero garde sa pilule. **BUG CORRIGÉ au passage** : le compteur ne partageait pas
+le prédicat de la vue « Mes alertes » — une alerte **en pause** quittait la liste mais
+continuait d'être comptée (pastille « 2 » sur une liste vide, persistant au rechargement
+puisque le serveur renvoie `muted: true`). Les deux calculs (`refreshMineDependent` et le
+calcul initial) utilisent désormais `mineHidden` / excluent `muted`.
+
+**MENU UNIQUE POUR TOUTE LA NAVIGATION (changement de politique)** : la règle « pages
+secondaires = 1re ligne seule » est ABANDONNÉE. En desktop, `header.js` injecte désormais
+aussi les **rangées 2 et 3** (`buildCatRail`) : mêmes puces, mêmes comptes, même tri
+(fréquence puis libellé) que le kiosque, calculés depuis `/api/sources` + la taxonomie
+(`LBACat` si déjà chargé, sinon `/api/categories` — aucune page n'a besoin d'inclure
+`categories.js`). Les `order` CSS existants (`.toolbar` order 6, `.chips-secondary-wrap`
+order 7 sous `body.m-kiosk`) placent les rangées sans CSS nouveau. Deux différences
+inévitables faute de grille : le clic **navigue** (`/?cat=…`, `/?mode=nouveautes|selection`,
+`/` pour « Toutes ») au lieu de filtrer sur place, et **aucune puce n'est marquée active**.
+**EXCEPTION : l'espace développeurs** (`proposer.html`, `body.dev`) garde ses règles — 1re
+ligne seule, thème sombre (`buildCatRail` sort immédiatement). **MOBILE INCHANGÉ** : le rail
+est masqué sur `body.m-secondary.m-kiosk` ≤720px, les catégories restent dans le menu plein
+écran. La home garde toujours son header propre — **dette assumée NON levée**, mais le rendu
+est désormais identique. ⚠️ Ces pages font un appel `/api/sources` supplémentaire au
+chargement (même endpoint public que la home, cacheable) — restreignable à une liste de
+pages si le coût gêne sur les pages légères.
+
+**RETRAITS DU HEADER** (simplification) : bouton **thème** `.theme-btn` retiré (markup + CSS +
+liaisons) — `window.toggleTheme` reste exposé mais **n'a plus aucun déclencheur dans l'UI**,
+et le réglage « Mon compte › Apparence » annoncé par la spec n'existe pas dans `profile.js` :
+**à recâbler**. Bouton **`#view-toggle` cartes/liste SUPPRIMÉ** (markup, styles, `bindToolbarButton`,
+relocalisation) — le réglage passe uniquement par « Mon compte › Apparence », qui appelle déjà
+`LBAViewMode.set` (`appearance.js`) ; `view-mode.js` conserve état, persistance et
+`lba-view-change`. Bouton **« Déposer une alerte » : rotation de libellé supprimée** (plus
+d'alternance avec « Ajouter un deck »), libellé fixe → `/proposer`. ⚠️ Les keyframes
+`bd-slide-in` sont **réutilisées** par la rotation du H1 de `/favoris` (`favoris-title.js`) —
+conservées avec un avertissement, ne pas les supprimer avec le reste.
+
+**MISE EN PAGE DU HEADER DESKTOP** — les écarts étaient imprévisibles à cause du
+`justify-content: space-between` de `.nav` : la recherche étant plafonnée, l'excédent se
+répartissait dans TOUS les interstices, rattrapable seulement à coups de marges négatives.
+Bloc ≥1024px passé en **`flex-start` + `margin-left: auto` sur `.nav-right`** → écarts
+déterministes (logo → « Déposer » = 26px + gap ; « Déposer » → recherche = 10px de gap seul).
+Le bouton « Déposer » : le **`+` est ancré à gauche** (`justify-content: flex-start` +
+`.bd-label { flex:1; text-align:center }`) donc immobile d'un libellé à l'autre, et se réduit
+au **« + » seul entre 722 et 1299px** (libellé dans le `title`). Séparateur **« · » entre les
+puces** du header (`::before` absolu dans le `gap`, hors zone cliquable).
 
 ## Plateforme & infra
 
@@ -287,21 +428,31 @@ Nettoyages à ne pas oublier : ~~purge ligne DB orpheline veille-artiste-spotify
 ## Règle absolue — Header & menu (source unique)
 Il existe UN SEUL header mobile normal et UN SEUL header PC normal, injectés par un composant/script
 partagé (pas de HTML dupliqué par page). Toute nouvelle page DOIT utiliser ce composant, jamais
-une variante recopiée. Exceptions uniquement sur la home (dashboard) : 3e ligne mobile, 2-3e ligne PC.
-Voir docs/header-spec.md pour le détail figé.
+une variante recopiée. Voir docs/header-spec.md pour le détail figé.
 HEADER — SOURCE UNIQUE (acquis, ne pas re-diverger) : le header hors-home est
 injecté ENTIÈREMENT par js/header.js. Les pages hors-home ne contiennent qu'une
 ancre <header><div class="wrap nav"></div></header> — AUCUN header statique, AUCUN
 logo en dur. Le logo (LOGO_HTML dans header.js, avec ligature SVG) est la source
-unique et alimente aussi le menu mobile (buildMenu). 1re ligne PC identique partout :
-Ma collection · ♥ Favoris · Se connecter|Mon compte (auth via LBASession.renderHeader)
-· thème. Pas d'OpenAlert dans nav-right (footer + menu mobile seulement). Le Point
-retiré du header desktop (media query >720px), présent dans le menu mobile.
-Exceptions : la HOME garde son header propre (index.html + mobile-header.js : 2e/3e
-ligne catégories, KPI, condensation scroll m-scrolled) — dette assumée, 1re ligne
-alignée à la main ; connexion.html et offline.html sont volontairement sans header.
-Header mobile hors-home = body.m-secondary (hamburger + recherche). Pour ajouter une
-page : charger theme.js + session.js + header.js, ne mettre qu'une ancre de header.
+unique et alimente aussi le menu mobile (buildMenu).
+UN SEUL MENU POUR TOUTE LA NAVIGATION (politique révisée le 03/08/2026 — la règle
+« pages secondaires = 1re ligne seule » est ABANDONNÉE) : en desktop, toutes les pages
+reçoivent la MÊME structure que le dashboard — 1re ligne + rangées de catégories
+(injectées hors-home par buildCatRail dans header.js).
+1re ligne PC identique partout : 🛍 Boutique · 🔔 Mes alertes · ♥ Favoris ·
+Se connecter|avatar à initiale (auth via LBASession.renderHeader). PLUS de bouton de
+thème (retiré du header ; window.toggleTheme sans déclencheur UI, à recâbler dans
+Mon compte › Apparence). PLUS de bascule cartes/liste (#view-toggle supprimé, réglage
+dans Mon compte › Apparence). Pas d'OpenAlert dans nav-right (footer + menu mobile
+seulement). Le Point retiré du header desktop (media query >720px), présent dans le
+menu mobile.
+Exceptions : la HOME garde son header propre (index.html + mobile-header.js : rangées
+catégories, KPI, condensation scroll m-scrolled) — dette assumée NON levée, 1re ligne
+alignée à la main, mais rendu désormais identique ; l'ESPACE DÉVELOPPEURS
+(proposer.html, body.dev) garde 1re ligne seule + thème sombre ; connexion.html et
+offline.html sont volontairement sans header.
+Header mobile hors-home = body.m-secondary (hamburger + recherche) — INCHANGÉ, le rail
+de catégories injecté est masqué en ≤720px. Pour ajouter une page : charger theme.js +
+session.js + header.js, ne mettre qu'une ancre de header.
 
 ## Règle absolue — Identité visuelle (source unique, même statut que le header)
 rapports/identite-visuelle-reference.md = document de référence du visuel (audit complet :
@@ -347,8 +498,10 @@ vert bat 1× puis chaque cercle concentrique passe au vert À TOUR DE RÔLE (cen
 (opacité de repos par cercle) ; classes fa-dot/fa-c1..fa-c4 dans FULLART_SVG (ligne sismique + points
 épars IMMOBILES) ; uniquement stroke/fill/opacity (pas de transform). prefers-reduced-motion couvert
 (règle dédiée) ; desync inter-cartes via --fa-shift (nth-child). PRINCIPE CONSIGNÉ (commentaire CSS) :
-chaque futur skin (cf. boutique — placeholders « école classique »/« Arcane ») définira SA PROPRE
-animation d'état actif adaptée à son illustration ; NE PAS dupliquer le « radar calme » (propre au full-art).
+chaque futur skin définira SA PROPRE animation d'état actif adaptée à son illustration ; NE PAS
+dupliquer le « radar calme » (propre au full-art). PRINCIPE RÉALISÉ : les 9 skins boutique existent
+désormais (5 teintes réutilisent le radar recoloré ; École/Arcane/Assemblée/Dresseur ont chacun leur
+geste — cf. « Fil skins de cartes »).
 
 ## Règle absolue — Titre de page (h1) & en-tête détail deck
 Tout h1 de page (y compris ceux rendus par JS) DOIT être `<h1 class="page-title" data-hero-done="1">`

@@ -3872,6 +3872,78 @@ INSERT INTO skins (id, type, name, cost, asset_ref) VALUES
 ON CONFLICT (id) DO UPDATE SET
   type = EXCLUDED.type, name = EXCLUDED.name, cost = EXCLUDED.cost, asset_ref = EXCLUDED.asset_ref;
 
+-- RETRAIT du catalogue (04/08/2026) des DEUX skins 'dashboard' de ce seed : ils n'ont
+-- jamais eu d'habillage de carte (aucune regle CSS au-dela d'un --skin-accent inutilise
+-- sur les cartes), et « Aurore pastel » faisait doublon de nom avec le vrai skin
+-- « Aurore » (fullart-aurore). Les DEUX skins 'deck' (menthe / or-royal) restent ACTIFS :
+-- eux sont fonctionnels — le rendu d'un skin de deck EST ce lisere --skin-accent autour
+-- de la tuile (cf. .deck-card[class*="skin-"] dans site.css). active=false => plus liste,
+-- plus achetable ; les lignes user_skins/equipped_* existantes restent valides (ON DELETE
+-- SET NULL non declenche : on ne SUPPRIME pas, on desactive). Idempotent, et le
+-- ON CONFLICT ci-dessus ne touche pas `active` -> le retrait survit a toute
+-- re-execution d'init.sql.
+UPDATE skins SET active = false WHERE id IN ('aurore', 'nuit-etoilee');
+
+-- REPARATION (04/08/2026) : une version intermediaire de ce fichier avait desactive les
+-- 4 seeds d'un coup, dont menthe/or-royal a tort. Le ON CONFLICT ci-dessus ne touchant
+-- volontairement PAS `active`, un simple retrait de ces ids de l'UPDATE ne suffit pas a
+-- les remettre au catalogue : il faut une reactivation explicite. Idempotent.
+UPDATE skins SET active = true WHERE id IN ('menthe', 'or-royal');
+
+-- SKIN DE BASE (04/08/2026). L'habillage full-art par defaut du kiosque est desormais
+-- une entree du catalogue, pour qu'il apparaisse dans la boutique et se re-equipe
+-- explicitement. cost = 0 => possede par tous (cf. routes/skins.js : `owned` est vrai
+-- des que cost = 0, aucune ligne user_skins a backfiller).
+-- L'ETAT EN BASE RESTE `equipped_dashboard_skin_id IS NULL` : c'est deja la valeur
+-- « aucun skin = rendu par defaut » heritee par tous les comptes existants, et le front
+-- la presente comme « Par defaut equipe ». On n'ecrit donc JAMAIS 'defaut' dans la
+-- colonne -> zero migration, zero risque sur les comptes existants.
+-- asset_ref 'skin-defaut' n'a volontairement AUCUN CSS : l'absence de classe de skin
+-- EST le rendu par defaut.
+INSERT INTO skins (id, type, name, cost, asset_ref) VALUES
+  ('defaut', 'dashboard', 'Par défaut', 0, 'skin-defaut')
+ON CONFLICT (id) DO UPDATE SET
+  type = EXCLUDED.type, name = EXCLUDED.name, cost = EXCLUDED.cost, asset_ref = EXCLUDED.asset_ref;
+
+-- Skins de deck « RUBAN » (04/08/2026). Deuxieme famille de skins de deck : ils
+-- recolorent LE RUBAN de la tuile (la piece la plus visible d'un deck) au lieu du
+-- lisere autour des cartes de menthe/or-royal. 100 % CSS (classe asset_ref
+-- « skin-ruban-* », cf. site.css), aucune image. Prix alignes sur le modele deck
+-- existant (menthe=30, or-royal=100). Idempotent (meme ON CONFLICT).
+INSERT INTO skins (id, type, name, cost, asset_ref) VALUES
+  ('ruban-blanc', 'deck', 'Ruban blanc',      40, 'skin-ruban-blanc'),
+  ('ruban-bleu',  'deck', 'Ruban bleu clair', 50, 'skin-ruban-bleu')
+ON CONFLICT (id) DO UPDATE SET
+  type = EXCLUDED.type, name = EXCLUDED.name, cost = EXCLUDED.cost, asset_ref = EXCLUDED.asset_ref;
+
+-- Teintes du full-art (5 skins, phase visuelle). Recolorations PURES du skin par
+-- defaut : le visuel est 100 % CSS (classe asset_ref « skin-fullart-* », cf. site.css),
+-- aucune image, aucun asset a livrer. Type 'dashboard' : elles rehabillent la carte
+-- full-art (surface kiosque/dashboard). Le CSS est scope-agnostique -> exposer une
+-- variante 'deck' plus tard = simple ligne de seed, sans toucher au CSS. Prix alignes
+-- sur le modele existant (skins dashboard 30/60). Idempotent (meme ON CONFLICT).
+INSERT INTO skins (id, type, name, cost, asset_ref) VALUES
+  ('fullart-ocean',  'dashboard', 'Ocean',  30,  'skin-fullart-ocean'),
+  ('fullart-braise', 'dashboard', 'Braise', 30,  'skin-fullart-braise'),
+  ('fullart-aurore', 'dashboard', 'Aurore', 40,  'skin-fullart-aurore'),
+  ('fullart-or',     'dashboard', 'Or',     50,  'skin-fullart-or'),
+  ('fullart-prisme', 'dashboard', 'Prisme', 60,  'skin-fullart-prisme')
+ON CONFLICT (id) DO UPDATE SET
+  type = EXCLUDED.type, name = EXCLUDED.name, cost = EXCLUDED.cost, asset_ref = EXCLUDED.asset_ref;
+
+-- Skins STRUCTURES (4 habillages complets, phase visuelle). 100 % CSS (classe
+-- asset_ref « skin-<slug> », cf. site.css) sur la STRUCTURE UNIQUE emise par
+-- cards.js : aucune image, aucun re-render, aucune branche de rendu. Type
+-- 'dashboard' (rehabillent la carte du kiosque) ; plus elabores que les teintes
+-- -> prix plus eleves, coherents avec le modele (or-royal=100). Idempotent.
+INSERT INTO skins (id, type, name, cost, asset_ref) VALUES
+  ('ecole-classique', 'dashboard', 'L''ecole classique', 100, 'skin-ecole-classique'),
+  ('arcane',          'dashboard', 'L''Arcane',          120, 'skin-arcane'),
+  ('assemblee',       'dashboard', 'L''Assemblee',       130, 'skin-assemblee'),
+  ('dresseur',        'dashboard', 'Le Dresseur',        150, 'skin-dresseur')
+ON CONFLICT (id) DO UPDATE SET
+  type = EXCLUDED.type, name = EXCLUDED.name, cost = EXCLUDED.cost, asset_ref = EXCLUDED.asset_ref;
+
 -- ================================================================
 -- DESCRIPTIONS : courte (<=120, affichee sur la carte) + longue (<=300, popup « i » +
 -- page /source/:id). Idempotent. La colonne `description` DEVIENT la description COURTE
@@ -4506,3 +4578,61 @@ DO $$ BEGIN
       ADD CONSTRAINT deck_reports_unique_signalant UNIQUE (deck_id, target, ip_hash);
   END IF;
 END $$;
+
+-- ================================================================
+-- Cartes COMMUNAUTAIRES — premier type : « Chat perdu ». Contrairement aux
+-- sources classiques, les INSTANCES ne vivent pas dans source_param_states
+-- (dédup par commune, contenu partagé entre abonnés — pas un simple filtre
+-- par abonné). 'chat-perdu' n'a qu'une ligne VIRTUELLE dans `sources` (gabarit
+-- de picker, catalogue) et n'a JAMAIS de ligne source_states.
+-- ================================================================
+CREATE TABLE IF NOT EXISTS community_reports (
+  id                    BIGSERIAL PRIMARY KEY,
+  type                  TEXT NOT NULL DEFAULT 'chat-perdu',
+  commune_nom           TEXT NOT NULL,
+  commune_insee         TEXT,
+  lat                   DOUBLE PRECISION NOT NULL,
+  lon                   DOUBLE PRECISION NOT NULL,
+  radius_km             INTEGER NOT NULL,
+  description           TEXT NOT NULL,
+  link                  TEXT,
+  author_subscriber_id  INTEGER NOT NULL REFERENCES subscribers(id),
+  created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  expires_at            TIMESTAMPTZ NOT NULL,
+  extensions_count      SMALLINT NOT NULL DEFAULT 0,
+  status                TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'resolved', 'expired'))
+);
+CREATE INDEX IF NOT EXISTS idx_community_reports_active
+  ON community_reports (type, status) WHERE status = 'active';
+
+-- « Repéré » : un signalement par compte distinct (PK composite = dédup naturelle).
+CREATE TABLE IF NOT EXISTS community_report_spots (
+  report_id      BIGINT NOT NULL REFERENCES community_reports(id) ON DELETE CASCADE,
+  subscriber_id  INTEGER NOT NULL REFERENCES subscribers(id),
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (report_id, subscriber_id)
+);
+
+-- Abonnés directs à une instance (auteur inclus dès la création).
+CREATE TABLE IF NOT EXISTS community_report_subscriptions (
+  report_id      BIGINT NOT NULL REFERENCES community_reports(id) ON DELETE CASCADE,
+  subscriber_id  INTEGER NOT NULL REFERENCES subscribers(id),
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (report_id, subscriber_id)
+);
+
+-- Préférence « Mon compte » : masquer les signalements communautaires du kiosque.
+ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS hide_community_reports BOOLEAN NOT NULL DEFAULT false;
+
+-- Ligne virtuelle catalogue : gabarit de picker uniquement (commune de saisie),
+-- JAMAIS d'état propre (pas de ligne source_states, contrairement aux sources
+-- paramétrées classiques). Description/lien sont saisis à part par la route
+-- community-reports (hors params_schema, qui reste v2 = un seul paramètre).
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
+SELECT 'chat-perdu', 'Chat perdu', 'Signalement communautaire par commune',
+  'Alerte si un chat disparaît près de chez vous. Vous en croisez un ? Signalez-le. C'est le vôtre ? Prévenez le quartier.',
+  'community', 'community', false, ARRAY['communaute'], 500,
+  '[{"key":"ville","label":"Commune","type":"commune-coords","placeholder":"Votre commune","multiple":false,"required":true,"default":null,"hint":"La commune où le chat a été vu."}]'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'chat-perdu');
+UPDATE sources SET params_schema = '[{"key":"ville","label":"Commune","type":"commune-coords","placeholder":"Votre commune","multiple":false,"required":true,"default":null,"hint":"La commune où le chat a été vu."}]'::jsonb WHERE id = 'chat-perdu';
+UPDATE sources SET description = 'Alerté si un chat disparaît près de chez vous. Vous en croisez un ? Signalez-le. C''est le vôtre ? Prévenez le quartier.' WHERE id = 'chat-perdu';

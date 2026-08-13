@@ -86,24 +86,10 @@
     if (mode !== current) apply(mode);
   }
 
-  // Bouton de bascule dans la toolbar (libellé/icône reflètent la CIBLE du clic).
-  function bindToolbarButton() {
-    var btn = document.getElementById('view-toggle');
-    if (!btn) return;
-    function paint() {
-      var toList = current === 'cards';
-      btn.setAttribute('aria-pressed', current === 'list' ? 'true' : 'false');
-      btn.setAttribute('title', toList ? 'Vue liste' : 'Vue cartes');
-      btn.setAttribute('aria-label', toList ? 'Passer en vue liste' : 'Passer en vue cartes');
-      btn.classList.toggle('is-list', current === 'list');
-    }
-    btn.addEventListener('click', toggle);
-    document.addEventListener('lba-view-change', paint);
-    paint();
-  }
-
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindToolbarButton);
-  else bindToolbarButton();
+  // Plus de bouton de bascule dans l'interface du kiosque (#view-toggle supprimé) :
+  // le mode d'affichage se règle UNIQUEMENT depuis « Mon compte › Apparence »
+  // (appearance.js → LBAViewMode.set). Le reste de ce module — état, persistance
+  // localStorage/compte, événement `lba-view-change` — est inchangé.
 
   window.LBAViewMode = { get: function () { return current; }, set: set, toggle: toggle, adoptAccount: adoptAccount };
 })();

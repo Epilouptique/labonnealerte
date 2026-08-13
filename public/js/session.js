@@ -96,6 +96,31 @@
     return name.length > 16 ? name.slice(0, 16) : name;
   }
 
+  /* ---- Avatar « Mon compte » du header : initiale du pseudo dans un cercle ----
+     Au survol le disque se remplit de violet puis se RETOURNE sur une roue de
+     paramètres (CSS .hd-avatar / .hd-av-face). L'initiale est mise en cache local
+     (INIT_KEY) : les pages qui appellent renderHeader(null) — header.js au chargement,
+     avant tout fetch — affichent la bonne lettre immédiatement plutôt qu'un « ? »
+     qui sauterait ensuite. */
+  var INIT_KEY = 'lba-initial';
+  var GEAR_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 9 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 4.6 9a1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/></svg>';
+
+  function initialFor(basis) {
+    var ch = String(basis || '').trim().charAt(0);
+    return ch ? ch.toUpperCase() : '';
+  }
+  function cachedInitial() { try { return localStorage.getItem(INIT_KEY) || ''; } catch (e) { return ''; } }
+
+  // Pose (ou met à jour) l'initiale affichée. `name` = pseudo public si connu, sinon
+  // on retombe sur le prénom déduit de l'email, puis sur l'initiale mise en cache.
+  function setAvatarInitial(name) {
+    var ch = initialFor(name);
+    if (ch) { try { localStorage.setItem(INIT_KEY, ch); } catch (e) {} }
+    else ch = cachedInitial() || '?';
+    document.querySelectorAll('.hd-av-letter').forEach(function (el) { el.textContent = ch; });
+    return ch;
+  }
+
   // Met à jour la zone d'auth du header. `email` non nul => affiché en mode connecté.
   function renderHeader(email) {
     var link = document.getElementById('auth-link');
@@ -115,7 +140,19 @@
       if (link) {
         // « Mon compte » ouvre le panneau (défini par site.js sur la home).
         // La déconnexion vit désormais dans ce panneau.
-        link.textContent = 'Mon compte';
+        // Le libellé texte est remplacé par l'avatar à initiale (retournement → roue).
+        // `aria-label` porte le sens, l'avatar est purement décoratif.
+        if (!link.querySelector('.hd-avatar')) {
+          link.innerHTML =
+            '<span class="hd-avatar" aria-hidden="true">' +
+              '<span class="hd-av-face hd-av-front"><span class="hd-av-letter"></span></span>' +
+              '<span class="hd-av-face hd-av-back">' + GEAR_SVG + '</span>' +
+            '</span>';
+        }
+        link.classList.add('hd-link', 'hd-avatar-link');
+        link.setAttribute('aria-label', 'Mon compte');
+        link.setAttribute('title', 'Mon compte');
+        setAvatarInitial(firstName(email) || email);
         // Hors home, le panneau n'existe pas : l'ancre pointe vers /#mon-compte (la home
         // ouvre la carte au chargement). Sur la home, l'onclick bascule le panneau en place.
         link.setAttribute('href', '/#mon-compte');
@@ -135,9 +172,14 @@
     } else {
       if (emailEl) { emailEl.hidden = true; emailEl.textContent = ''; }
       if (link) {
+        // Retour à l'état anonyme : on démonte l'avatar (le lien redevient textuel).
+        link.classList.remove('hd-link', 'hd-avatar-link');
+        link.removeAttribute('aria-label');
+        link.removeAttribute('title');
         link.textContent = 'Se connecter';
         link.setAttribute('href', '/connexion');
         link.onclick = null;
+        try { localStorage.removeItem(INIT_KEY); } catch (e) {}
       }
     }
 
@@ -152,6 +194,7 @@
     truncateEmail: truncateEmail,
     firstName: firstName,
     renderHeader: renderHeader,
+    setAvatarInitial: setAvatarInitial,
     logout: logout,
     deleteAccount: deleteAccount
   };

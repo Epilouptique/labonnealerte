@@ -34,29 +34,17 @@
   if (search && navRight) nav.insertBefore(search, navRight);
   nav.appendChild(toolbar);
   if (secondary) nav.appendChild(secondary);
-  // KPI : dernière position de .nav-right → tout à droite de la rangée 1 (desktop).
-  if (kpi && navRight) navRight.appendChild(kpi);
+  // KPI : devient la PASTILLE DE NOTIFICATION du lien « Mes alertes » — il est
+  // déplacé DANS la cloche (et non plus en fin de .nav-right). Le CSS
+  // (`header .nav-right .mine-link .kpi`) le transforme en rond vert chiffré
+  // superposé, halo « ping » conservé, libellé/overlay de survol supprimés.
+  // Repli sur .nav-right si le lien n'existe pas (header non standard).
+  var mineLink = navRight ? navRight.querySelector('.mine-link') : null;
+  if (kpi && mineLink) mineLink.appendChild(kpi);
+  else if (kpi && navRight) navRight.appendChild(kpi);
 
-  // view-toggle : en DESKTOP (≥721px) il rejoint la rangée 1 du header, entre le
-  // bouton thème et le KPI ; en mobile il RESTE dans la toolbar (rangée catégories),
-  // comportement inchangé. flexbox `order` ne peut pas déplacer un petit-enfant entre
-  // conteneurs → relocalisation DOM, rejouée au franchissement du breakpoint.
-  var viewToggle = toolbar.querySelector('.view-toggle');
-  var deskMq = window.matchMedia('(min-width: 721px)');
-  function placeViewToggle() {
-    if (!viewToggle) return;
-    if (deskMq.matches) {
-      if (navRight && viewToggle.parentNode !== navRight) {
-        if (kpi && kpi.parentNode === navRight) navRight.insertBefore(viewToggle, kpi);
-        else navRight.appendChild(viewToggle);
-      }
-    } else if (viewToggle.parentNode !== toolbar) {
-      toolbar.appendChild(viewToggle); // retour à sa place mobile d'origine (fin de toolbar)
-    }
-  }
-  placeViewToggle();
-  if (deskMq.addEventListener) deskMq.addEventListener('change', placeViewToggle);
-  else if (deskMq.addListener) deskMq.addListener(placeViewToggle);
+  // (Le bouton de bascule cartes/liste a été SUPPRIMÉ de l'interface du kiosque : plus
+  // rien à relocaliser ici. Le réglage vit dans « Mon compte › Apparence ».)
 
   // Menu mobile plein écran : SOURCE UNIQUE partagée avec les autres pages (header.js).
   // La home passe isHome:true (les modes agissent via les puces, pas via /?mode=).

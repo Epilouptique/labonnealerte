@@ -6,6 +6,7 @@ const { sendConfirmation } = require('../mailer');
 const { validateParams } = require('../params');
 const { trackDomain } = require('../doomname');
 const { award } = require('../points');
+const { addFavorite } = require('./collections'); // même helper « abonnement = favori » (best-effort)
 
 // apiRouter : endpoints JSON destinés aux machines (monté sous /api).
 // pagesRouter : pages HTML destinées aux humains, liens cliqués depuis un email
@@ -153,6 +154,11 @@ apiRouter.post('/subscribe', subscribeLimiter, async (req, res) => {
     // un compte non confirme/sans session : inoffensif, le solde l'attend a la 1re
     // connexion. Effet secondaire non bloquant.
     await award(subscriber.id, 'ALERT_SUBSCRIBED', sourceId);
+
+    // Ajoute la source à « Ma collection » (favoris) — même règle que partout : tout
+    // abonnement pose le favori. Rattaché au subscriber_id (indépendant de la confirmation :
+    // si le compte se confirme, il retrouve sa collection ; sinon, ça ne coûte rien). Idempotent.
+    await addFavorite(subscriber.id, sourceId);
 
     // DoomName : enregistre le domaine pour surveillance (best-effort, non bloquant).
     if (sourceId === 'doomname' && canonicalParams && canonicalParams.domaine) {

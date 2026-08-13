@@ -8,7 +8,7 @@ const express = require('express');
 const { pool } = require('../db');
 const { authenticate } = require('../sessions');
 const { validateParams } = require('../params');
-const { resolveInstances, recomputeDeckCategories } = require('./collections'); // réutilise phase 1
+const { resolveInstances, recomputeDeckCategories, addFavorite } = require('./collections'); // réutilise phase 1
 const ugc = require('../ugc');
 const { award, getTop20Ids } = require('../points');
 const { slugify, slugBase, SLUG_MAX } = require('../forum-slug');
@@ -487,6 +487,7 @@ router.post('/decks/:id/adopt', async (req, res) => {
             [auth.id, it.source_id]
           );
           if (r.rowCount > 0) { added++; await award(auth.id, 'ALERT_SUBSCRIBED', it.source_id); } else already++;
+          await addFavorite(auth.id, it.source_id); // → « Ma collection », idempotent
         } else {
           const check = validateParams(it.params_schema, inst);
           if (!check.ok) { needsParams.push({ source_id: it.source_id, name: it.name }); continue; }
@@ -496,6 +497,7 @@ router.post('/decks/:id/adopt', async (req, res) => {
             [auth.id, it.source_id, JSON.stringify(check.params)]
           );
           if (r.rowCount > 0) { added++; await award(auth.id, 'ALERT_SUBSCRIBED', it.source_id); } else already++;
+          await addFavorite(auth.id, it.source_id); // → « Ma collection », idempotent
         }
       }
     }

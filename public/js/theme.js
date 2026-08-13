@@ -3,18 +3,40 @@
 
 (function () {
   'use strict';
+  /* Préférence de thème : 'light', 'dark', ou rien = AUTO (suit le système).
+     Miroir de la logique de site.js (la home charge site.js à la place de ce
+     fichier) : toute retouche ici doit l'être des deux côtés. */
   var K = 'lba-theme';
   var r = document.documentElement;
-  var s = null;
-  try { s = localStorage.getItem(K); } catch (e) {}
-  r.setAttribute('data-theme',
-    (s === 'light' || s === 'dark') ? s
-      : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+  var mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+  function systemTheme() { return mq && mq.matches ? 'dark' : 'light'; }
+  function pref() {
+    var s = null;
+    try { s = localStorage.getItem(K); } catch (e) {}
+    return (s === 'light' || s === 'dark') ? s : 'auto';
+  }
+  function apply() { r.setAttribute('data-theme', pref() === 'auto' ? systemTheme() : pref()); }
+  apply();
+
+  window.getThemePref = pref;
+  window.setThemePref = function (p) {
+    if (p !== 'light' && p !== 'dark') p = 'auto';
+    try {
+      if (p === 'auto') localStorage.removeItem(K);
+      else localStorage.setItem(K, p);
+    } catch (e) {}
+    apply();
+    return p;
+  };
+  // En AUTO, le thème suit les changements système en direct (bascule nuit de l'OS).
+  if (mq) {
+    var onSys = function () { if (pref() === 'auto') apply(); };
+    if (mq.addEventListener) mq.addEventListener('change', onSys);
+    else if (mq.addListener) mq.addListener(onSys);
+  }
 
   window.toggleTheme = function () {
-    var n = r.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-    r.setAttribute('data-theme', n);
-    try { localStorage.setItem(K, n); } catch (e) {}
+    window.setThemePref(r.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
   };
 
   /* Accessibilité : contrastes renforcés (préférence locale, pas de compte requis).

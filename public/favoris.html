@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mes favoris — La Bonne Alerte</title>
-<meta name="description" content="Retrouvez toutes les alertes que vous avez aimées.">
+<title>Ma collection — La Bonne Alerte</title>
+<meta name="description" content="Retrouvez les alertes que vous suivez et celles que vous avez aimées.">
 <meta name="robots" content="noindex">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="stylesheet" href="/css/fonts.css">
@@ -23,15 +23,15 @@
 </header>
 
 <!-- Halo de l'écran de chargement commun (visible tant que body.loading). -->
-<div class="page-loading" role="status" aria-live="polite">Chargement…</div>
+<div class="page-loading" role="status" aria-live="polite"><div class="lba-bars" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>Chargement…</div>
 
 <main class="wrap coll-main favoris-main">
-  <div id="fav-loading" class="src-loading">Chargement…</div>
+  <div id="fav-loading" class="src-loading"><div class="lba-bars" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>Chargement…</div>
 
   <section id="fav-view" hidden>
    
       
-      <h1 class="page-title" data-hero-done="1">Mes <span class="hl">favoris</span></h1>
+      <h1 class="page-title" id="fav-title" data-hero-done="1"><span class="fav-title-label">Ma <span class="hl">collection</span></span></h1>
     
 
     <div class="grid" id="fav-grid"></div>
@@ -59,6 +59,7 @@
 <script src="/js/deck-motifs.js"></script>
 <script src="/js/deck-stack.js"></script>
 <script src="/js/favoris.js"></script>
+<script src="/js/favoris-title.js"></script>
 <script src="/js/deck-add.js"></script>
 <script src="/js/user-task-form.js"></script>
 <script src="/js/theme.js"></script>

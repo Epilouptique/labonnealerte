@@ -44,7 +44,7 @@
     '  <div class="notif-row">' +
     '    <div class="notif-txt"><strong>Sur cet appareil</strong>' +
     '      <span class="notif-sub" id="notif-device-sub">Recevez les alertes en notification push.</span></div>' +
-    '    <button type="button" class="notif-btn" id="notif-device-btn">Activer</button>' +
+    '    <button type="button" class="notif-toggle" id="notif-device-btn" role="switch" aria-label="Notifications sur cet appareil"></button>' +
     '  </div>' +
     '  <div class="notif-row">' +
     '    <div class="notif-txt"><strong>Par email</strong>' +
@@ -74,16 +74,14 @@
         'Notifications bloquées. Réautorisez-les dans les réglages du navigateur (icône 🔒 dans la barre d\'adresse).';
       return;
     }
+    // Interrupteur (même composant que « Par email ») : l'état est porté par le
+    // switch, le sous-texte n'a plus à expliquer comment désactiver.
     deviceBtn.hidden = false;
-    if (state.deviceOn) {
-      deviceBtn.textContent = 'Activées ✓';
-      deviceBtn.classList.add('on');
-      deviceSub.textContent = 'Cet appareil recevra les alertes. Touchez pour désactiver.';
-    } else {
-      deviceBtn.textContent = 'Activer';
-      deviceBtn.classList.remove('on');
-      deviceSub.textContent = 'Recevez les alertes en notification push.';
-    }
+    deviceBtn.classList.toggle('on', !!state.deviceOn);
+    deviceBtn.setAttribute('aria-checked', state.deviceOn ? 'true' : 'false');
+    deviceSub.textContent = state.deviceOn
+      ? 'Cet appareil recevra les alertes.'
+      : 'Recevez les alertes en notification push.';
   }
 
   // ---- Activation / désactivation sur l'appareil ----

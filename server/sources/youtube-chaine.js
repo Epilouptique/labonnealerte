@@ -83,6 +83,55 @@ const cache = new Map();
 // Cache résolution : URL de page → { at, id, ttl }. id = null si échec.
 const resolveCache = new Map();
 
+// ── UNE SEULE ALERTE PAR VIDÉO (référence persistée, contrat loadRef/dumpRef) ────
+// PROBLÈME RÉEL CONSTATÉ (03-04/08/2026, @TroncheEnBiais) : la même vidéo a déclenché
+// DEUX emails à 17 h d'intervalle. Chronologie en base : activated 03/08 15:02 →
+// deactivated 04/08 04:32 → activated 04/08 08:04, même titre. La vidéo était publiée
+// à 14:54 : elle est restée DANS sa fenêtre de 24 h tout du long. Un seul cycle ayant
+// renvoyé `inactive` (échec transitoire de résolution du pseudo, ou flux indisponible :
+// ces échecs se présentent ici comme une absence de vidéo, pas comme une erreur) suffit
+// donc à désactiver l'état ; au cycle suivant la vidéo est de nouveau « fraîche », et
+// comme la source est en requires_confirmation = false, inactive → active RE-NOTIFIE
+// immédiatement. La machine à états ne peut pas s'en apercevoir : de son point de vue,
+// c'est une alerte qui s'éteint puis se rallume.
+//
+// PARADE : la source mémorise la vidéo en cours et si son alerte est déjà PASSÉE.
+//   phase 'live' = vidéo en cours d'annonce (on continue de la rendre active) ;
+//   phase 'done' = son épisode est CLOS (fenêtre écoulée, OU interruption quelconque) →
+//                  on ne la rendra plus jamais active, donc plus jamais de 2e email.
+// Une NOUVELLE vidéo (id différent) rouvre normalement un épisode : rien n'est perdu.
+// La référence est persistée par le poller (colonne ref de source_param_states), donc
+// un redéploiement ne rouvre pas la porte — c'est tout l'objet du contrat loadRef/dumpRef.
+const refs = new Map();     // clé de combinaison → { id, phase }
+const refsDumped = new Map(); // clé → dernier JSON rendu (dumpRef ne réécrit pas l'identique)
+
+function refKey(params) { return String((params && params.channel_id) || '').trim(); }
+
+// Hydratation depuis la base AVANT le check. `data` = { v, p } relu, ou null (amorçage).
+function loadRef(params, data) {
+  const key = refKey(params);
+  const ok = data && typeof data === 'object' && typeof data.v === 'string';
+  const ref = ok ? { id: data.v, phase: data.p === 'done' ? 'done' : 'live' } : null;
+  if (ref) refs.set(key, ref); else refs.delete(key);
+  refsDumped.set(key, ref ? JSON.stringify({ v: ref.id, p: ref.phase }) : null);
+}
+
+// Structure sérialisable, ou undefined si INCHANGÉE (→ aucune écriture DB).
+function dumpRef(params) {
+  const key = refKey(params);
+  const ref = refs.get(key);
+  const json = ref ? JSON.stringify({ v: ref.id, p: ref.phase }) : null;
+  if (json === (refsDumped.has(key) ? refsDumped.get(key) : null)) return undefined;
+  refsDumped.set(key, json);
+  return ref ? { v: ref.id, p: ref.phase } : null;
+}
+
+// Clôt l'épisode courant (sans effacer l'id : c'est lui qui interdit la ré-annonce).
+function closeEpisode(key) {
+  const ref = refs.get(key);
+  if (ref && ref.phase === 'live') refs.set(key, { id: ref.id, phase: 'done' });
+}
+
 const paramsSchema = [
   {
     key: 'channel_id', // clé INCHANGÉE : ne pas casser les abonnements existants
@@ -164,9 +213,13 @@ async function resolveChannelId(raw) {
 }
 
 async function checkOne(params) {
+  const key = refKey(params);
   const cid = await resolveChannelId((params && params.channel_id) || '');
-  // Saisie inexploitable ou chaîne introuvable → inactif, jamais d'erreur.
-  if (!cid) return inactive(params, null);
+  // Saisie inexploitable ou chaîne introuvable → inactif, jamais d'erreur. C'est le cas
+  // le plus suspect (un échec transitoire de résolution ressemble à une chaîne muette) :
+  // on CLÔT l'épisode en cours, ce qui garantit qu'un retour à la normale ne renverra
+  // pas un 2e email pour la vidéo déjà annoncée.
+  if (!cid) { closeEpisode(key); return inactive(params, null); }
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
@@ -182,23 +235,38 @@ async function checkOne(params) {
     clearTimeout(timer);
   }
 
-  if (res.status === 404) return inactive(params, cid);
+  if (res.status === 404) { closeEpisode(key); return inactive(params, cid); }
   if (!res.ok) throw new Error(`Réponse HTTP inattendue YouTube : ${res.status} ${res.statusText}`);
 
   const xml = await res.text();
   const { feedTitle, items } = parseFeed(xml);
-  if (!items || items.length === 0) return inactive(params, cid);
+  if (!items || items.length === 0) { closeEpisode(key); return inactive(params, cid); }
 
   // Vidéo la plus récente (le flux est trié, mais on ne s'y fie pas).
   let latest = null;
   for (const it of items) {
     if (it.date && (!latest || it.date > latest.date)) latest = it;
   }
-  if (!latest || !latest.date) return inactive(params, cid);
-  if (Date.now() - latest.date.getTime() >= FRESH_MS) return inactive(params, cid);
+  if (!latest || !latest.date) { closeEpisode(key); return inactive(params, cid); }
+  // Fenêtre de 24 h écoulée : fin normale de l'épisode.
+  if (Date.now() - latest.date.getTime() >= FRESH_MS) { closeEpisode(key); return inactive(params, cid); }
 
   const m = latest.raw && latest.raw.match(/<yt:videoId>([^<]+)<\/yt:videoId>/i);
   const url = m ? `https://www.youtube.com/watch?v=${m[1]}` : (latest.link || `https://www.youtube.com/channel/${cid}`);
+
+  // Identité de la vidéo : l'id YouTube, stable même si le titre est réécrit (un titre
+  // modifié ne doit pas passer pour un repost — et la date lue est <published>, jamais
+  // <updated>, qui bouge à chaque retouche de métadonnées).
+  const vid = m ? m[1] : (latest.link || latest.title || '');
+  const ref = refs.get(key);
+  if (ref && ref.id === vid) {
+    // Épisode CLOS pour cette vidéo (une interruption est passée par là) : elle a déjà
+    // été annoncée, on ne la ré-annonce jamais. Sans ce garde-fou, la fenêtre de 24 h
+    // rendrait la vidéo « de nouveau fraîche » et l'email repartirait.
+    if (ref.phase === 'done') return inactive(params, cid);
+  } else {
+    refs.set(key, { id: vid, phase: 'live' }); // nouvelle vidéo → nouvel épisode
+  }
 
   return {
     params,
@@ -250,4 +318,4 @@ async function checkWithParams(paramsList) {
   return out;
 }
 
-module.exports = { id: 'youtube-chaine', paramsSchema, checkWithParams };
+module.exports = { id: 'youtube-chaine', paramsSchema, checkWithParams, loadRef, dumpRef };

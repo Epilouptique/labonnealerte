@@ -26,8 +26,21 @@
   var CATALOG = null;                                 // toutes les sources (/api/sources)
   var PROFILE = { interests: [], departement: null }; // pour scorer « La sélection »
   var curDeck = null, deckSources = [], pool = [], shownCount = 0;
+  var suggestQuery = ''; // filtre texte du sélecteur « Cartes suggérées »
+  // /mes-decks = « dashboard » de decks : un seul deck déplié en place à la fois. expandedId
+  // = id du deck actuellement déplié (null = liste). Anime comme le dashboard, en local
+  // (site.js n'est pas chargé ici : flip/partage/animations réimplémentés sobrement).
+  var expandedId = null;
+  var REDUCE = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
   function esc(s) { return window.LBACards ? LBACards.esc(s) : String(s == null ? '' : s); }
+  function catLabel(slug) { return (window.LBACat && LBACat.label) ? LBACat.label(slug) : slug; }
+  function cssEsc(v) { return (window.CSS && CSS.escape) ? CSS.escape(v) : String(v); }
+  // 3 cartes « lambda » (exemple) pour l'aperçu d'un deck sans carte : le formulaire montre
+  // ainsi un vrai deck (pile de 3 cartes + ruban), taille/ratio normaux, jamais un bloc vide.
+  function sampleCards() {
+    return (CATALOG || []).filter(function (s) { return s.type !== 'linked'; }).slice(0, 3);
+  }
 
   // E5) Motif (SVG de la bibliothèque) + teinte. L'emoji ne s'affiche jamais sur le
   // deck : il identifie le motif. Vignette = mini-carte teintée avec le motif en fond.
@@ -101,37 +114,57 @@
       : '<span class="deck-badge">Privé</span>';
     var cards = window.LBADeckStack
       ? LBADeckStack.resolveCards(d.preview || [], LBADeckStack.indexSources(CATALOG || [])) : [];
+    // Tuile = deck NORMAL : recto interactif (switch = s'abonner au deck, ❤ = favori,
+    // partage) + verso proprietaire injecte (« i » le retourne : description, catégories,
+    // auteur + Modifier/Apparence/Supprimer). data-deck-id = id pour l'adoption/favori.
     var stack = window.LBADeckStack ? LBADeckStack.html({
       name: d.name, tint: d.tint, emoji: d.emoji || DEFAULT_EMOJI,
       count: d.card_count || 0, cards: cards, meta: badge,
-      cats: Array.isArray(d.categories) ? d.categories : [], mode: 'anon'
+      cats: Array.isArray(d.categories) ? d.categories : [], mode: 'anon',
+      backHTML: ownerVersoHTML(d)
     }) : '';
-    return '<div class="deck-card" role="button" tabindex="0" data-deck="' + esc(d.id) + '">' + stack + '</div>';
+    return '<div class="deck-card" role="button" tabindex="0" data-deck="' + esc(d.id) +
+      '" data-deck-id="' + esc(d.id) + '">' + stack + '</div>';
   }
 
   function renderList() {
-    // Les tuiles affichent un aperçu (3 vraies cartes) → besoin du catalogue. S'il n'est
-    // pas encore chargé, on le charge puis on re-rend une fois (rendu immédiat sinon).
-    if (!CATALOG) { ensureCatalog().then(function () { renderList(); }); }
+    // Les tuiles affichent un aperçu (3 vraies cartes) → besoin du catalogue. Tant qu'il
+    // n'est pas chargé, on montre le spinner et on N'AFFICHE PAS les tuiles : sinon les
+    // aperçus non résolus s'affichent en visuel générique monocolore (flash de l'ancien
+    // rendu) le temps de la résolution. On re-rend une fois le catalogue prêt.
+    if (!CATALOG) {
+      viewEl.innerHTML = '<div class="src-loading"><div class="lba-bars" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>Chargement…</div>';
+      ensureCatalog().then(function () { renderList(); });
+      return;
+    }
+    expandedId = null; // rendu de la liste pristine = plus aucun deck déplié
     var total = STATE.decks.length;
     var canCreate = total < STATE.max_decks;
-    var rows = total
-      ? '<div class="grid deck-grid">' + STATE.decks.map(deckTileHTML).join('') + '</div>'
-      : '<p class="src-desc">Vous n\'avez pas encore de deck. Créez-en un pour commencer.</p>';
-    // Compteur visible « X / max decks », teinté « plein » quand le quota est atteint.
+    // Compteur « X / max » (devient « ← Retour » en mode déplié, cf. setHeadMode).
     var counter = '<span class="deck-count' + (canCreate ? '' : ' full') + '">' +
       total + ' / ' + STATE.max_decks + ' decks</span>';
-    // Bouton grisé + message explicite quand le quota est atteint (sinon actif).
-    var createBtn = canCreate
-      ? '<button type="button" id="deck-create-open" class="coll-adopt deck-create-btn">＋ Créer un deck</button>'
-      : '<button type="button" class="coll-adopt deck-create-btn" disabled aria-disabled="true">＋ Créer un deck</button>' +
-        '<p class="deck-form-msg">Vous avez atteint le maximum de ' + STATE.max_decks + ' decks. Supprimez-en un pour en créer un nouveau.</p>';
+    // « Ajouter un deck » = tuile taille carte (même .card.add que « Ajouter une carte » /
+    // « Proposer une alerte » du kiosque), en fin de grille. Lien vers la PAGE de creation
+    // (/mes-decks/nouveau). Grisée + non cliquable si quota atteint.
+    var createTile = canCreate
+      ? '<a class="card add deck-create-tile" id="deck-create-open" href="/mes-decks/nouveau">' +
+          '<span class="plus">+</span><strong>Ajouter un deck</strong></a>'
+      : '<div class="card add deck-create-tile is-full" aria-disabled="true">' +
+          '<span class="plus">+</span><strong>Ajouter un deck</strong></div>';
+    var quotaMsg = canCreate ? ''
+      : '<p class="deck-form-msg">Vous avez atteint le maximum de ' + STATE.max_decks + ' decks. Supprimez-en un pour en créer un nouveau.</p>';
+    var emptyHint = total ? ''
+      : '<p class="src-desc deck-empty-hint">Vous n\'avez pas encore de deck. Créez-en un pour commencer.</p>';
 
     viewEl.innerHTML = '' +
       '<h1 class="page-title">Mes <span class="hl">decks</span></h1>' +
-      '<div class="deck-list-head"><div class="section-label">Vos decks</div>' + counter + '</div>' +
-      rows +
-      '<div class="deck-list-actions">' + createBtn + '</div>';
+      '<div class="deck-list-head">' +
+        '<button type="button" id="deck-back-all" class="deck-back-inline" hidden>← Retour</button>' +
+        counter +
+      '</div>' +
+      emptyHint +
+      '<div class="grid deck-grid">' + STATE.decks.map(deckTileHTML).join('') + createTile + '</div>' +
+      quotaMsg;
 
     bindList();
   }
@@ -140,17 +173,20 @@
     var pf = document.getElementById('deck-pseudo-form');
     if (pf) pf.addEventListener('submit', onPseudoSubmit);
 
-    viewEl.querySelectorAll('.deck-card[data-deck]').forEach(function (btn) {
-      btn.addEventListener('click', function () { openDeck(btn.getAttribute('data-deck')); });
-      // Tuile = div role=button → clavier explicite (Entree / Espace).
-      btn.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
-          e.preventDefault(); openDeck(btn.getAttribute('data-deck'));
+    // Recto interactif (switches actifs, cœurs favoris). Les CLICS des tuiles (switch/❤/
+    // partage/i/verso/corps) passent par la délégation onViewClick (enregistrée une fois).
+    bindTiles();
+    // Clavier : Entrée/Espace SUR la tuile elle-même → dépliage (accessibilité role=button).
+    viewEl.querySelectorAll('.deck-card[data-deck]').forEach(function (tile) {
+      tile.addEventListener('keydown', function (e) {
+        if (e.target === tile && (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') && !expandedId) {
+          e.preventDefault(); expandDeck(tile);
         }
       });
     });
-    var open = document.getElementById('deck-create-open');
-    if (open) open.addEventListener('click', function () { openForm(null); });
+    // « Ajouter un deck » est un lien (<a href="/mes-decks/nouveau">) : navigation native.
+    var back = document.getElementById('deck-back-all');
+    if (back) back.addEventListener('click', collapseDeck);
   }
 
   // --- Nom public (pseudo) --------------------------------------------------
@@ -229,6 +265,7 @@
   // seedCards : cartes pré-ajoutées à un NOUVEAU deck (création depuis une carte du
   // kiosque) — tableau de { source, params }. Ignoré en édition.
   function openForm(deck, seedCards) {
+    expandedId = null; // vue formulaire = plein écran : désactive le repli au clic extérieur
     var editing = !!deck;
     var name = editing ? (deck.name || '') : '';
     var desc = editing ? (deck.description || '') : '';
@@ -323,10 +360,15 @@
       var nm = (typeof nameEl !== 'undefined' && nameEl) ? (nameEl.value || '').trim() : name;
       var tn = (typeof tintPicker !== 'undefined' && tintPicker) ? currentTint() : tint;
       var em = (typeof picker !== 'undefined' && picker) ? currentEmoji() : emoji;
-      // Pleine taille : 3 dernières cartes-graines (objets source complets), récent d'abord.
-      var cards = seed.map(function (it) { return it.source; }).filter(Boolean).slice(-3).reverse();
+      // Aperçu = un VRAI deck (3 cartes) : cartes-graines si création depuis une carte, sinon
+      // les cartes du deck en édition, sinon 3 cartes « lambda » d'exemple. Taille/ratio normaux.
+      var cards;
+      if (seed.length) cards = seed.map(function (it) { return it.source; }).filter(Boolean).slice(-3).reverse();
+      else if (editing && deckSources.length) cards = deckSources.slice(-3).reverse();
+      else cards = sampleCards();
+      var countN = seed.length ? seed.length : (editing && deckSources.length ? deckSources.length : cards.length);
       return window.LBADeckStack ? LBADeckStack.html({
-        name: nm || 'Votre deck', tint: tn, emoji: em, count: seed.length, cards: cards, mode: 'anon'
+        name: nm || 'Votre deck', tint: tn, emoji: em, count: countN, cards: cards, mode: 'anon'
       }) : '';
     }
     function updatePreview() {
@@ -371,7 +413,11 @@
     });
 
     document.getElementById('deck-form-back').addEventListener('click', function () {
-      editing ? openDeck(deck.id) : renderList();
+      // Édition = formulaire inline (retour liste). Création = vraie page /mes-decks/nouveau
+      // → retour par navigation vers /mes-decks.
+      if (editing) { expandedId = null; renderList(); }
+      else { location.href = '/mes-decks'; }
+      return;
     });
 
     document.getElementById('deck-form').addEventListener('submit', function (e) {
@@ -422,8 +468,10 @@
           }
         }
         clearSeed();
-        await refreshDecks();
-        openDeck(d.deck.id);
+        // Édition = retour liste inline ; création (page /mes-decks/nouveau) = navigation
+        // vers /mes-decks (le deck créé y apparaît).
+        if (deck) { await refreshDecks(); expandedId = null; renderList(); }
+        else { location.href = '/mes-decks'; }
         return;
       }
       if (res.status === 409) { formMsg((d && d.error) || 'Vous avez atteint le maximum de decks.', 'err'); }
@@ -436,133 +484,338 @@
     }
   }
 
-  // --- Vue détail d'un deck -------------------------------------------------
+  // --- Deck déplié EN PLACE (« dashboard » de decks) ------------------------
 
-  // Controle « Skin » d'un deck (phase 3). N'apparait que si l'utilisateur possede au
-  // moins un skin 'deck' : un select [Aucun + skins possedes], preselectionne sur le
-  // skin actuellement equipe (deck.equipped_skin_id). Sinon, lien discret vers la boutique.
-  function skinControlHTML(deck) {
+  // « Apparence » d'un deck (skins possedes) rendue INLINE dans le verso, facon parametres
+  // (.param-row + pastilles .param-chip). Un seul skin actif (+ « Aucun »). Aucun skin
+  // possede → lien discret vers la boutique (comme avant).
+  function skinInlineHTML(deck) {
     var owned = STATE.deckSkins || [];
     if (!owned.length) {
       return '<a class="deck-skin-link" href="/boutique">Obtenir un skin de deck</a>';
     }
     var cur = deck.equipped_skin_id || '';
-    var opts = '<option value=""' + (cur ? '' : ' selected') + '>Aucun</option>';
-    owned.forEach(function (s) {
-      opts += '<option value="' + esc(s.id) + '"' + (s.id === cur ? ' selected' : '') + '>' + esc(s.name) + '</option>';
+    function opt(id, label) {
+      var on = (id || '') === (cur || '');
+      return '<button type="button" class="param-chip deck-skin-opt' + (on ? ' on' : '') +
+        '" data-skin="' + esc(id) + '" aria-pressed="' + (on ? 'true' : 'false') + '">' + esc(label) + '</button>';
+    }
+    var chips = opt('', 'Aucun');
+    owned.forEach(function (s) { chips += opt(s.id, s.name); });
+    return '<div class="param-row deck-skin-list">' + chips + '</div>';
+  }
+
+  // Verso de la tuile-deck (/mes-decks) : MEME verso qu'un deck NORMAL (description +
+  // categories + auteur), auquel on AJOUTE seulement les actions proprietaire (Modifier /
+  // Apparence / Supprimer). Pas de « S'abonner » (le switch du recto s'en charge) ni de
+  // « Partager » (le bouton partage du recto s'en charge). « Signaler » n'apparait que pour
+  // un deck qui n'est PAS le notre — sur /mes-decks ils le sont tous, donc jamais ici.
+  function ownerVersoHTML(deck) {
+    var back = (window.LBACards && LBACards.BACK_SVG) || '';
+    var desc = deck.description ? '<p class="card-long-desc">' + esc(deck.description) + '</p>' : '';
+    var cats = (Array.isArray(deck.categories) && deck.categories.length)
+      ? '<div class="back-tags">' + deck.categories.slice(0, 3).map(function (c) {
+          return '<span class="ds-cat-tag">' + esc(catLabel(c)) + '</span>';
+        }).join('') + '</div>' : '';
+    var author = STATE.display_name
+      ? '<div class="back-author">par <span class="back-author-name">@' + esc(STATE.display_name) + '</span></div>' : '';
+    var actions = '<div class="coll-actions deck-detail-actions">' +
+        '<button type="button" class="notif-btn deck-edit">Modifier</button>' +
+        '<button type="button" class="notif-btn deck-appearance">Apparence</button>' +
+        '<button type="button" class="deck-delete-btn deck-delete">Supprimer</button>' +
+      '</div>';
+    var skin = '<div class="deck-skin-inline" hidden>' + skinInlineHTML(deck) + '</div>';
+    return '<div class="card-face card-back">' +
+      '<button class="flip-back" type="button" aria-label="Retour" title="Retour">' + back + '</button>' +
+      desc + cats + author + actions + skin +
+      '<div class="coll-adopt-msg deck-verso-msg" hidden></div>' +
+    '</div>';
+  }
+
+  // Deplie un deck EN PLACE : les autres tuiles s'effacent, la tuile cliquee s'ancre en tete
+  // (elle RESTE un deck normal au recto : switch/❤/partage fonctionnels, « i » = verso), et
+  // ses cartes s'affichent en dessous dans la MEME grille. La tuile n'est PAS reconstruite ni
+  // retournee : son recto interactif est preserve. Aucun changement de page.
+  async function expandDeck(tileEl) {
+    var id = tileEl && tileEl.getAttribute('data-deck');
+    if (expandedId || !tileEl || !id) return;
+    var res, d;
+    try { res = await apiGet('/api/decks/' + encodeURIComponent(id)); d = await readJson(res); }
+    catch (e) { return; }
+    if (!res.ok || !d || !d.deck) return;
+    var deck = d.deck;
+    curDeck = deck; deckSources = (d.sources || []).slice();
+    expandedId = id;
+
+    var grid = viewEl.querySelector('.deck-grid');
+    if (!grid) { expandedId = null; return; }
+    var sibs = Array.prototype.filter.call(grid.children, function (c) { return c !== tileEl; });
+
+    // FLIP d'ancrage : la tuile cliquee « ne bouge pas » visuellement en passant en tete.
+    var firstRect = tileEl.getBoundingClientRect();
+    if (!REDUCE) sibs.forEach(function (c) { c.classList.add('deck-leaving'); });
+    grid.insertBefore(tileEl, grid.firstChild);
+    if (!REDUCE) {
+      var lastRect = tileEl.getBoundingClientRect();
+      var dx = firstRect.left - lastRect.left, dy = firstRect.top - lastRect.top;
+      tileEl.style.transition = 'none';
+      tileEl.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
+      void tileEl.offsetWidth;
+      tileEl.style.transition = 'transform .25s ease';
+      tileEl.style.transform = '';
+      setTimeout(function () { tileEl.style.transition = ''; tileEl.style.transform = ''; }, 300);
+    }
+    // Retrait des voisines apres le fondu (classe .deck-gone : [hidden] est battu par les
+    // display de .deck-card/.card.add), PUIS insertion des cartes du deck (evite un reflow).
+    setTimeout(function () {
+      sibs.forEach(function (c) { c.classList.add('deck-gone'); c.classList.remove('deck-leaving'); });
+      renderDeckCards();
+      ensureSuggestBlock();
+      buildSuggestions();
+    }, REDUCE ? 0 : 210);
+
+    setHeadMode(true);
+    setPageTitle(esc(deck.name), true);
+  }
+
+  // Replie : retire cartes + suggestions, retourne la tuile au recto, restaure la liste
+  // pristine (titre re-anime « Mes decks », decks voisins reaffiches, compteur revenu).
+  function collapseDeck() {
+    if (!expandedId) return;
+    if (window.LBAShare && LBAShare.close) LBAShare.close();
+    var grid = viewEl.querySelector('.deck-grid');
+    var tileEl = grid ? grid.querySelector('.deck-card[data-deck="' + cssEsc(expandedId) + '"]') : null;
+    if (grid) grid.querySelectorAll('.deck-card-wrap, #deck-add-card').forEach(function (n) { n.remove(); });
+    var sb = document.getElementById('deck-suggest-block'); if (sb) sb.remove();
+    var card = tileEl ? tileEl.querySelector('.ds-i0 .card') : null;
+    if (card) card.classList.remove('flipped', 'face-share');
+    if (tileEl) tileEl.classList.remove('ds-sharing');
+    setTimeout(function () { renderList(); }, REDUCE ? 0 : 260);
+  }
+
+  // Bascule l'en-tete entre compteur (liste) et « ← Retour » (deplie).
+  function setHeadMode(expanded) {
+    var back = document.getElementById('deck-back-all');
+    var count = viewEl.querySelector('.deck-list-head .deck-count');
+    if (back) back.hidden = !expanded;
+    if (count) count.style.display = expanded ? 'none' : '';
+  }
+
+  // Morph du titre .page-title (reutilise l'animation lettres partagee LBAHero).
+  function setPageTitle(html, animate) {
+    var h1 = viewEl.querySelector('.page-title');
+    if (!h1) return;
+    h1.innerHTML = html;
+    h1.dataset.heroDone = '';
+    if (animate && window.LBAHero) LBAHero.animate(h1);
+  }
+
+  // Bloc suggestions (rempli par buildSuggestions) : garanti present apres la grille.
+  function ensureSuggestBlock() {
+    if (document.getElementById('deck-suggest-block')) return;
+    var grid = viewEl.querySelector('.deck-grid');
+    var block = document.createElement('div');
+    block.id = 'deck-suggest-block';
+    block.className = 'deck-suggest-block';
+    if (grid && grid.parentNode) grid.parentNode.insertBefore(block, grid.nextSibling);
+    else viewEl.appendChild(block);
+  }
+
+  // --- Tuile-deck NORMALE (recto interactif) + actions verso, en délégation sur viewEl ------
+  // /mes-decks ne charge pas site.js : on réimplémente le comportement d'une tuile-deck du
+  // kiosque — switch = s'abonner au deck, ❤ = favori (localStorage), partage = face partage,
+  // « i » = verso. Plus : clic sur le CORPS = déplier ; boutons Modifier/Apparence/Supprimer.
+
+  function deckById(id) {
+    if (curDeck && curDeck.id === id) return curDeck;
+    var a = (STATE.decks || []).filter(function (dd) { return dd.id === id; });
+    return a[0] || null;
+  }
+  function tileId(tile) { return tile.getAttribute('data-deck-id') || tile.getAttribute('data-deck'); }
+  function tileCard(tile) { return tile.querySelector('.ds-i0 .card'); }
+
+  // Favoris de deck (localStorage, MÊME clé que le kiosque : 'lba-deck-favorites').
+  function deckFavSet() { try { var a = JSON.parse(localStorage.getItem('lba-deck-favorites') || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
+  function deckFavSave(a) { try { localStorage.setItem('lba-deck-favorites', JSON.stringify(a)); } catch (e) {} }
+  function isDeckFav(id) { return deckFavSet().indexOf(id) !== -1; }
+
+  // Recto : active les switches (désactivés par défaut) + cœur rempli si déjà favori.
+  function bindTiles() {
+    viewEl.querySelectorAll('.deck-card[data-deck]').forEach(function (tile) {
+      tile.querySelectorAll('.ds-i0 .switch-row input[type="checkbox"]').forEach(function (cb) { cb.removeAttribute('disabled'); });
+      var like = tile.querySelector('.ds-i0 .like-btn');
+      if (like && isDeckFav(tileId(tile))) { like.classList.add('liked'); like.setAttribute('aria-pressed', 'true'); }
     });
-    return '<label class="deck-skin-ctrl"><span>Skin</span>' +
-      '<select id="deck-skin-select" aria-label="Skin du deck">' + opts + '</select></label>';
   }
 
-  function renderDetail(deck, sources) {
-    curDeck = deck;
-    deckSources = (sources || []).slice();
-    var shared = deck.visibility && deck.visibility !== 'private';
-    // Visuel de synthèse « pile + ruban » (remplace l'ancienne vignette .deck-thumb-lg) :
-    // 3 dernières cartes ajoutées (récent d'abord) parmi les cartes du deck.
-    var headCards = deckSources.slice(-3).reverse();
-    var headStack = window.LBADeckStack ? ('<div class="deck-card">' + LBADeckStack.html({
-      name: '', tint: deck.tint, emoji: deck.emoji || DEFAULT_EMOJI,
-      count: deckSources.length, cards: headCards, mode: 'anon'
-    }) + '</div>') : '';
-    var forked = deck.forked_from_name
-      ? '<p class="deck-forked">Inspiré de « ' + esc(deck.forked_from_name) + ' »</p>' : '';
+  function flipToVerso(tile) { var c = tileCard(tile); if (!c) return; c.classList.remove('face-share'); c.classList.add('flipped'); tile.classList.add('ds-sharing'); }
+  function flipToRecto(tile) { var c = tileCard(tile); if (!c) return; c.classList.remove('flipped', 'face-share'); setTimeout(function () { tile.classList.remove('ds-sharing'); }, REDUCE ? 0 : 520); }
 
-    // Mise en page : titre (.page-title, comme toutes les pages) EN PLEINE LARGEUR,
-    // puis une rangée [pile deck-card] | [corps empilé] où le corps (description,
-    // catégories, actions, boîte de partage) vit À DROITE de la pile et SOUS le titre.
-    // Responsive : le corps repasse SOUS la pile en une colonne sur mobile (cf. site.css).
-    viewEl.innerHTML = '' +
-      '<button type="button" class="deck-back" id="deck-detail-back">← Tous mes decks</button>' +
-      '<h1 class="page-title" data-hero-done="1">' + esc(deck.name) + '</h1>' +
-      '<div class="deck-detail-layout">' +
-        headStack +
-        '<div class="deck-detail-body">' +
-          (deck.description ? '<p class="src-desc">' + esc(deck.description) + '</p>' : '') +
-          // Catégories auto (top-3, LECTURE SEULE) : dérivées des cartes, jamais choisies.
-          (Array.isArray(deck.categories) && deck.categories.length
-            ? '<div class="deck-detail-cats">' + deck.categories.slice(0, 3).map(function (c) {
-                return '<span class="tag ds-cat-tag">' + esc(window.LBACat && LBACat.label ? LBACat.label(c) : c) + '</span>';
-              }).join('') + '</div>'
-            : '') +
-          forked +
-          '<div class="coll-actions deck-detail-actions">' +
-            '<button type="button" id="deck-adopt" class="coll-adopt">S\'abonner à ce deck</button>' +
-            '<button type="button" id="deck-share" class="notif-btn">' + (shared ? 'Gérer le partage' : 'Partager') + '</button>' +
-            '<button type="button" id="deck-edit" class="notif-btn">Modifier</button>' +
-            '<button type="button" id="deck-delete" class="deck-delete-btn">Supprimer</button>' +
-          '</div>' +
-          // Phase 3 : skin de deck (cosmetique public). Visible seulement si l'utilisateur
-          // possede un skin 'deck' ; sinon lien discret vers la boutique.
-          '<div class="deck-skin-row">' + skinControlHTML(deck) + '</div>' +
-          '<div id="deck-skin-msg" class="coll-adopt-msg" hidden></div>' +
-          '<div id="deck-adopt-msg" class="coll-adopt-msg" hidden></div>' +
-          '<div id="deck-share-box" class="deck-share-box" hidden></div>' +
-        '</div>' +
-      '</div>' +
-      '<p class="src-desc" id="deck-empty-msg" hidden>Ce deck ne contient encore aucune carte. Ajoutez-en depuis le kiosque ou à partir d\'ici.</p>' +
-      '<div class="grid" id="deck-grid"></div>' +
-      '<div id="deck-suggest-block" class="deck-suggest-block"></div>';
-
-    renderDeckGrid();
-    bindDetail(deck);
-    buildSuggestions(); // async : nécessite le catalogue + le profil
+  function toggleFav(tile) {
+    var id = tileId(tile); var like = tile.querySelector('.ds-i0 .like-btn'); if (!id || !like) return;
+    var s = deckFavSet(); var i = s.indexOf(id); var now;
+    if (i === -1) { s.push(id); now = true; } else { s.splice(i, 1); now = false; }
+    deckFavSave(s);
+    like.classList.toggle('liked', now); like.setAttribute('aria-pressed', now ? 'true' : 'false');
   }
 
-  function bindDetail(deck) {
-    document.getElementById('deck-detail-back').addEventListener('click', renderList);
-    document.getElementById('deck-edit').addEventListener('click', function () { openForm(deck); });
-    document.getElementById('deck-delete').addEventListener('click', function () { onDelete(deck); });
-    document.getElementById('deck-adopt').addEventListener('click', function () { onAdopt(deck); });
-    document.getElementById('deck-share').addEventListener('click', function () { onShareToggle(deck); });
-    var skinSel = document.getElementById('deck-skin-select');
-    if (skinSel) skinSel.addEventListener('change', function () { onEquipSkin(deck, skinSel.value || null); });
-    renderShareMgmt(deck); // affiche « Arrêter le partage » si déjà partagé (le lien vit dans la modale)
+  // Switch « s'abonner » du recto : POST /api/decks/:id/adopt (propriétaire, toute visibilité)
+  // pour s'abonner ; DELETE /api/collections/:id/adopt (deck PUBLIC seulement) pour se
+  // désabonner — un deck privé n'a pas d'endpoint de désabonnement, la case est alors remise.
+  function toggleAdopt(tile, cb) {
+    var id = tileId(tile);
+    var token = TOKEN || (window.LBASession && LBASession.get());
+    if (!token || !id) { cb.checked = false; return; }
+    var want = cb.checked;
+    var row = cb.closest('.switch-row'); var label = row ? row.querySelector('.switch-label') : null;
+    function paint(on) { if (label) { label.textContent = on ? 'Abonné' : 'Non abonné'; label.classList.toggle('on', on); } }
+    cb.disabled = true; paint(want);
+    if (want && window.LBACards && LBACards.celebrateBurst) LBACards.celebrateBurst(cb.closest('.switch'));
+    var url = want ? '/api/decks/' + encodeURIComponent(id) + '/adopt' : '/api/collections/' + encodeURIComponent(id) + '/adopt';
+    apiSend(want ? 'POST' : 'DELETE', url)
+      .then(function (r) { if (!r.ok) throw new Error('http ' + r.status); })
+      .catch(function () { cb.checked = !want; paint(cb.checked); })
+      .finally(function () { cb.disabled = false; });
   }
 
-  // Equipe (ou retire si skinId null) un skin 'deck' sur CE deck. Cosmetique public,
-  // effet non destructif. Met a jour l'etat local pour rester coherent sans rechargement.
-  async function onEquipSkin(deck, skinId) {
-    var msg = document.getElementById('deck-skin-msg');
+  function openShare(tile) { var deck = deckById(tile.getAttribute('data-deck')); if (deck) onDeckShare(deck, tile, null); }
+
+  // Délégation clic (enregistrée une fois, cf. bas du module) : route les clics d'une tuile.
+  function onViewClick(e) {
+    var tile = e.target.closest('.deck-card[data-deck]');
+    if (!tile) return;
+    var t = e.target;
+    if (t.closest('.ds-i0 .card-share')) { e.stopPropagation(); openShare(tile); return; }
+    if (t.closest('.ds-i0 .flip-btn')) { e.stopPropagation(); flipToVerso(tile); return; }
+    if (t.closest('.flip-back')) { e.stopPropagation(); flipToRecto(tile); return; }
+    if (t.closest('.ds-i0 .like-btn')) { e.stopPropagation(); toggleFav(tile); return; }
+    if (t.closest('.ds-i0 .switch-row')) return; // switch : géré au « change », pas de dépliage
+    if (t.closest('.deck-edit')) { e.stopPropagation(); var d1 = deckById(tile.getAttribute('data-deck')); if (d1) openForm(d1); return; }
+    if (t.closest('.deck-delete')) { e.stopPropagation(); var d2 = deckById(tile.getAttribute('data-deck')); if (d2) onDelete(d2); return; }
+    if (t.closest('.deck-appearance')) { e.stopPropagation(); var box = tile.querySelector('.deck-skin-inline'); if (box) box.hidden = !box.hidden; return; }
+    if (t.closest('.deck-skin-opt')) { e.stopPropagation(); var opt = t.closest('.deck-skin-opt'); var d3 = deckById(tile.getAttribute('data-deck')); if (d3) equipSkin(d3, tile, opt.getAttribute('data-skin') || null); return; }
+    if (t.closest('.card-back') || t.closest('.card-share-face')) return; // autre clic verso : rien
+    if (!expandedId) expandDeck(tile); // corps de la tuile → déplier
+  }
+  function onViewChange(e) {
+    var cb = e.target;
+    if (!cb || !cb.matches || !cb.matches('.deck-card[data-deck] .ds-i0 .switch-row input[type="checkbox"]')) return;
+    var tile = cb.closest('.deck-card[data-deck]'); if (tile) toggleAdopt(tile, cb);
+  }
+
+  // Partager : garantit un lien (token) puis retourne la tuile sur sa FACE PARTAGE (meme
+  // grille de partage que le dashboard, via LBAShare.optionsHTML). Le verso reste « flipped ».
+  async function onDeckShare(deck, tileEl, btn) {
+    if (deck.visibility && deck.visibility !== 'private' && deck.share_token) {
+      showShareFace(tileEl, deck); return;
+    }
+    if (btn) btn.disabled = true;
+    try {
+      var res = await apiSend('POST', '/api/decks/' + encodeURIComponent(deck.id) + '/share');
+      var d = await readJson(res);
+      if (res.status === 409 && d && d.error === 'display_name_required') {
+        detailMsg('Choisissez d\'abord un pseudo (Mon compte).', 'err'); return;
+      }
+      if (res.ok && d && d.share_token) {
+        deck.visibility = 'unlisted'; deck.share_token = d.share_token;
+        showShareFace(tileEl, deck);
+        return;
+      }
+      detailMsg((d && d.error) || 'Partage impossible.', 'err');
+    } catch (e) { detailMsg('Réessayez dans un instant.', 'err'); }
+    finally { if (btn) btn.disabled = false; }
+  }
+
+  // Retourne la tuile (depuis le RECTO) sur sa face partage : flipped + face-share + ruban/
+  // eventail masques (ds-sharing), comme une carte du dashboard. flip-back → retour au recto.
+  function showShareFace(tileEl, deck) {
+    var card = tileEl.querySelector('.ds-i0 .card'); if (!card) return;
+    var grid = card.querySelector('.card-share-face .share-grid');
+    var url = shareFullUrl(deck.share_token);
+    if (grid && window.LBAShare && !grid.dataset.filled) {
+      grid.innerHTML = LBAShare.optionsHTML(deck.name, url);
+      LBAShare.bindCopy(grid, url);
+      grid.dataset.filled = '1';
+    }
+    tileEl.classList.add('ds-sharing');
+    card.classList.add('flipped', 'face-share');
+  }
+
+  // Equipe (ou retire si skinId null) un skin sur le deck deplie ; MAJ visuelle des pastilles.
+  async function equipSkin(deck, tileEl, skinId) {
     try {
       var res = await apiSend('POST', '/api/skins/equip', { skin_id: skinId, collection_id: deck.id });
       var d = await readJson(res);
       if (!res.ok) throw new Error((d && d.error) || 'echec');
       deck.equipped_skin_id = d.equipped_skin_id || null;
       if (curDeck && curDeck.id === deck.id) curDeck.equipped_skin_id = deck.equipped_skin_id;
-      if (msg) { msg.textContent = skinId ? 'Skin équipé ✓' : 'Skin retiré'; msg.className = 'coll-adopt-msg ok'; msg.hidden = false; }
-    } catch (e) {
-      // Rollback visuel : on resynchronise le select sur l'etat serveur connu.
-      var sel = document.getElementById('deck-skin-select');
-      if (sel) sel.value = deck.equipped_skin_id || '';
-      if (msg) { msg.textContent = 'Équipement impossible'; msg.className = 'coll-adopt-msg err'; msg.hidden = false; }
-    }
+      tileEl.querySelectorAll('.deck-skin-opt').forEach(function (b) {
+        var on = (b.getAttribute('data-skin') || '') === (deck.equipped_skin_id || '');
+        b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+      detailMsg(skinId ? 'Skin équipé ✓' : 'Skin retiré', 'ok');
+    } catch (e) { detailMsg('Équipement impossible', 'err'); }
   }
 
-  // Rend la grille des cartes DU deck (depuis l'état local deckSources).
-  function renderDeckGrid() {
-    var g = document.getElementById('deck-grid');
-    if (!g) return;
-    g.innerHTML = deckSources.map(function (sc) {
+  // Repli au clic HORS deck/cartes/suggestions (le deck reste ouvert sinon). Enregistre une
+  // seule fois (voir bas du module). En mode liste (expandedId null) : sans effet.
+  function onDocOutside(e) {
+    if (!expandedId) return;
+    var t = e.target;
+    if (!t || !t.closest) return;
+    if (t.closest('.deck-grid') || t.closest('.deck-suggest-block') || t.closest('.deck-list-head') ||
+        t.closest('.deck-form') || t.closest('.share-pop') || t.closest('.share-modal-backdrop') ||
+        t.closest('.share-backdrop')) return;
+    collapseDeck();
+  }
+
+  // Rend les cartes DU deck (lecture seule + « Retirer ») + la tuile « Ajouter une carte »
+  // (.card.add, même visuel que « Proposer une alerte » du kiosque) DANS la meme grille que
+  // la tuile-deck depliee, APRES elle (les tuiles voisines sont masquees). N'efface jamais la
+  // tuile-deck : ne remplace que les .deck-card-wrap / #deck-add-card existants.
+  function renderDeckCards() {
+    var grid = viewEl.querySelector('.deck-grid');
+    if (!grid) return;
+    grid.querySelectorAll('.deck-card-wrap, #deck-add-card').forEach(function (n) { n.remove(); });
+    var html = deckSources.map(function (sc) {
       return '<div class="deck-card-wrap">' +
         LBACards.cardHTML(sc, 'anon') +
         '<button type="button" class="deck-remove" data-source="' + esc(sc.id) + '">Retirer</button>' +
       '</div>';
-    }).join('');
-    g.querySelectorAll('.deck-remove').forEach(function (btn) {
-      btn.addEventListener('click', function () { onRemoveItem(btn.getAttribute('data-source')); });
+    }).join('') +
+      '<button type="button" class="card add deck-add-card" id="deck-add-card" aria-expanded="false">' +
+        '<span class="plus">+</span><strong>Ajouter une carte</strong>' +
+      '</button>';
+    grid.insertAdjacentHTML('beforeend', html);
+    grid.querySelectorAll('.deck-remove').forEach(function (btn) {
+      btn.addEventListener('click', function (e) { e.stopPropagation(); onRemoveItem(btn.getAttribute('data-source')); });
     });
-    var msg = document.getElementById('deck-empty-msg');
-    if (msg) msg.hidden = deckSources.length > 0;
+    var addTile = document.getElementById('deck-add-card');
+    if (addTile) {
+      var body = document.getElementById('deck-suggest-body');
+      addTile.setAttribute('aria-expanded', (body && !body.hidden) ? 'true' : 'false');
+      addTile.addEventListener('click', function (e) { e.stopPropagation(); toggleSuggest(); });
+    }
   }
 
+  // Déplie / replie le sélecteur de cartes suggérées (piloté par la tuile « Ajouter une
+  // carte » de la grille). Le corps des suggestions vit dans #deck-suggest-block, plus bas.
+  function toggleSuggest() {
+    var body = document.getElementById('deck-suggest-body');
+    var tile = document.getElementById('deck-add-card');
+    if (!body) return;
+    var open = body.hidden; body.hidden = !open;
+    if (tile) tile.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (open) body.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  // Messages du deck déplié : zone .deck-verso-msg (dans le verso propriétaire de la tuile).
   function detailMsg(text, kind) {
-    var el = document.getElementById('deck-adopt-msg');
+    var el = viewEl.querySelector('.deck-verso-msg');
     if (!el) return;
     el.textContent = text || '';
     el.hidden = !text;
-    el.className = 'coll-adopt-msg' + (kind ? ' ' + kind : '');
+    el.className = 'coll-adopt-msg deck-verso-msg' + (kind ? ' ' + kind : '');
   }
 
   // --- Propositions de cartes (« La sélection », en excluant celles du deck) ----
@@ -620,25 +873,32 @@
     if (!document.getElementById('deck-suggest-block')) return;
     pool = computePool(deckSources.map(function (s) { return s.id; }));
     shownCount = SUGGEST_STEP;
+    suggestQuery = '';
     var isEmpty = deckSources.length === 0;
 
+    // Le déclencheur d'ouverture est la tuile « Ajouter une carte » de la grille (renderDeckCards
+    // → toggleSuggest). Ici on rend le CORPS des suggestions : en-tête (label + champ de
+    // RECHERCHE dans toutes les cartes) + grille + « afficher plus ». Ouvert d'emblée si vide.
     block.innerHTML = '' +
-      '<button type="button" class="deck-suggest-toggle" id="deck-suggest-toggle" aria-expanded="' + (isEmpty ? 'true' : 'false') + '">' +
-        (isEmpty ? 'Cartes suggérées' : 'Ajouter des cartes') +
-        ' <span class="dst-caret" aria-hidden="true">' + (isEmpty ? '▾' : '▸') + '</span>' +
-      '</button>' +
       '<div class="deck-suggest-body" id="deck-suggest-body"' + (isEmpty ? '' : ' hidden') + '>' +
+        '<div class="deck-suggest-head">' +
+          '<div class="section-label">Cartes suggérées</div>' +
+          '<input type="search" id="deck-suggest-search" class="deck-suggest-search" ' +
+            'placeholder="Rechercher une carte…" aria-label="Rechercher une carte" autocomplete="off">' +
+        '</div>' +
         '<div class="grid" id="deck-suggest-grid"></div>' +
         '<div class="deck-suggest-more-wrap">' +
           '<button type="button" id="deck-suggest-more" class="notif-btn">Afficher plus d\'alertes</button>' +
         '</div>' +
       '</div>';
 
-    document.getElementById('deck-suggest-toggle').addEventListener('click', function () {
-      var body = document.getElementById('deck-suggest-body');
-      var open = body.hidden; body.hidden = !open;
-      this.setAttribute('aria-expanded', open ? 'true' : 'false');
-      var caret = this.querySelector('.dst-caret'); if (caret) caret.textContent = open ? '▾' : '▸';
+    // Synchronise l'état d'ouverture de la tuile « Ajouter une carte » avec le corps rendu.
+    var addTile0 = document.getElementById('deck-add-card');
+    if (addTile0) addTile0.setAttribute('aria-expanded', isEmpty ? 'true' : 'false');
+
+    var search = document.getElementById('deck-suggest-search');
+    if (search) search.addEventListener('input', function () {
+      suggestQuery = search.value || ''; shownCount = SUGGEST_STEP; renderSuggest();
     });
     document.getElementById('deck-suggest-more').addEventListener('click', function () {
       shownCount += SUGGEST_STEP; renderSuggest();
@@ -646,26 +906,47 @@
     renderSuggest();
   }
 
+  // Filtre une source contre la requête de recherche (nom + sous-titre + description +
+  // libellés de catégories), normalisé comme l'index du kiosque (accents/minuscules).
+  function suggestMatch(s, q) {
+    if (!q) return true;
+    var norm = (window.LBACards && LBACards.normalizeSearch) ? LBACards.normalizeSearch : function (x) { return String(x || '').toLowerCase(); };
+    var cats = (s.categories || []).map(function (c) { return catLabel(c); }).join(' ');
+    return norm([s.name, s.subtitle, s.description, cats].join(' ')).indexOf(norm(q)) !== -1;
+  }
+
   function renderSuggest() {
     var g = document.getElementById('deck-suggest-grid');
     if (!g) return;
-    if (!pool.length) {
-      g.innerHTML = '<p class="src-desc">Toutes les cartes disponibles sont déjà dans ce deck.</p>';
+    var q = (suggestQuery || '').trim();
+    var filtered = q ? pool.filter(function (s) { return suggestMatch(s, q); }) : pool;
+    if (!filtered.length) {
+      g.innerHTML = '<p class="src-desc">' +
+        (q ? 'Aucune carte ne correspond à votre recherche.' : 'Toutes les cartes disponibles sont déjà dans ce deck.') +
+        '</p>';
       var more0 = document.getElementById('deck-suggest-more'); if (more0) more0.style.display = 'none';
       return;
     }
-    var shown = pool.slice(0, shownCount);
+    var shown = filtered.slice(0, shownCount);
     g.innerHTML = shown.map(function (sc) {
-      return '<div class="deck-card-wrap deck-suggest-wrap">' +
+      return '<div class="deck-card-wrap deck-suggest-wrap" data-source="' + esc(sc.id) + '">' +
         LBACards.cardHTML(sc, 'anon') +
-        '<button type="button" class="deck-suggest-add coll-adopt" data-source="' + esc(sc.id) + '">Ajouter au deck</button>' +
       '</div>';
     }).join('');
-    g.querySelectorAll('.deck-suggest-add').forEach(function (btn) {
-      btn.addEventListener('click', function () { onAddSuggestion(btn.getAttribute('data-source')); });
+    // Bouton « Ajouter au deck » INCLUS DANS la carte, juste après la description (.card-desc).
+    g.querySelectorAll('.deck-suggest-wrap').forEach(function (wrap) {
+      var sid = wrap.getAttribute('data-source');
+      var btn = document.createElement('button');
+      btn.type = 'button'; btn.className = 'deck-suggest-add coll-adopt'; btn.setAttribute('data-source', sid);
+      btn.textContent = 'Ajouter au deck';
+      btn.addEventListener('click', function (e) { e.stopPropagation(); onAddSuggestion(sid); });
+      var desc = wrap.querySelector('.card-desc');
+      var p = desc ? desc.closest('p') : null;
+      if (p) p.insertAdjacentElement('afterend', btn);
+      else wrap.appendChild(btn);
     });
     var more = document.getElementById('deck-suggest-more');
-    if (more) more.style.display = (pool.length > shownCount) ? '' : 'none';
+    if (more) more.style.display = (filtered.length > shownCount) ? '' : 'none';
   }
 
   // Ajoute une carte suggérée au deck (sans rechargement : la carte quitte les
@@ -679,7 +960,7 @@
       for (var i = 0; i < pool.length; i++) { if (pool[i].id === sourceId) { idx = i; break; } }
       if (idx !== -1) { deckSources.push(pool[idx]); pool.splice(idx, 1); }
       curDeck.card_count = (curDeck.card_count || 0) + 1;
-      renderDeckGrid();
+      renderDeckCards();
       renderSuggest();
       refreshDecks(); // met à jour le compteur de la liste (silencieux)
     } catch (e) { detailMsg('Réessayez dans un instant.', 'err'); }
@@ -694,7 +975,7 @@
       for (var i = 0; i < deckSources.length; i++) { if (deckSources[i].id === sourceId) { idx = i; break; } }
       if (idx !== -1) { pool.unshift(deckSources[idx]); deckSources.splice(idx, 1); }
       curDeck.card_count = Math.max(0, (curDeck.card_count || 1) - 1);
-      renderDeckGrid();
+      renderDeckCards();
       renderSuggest();
       refreshDecks();
     } catch (e) { detailMsg('Réessayez dans un instant.', 'err'); }
@@ -704,33 +985,9 @@
     if (!window.confirm('Supprimer définitivement le deck « ' + deck.name + ' » ?')) return;
     try {
       var res = await apiSend('DELETE', '/api/decks/' + encodeURIComponent(deck.id));
-      if (res.ok) { await refreshDecks(); renderList(); }
+      if (res.ok) { await refreshDecks(); expandedId = null; renderList(); }
       else detailMsg('Suppression impossible.', 'err');
     } catch (e) { detailMsg('Réessayez dans un instant.', 'err'); }
-  }
-
-  async function onAdopt(deck) {
-    var btn = document.getElementById('deck-adopt');
-    if (btn) { btn.disabled = true; btn.textContent = 'Abonnement…'; }
-    try {
-      var res = await apiSend('POST', '/api/decks/' + encodeURIComponent(deck.id) + '/adopt');
-      var d = await readJson(res);
-      if (!res.ok) throw new Error('http ' + res.status);
-      var parts = [];
-      parts.push((d.added || 0) + ' ajoutée' + ((d.added || 0) > 1 ? 's' : ''));
-      parts.push((d.already || 0) + ' déjà suivie' + ((d.already || 0) > 1 ? 's' : ''));
-      var msg = parts.join(' · ');
-      if (d.needs_params && d.needs_params.length) msg += ' (+ ' + d.needs_params.length + ' à compléter)';
-      detailMsg(msg, 'ok');
-      // E6) Deck entièrement adopté → célébration autour du bouton.
-      if (d.added > 0 && (!d.needs_params || !d.needs_params.length) && window.LBACards) {
-        LBACards.celebrateBurst(btn);
-      }
-    } catch (e) {
-      detailMsg('Réessayez dans un instant.', 'err');
-    } finally {
-      if (btn) { btn.disabled = false; btn.textContent = 'S\'abonner à ce deck'; }
-    }
   }
 
   // --- Partage --------------------------------------------------------------
@@ -739,83 +996,7 @@
     return 'https://labonnealerte.fr/deck/' + token;
   }
 
-  // Partage UNIFIÉ : même grande carte modale que /collection/:slug et /deck/:token
-  // (window.LBAShare.openModal — réseaux + copier le lien + croix, fermeture Échap/
-  // clic extérieur, responsive). Un seul point de vérité pour l'apparence du partage.
-  function shareModal(deck) {
-    var url = shareFullUrl(deck.share_token);
-    if (window.LBAShare && LBAShare.openModal) LBAShare.openModal(deck.name, url);
-    else window.prompt('Lien de partage', url); // repli si le composant n'est pas chargé
-  }
-
-  // Gestion du partage propre à /mes-decks (le propriétaire peut arrêter le partage) :
-  // le lien lui-même est dans la modale, la boîte ne garde que « Arrêter le partage ».
-  function renderShareMgmt(deck) {
-    var box = document.getElementById('deck-share-box');
-    if (!box) return;
-    var shared = deck.visibility && deck.visibility !== 'private' && deck.share_token;
-    if (!shared) { box.hidden = true; box.innerHTML = ''; return; }
-    box.hidden = false;
-    box.innerHTML = '<button type="button" class="acct-delete-link" id="deck-unshare">Arrêter le partage</button>';
-    box.querySelector('#deck-unshare').addEventListener('click', function () { onUnshare(deck); });
-  }
-
-  async function onShareToggle(deck) {
-    // Déjà partagé : ouvre directement la modale avec l'URL existante.
-    if (deck.visibility && deck.visibility !== 'private' && deck.share_token) { shareModal(deck); return; }
-    // Sinon : bascule en 'unlisted' + génère le token, PUIS ouvre la même modale.
-    var btn = document.getElementById('deck-share');
-    if (btn) btn.disabled = true;
-    try {
-      var res = await apiSend('POST', '/api/decks/' + encodeURIComponent(deck.id) + '/share');
-      var d = await readJson(res);
-      if (res.status === 409 && d && d.error === 'display_name_required') {
-        focusPseudo();
-        return;
-      }
-      if (res.ok && d && d.share_token) {
-        deck.visibility = 'unlisted';
-        deck.share_token = d.share_token;
-        if (btn) btn.textContent = 'Gérer le partage';
-        renderShareMgmt(deck);
-        shareModal(deck);
-        return;
-      }
-      detailMsg((d && d.error) || 'Partage impossible.', 'err');
-    } catch (e) {
-      detailMsg('Réessayez dans un instant.', 'err');
-    } finally {
-      if (btn) btn.disabled = false;
-    }
-  }
-
-  async function onUnshare(deck) {
-    if (!window.confirm('Arrêter le partage ? Le lien actuel ne fonctionnera plus.')) return;
-    try {
-      var res = await apiSend('POST', '/api/decks/' + encodeURIComponent(deck.id) + '/unshare');
-      if (res.ok) {
-        deck.visibility = 'private';
-        deck.share_token = null;
-        var btn = document.getElementById('deck-share');
-        if (btn) btn.textContent = 'Partager';
-        renderShareMgmt(deck);
-        await refreshDecks();
-      } else detailMsg('Impossible d\'arrêter le partage.', 'err');
-    } catch (e) { detailMsg('Réessayez dans un instant.', 'err'); }
-  }
-
   // --- Chargement -----------------------------------------------------------
-
-  async function openDeck(id) {
-    viewEl.innerHTML = '<div class="src-loading">Chargement…</div>';
-    try {
-      var res = await apiGet('/api/decks/' + encodeURIComponent(id));
-      var d = await readJson(res);
-      if (!res.ok || !d || !d.deck) { renderList(); return; }
-      await ensureSkins(); // selecteur « Skin » : necessite la liste des skins deck possedes
-      renderDetail(d.deck, d.sources || []);
-    } catch (e) { renderList(); }
-  }
 
   // Recharge la liste des decks (après création / édition / suppression / partage).
   async function refreshDecks() {
@@ -837,7 +1018,7 @@
   async function openCreateFromSeed() {
     var raw = readSeed();
     clearSeed(); // consommé : évite une graine périmée au prochain passage
-    viewEl.innerHTML = '<div class="src-loading">Chargement…</div>';
+    viewEl.innerHTML = '<div class="src-loading"><div class="lba-bars" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>Chargement…</div>';
     var seedCards = [];
     if (raw) {
       await ensureCatalog();
@@ -874,10 +1055,22 @@
     if (loadingEl) loadingEl.hidden = true;
     if (anonEl) anonEl.hidden = true;
     if (viewEl) viewEl.hidden = false;
-    // Arrivée depuis une carte du kiosque (aucun deck) : ouvrir directement la création
-    // avec la carte pré-présente. Sinon, liste normale.
-    if (/[?&]creer(=|&|$)/.test(location.search)) openCreateFromSeed();
+    // Skins possédés chargés AVANT le rendu : le verso de chaque tuile inclut la liste
+    // « Apparence » (baked dans deckTileHTML). Non bloquant si l'appel échoue.
+    await ensureSkins();
+    // Page « Nouveau deck » (/mes-decks/nouveau) OU arrivée depuis une carte du kiosque
+    // (?creer, graine dans localStorage) : ouvrir directement le formulaire de création.
+    // Sinon, liste normale.
+    if (/\/mes-decks\/nouveau\/?$/.test(location.pathname) || /[?&]creer(=|&|$)/.test(location.search)) openCreateFromSeed();
     else renderList();
+  }
+
+  // Enregistrés une seule fois : repli au clic extérieur + délégation des clics/switches des
+  // tuiles-deck (viewEl persiste ; son innerHTML change à chaque rendu).
+  document.addEventListener('click', onDocOutside);
+  if (viewEl) {
+    viewEl.addEventListener('click', onViewClick);
+    viewEl.addEventListener('change', onViewChange);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

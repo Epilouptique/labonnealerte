@@ -176,6 +176,21 @@
     // Le recto reflète l'adoption sans attendre un rechargement.
     var st = card.querySelector('.card-front .state.task');
     if (st) st.innerHTML = '<span class="dot-idle"></span> Tâche suivie';
+    // Première tâche : l'interrupteur de pause apparaît sur le RECTO, juste après
+    // la .param-row qui porte « + configurer » (même ordre ET même structure que les
+    // cartes v2 : rangée d'action puis switch, en frères). Markup identique →
+    // toggleMute() de site.js le prend en charge sans câblage.
+    var cfg = card.querySelector('.card-front .task-config');
+    var row = cfg && cfg.closest('.param-row');
+    if (row && !card.querySelector('.card-front .param-mute-row')) {
+      row.insertAdjacentHTML('afterend',
+        '<label class="switch-row param-mute-row">' +
+          '<span class="switch"><input type="checkbox" class="param-mute" checked' +
+            ' aria-label="Activer ou mettre en pause les relances de vos tâches">' +
+            '<span class="track"></span><span class="thumb"></span></span>' +
+          '<span class="switch-label on">Abonné</span>' +
+        '</label>');
+    }
   }
 
   document.addEventListener('click', function (e) {

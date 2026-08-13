@@ -19,16 +19,42 @@
   // dépend directement, il reste donc indépendant de l'état condensé du header.
   var LOGO_HTML = '<span class="lig"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path d="M 0 20 C -6 93, 66 52, 60 10"/></svg><span class="l">l</span>a</span>bonne<span class="a">alerte</span><span class="bang"><span class="bar"></span><span class="dot"></span></span><span class="fr">fr</span>';
 
-  // 5) Cœur du header rempli si des favoris existent (localStorage lba-likes).
-  // Enregistré avant le retour anticipé « home » pour s'appliquer sur toutes les pages.
-  function markFavHeart() {
-    var liked; try { liked = JSON.parse(localStorage.getItem('lba-likes') || '[]'); } catch (e) { liked = []; }
-    if (Array.isArray(liked) && liked.length) {
-      document.querySelectorAll('.fav-link').forEach(function (a) { a.classList.add('has-fav'); });
-    }
+  /* ---- Icônes de .nav-right : SOURCE UNIQUE (cloche / cœur / roue) ----
+     Deux calques par icône : `.hd-ic-base` (trait, sans couleur propre) et
+     `.hd-ic-fill` (plein, révélé de bas en haut au survol par le CSS .hd-ic-fill).
+     Même vocabulaire graphique que les autres SVG du site : viewBox 24, trait 2px,
+     linecap/linejoin round, currentColor. La home (index.html) recopie ce markup —
+     toute retouche ici doit y être répercutée.
+     Exposé via window.LBAHeader.ICONS pour éviter une 3e copie ailleurs. */
+  var BELL_PATHS = '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>';
+  var HEART_PATH = '<path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>';
+  // Boutique (sac) : corps du sac + ligne d'ouverture + anse.
+  var BAG_PATHS = '<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/>';
+  // `strokeOnly` : le calque révélé au survol reste un TRACÉ (fill="none") au lieu d'un
+  // aplat — c'est alors le dessin lui-même qui se colore de bas en haut, sans que
+  // l'intérieur se remplisse. Utilisé par le sac de la boutique.
+  function icon2(cls, paths, strokeOnly) {
+    var open = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
+    return '<span class="hd-ic ' + cls + '" aria-hidden="true">' +
+      open + ' fill="none" class="hd-ic-base">' + paths + '</svg>' +
+      open + ' fill="' + (strokeOnly ? 'none' : 'currentColor') + '" class="hd-ic-fill">' + paths + '</svg>' +
+    '</span>';
   }
-  if (document.readyState !== 'loading') setTimeout(markFavHeart, 0);
-  else document.addEventListener('DOMContentLoaded', markFavHeart);
+  var BELL_HTML = icon2('hd-ic-bell', BELL_PATHS);
+  var HEART_HTML = icon2('hd-ic-heart', HEART_PATH);
+  var BAG_HTML = icon2('hd-ic-bag', BAG_PATHS, true);
+  // « Mes alertes » : cloche seule (plus de libellé texte). Le KPI du header vient s'y
+  // superposer en pastille de notification (voir mobile-header.js + site.css).
+  var MINE_LINK_HTML = '<a class="mine-link hd-link" href="/connexion" aria-label="Mes alertes" title="Mes alertes">' + BELL_HTML + '</a>';
+  // Boutique de skins — placée À GAUCHE de la cloche dans .nav-right.
+  var SHOP_LINK_HTML = '<a class="shop-link hd-link" href="/boutique" aria-label="Boutique" title="Boutique">' + BAG_HTML + '</a>';
+  // ❤ : la page /favoris est remplacée par un FILTRE du kiosque (?mode=favoris, intercepté
+  // sur place par site.js/bindFavLinks). Seule la destination change, l'apparence est intacte.
+  var FAV_LINK_HTML = '<a class="fav-link hd-link" href="/?mode=favoris" aria-label="Mes favoris" title="Mes favoris">' + HEART_HTML + '</a>';
+
+  // NB : l'ancien markFavHeart() (cœur rempli en permanence quand des favoris existent,
+  // classe .has-fav) a été retiré — les trois icônes du header sont désormais sans
+  // couleur au repos, le violet n'apparaissant qu'au survol.
 
   /* ===================== Menu mobile plein écran (partagé) ===================== */
   // opts : { isHome:boolean, logged:boolean }
@@ -64,9 +90,9 @@
     menu.setAttribute('aria-label', 'Menu');
     // A3) Icônes SVG (même famille que SHARE_SVG/INFO_SVG : trait 2px, linecap round,
     // currentColor) pour « Les nouvelles » (éclat/étoile filante) et « La sélection »
-    // (marque-page). Flèche retour = même vocabulaire que BACK_SVG des cartes.
+    // (étoile). Flèche retour = même vocabulaire que BACK_SVG des cartes.
     var IC_NOUV = '<svg class="m-ic" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.2l1.7 4L18 8.9l-4.3 1.7L12 14.9l-1.7-4.3L6 8.9l4.3-1.7z"/><path d="M18.5 14.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z"/></svg>';
-    var IC_SEL = '<svg class="m-ic" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 3.5h11a1 1 0 0 1 1 1V20l-6.5-4.2L5.5 20V4.5a1 1 0 0 1 1-1z"/></svg>';
+    var IC_SEL = '<svg class="m-ic" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.6l2.6 5.3 5.9.9-4.25 4.15 1 5.85L12 17l-5.25 2.75 1-5.85L3.5 9.8l5.9-.9z"/></svg>';
     var IC_CAT = '<svg class="m-ic" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>';
     var IC_BACK = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 5 5v3"/></svg>';
 
@@ -80,18 +106,18 @@
         '</div>' +
         '<nav class="m-menu-list" aria-label="Navigation principale">' +
           (logged
-            ? '<button type="button" class="m-link m-primary" data-act="mine">Ma collection</button>' +
+            ? '<button type="button" class="m-link m-primary" data-act="mine">Mes alertes</button>' +
               '<a href="/mes-decks" class="m-link">Mes decks</a>' +
-              '<a href="/favoris" class="m-link">Mes favoris</a>'
+              '<a href="/?mode=favoris" class="m-link" data-act="favoris">Mes favoris</a>'
             : '<a href="/connexion" class="m-primary" data-act="auth">Se connecter</a>' +
-              '<a href="/favoris" class="m-link">Mes favoris</a>') +
+              '<a href="/?mode=favoris" class="m-link" data-act="favoris">Mes favoris</a>') +
           '<a href="/le-point" class="m-link">Le Point</a>' +
           '<a href="/proposer">Déposer une alerte</a>' +
           '<button type="button" class="m-link" data-act="search">Rechercher</button>' +
           '<hr class="m-menu-sep">' +
           '<button type="button" class="m-link m-has-ic" data-act="categories">' + IC_CAT + ' Catégories</button>' +
-          '<button type="button" class="m-link m-has-ic" data-act="nouveautes">' + IC_NOUV + ' Les nouvelles</button>' +
-          '<button type="button" class="m-link m-has-ic" data-act="selection">' + IC_SEL + ' Les plus populaires</button>' +
+          '<button type="button" class="m-link m-has-ic" data-act="nouveautes">' + IC_NOUV + ' Nouveautées</button>' +
+          '<button type="button" class="m-link m-has-ic" data-act="selection">' + IC_SEL + ' Populaires</button>' +
           '<hr class="m-menu-sep">' +
           // E) « Mon compte » regroupé juste au-dessus de « Nous soutenir ».
           (logged ? '<button type="button" class="m-link" data-act="account">Mon compte</button>' : '') +
@@ -165,6 +191,9 @@
       var c = isHome ? document.querySelector('.chip-f[data-cat="' + mode + '"]') : null;
       // E) Après application d'un filtre sur la home : remonter en haut de page.
       if (c) { c.click(); scrollTopSmooth(); }
+      // Filtres SANS puce dans le rail (« mine », « favoris ») : on passe par le point
+      // d'entrée public du kiosque plutôt que de recharger la page.
+      else if (isHome && window.LBAKiosk && LBAKiosk.filter) { LBAKiosk.filter(mode); scrollTopSmooth(); }
       else window.location.href = '/?mode=' + encodeURIComponent(mode);
     }
 
@@ -231,7 +260,7 @@
         var q = document.getElementById('q'); if (q) setTimeout(function () { q.focus(); }, REDUCE ? 0 : 210);
         return;
       }
-      if (act === 'mine' || act === 'nouveautes' || act === 'selection') {
+      if (act === 'mine' || act === 'nouveautes' || act === 'selection' || act === 'favoris') {
         e.preventDefault(); closeMenu(); gridAction(act); return;
       }
       if (act === 'account') {
@@ -252,49 +281,19 @@
     });
   }
 
-  window.LBAHeader = { buildMenu: buildMenu };
-
-  /* ===================== Bouton « Déposer une alerte » : rotation de libellé ===================== */
-  // Le libellé alterne « Déposer une alerte » (→ /proposer) et « Ajouter un deck »
-  // (→ /mes-decks). Réservé aux connectés (les decks sont une fonctionnalité de
-  // compte ; l'anonyme garde le libellé statique). Présent sur toutes les pages.
-  // TODO(ergonomie-decks) : réglage plus fin prévu plus tard (cadence, transition,
-  // davantage de libellés) — on ne touche pas ici au reste de la mécanique du bouton.
-  function setupDepositRotation() {
-    var btn = document.querySelector('.btn-deposit');
-    if (!btn) return;
-    var logged = !!(window.LBASession && window.LBASession.get && window.LBASession.get());
-    if (!logged) return;
-    // Isole le libellé dans un span (on conserve l'icône « + »).
-    var label = btn.querySelector('.bd-label');
-    if (!label) {
-      var plus = btn.querySelector('.plus');
-      var txt = (btn.textContent || '').trim() || 'Déposer une alerte';
-      btn.innerHTML = (plus ? plus.outerHTML : '<span class="plus" aria-hidden="true">+</span>') +
-        ' <span class="bd-label">' + txt + '</span>';
-      label = btn.querySelector('.bd-label');
+  window.LBAHeader = {
+    buildMenu: buildMenu,
+    ICONS: {
+      bell: BELL_HTML, heart: HEART_HTML, bag: BAG_HTML,
+      mineLink: MINE_LINK_HTML, favLink: FAV_LINK_HTML, shopLink: SHOP_LINK_HTML
     }
-    var WORDS = [
-      { t: 'Déposer une alerte', href: '/proposer' },
-      { t: 'Ajouter un deck', href: '/mes-decks' }
-    ];
-    var i = 0;
-    setInterval(function () {
-      i = (i + 1) % WORDS.length;
-      var w = WORDS[i];
-      if (REDUCE) { label.textContent = w.t; btn.setAttribute('href', w.href); return; }
-      label.classList.add('bd-slide-out');
-      setTimeout(function () {
-        label.textContent = w.t;
-        btn.setAttribute('href', w.href);
-        label.classList.remove('bd-slide-out');
-        label.classList.add('bd-slide-in');
-        setTimeout(function () { label.classList.remove('bd-slide-in'); }, 280);
-      }, 220);
-    }, 4200);
-  }
-  if (document.readyState !== 'loading') setupDepositRotation();
-  else document.addEventListener('DOMContentLoaded', setupDepositRotation);
+  };
+
+  /* ===================== Bouton « Déposer une alerte » =====================
+     Libellé FIXE « Déposer une alerte » (→ /proposer). La rotation qui alternait avec
+     « Ajouter un deck » (→ /mes-decks) a été RETIRÉE : le bouton ne change plus ni de
+     texte ni de cible, connecté ou non. Le libellé reste isolé dans un `.bd-label` —
+     le CSS le masque entre 722 et 1299px pour ne garder que le « + ». */
 
   /* ===================== Injection du header sur les pages HORS home ===================== */
   // La home a déjà son header (index.html + mobile-header.js) → on ne touche à rien.
@@ -321,7 +320,8 @@
   // 1) Bouton « Déposer une alerte » juste après le logo.
   if (!nav.querySelector('.btn-deposit')) {
     brand.insertAdjacentHTML('afterend',
-      '<a class="btn-deposit" href="/proposer"><span class="plus" aria-hidden="true">+</span> Déposer une alerte</a>');
+      '<a class="btn-deposit" href="/proposer" title="Déposer une alerte">' +
+      '<span class="plus" aria-hidden="true">+</span> <span class="bd-label">Déposer une alerte</span></a>');
   }
   // 2) Hamburger (masqué en desktop par le CSS, visible en mobile via m-kiosk).
   if (!nav.querySelector('.nav-toggle')) {
@@ -341,21 +341,145 @@
       '</label>');
     if (navRight) nav.insertBefore(search, navRight); else nav.appendChild(search);
   }
-  // 4) nav-right standard : STRICTEMENT la même 1re ligne que la home (Ma collection,
-  //    favoris, connexion|Mon compte, thème). Pas d'« OpenAlert » ici (absent de la
-  //    home) — il reste accessible par le footer et le menu mobile.
+  // 4) nav-right standard : STRICTEMENT la même 1re ligne que la home (Mes alertes,
+  //    favoris, connexion|Mon compte). Pas d'« OpenAlert » ici (absent de la home) —
+  //    il reste accessible par le footer et le menu mobile. Plus de bouton de thème :
+  //    retiré du header (window.toggleTheme reste exposé par theme.js).
   navRight.innerHTML =
-    '<a class="mine-link" href="/connexion">Ma collection</a>' +
-    '<a class="fav-link" href="/favoris" aria-label="Mes favoris" title="Mes favoris"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></a>' +
+    SHOP_LINK_HTML +
+    MINE_LINK_HTML +
+    FAV_LINK_HTML +
     '<span class="auth-email" id="auth-email" hidden></span>' +
-    '<a class="btn-login" id="auth-link" href="/connexion">Se connecter</a>' +
-    '<button class="theme-btn" type="button" aria-label="Changer de thème">◐</button>';
+    '<a class="btn-login" id="auth-link" href="/connexion">Se connecter</a>';
 
   document.body.classList.add('m-kiosk');
-  // Point 5) Marqueur des pages secondaires (header injecté, pas de 2e rangée de
-  // catégories) : permet au CSS mobile de condenser le header sur UNE seule ligne
-  // (hamburger + recherche), contrairement à la home qui garde son en-tête multi-rangs.
+  // Point 5) Marqueur des pages secondaires (header injecté) : sert au CSS MOBILE, qui
+  // condense le header sur UNE seule ligne (hamburger + recherche) — comportement
+  // mobile inchangé. En desktop, ces pages reçoivent désormais le rail de catégories
+  // (voir buildCatRail ci-dessous), donc m-secondary n'y signifie plus « une rangée ».
   document.body.classList.add('m-secondary');
+
+  /* ============ Rangées 2 & 3 : rail de catégories (desktop, toutes pages) ============
+     Politique de navigation : UN SEUL menu, celui du dashboard, sur toute la navigation.
+     Les pages hors home reçoivent donc le même rail de catégories que le kiosque, en
+     plus de la 1re rangée. Les `order` CSS existants (body.m-kiosk header .nav .toolbar
+     = order 6, .chips-secondary-wrap = order 7) placent tout seuls ces rangées.
+
+     Deux différences INÉVITABLES avec le kiosque, faute de grille sur ces pages :
+       · un clic sur une puce NAVIGUE vers la home filtrée (/?cat=…, /?mode=…) au lieu
+         de filtrer sur place — c'est déjà ce que fait le menu mobile ;
+       · aucune puce n'est marquée active (on n'est pas dans une vue filtrée).
+
+     EXCEPTION : l'espace développeurs (proposer.html, body.dev) conserve ses règles —
+     1re rangée seule et thème sombre. On n'y injecte aucun rail. */
+  var CHIP_IC_NOUV = '<svg class="chip-ic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.2l1.7 4L18 8.9l-4.3 1.7L12 14.9l-1.7-4.3L6 8.9l4.3-1.7z"/><path d="M18.5 14.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z"/></svg>';
+  var CHIP_IC_SEL = '<svg class="chip-ic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.6l2.6 5.3 5.9.9-4.25 4.15 1 5.85L12 17l-5.25 2.75 1-5.85L3.5 9.8l5.9-.9z"/></svg>';
+
+  function escC(s) { return window.LBACards ? window.LBACards.esc(s) : String(s == null ? '' : s); }
+
+  // Libellés de catégories. On privilégie LBACat (déjà chargé sur certaines pages, donc
+  // pas de requête en double) ; sinon header.js va chercher la taxonomie lui-même — les
+  // pages n'ont ainsi PAS besoin d'inclure categories.js pour afficher le rail.
+  function loadCatLabels() {
+    if (window.LBACat && window.LBACat.load) {
+      return window.LBACat.load().then(function () { return window.LBACat.label; });
+    }
+    return fetch('/api/categories', { headers: { Accept: 'application/json' } })
+      .then(function (r) { return r.ok ? r.json() : []; })
+      .then(function (arr) {
+        var by = {};
+        (Array.isArray(arr) ? arr : []).forEach(function (e) { by[e.slug] = e.label; });
+        return function (slug) { return by[slug] || slug; };
+      })
+      .catch(function () { return function (slug) { return slug; }; });
+  }
+
+  function buildCatRail() {
+    if (document.body.classList.contains('dev')) return; // espace développeurs : inchangé
+    if (nav.querySelector('.toolbar')) return;
+
+    var toolbar = elFrom('<div class="toolbar"><div class="chips" id="chips" role="group" aria-label="Filtrer par catégorie"></div></div>');
+    var secWrap = elFrom('<div class="chips-secondary-wrap" id="chips-secondary-wrap"></div>');
+    nav.appendChild(toolbar);
+    nav.appendChild(secWrap);
+    var chipsEl = toolbar.querySelector('.chips');
+
+    var sourcesP = fetch('/api/sources', { headers: { Accept: 'application/json' } })
+      .then(function (r) { return r.ok ? r.json() : []; })
+      .catch(function () { return []; });
+
+    Promise.all([sourcesP, loadCatLabels()]).then(function (res) {
+      var sources = Array.isArray(res[0]) ? res[0] : [];
+      var label = res[1];
+      if (!sources.length) { toolbar.remove(); secWrap.remove(); return; }
+
+      // Mêmes comptes et même tri que renderChips() du kiosque (fréquence décroissante,
+      // puis libellé) → le rail affiche les mêmes puces, dans le même ordre.
+      var counts = {};
+      sources.forEach(function (s) {
+        (Array.isArray(s.categories) ? s.categories : []).forEach(function (c) {
+          counts[c] = (counts[c] || 0) + 1;
+        });
+      });
+      var slugs = Object.keys(counts).sort(function (a, b) {
+        return counts[b] - counts[a] || String(label(a)).localeCompare(String(label(b)));
+      });
+      var wide = !!(window.matchMedia && window.matchMedia('(min-width: 1024px)').matches);
+      var primaryN = wide ? 6 : 4;
+      var primary = slugs.slice(0, primaryN);
+      var secondary = slugs.slice(primaryN, primaryN + 8);
+
+      function chip(slug) {
+        return '<button class="chip-f" type="button" data-cat="' + escC(slug) + '">' +
+          escC(label(slug)) + ' <span class="n">' + counts[slug] + '</span></button>';
+      }
+      var prim = '<button class="chip-f" type="button" data-cat="all">Toutes <span class="n">' + sources.length + '</span></button>' +
+        '<button class="chip-f chip-special" type="button" data-cat="nouveautes">' + CHIP_IC_NOUV + ' Nouveautés</button>' +
+        '<button class="chip-f chip-special" type="button" data-cat="selection">' + CHIP_IC_SEL + ' Populaires</button>';
+      primary.forEach(function (s) { prim += chip(s); });
+      if (secondary.length) prim += '<button class="chip-f chip-more-toggle" type="button" aria-label="Plus de catégories">+</button>';
+      chipsEl.innerHTML = '<div class="chips-row" id="chips-primary">' + prim + '</div>';
+      secWrap.innerHTML = secondary.length
+        ? '<div class="chips-row chips-more" id="chips-secondary">' + secondary.map(chip).join('') + '</div>'
+        : '';
+
+      // Repli/dépli de la 2e ligne : même animation que le kiosque (max-height depuis la
+      // hauteur réelle, sinon la fin du repli se fait d'un coup).
+      var secOpen = false;
+      function setSecOpen(sec, open) {
+        if (open) { sec.classList.add('open'); sec.style.maxHeight = sec.scrollHeight + 'px'; }
+        else {
+          sec.style.maxHeight = sec.scrollHeight + 'px';
+          void sec.offsetHeight;
+          sec.classList.remove('open');
+          sec.style.maxHeight = '0px';
+        }
+      }
+
+      function onChipClick(e) {
+        var tgl = e.target.closest('.chip-more-toggle');
+        if (tgl) {
+          var sec = document.getElementById('chips-secondary');
+          if (sec) {
+            secOpen = !secOpen;
+            setSecOpen(sec, secOpen);
+            tgl.textContent = secOpen ? '−' : '+';
+            tgl.classList.toggle('on', secOpen);
+          }
+          return;
+        }
+        var b = e.target.closest('.chip-f');
+        if (!b) return;
+        var slug = b.getAttribute('data-cat');
+        if (slug === 'all') window.location.href = '/';
+        else if (slug === 'nouveautes' || slug === 'selection') window.location.href = '/?mode=' + encodeURIComponent(slug);
+        else window.location.href = '/?cat=' + encodeURIComponent(slug);
+      }
+      chipsEl.addEventListener('click', onChipClick);
+      secWrap.addEventListener('click', onChipClick);
+    });
+  }
+  buildCatRail();
 
   // Recherche → redirige vers la home avec ?q=<terme> (Entrée, bouton loupe).
   function goSearch() {
@@ -373,9 +497,7 @@
   var go = nav.querySelector('.search-go');
   if (go) go.addEventListener('click', goSearch);
 
-  // Thème : lie le bouton injecté (window.toggleTheme fourni par theme.js).
-  var tb = nav.querySelector('.theme-btn');
-  if (tb && window.toggleTheme) tb.addEventListener('click', window.toggleTheme);
+  // (Plus de liaison de bouton de thème : il n'est plus injecté dans le header.)
 
   // Auth : reflète l'état de session si session.js est présent (« Se connecter » →
   // « Mon compte » si connecté). Sinon, défaut « Se connecter ».

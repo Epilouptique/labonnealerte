@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LaBonneAlerte — Skins vague 2 (boutique)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#fdfaff;--ink:#141218;--muted:#6b6459;--violet:#a567e3;--violet-l:#bd8ef0;--green:#16a34a;--green-l:#22c55e;--amber:#d9a54a;--dot:rgba(120,95,175,.13)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--ink);padding:46px 22px 80px;max-width:1300px;margin:0 auto;line-height:1.45;background-image:radial-gradient(var(--dot) 1.2px,transparent 1.7px);background-size:30px 30px}
+h1{font-family:'Baloo 2',sans-serif;font-size:30px;font-weight:800;letter-spacing:-.02em}
+.sub{color:var(--muted);margin:6px 0 34px;font-size:14.5px;max-width:920px}
+h2.sec{font-family:'Baloo 2',sans-serif;font-size:21px;font-weight:800;margin:46px 0 6px;color:var(--violet)}
+.secnote{font-size:13px;color:var(--muted);margin-bottom:18px;max-width:920px}
+.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:30px 24px;justify-items:center;align-items:start}
+.slot h3.lab{font-family:'Baloo 2',sans-serif;font-size:13.5px;font-weight:800;margin-bottom:10px;text-align:center;color:var(--muted)}
+.mono{font-family:'JetBrains Mono',monospace}
+@keyframes ping{0%{transform:scale(1);opacity:.8}100%{transform:scale(3);opacity:0}}
+.dotlive{position:relative;width:8px;height:8px;border-radius:50%;background:#c9c2b8;display:inline-block;flex:none}
+.dotlive.on{background:var(--green)}
+.dotlive.on::after{content:"";position:absolute;inset:-1px;border-radius:50%;border:1.5px solid var(--green);animation:ping 2s ease-out infinite}
+.dk .dotlive.on{background:var(--green-l)}.dk .dotlive.on::after{border-color:var(--green-l)}
+.tc{width:280px;aspect-ratio:2/3;border-radius:18px;position:relative;overflow:hidden;box-shadow:0 2px 6px rgba(30,20,50,.10),0 14px 34px rgba(30,20,50,.13)}
+.sw{width:34px;height:19px;border-radius:999px;background:#d8d2c8;position:relative;flex:none;box-shadow:inset 0 1px 2px rgba(0,0,0,.12)}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:15px;height:15px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+.sw.on{background:var(--green)}.sw.on::after{left:17px}
+.dk .sw{background:#4a4260}.dk .sw.on{background:var(--green-l)}
+.fstat{display:flex;gap:8px;align-items:center;font-size:11px;font-weight:700;color:var(--muted)}
+</style>
+</head>
+<body>
+
+<h1>Skins de cartes — vague 2</h1>
+<p class="sub">Cinq nouveaux skins pour <span class="mono">/boutique</span>, chacun décliné en <b>3 teintes</b> (chaque teinte existe en jour ET en nuit — les planches montrent une teinte différente par colonne pour tout couvrir en trois cartes). Inspirations volontairement hors jeux de cartes à collectionner cette fois : patrimoine ludique français, objets de papier, territoire, culture rétro. Une animation d'état actif propre à chaque skin, partagée par ses 3 teintes, jamais reprise d'un autre skin.</p>
+
+<!-- ============================================================
+     SKIN 1 — L'AS DE CŒUR (carte à jouer classique)
+============================================================ -->
+<h2 class="sec">1 · « L'As » — carte à jouer classique</h2>
+<p class="secnote">La carte à jouer française canonique : fond ivoire, index d'angle (A + enseigne, retourné en bas-droite), grande enseigne centrale portant le motif sismique gravé en blanc. <b>Les 3 teintes sont les enseignes</b> : Cœur (rose), Pique (ardoise), Carreau (ambre). <b>Animation active « le battement »</b> : l'enseigne centrale fait un vrai battement de cœur (boum-boum) puis se repose — l'alerte a un pouls.</p>
+<style>
+.skA{background:#fdfdf8;padding:14px;color:var(--ink)}
+.skA .bord{position:absolute;inset:7px;border:1.5px solid #d8d2c4;border-radius:12px;pointer-events:none}
+.skA .idx{position:absolute;text-align:center;font-family:'Baloo 2',sans-serif;font-weight:800;line-height:1;color:var(--as-c)}
+.skA .idx b{font-size:19px;display:block}
+.skA .idx .ens{font-size:15px;display:block;margin-top:1px}
+.skA .idx.tl{top:14px;left:16px}.skA .idx.br{bottom:14px;right:16px;transform:rotate(180deg)}
+.skA .in{position:absolute;inset:24px 28px;display:flex;flex-direction:column;align-items:center;text-align:center}
+.skA .grand{width:118px;height:118px;position:relative;margin-top:6px;flex:none;display:flex;align-items:center;justify-content:center}
+.skA .grand svg.shape{position:absolute;inset:0;width:100%;height:100%;fill:var(--as-c)}
+.skA .grand svg.motif{position:relative;z-index:2;width:62px;height:62px}
+.skA h4{font-family:'Baloo 2',sans-serif;font-size:19px;font-weight:800;line-height:1.1;margin-top:14px}
+.skA .st2{font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.2em;margin-top:3px}
+.skA p{font-size:11.6px;color:var(--muted);margin-top:8px}
+.skA .foot{margin-top:auto}
+/* teintes = enseignes */
+.asCoeur{--as-c:#c46a7d}
+.asPique{--as-c:#8a86a3}
+.asCarreau{--as-c:#d9a54a}
+/* nuit */
+.skA.dk{background:#201b2e;color:#f0eaf8}
+.skA.dk .bord{border-color:#453e58}
+.skA.dk p,.skA.dk .st2,.skA.dk .fstat{color:#b3a8cd}
+.skA.dk.asCoeur{--as-c:#e0899c}
+.skA.dk.asPique{--as-c:#aaa5c4}
+.skA.dk.asCarreau{--as-c:#e6bc6c}
+/* animation « le battement » : boum-boum puis long repos */
+@keyframes skA-beat{0%,100%{transform:scale(1)}3%{transform:scale(1.07)}6%{transform:scale(1)}9%{transform:scale(1.05)}12%{transform:scale(1)}}
+@keyframes skA-blip{0%,100%{opacity:1}4%{opacity:.4}8%{opacity:1}}
+.skA.is-active .grand{animation:skA-beat 5.8s ease-in-out infinite;transform-origin:center}
+.skA.is-active .as-dot{animation:skA-blip 5.8s ease-in-out infinite .3s}
+</style>
+<div class="row">
+<div class="slot"><h3 class="lab">Cœur · jour · calme</h3>
+<div class="tc skA asCoeur"><div class="bord"></div>
+<div class="idx tl"><b>A</b><span class="ens">♥</span></div><div class="idx br"><b>A</b><span class="ens">♥</span></div>
+<div class="in">
+<div class="grand"><svg class="shape" viewBox="0 0 100 100"><path d="M50 88C28 70 12 56 12 38 12 26 21 17 32 17c7 0 14 4 18 10 4-6 11-10 18-10 11 0 20 9 20 21 0 18-16 32-38 50z"/></svg>
+<svg class="motif" viewBox="0 0 100 100" fill="none" stroke="#fdfdf8" stroke-width="5" stroke-linecap="round"><path d="M12 68 L36 44 L50 56 L64 36 L88 62"/><circle class="as-dot" cx="64" cy="36" r="5.5" fill="#16a34a" stroke="none"/><path d="M 52 24 A 17 17 0 0 1 76 24" stroke-width="4"/></svg></div>
+<h4>Séismes près de chez vous</h4><div class="st2">L'AS DES ALERTES · OFFICIELLE</div>
+<p>Magnitude 4 ou plus, à ~80 km de votre département. La terre tremble, vous savez déjà.</p>
+<div class="foot fstat"><span class="sw"></span><span class="dotlive"></span>En pause · Hautes-Alpes</div>
+</div></div></div>
+
+<div class="slot"><h3 class="lab">Pique · nuit · calme</h3>
+<div class="tc skA asPique dk"><div class="bord"></div>
+<div class="idx tl"><b>A</b><span class="ens">♠</span></div><div class="idx br"><b>A</b><span class="ens">♠</span></div>
+<div class="in">
+<div class="grand"><svg class="shape" viewBox="0 0 100 100"><path d="M50 10C36 28 14 42 14 58c0 11 8 19 18 19 6 0 11-2 14-6-1 6-4 11-9 15h26c-5-4-8-9-9-15 3 4 8 6 14 6 10 0 18-8 18-19C86 42 64 28 50 10z"/></svg>
+<svg class="motif" viewBox="0 0 100 100" fill="none" stroke="#201b2e" stroke-width="5" stroke-linecap="round"><path d="M12 66 L36 42 L50 54 L64 34 L88 60"/><circle class="as-dot" cx="64" cy="34" r="5.5" fill="#22c55e" stroke="none"/><path d="M 52 22 A 17 17 0 0 1 76 22" stroke-width="4"/></svg></div>
+<h4>Séismes près de chez vous</h4><div class="st2">L'AS DES ALERTES · OFFICIELLE</div>
+<p>Magnitude 4 ou plus, à ~80 km de votre département. La terre tremble, vous savez déjà.</p>
+<div class="foot fstat"><span class="sw"></span><span class="dotlive"></span>En pause</div>
+</div></div></div>
+
+<div class="slot"><h3 class="lab">Carreau · jour · active (animée)</h3>
+<div class="tc skA asCarreau is-active"><div class="bord"></div>
+<div class="idx tl"><b>A</b><span class="ens">♦</span></div><div class="idx br"><b>A</b><span class="ens">♦</span></div>
+<div class="in">
+<div class="grand"><svg class="shape" viewBox="0 0 100 100"><path d="M50 6 88 50 50 94 12 50z"/></svg>
+<svg class="motif" viewBox="0 0 100 100" fill="none" stroke="#fdfdf8" stroke-width="5" stroke-linecap="round"><path d="M16 64 L38 44 L50 54 L62 36 L84 58"/><circle class="as-dot" cx="62" cy="36" r="5.5" fill="#16a34a" stroke="none"/><path d="M 50 24 A 17 17 0 0 1 74 24" stroke-width="4"/></svg></div>
+<h4>Séismes près de chez vous</h4><div class="st2" style="color:var(--green)">ALERTE EN COURS</div>
+<p>Séisme M4,6 détecté à 32 km de Gap — ressenti possible dans votre département.</p>
+<div class="foot fstat" style="color:var(--green)"><span class="sw on"></span><span class="dotlive on"></span>Abonné</div>
+</div></div></div>
+</div>
+
+<!-- ============================================================
+     SKIN 2 — LE TIMBRE
+============================================================ -->
+<h2 class="sec">2 · « Le Timbre » — philatélie du signal</h2>
+<p class="secnote">Un timbre-poste dans son album : bords perforés, mention « République du Signal », valeur faciale « 0,42 », gravure monochrome, et un cachet d'oblitération « GAP · 05 » avec ses ondes. Teintes de gravure : Sépia, Marine, Braise. <b>Animation active « l'oblitération »</b> : les trois ondes du cachet se tracent l'une après l'autre, comme un coup de tampon au ralenti.</p>
+<style>
+.skT{background:var(--alb);padding:13px;color:var(--ink);--alb:#efe7f6}
+.skT .paper{position:absolute;inset:11px;background:var(--pap);border-radius:4px}
+.skT .perf{position:absolute;inset:5px;border:7px dotted var(--alb);border-radius:10px;pointer-events:none;z-index:2}
+.skT .in{position:absolute;inset:26px 28px;display:flex;flex-direction:column;text-align:center;z-index:3}
+.skT .rep{font-size:8.6px;font-weight:800;letter-spacing:.2em;color:var(--tin);text-transform:uppercase}
+.skT .art{margin:8px auto 0;width:170px;height:118px;border:2px solid var(--tin);position:relative;background:color-mix(in srgb,var(--tin) 9%,var(--pap))}
+.skT .val{position:absolute;left:22px;bottom:96px;font-family:'Baloo 2',sans-serif;font-weight:800;font-size:21px;color:var(--tin);z-index:3}
+.skT h4{font-family:'Baloo 2',sans-serif;font-size:16.5px;font-weight:800;line-height:1.1;margin-top:10px}
+.skT .st2{font-size:9.5px;font-weight:700;color:var(--muted);letter-spacing:.14em;margin-top:2px;text-transform:uppercase}
+.skT p{font-size:11px;color:var(--muted);margin-top:7px}
+.skT .cachet{position:absolute;top:34px;right:20px;z-index:4;transform:rotate(-12deg)}
+.skT .foot{margin-top:auto;justify-content:center}
+.skT{color:var(--ink)}
+.tSep{--pap:#faf3e2;--tin:#a8823f}
+.tMar{--pap:#f2f6fc;--tin:#5b7db8}
+.tBra{--pap:#fbf0ec;--tin:#c0604a}
+.skT.dk{--alb:#191424;color:#efe9f8}
+.skT.dk .st2,.skT.dk p,.skT.dk .fstat{color:#b3a8cd}
+.skT.dk.tSep{--pap:#2b2517;--tin:#d4ad62}
+.skT.dk.tMar{--pap:#1a2233;--tin:#8fb0e0}
+.skT.dk.tBra{--pap:#2e1d17;--tin:#e08a6f}
+/* animation « l'oblitération » : les ondes se tracent une à une */
+.skT .onde{stroke-dasharray:60;stroke-dashoffset:0}
+@keyframes skT-onde{0%{stroke-dashoffset:60}10%{stroke-dashoffset:0}100%{stroke-dashoffset:0}}
+.skT.is-active .onde.o1{animation:skT-onde 6s ease-out infinite .3s}
+.skT.is-active .onde.o2{animation:skT-onde 6s ease-out infinite 1.0s}
+.skT.is-active .onde.o3{animation:skT-onde 6s ease-out infinite 1.7s}
+.skT.is-active .onde{stroke-dashoffset:60}
+</style>
+<div class="row">
+<div class="slot"><h3 class="lab">Sépia · jour · calme</h3>
+<div class="tc skT tSep"><div class="paper"></div><div class="perf"></div>
+<div class="in">
+<div class="rep">La Bonne Alerte · République du Signal</div>
+<div class="art"><svg style="position:absolute;inset:0" width="100%" height="100%" viewBox="0 0 170 118" fill="none" stroke="var(--tin)" stroke-linecap="round"><path d="M-6 96 L40 52 L72 78 L104 38 L138 70 L180 44" stroke-width="4"/><circle cx="104" cy="38" r="5" fill="#16a34a" stroke="none"/><path d="M 90 26 A 19 19 0 0 1 118 26" stroke-width="3"/><path d="M 82 15 A 30 30 0 0 1 126 15" stroke-width="3" opacity=".5"/><g stroke-width="1.4" opacity=".5"><path d="M8 108h154M8 103h154" /></g></svg></div>
+<span class="val">0,42</span>
+<h4>Séismes près de chez vous</h4><div class="st2">Gravure officielle · Risques &amp; météo</div>
+<p>Magnitude 4+, à ~80 km de votre département.</p>
+<div class="foot fstat"><span class="sw"></span><span class="dotlive"></span>En pause · Hautes-Alpes</div>
+</div></div></div>
+
+<div class="slot"><h3 class="lab">Marine · nuit · calme</h3>
+<div class="tc skT tMar dk"><div class="paper"></div><div class="perf"></div>
+<div class="in">
+<div class="rep">La Bonne Alerte · République du Signal</div>
+<div class="art"><svg style="position:absolute;inset:0" width="100%" height="100%" viewBox="0 0 170 118" fill="none" stroke="var(--tin)" stroke-linecap="round"><path d="M-6 96 L40 52 L72 78 L104 38 L138 70 L180 44" stroke-width="4"/><circle cx="104" cy="38" r="5" fill="#22c55e" stroke="none"/><path d="M 90 26 A 19 19 0 0 1 118 26" stroke-width="3"/><path d="M 82 15 A 30 30 0 0 1 126 15" stroke-width="3" opacity=".5"/></svg></div>
+<span class="val">0,42</span>
+<h4>Séismes près de chez vous</h4><div class="st2">Gravure officielle · Risques &amp; météo</div>
+<p>Magnitude 4+, à ~80 km de votre département.</p>
+<div class="foot fstat"><span class="sw"></span><span class="dotlive"></span>En pause</div>
+</div></div></div>
+
+<div class="slot"><h3 class="lab">Braise · jour · active (animée)</h3>
+<div class="tc skT tBra is-active"><div class="paper"></div><div class="perf"></div>
+<div class="in">
+<div class="rep">La Bonne Alerte · République du Signal</div>
+<div class="art"><svg style="position:absolute;inset:0" width="100%" height="100%" viewBox="0 0 170 118" fill="none" stroke="var(--tin)" stroke-linecap="round"><path d="M-6 96 L40 52 L72 78 L104 38 L138 70 L180 44" stroke-width="4"/><circle cx="104" cy="38" r="5" fill="#16a34a" stroke="none"/><path d="M 90 26 A 19 19 0 0 1 118 26" stroke-width="3"/></svg></div>
+<span class="val">0,42</span>
+<h4>Séismes près de chez vous</h4><div class="st2" style="color:var(--green)">Alerte en cours</div>
+<p>Séisme M4,6 à 32 km de Gap — ressenti possible.</p>
+<div class="foot fstat" style="color:var(--green)"><span class="sw on"></span><span class="dotlive on"></span>Abonné</div>
+</div>
+<div class="cachet"><svg width="120" height="78" viewBox="0 0 120 78" fill="none" stroke="#5a5266" stroke-width="1.6" opacity=".8"><circle cx="82" cy="39" r="26"/><circle cx="82" cy="39" r="21" stroke-width="1"/><path class="onde o1" d="M4 30 Q 16 24 28 30 T 52 30"/><path class="onde o2" d="M4 39 Q 16 33 28 39 T 52 39"/><path class="onde o3" d="M4 48 Q 16 42 28 48 T 52 48"/><text x="82" y="36" font-size="8" font-family="Inter" font-weight="700" text-anchor="middle" fill="#5a5266" stroke="none">GAP · 05</text><text x="82" y="46" font-size="7" font-family="Inter" text-anchor="middle" fill="#5a5266" stroke="none">14h12</text></svg></div>
+</div></div>
+</div>
+
+<!-- ============================================================
+     SKIN 3 — LA TOPO
+============================================================ -->
+<h2 class="sec">3 · « La Topo » — carte de randonnée</h2>
+<p class="secnote">Hommage au territoire : courbes de niveau, quadrillage discret, rose des vents, sommet coté « 2126 m » marqué du point de signal, itinéraire en tirets, cartouche de légende en bas. Teintes des courbes : Bistre (la classique), Glacier, Lavande. <b>Animation active « l'itinéraire »</b> : le sentier en tirets progresse d'un cran vers le sommet, puis le point de sommet bat. On approche.</p>
+<style>
+.skG{background:var(--pap);padding:0;color:var(--ink);--pap:#f7f4ec}
+.skG .topo{position:absolute;inset:0}
+.skG .cart{position:absolute;left:12px;right:12px;bottom:12px;background:rgba(255,255,255,.92);border:1.5px solid var(--tin);border-radius:8px;padding:9px 11px;z-index:3}
+.skG.dk .cart{background:rgba(24,21,32,.92)}
+.skG h4{font-family:'Baloo 2',sans-serif;font-size:16.5px;font-weight:800;line-height:1.1}
+.skG .st2{font-size:9.5px;font-weight:700;color:var(--muted);letter-spacing:.1em;margin-top:2px;text-transform:uppercase}
+.skG p{font-size:10.8px;color:var(--muted);margin-top:5px}
+.skG .foot{margin-top:7px}
+.skG .plaque{position:absolute;top:12px;left:12px;background:var(--tin);color:var(--pap);font-family:'JetBrains Mono',monospace;font-weight:700;font-size:9px;padding:3px 8px;border-radius:3px;z-index:3;letter-spacing:.06em}
+.skG .nord{position:absolute;top:12px;right:14px;z-index:3;color:var(--tin);font-size:9px;font-weight:800;text-align:center}
+.tBis{--tin:#b07f4a}
+.tGla{--tin:#5b7db8}
+.tLav{--tin:#a567e3}
+.skG.dk{--pap:#1e1b28;color:#efe9f8}
+.skG.dk .st2,.skG.dk p,.skG.dk .fstat{color:#b3a8cd}
+.skG.dk.tBis{--tin:#d4a76a}
+.skG.dk.tGla{--tin:#8fb0e0}
+.skG.dk.tLav{--tin:#bd8ef0}
+/* animation « l'itinéraire » */
+@keyframes skG-trail{0%{stroke-dashoffset:36}14%{stroke-dashoffset:0}100%{stroke-dashoffset:0}}
+@keyframes skG-blip{0%,16%,100%{opacity:1}19%{opacity:.35}23%{opacity:1}}
+.skG.is-active .trail{animation:skG-trail 6.4s ease-in-out infinite}
+.skG.is-active .sommet-dot{animation:skG-blip 6.4s ease-in-out infinite}
+</style>
+<div class="row">
+<div class="slot"><h3 class="lab">Bistre · jour · calme</h3>
+<div class="tc skG tBis">
+<svg class="topo" viewBox="0 0 280 420" fill="none" preserveAspectRatio="xMidYMid slice">
+<g stroke="var(--tin)" stroke-width="1" opacity=".18"><path d="M0 60h280M0 130h280M0 200h280M0 270h280M70 0v420M140 0v420M210 0v420"/></g>
+<g stroke="var(--tin)" stroke-width="1.4" opacity=".55">
+<path d="M40 240 C 70 150, 200 140, 232 220 C 250 270, 120 320, 70 290 C 40 272, 30 258, 40 240 Z"/>
+<path d="M70 232 C 95 170, 190 162, 214 218 C 228 254, 130 296, 92 274 C 70 260, 62 248, 70 232 Z"/>
+<path d="M100 224 C 118 186, 178 182, 196 216 C 206 240, 140 270, 116 254 C 102 244, 96 236, 100 224 Z"/>
+<path d="M126 216 C 136 196, 166 194, 178 214 C 184 228, 148 246, 136 236 C 128 230, 124 224, 126 216 Z"/>
+</g>
+<path class="trail" d="M28 392 C 70 360, 90 330, 118 300 C 136 280, 146 256, 152 226" stroke="var(--tin)" stroke-width="2.4" stroke-dasharray="7 5" stroke-linecap="round"/>
+<g><path d="M146 212 l6 -10 6 10" stroke="var(--ink)" stroke-width="2" stroke-linecap="round"/><circle class="sommet-dot" cx="152" cy="216" r="6" fill="#16a34a"/><text x="163" y="207" font-size="10.5" font-family="Inter" font-weight="800" fill="var(--ink)">2126 m</text></g>
+</svg>
+<span class="plaque">TOPO·LBA 3437ET</span>
+<span class="nord">▲<br>N</span>
+<div class="cart"><h4>Séismes près de chez vous</h4><div class="st2">Carte de veille · Hautes-Alpes</div><p>Magnitude 4+, à ~80 km de votre département — sentiers compris.</p><div class="foot fstat"><span class="sw"></span><span class="dotlive"></span>En pause · Hautes-Alpes</div></div>
+</div></div>
+
+<div class="slot"><h3 class="lab">Glacier · nuit · calme</h3>
+<div class="tc skG tGla dk">
+<svg class="topo" viewBox="0 0 280 420" fill="none" preserveAspectRatio="xMidYMid slice">
+<g stroke="var(--tin)" stroke-width="1" opacity=".14"><path d="M0 60h280M0 130h280M0 200h280M0 270h280M70 0v420M140 0v420M210 0v420"/></g>
+<g stroke="var(--tin)" stroke-width="1.4" opacity=".5">
+<path d="M40 240 C 70 150, 200 140, 232 220 C 250 270, 120 320, 70 290 C 40 272, 30 258, 40 240 Z"/>
+<path d="M70 232 C 95 170, 190 162, 214 218 C 228 254, 130 296, 92 274 C 70 260, 62 248, 70 232 Z"/>
+<path d="M100 224 C 118 186, 178 182, 196 216 C 206 240, 140 270, 116 254 C 102 244, 96 236, 100 224 Z"/>
+</g>
+<path class="trail" d="M28 392 C 70 360, 90 330, 118 300 C 136 280, 146 256, 152 226" stroke="var(--tin)" stroke-width="2.4" stroke-dasharray="7 5" stroke-linecap="round"/>
+<g><path d="M146 212 l6 -10 6 10" stroke="#efe9f8" stroke-width="2" stroke-linecap="round"/><circle class="sommet-dot" cx="152" cy="216" r="6" fill="#22c55e"/><text x="163" y="207" font-size="10.5" font-family="Inter" font-weight="800" fill="#efe9f8">2126 m</text></g>
+</svg>
+<span class="plaque">TOPO·LBA 3437ET</span>
+<span class="nord">▲<br>N</span>
+<div class="cart"><h4>Séismes près de chez vous</h4><div class="st2">Carte de veille · Hautes-Alpes</div><p>Magnitude 4+, à ~80 km de votre département — sentiers compris.</p><div class="foot fstat"><span class="sw"></span><span class="dotlive"></span>En pause</div></div>
+</div></div>
+
+<div class="slot"><h3 class="lab">Lavande · jour · active (animée)</h3>
+<div class="tc skG tLav is-active">
+<svg class="topo" viewBox="0 0 280 420" fill="none" preserveAspectRatio="xMidYMid slice">
+<g stroke="var(--tin)" stroke-width="1" opacity=".18"><path d="M0 60h280M0 130h280M0 200h280M0 270h280M70 0v420M140 0v420M210 0v420"/></g>
+<g stroke="var(--tin)" stroke-width="1.4" opacity=".55">
+<path d="M40 240 C 70 150, 200 140, 232 220 C 250 270, 120 320, 70 290 C 40 272, 30 258, 40 240 Z"/>
+<path d="M70 232 C 95 170, 190 162, 214 218 C 228 254, 130 296, 92 274 C 70 260, 62 248, 70 232 Z"/>
+<path d="M100 224 C 118 186, 178 182, 196 216 C 206 240, 140 270, 116 254 C 102 244, 96 236, 100 224 Z"/>
+</g>
+<path class="trail" d="M28 392 C 70 360, 90 330, 118 300 C 136 280, 146 256, 152 226" stroke="var(--tin)" stroke-width="2.4" stroke-dasharray="7 5" stroke-linecap="round"/>
+<g><path d="M146 212 l6 -10 6 10" stroke="var(--ink)" stroke-width="2" stroke-linecap="round"/><circle class="sommet-dot" cx="152" cy="216" r="6" fill="#16a34a"/><text x="163" y="207" font-size="10.5" font-family="Inter" font-weight="800" fill="var(--ink)">2126 m</text></g>
+</svg>
+<span class="plaque">TOPO·LBA 3437ET</span>
+<span class="nord">▲<br>N</span>
+<div class="cart"><h4>Séismes près de chez vous</h4><div class="st2" style="color:var(--green)">Alerte en cours · secousse détectée</div><p>Séisme M4,6 à 32 km de Gap — ressenti possible sur le massif.</p><div class="foot fstat" style="color:var(--green)"><span class="sw on"></span><span class="dotlive on"></span>Abonné</div></div>
+</div></div>
+</div>
+
+<!-- ============================================================
+     SKIN 4 — LE PIXEL
+============================================================ -->
+<h2 class="sec">4 · « Le Pixel » — rétro 8 bits</h2>
+<p class="secnote">Culture jeu vidéo rétro (clin d'œil aux sources gaming) : coins crantés, double cadre au carré, motif sismique en pixels, boîte de dialogue à curseur, stats NIV/PV en mono. Teintes d'écran : CRT (violet), Terminal (ambre), Arcade (turquoise). <b>Animation active « le chenillard »</b> : trois pixels de la barre de titre s'allument l'un après l'autre, comme un chargement d'époque.</p>
+<style>
+.skP{background:var(--scr);padding:12px;color:var(--ink);border-radius:0!important;--scr:#f2ecfa;
+clip-path:polygon(0 10px,5px 10px,5px 5px,10px 5px,10px 0,calc(100% - 10px) 0,calc(100% - 10px) 5px,calc(100% - 5px) 5px,calc(100% - 5px) 10px,100% 10px,100% calc(100% - 10px),calc(100% - 5px) calc(100% - 10px),calc(100% - 5px) calc(100% - 5px),calc(100% - 10px) calc(100% - 5px),calc(100% - 10px) 100%,10px 100%,10px calc(100% - 5px),5px calc(100% - 5px),5px calc(100% - 10px),0 calc(100% - 10px))}
+.skP .in{position:relative;height:100%;border:3px solid var(--tin);padding:9px;display:flex;flex-direction:column;font-family:'JetBrains Mono',monospace}
+.skP .bar{display:flex;justify-content:space-between;align-items:center;background:var(--tin);color:var(--scr);padding:4px 8px;font-size:10px;font-weight:800;letter-spacing:.04em}
+.skP .leds{display:flex;gap:3px}
+.skP .led{width:7px;height:7px;background:color-mix(in srgb,var(--scr) 55%,var(--tin))}
+.skP h4{font-size:13.5px;font-weight:800;margin-top:9px;line-height:1.2;text-transform:uppercase}
+.skP .stats{font-size:9.5px;font-weight:700;color:var(--muted);margin-top:3px}
+.skP .art{margin-top:8px;height:120px;border:3px solid var(--tin);position:relative;background:color-mix(in srgb,var(--tin) 8%,var(--scr));image-rendering:pixelated}
+.skP .dlg{margin-top:auto;border:3px solid var(--tin);padding:7px 9px;font-size:10px;line-height:1.5}
+.skP .cur{display:inline-block;width:7px;height:11px;background:var(--tin);vertical-align:-1px}
+.skP .foot{margin-top:8px}
+.pCrt{--tin:#8a5fc0}
+.pTer{--tin:#b8863f}
+.pArc{--tin:#4f938f}
+.skP.dk{--scr:#14121a;color:#e8e3f2;background-image:repeating-linear-gradient(0deg,rgba(255,255,255,.03) 0 1px,transparent 1px 3px)}
+.skP.dk .stats,.skP.dk .fstat{color:#a79dbd}
+.skP.dk.pCrt{--tin:#bd8ef0}
+.skP.dk.pTer{--tin:#e2b45f}
+.skP.dk.pArc{--tin:#7ad8d2}
+/* animation « le chenillard » */
+@keyframes skP-led{0%,100%{background:color-mix(in srgb,var(--scr) 55%,var(--tin))}6%{background:var(--green)}12%{background:color-mix(in srgb,var(--scr) 55%,var(--tin))}}
+.skP.is-active .led.l1{animation:skP-led 5.8s steps(1,end) infinite .4s}
+.skP.is-active .led.l2{animation:skP-led 5.8s steps(1,end) infinite 1.1s}
+.skP.is-active .led.l3{animation:skP-led 5.8s steps(1,end) infinite 1.8s}
+.skP.dk.is-active .led{--green:#22c55e}
+</style>
+<div class="row">
+<div class="slot"><h3 class="lab">CRT · jour · calme</h3>
+<div class="tc skP pCrt"><div class="in">
+<div class="bar"><span>SEISMES.EXE</span><span class="leds"><span class="led l1"></span><span class="led l2"></span><span class="led l3"></span></span></div>
+<h4>Séismes près de chez vous</h4>
+<div class="stats">NIV.4 · PORTEE 80KM · OFFICIELLE ✓</div>
+<div class="art"><svg style="position:absolute;inset:0" width="100%" height="100%" viewBox="0 0 230 120" fill="var(--tin)" shape-rendering="crispEdges"><g><rect x="10" y="88" width="14" height="14"/><rect x="24" y="74" width="14" height="14"/><rect x="38" y="60" width="14" height="14"/><rect x="52" y="74" width="14" height="14"/><rect x="66" y="88" width="14" height="14"/><rect x="94" y="60" width="14" height="14"/><rect x="108" y="46" width="14" height="14"/><rect x="122" y="60" width="14" height="14"/><rect x="150" y="74" width="14" height="14"/><rect x="164" y="60" width="14" height="14"/><rect x="178" y="46" width="14" height="14"/><rect x="192" y="60" width="14" height="14"/></g><rect x="108" y="18" width="14" height="14" fill="#16a34a"/><g opacity=".45"><rect x="94" y="4" width="6" height="6"/><rect x="130" y="4" width="6" height="6"/><rect x="82" y="18" width="6" height="6"/><rect x="142" y="18" width="6" height="6"/></g></svg></div>
+<div class="dlg">UN SEISME M4+ APPROCHE ?<br>VOUS SEREZ PREVENU. <span class="cur"></span></div>
+<div class="foot fstat"><span class="sw"></span><span class="dotlive"></span>EN PAUSE · DPT 05</div>
+</div></div></div>
+
+<div class="slot"><h3 class="lab">Terminal · nuit · calme</h3>
+<div class="tc skP pTer dk"><div class="in">
+<div class="bar"><span>SEISMES.EXE</span><span class="leds"><span class="led l1"></span><span class="led l2"></span><span class="led l3"></span></span></div>
+<h4>Séismes près de chez vous</h4>
+<div class="stats">NIV.4 · PORTEE 80KM · OFFICIELLE ✓</div>
+<div class="art"><svg style="position:absolute;inset:0" width="100%" height="100%" viewBox="0 0 230 120" fill="var(--tin)" shape-rendering="crispEdges"><g><rect x="10" y="88" width="14" height="14"/><rect x="24" y="74" width="14" height="14"/><rect x="38" y="60" width="14" height="14"/><rect x="52" y="74" width="14" height="14"/><rect x="66" y="88" width="14" height="14"/><rect x="94" y="60" width="14" height="14"/><rect x="108" y="46" width="14" height="14"/><rect x="122" y="60" width="14" height="14"/><rect x="150" y="74" width="14" height="14"/><rect x="164" y="60" width="14" height="14"/><rect x="178" y="46" width="14" height="14"/><rect x="192" y="60" width="14" height="14"/></g><rect x="108" y="18" width="14" height="14" fill="#22c55e"/></svg></div>
+<div class="dlg">UN SEISME M4+ APPROCHE ?<br>VOUS SEREZ PREVENU. <span class="cur"></span></div>
+<div class="foot fstat"><span class="sw"></span><span class="dotlive"></span>EN PAUSE</div>
+</div></div></div>
+
+<div class="slot"><h3 class="lab">Arcade · nuit · active (animée)</h3>
+<div class="tc skP pArc dk is-active"><div class="in">
+<div class="bar"><span>SEISMES.EXE</span><span class="leds"><span class="led l1"></span><span class="led l2"></span><span class="led l3"></span></span></div>
+<h4>Séismes près de chez vous</h4>
+<div class="stats" style="color:var(--green-l)">!! ALERTE EN COURS !!</div>
+<div class="art"><svg style="position:absolute;inset:0" width="100%" height="100%" viewBox="0 0 230 120" fill="var(--tin)" shape-rendering="crispEdges"><g><rect x="10" y="88" width="14" height="14"/><rect x="24" y="74" width="14" height="14"/><rect x="38" y="60" width="14" height="14"/><rect x="52" y="74" width="14" height="14"/><rect x="66" y="88" width="14" height="14"/><rect x="94" y="60" width="14" height="14"/><rect x="108" y="46" width="14" height="14"/><rect x="122" y="60" width="14" height="14"/><rect x="150" y="74" width="14" height="14"/><rect x="164" y="60" width="14" height="14"/><rect x="178" y="46" width="14" height="14"/><rect x="192" y="60" width="14" height="14"/></g><rect x="108" y="18" width="14" height="14" fill="#22c55e"/></svg></div>
+<div class="dlg">SEISME M4,6 · 32KM DE GAP<br>RESSENTI POSSIBLE. <span class="cur"></span></div>
+<div class="foot fstat" style="color:var(--green-l)"><span class="sw on"></span><span class="dotlive on"></span>ABONNE</div>
+</div></div></div>
+</div>
+
+<!-- ============================================================
+     SKIN 5 — LE NÉON
+============================================================ -->
+<h2 class="sec">5 · « Le Néon » — enseigne de veille</h2>
+<p class="secnote">L'enseigne du kiosque, la nuit : tube néon en bordure, titre lumineux, grand « ! » de néon, mur sombre. Le jour, l'enseigne est là mais douce (crépuscule) ; la nuit elle rayonne. Teintes de tube : Violet, Rose, Cyan. <b>Animation active « la veilleuse »</b> : le halo du tube respire une fois, puis le « ! » fait un très léger double-clignotement — l'enseigne annonce.</p>
+<style>
+.skN{background:linear-gradient(180deg,var(--mur0),var(--mur1));color:#efe9f8;--mur0:#453f63;--mur1:#332e4d;--glow:.45}
+.skN.dk{--mur0:#1b1626;--mur1:#120f1c;--glow:1}
+.skN .tube{position:absolute;inset:12px;border-radius:16px;border:2.5px solid var(--neo);box-shadow:0 0 calc(12px * var(--glow)) color-mix(in srgb,var(--neo) 70%,transparent),inset 0 0 calc(12px * var(--glow)) color-mix(in srgb,var(--neo) 45%,transparent);pointer-events:none}
+.skN .in{position:absolute;inset:26px 26px;display:flex;flex-direction:column;text-align:center;align-items:center}
+.skN .bang{font-family:'Baloo 2',sans-serif;font-weight:800;font-size:92px;line-height:1;color:var(--neo);text-shadow:0 0 calc(10px * var(--glow)) var(--neo),0 0 calc(26px * var(--glow)) color-mix(in srgb,var(--neo) 60%,transparent);margin-top:12px}
+.skN .bang .pt{display:block;width:16px;height:16px;border-radius:50%;background:var(--green-l);margin:8px auto 0;box-shadow:0 0 calc(10px * var(--glow)) var(--green-l)}
+.skN h4{font-family:'Baloo 2',sans-serif;font-size:19px;font-weight:800;line-height:1.15;margin-top:16px;color:var(--neo);text-shadow:0 0 calc(8px * var(--glow)) color-mix(in srgb,var(--neo) 75%,transparent)}
+.skN .st2{font-size:9.5px;font-weight:700;letter-spacing:.22em;margin-top:5px;color:#b9addb;text-transform:uppercase}
+.skN p{font-size:11.4px;color:#c9bfe0;margin-top:8px}
+.skN .foot{margin-top:auto;color:#c9bfe0}
+.nVio{--neo:#bd8ef0}
+.nRose{--neo:#ef8ec4}
+.nCyan{--neo:#7ad8d2}
+/* animation « la veilleuse » */
+@keyframes skN-breathe{0%,100%{box-shadow:0 0 calc(12px * var(--glow)) color-mix(in srgb,var(--neo) 70%,transparent),inset 0 0 calc(12px * var(--glow)) color-mix(in srgb,var(--neo) 45%,transparent)}6%{box-shadow:0 0 calc(24px * var(--glow)) var(--neo),inset 0 0 calc(20px * var(--glow)) color-mix(in srgb,var(--neo) 65%,transparent)}12%{box-shadow:0 0 calc(12px * var(--glow)) color-mix(in srgb,var(--neo) 70%,transparent),inset 0 0 calc(12px * var(--glow)) color-mix(in srgb,var(--neo) 45%,transparent)}}
+@keyframes skN-flick{0%,14%,100%{opacity:1}16%{opacity:.55}18%{opacity:1}20%{opacity:.7}22%{opacity:1}}
+.skN.is-active .tube{animation:skN-breathe 6.2s ease-in-out infinite}
+.skN.is-active .bang{animation:skN-flick 6.2s ease-in-out infinite}
+</style>
+<div class="row">
+<div class="slot"><h3 class="lab">Violet · jour (crépuscule) · calme</h3>
+<div class="tc skN nVio"><div class="tube"></div><div class="in">
+<div class="bang">!<span class="pt" style="background:#5c5470;box-shadow:none"></span></div>
+<h4>Séismes près<br>de chez vous</h4>
+<div class="st2">Kiosque ouvert · Que du signal</div>
+<p>Magnitude 4+, à ~80 km de votre département. L'enseigne s'allumera.</p>
+<div class="foot fstat" style="color:#c9bfe0"><span class="sw"></span><span class="dotlive"></span>En pause · Hautes-Alpes</div>
+</div></div></div>
+
+<div class="slot"><h3 class="lab">Rose · nuit · calme</h3>
+<div class="tc skN nRose dk"><div class="tube"></div><div class="in">
+<div class="bang">!<span class="pt" style="background:#5c5470;box-shadow:none"></span></div>
+<h4>Séismes près<br>de chez vous</h4>
+<div class="st2">Kiosque ouvert · Que du signal</div>
+<p>Magnitude 4+, à ~80 km de votre département. L'enseigne s'allumera.</p>
+<div class="foot fstat" style="color:#c9bfe0"><span class="sw"></span><span class="dotlive"></span>En pause</div>
+</div></div></div>
+
+<div class="slot"><h3 class="lab">Cyan · nuit · active (animée)</h3>
+<div class="tc skN nCyan dk is-active"><div class="tube"></div><div class="in">
+<div class="bang">!<span class="pt"></span></div>
+<h4>Séismes près<br>de chez vous</h4>
+<div class="st2" style="color:var(--green-l)">Alerte en cours</div>
+<p>Séisme M4,6 à 32 km de Gap — ressenti possible dans votre département.</p>
+<div class="foot fstat" style="color:var(--green-l)"><span class="sw on"></span><span class="dotlive on"></span>Abonné</div>
+</div></div></div>
+</div>
+
+<style>
+@media (prefers-reduced-motion:reduce){
+.is-active .grand,.is-active .as-dot,.is-active .onde,.is-active .trail,.is-active .sommet-dot,.is-active .led,.is-active .tube,.is-active .bang{animation:none!important}
+}
+</style>
+
+<p style="margin-top:40px;font-size:13px;color:var(--muted);max-width:920px">Récap vague 2, une animation par skin, partagée par ses 3 teintes, jamais reprise ailleurs : L'As = « le battement » (l'enseigne a un pouls) · Le Timbre = « l'oblitération » (les ondes du cachet se tracent) · La Topo = « l'itinéraire » (le sentier progresse, le sommet bat) · Le Pixel = « le chenillard » (les diodes s'allument en séquence, en steps() bien crantés) · Le Néon = « la veilleuse » (le tube respire, le « ! » cligne à peine). Toutes chill, longues périodes de repos, neutralisées par prefers-reduced-motion. Le vert d'alerte reste le seul vert, sur les 15 combinaisons.</p>
+
+</body>
+</html>

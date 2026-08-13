@@ -19,23 +19,28 @@
 <header>
   <div class="wrap nav">
     <a class="brand brandmark" href="/"><span class="lig"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path d="M 0 20 C -6 93, 66 52, 60 10"/></svg><span class="l">l</span>a</span>bonne<span class="a">alerte</span><span class="bang"><span class="bar"></span><span class="dot"></span></span><span class="fr">fr</span></a>
-    <a class="btn-deposit" href="/proposer">Déposer une alerte</a>
+    <a class="btn-deposit" href="/proposer" title="Déposer une alerte"><span class="plus" aria-hidden="true">+</span> <span class="bd-label">Déposer une alerte</span></a>
     <button class="nav-toggle" type="button" aria-label="Ouvrir le menu" aria-expanded="false" aria-controls="nav-menu">
       <span></span><span></span><span></span>
     </button>
     <nav class="nav-right" id="nav-menu">
-      <a class="mine-link" href="/connexion">Ma collection</a>
+      <!-- Icônes de nav-right : markup MIROIR de js/header.js (constantes BELL_HTML /
+           HEART_HTML). Deux calques par icône : trait (.hd-ic-base) + plein (.hd-ic-fill,
+           révélé de bas en haut au survol). Toute retouche ici doit l'être aussi dans header.js. -->
+      <a class="shop-link hd-link" href="/boutique" aria-label="Boutique" title="Boutique"><span class="hd-ic hd-ic-bag" aria-hidden="true"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" fill="none" class="hd-ic-base"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" fill="none" class="hd-ic-fill"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg></span></a>
+      <a class="mine-link hd-link" href="/connexion" aria-label="Mes alertes" title="Mes alertes"><span class="hd-ic hd-ic-bell" aria-hidden="true"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" fill="none" class="hd-ic-base"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" fill="currentColor" class="hd-ic-fill"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></span></a>
       <a class="lepoint-link" href="/le-point" title="Le Point : alertes en cours et à venir">Le Point</a>
-      <a class="fav-link" href="/favoris" aria-label="Mes favoris" title="Mes favoris"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></a>
+      <a class="fav-link hd-link" href="/?mode=favoris" aria-label="Mes favoris" title="Mes favoris"><span class="hd-ic hd-ic-heart" aria-hidden="true"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" fill="none" class="hd-ic-base"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" fill="currentColor" class="hd-ic-fill"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></span></a>
       <span class="auth-email" id="auth-email" hidden></span>
       <a class="btn-login" id="auth-link" href="/connexion">Se connecter</a>
-      <button class="theme-btn" type="button" aria-label="Changer de thème">◐</button>
+      <!-- Plus de bouton de thème ici (retiré du header). window.toggleTheme reste
+           exposé par site.js/theme.js pour un futur réglage dans « Mon compte ». -->
     </nav>
   </div>
 </header>
 
 <!-- Halo de l'écran de chargement commun (visible tant que body.loading). -->
-<div class="page-loading" role="status" aria-live="polite">Chargement…</div>
+<div class="page-loading" role="status" aria-live="polite"><div class="lba-bars" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>Chargement…</div>
 
 <section class="hero wrap">
   <h1 class="page-title">Toutes vos alertes,<br><span class="hl">en un clic.</span></h1>
@@ -79,11 +84,9 @@
      <!-- Vide au chargement (masqué par body.loading) : la vraie barre est rendue
           par site.js dès la réponse de GET /api/sources. -->
      <div class="chips" id="chips" role="group" aria-label="Filtrer par catégorie"></div>
-     <!-- Bascule cartes / liste (persistée : compte si connecté, sinon localStorage). -->
-     <button class="view-toggle" id="view-toggle" type="button" aria-label="Basculer cartes / liste" title="Vue liste" aria-pressed="false">
-       <svg class="vt-ic vt-cards" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-       <svg class="vt-ic vt-list" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>
-     </button>
+     <!-- Bascule cartes / liste SUPPRIMÉE de la toolbar : le mode d'affichage se règle
+          uniquement depuis « Mon compte › Apparence ». La préférence reste persistée
+          (compte si connecté, sinon localStorage) par view-mode.js. -->
   </div>
   </div><!-- /.kiosk-head -->
 
@@ -120,148 +123,174 @@
 </main>
 
 <!-- Panneau « Mon compte » (mode connecté) : ouvert depuis le header, prend la
-     place de la grille. Carte flip : recto compte / verso historique. -->
+     place de la grille. Titre h1 .page-title comme les autres pages, puis une
+     MOSAÏQUE de petites cartes (une par rubrique) — plus de carte géante flip.
+     Trois vues empilées (compte / historique / nous soutenir), commutées par
+     site.js en affichant l'une et masquant les autres. -->
 <section class="account-panel wrap" id="account-panel" hidden>
-  <div class="card flip acct-card" id="acct-card">
-    <div class="card-inner">
-      <!-- Recto : compte -->
-      <div class="card-face card-front acct-front">
-        <button type="button" class="acct-close" id="acct-close" aria-label="Fermer le compte">✕</button>
+  <h1 class="page-title" data-hero-done="1">Mon <span class="hl">compte</span></h1>
+
+  <!-- Vue 1 : le compte -->
+  <div class="acct-view" id="acct-view-main">
+    <div class="acct-mosaic">
+      <!-- Identité -->
+      <section class="acct-tile acct-tile-id">
         <div class="acct-head">
           <div class="acct-avatar" id="acct-avatar" aria-hidden="true"></div>
           <h2 class="acct-name" id="acct-name">Mon compte</h2>
           <div class="acct-email" id="acct-email"></div>
-          <div class="acct-collection-count" id="acct-collection-count" hidden></div>
+          <!-- Nombre de cartes en favoris (« Ma collection ») → mène au filtre du kiosque. -->
+          <a class="acct-collection-count" id="acct-collection-count" href="/?mode=favoris" hidden></a>
         </div>
+      </section>
 
-        <div class="acct-section">
-          <div class="acct-subhead">Notifications</div>
-          <div id="notif-mount"></div><!-- rempli par js/push.js -->
+      <section class="acct-tile acct-section">
+        <div class="acct-subhead">Notifications</div>
+        <div id="notif-mount"></div><!-- rempli par js/push.js -->
+      </section>
+
+      <!-- C) Personnaliser les alertes : rempli par js/profile.js (subhead inclus). -->
+      <section class="acct-tile acct-section">
+        <div id="profile-mount"></div>
+      </section>
+
+      <!-- Mon pseudo : rempli par js/profile.js (même state, montage dédié). -->
+      <section class="acct-tile acct-section">
+        <div id="pseudo-mount"></div>
+      </section>
+
+      <!-- Mes points (solde, classement, boutique) : rempli par js/profile.js. -->
+      <section class="acct-tile acct-section">
+        <div id="points-mount"></div>
+      </section>
+
+      <!-- Heures de veille : rempli par js/quiet.js (subhead inclus). -->
+      <section class="acct-tile acct-section">
+        <div id="quiet-mount"></div>
+      </section>
+
+      <!-- Mes sources (espace développeur embryonnaire) : rempli par site.js,
+           visible seulement si l'utilisateur a soumis au moins une source. -->
+      <section class="acct-tile acct-section acct-sources" id="acct-sources" hidden>
+        <div class="acct-subhead">Mes sources</div>
+        <div class="notif-card">
+          <ul class="acct-src-list" id="acct-src-list"></ul>
         </div>
+      </section>
 
-        <!-- C) Personnaliser les alertes : rempli par js/profile.js. -->
-        <div class="acct-section">
-          <div id="profile-mount"></div>
-        </div>
-
-        <!-- Heures de veille : rempli par js/quiet.js. -->
-        <div class="acct-section">
-          <div id="quiet-mount"></div>
-        </div>
-
-        <!-- Mes sources (espace développeur embryonnaire) : rempli par site.js,
-             visible seulement si l'utilisateur a soumis au moins une source. -->
-        <div class="acct-section acct-sources" id="acct-sources" hidden>
-          <div class="acct-subhead">Mes sources</div>
-          <div class="notif-card">
-            <ul class="acct-src-list" id="acct-src-list"></ul>
-          </div>
-        </div>
-
-        <!-- B) Nous soutenir — style notif-card unifié. -->
-        <div class="acct-section">
-          <div class="acct-subhead">Nous soutenir</div>
-          <div class="notif-card">
-            <div class="notif-row acct-support-row">
-              <div class="notif-txt"><strong>Soutenir le projet</strong>
-                <span class="notif-sub">LaBonneAlerte est gratuit et le restera.</span></div>
-              <div class="sup-actions">
-                <button class="sup-btn primary" type="button" data-support="paypal" data-label="Me soutenir avec PayPal" disabled>Me soutenir avec PayPal <span class="soon">bientôt</span></button>
-                <button class="sup-btn primary" type="button" data-support="kofi" data-label="M'offrir un café" disabled><svg class="sup-coffee" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path class="steam steam-1" d="M8 2c-.5.8-.5 1.7 0 2.5"/><path class="steam steam-2" d="M12 2c-.5.8-.5 1.7 0 2.5"/><path class="steam steam-3" d="M16 2c-.5.8-.5 1.7 0 2.5"/><path d="M4 9h13v4a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V9Z"/><path d="M17 10h2a2.5 2.5 0 0 1 0 5h-2"/></svg>M'offrir un café <span class="soon">bientôt</span></button>
-              </div>
+      <!-- B) Nous soutenir — style notif-card unifié. -->
+      <section class="acct-tile acct-section">
+        <div class="acct-subhead">Nous soutenir</div>
+        <div class="notif-card">
+          <div class="notif-row acct-support-row">
+            <div class="notif-txt"><strong>Soutenir le projet</strong>
+              <span class="notif-sub">LaBonneAlerte est gratuit et le restera.</span></div>
+            <div class="sup-actions">
+              <button class="sup-btn primary" type="button" data-support="paypal" data-label="Me soutenir avec PayPal" disabled>Me soutenir avec PayPal <span class="soon">bientôt</span></button>
+              <button class="sup-btn primary" type="button" data-support="kofi" data-label="M'offrir un café" disabled><svg class="sup-coffee" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path class="steam steam-1" d="M8 2c-.5.8-.5 1.7 0 2.5"/><path class="steam steam-2" d="M12 2c-.5.8-.5 1.7 0 2.5"/><path class="steam steam-3" d="M16 2c-.5.8-.5 1.7 0 2.5"/><path d="M4 9h13v4a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V9Z"/><path d="M17 10h2a2.5 2.5 0 0 1 0 5h-2"/></svg>M'offrir un café <span class="soon">bientôt</span></button>
             </div>
-            <button type="button" class="notif-row notif-nav acct-to-support" id="acct-to-support">
-              <span class="notif-txt"><strong>Toutes les façons d'aider</strong></span>
-              <span class="notif-chevron" aria-hidden="true">→</span>
-            </button>
           </div>
+          <button type="button" class="notif-row notif-nav acct-to-support" id="acct-to-support">
+            <span class="notif-txt"><strong>Toutes les façons d'aider</strong></span>
+            <span class="notif-chevron" aria-hidden="true">→</span>
+          </button>
         </div>
+      </section>
 
-        <!-- Apparence : thème + accessibilité (contrastes renforcés). Rempli par
-             js/appearance.js. Placée avant « Divers ». -->
-        <div class="acct-section">
-          <div class="acct-subhead">Apparence</div>
-          <div id="appearance-mount"></div>
+      <!-- Apparence : thème + accessibilité (contrastes renforcés). Rempli par
+           js/appearance.js. Placée avant « Divers ». -->
+      <section class="acct-tile acct-section">
+        <div class="acct-subhead">Apparence</div>
+        <div id="appearance-mount"></div>
+      </section>
+
+      <!-- B) Navigation du compte — même style notif-card. « Se déconnecter » est
+           AU-DESSUS du bouton « Revenir » (dernière action). -->
+      <section class="acct-tile acct-section">
+        <div class="acct-subhead">Divers</div>
+        <div class="notif-card">
+          <button type="button" class="notif-row notif-nav acct-to-history" id="acct-to-history">
+            <span class="notif-txt"><strong>Mon historique</strong>
+              <span class="notif-sub">Les alertes que vous avez reçues</span></span>
+            <span class="notif-chevron" aria-hidden="true">→</span>
+          </button>
+          <button type="button" class="notif-row notif-nav acct-logout" id="acct-logout">
+            <span class="notif-txt"><strong>Se déconnecter</strong></span>
+            <span class="notif-chevron" aria-hidden="true">↪</span>
+          </button>
         </div>
-
-        <!-- B) Navigation du compte — même style notif-card. « Se déconnecter » est
-             AU-DESSUS du bouton « Revenir » (dernière action). -->
-        <div class="acct-section">
-          <div class="acct-subhead">Divers</div>
-          <div class="notif-card">
-            <button type="button" class="notif-row notif-nav acct-to-history" id="acct-to-history">
-              <span class="notif-txt"><strong>Mon historique</strong>
-                <span class="notif-sub">Les alertes que vous avez reçues</span></span>
-              <span class="notif-chevron" aria-hidden="true">→</span>
-            </button>
-            <button type="button" class="notif-row notif-nav acct-logout" id="acct-logout">
-              <span class="notif-txt"><strong>Se déconnecter</strong></span>
-              <span class="notif-chevron" aria-hidden="true">↪</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- C) Retour aux alertes : vrai bouton, pleine largeur, dernière action. -->
-        <button type="button" class="acct-return-btn acct-back-grid" id="acct-back-grid">← Revenir à ma collection</button>
-
-        <!-- E) Suppression de compte : lien discret, tout en bas du recto. -->
+        <!-- E) Suppression de compte : lien discret, en bas de la rubrique « Divers ». -->
         <button type="button" class="acct-delete-link" id="acct-delete-link">Supprimer mon compte</button>
-      </div>
+      </section>
+    </div>
 
-      <!-- Verso : historique -->
-      <div class="card-face card-back acct-back">
-        <button type="button" class="flip-back" aria-label="Retour au compte"><svg class="ic-back" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 5 5v3"/></svg></button>
+    <!-- C) Retour aux alertes : vrai bouton, dernière action du panneau. -->
+    <div class="acct-foot">
+      <button type="button" class="acct-return-btn acct-back-grid" id="acct-back-grid">← Revenir à ma collection</button>
+    </div>
+  </div>
+
+  <!-- Vue 2 : historique -->
+  <div class="acct-view" id="acct-view-history" hidden>
+    <button type="button" class="acct-view-back" data-acct-back aria-label="Retour au compte"><svg class="ic-back" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 5 5v3"/></svg></button>
+    <div class="acct-mosaic">
+      <section class="acct-tile acct-tile-wide">
+        <div class="acct-subhead">Mon historique</div>
         <div class="acct-history-scroll">
           <div id="history-timeline"></div>
           <div id="history-empty" class="history-empty" hidden>
             Votre historique est vide — abonnez-vous à une première alerte, on s'occupe du reste.
           </div>
         </div>
-      </div>
+      </section>
+    </div>
+  </div>
 
-      <!-- 3e face : « Nous soutenir » (contenu de /soutenir, adapté). Même mécanique
-           à 3 faces que les cartes de sources (recto / verso / face support). -->
-      <div class="card-face acct-support-face">
-        <button type="button" class="flip-back" aria-label="Retour au compte"><svg class="ic-back" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 5 5v3"/></svg></button>
-        <div class="acct-support-scroll">
-          <p class="acct-support-lead">La Bonne Alerte est gratuite, sans pub, et le restera. Si le service vous est utile, voici quelques façons d'aider — la plupart ne coûtent rien.</p>
-
-          <div class="acct-subhead">💜 Soutien financier</div>
-          <div class="notif-card">
-            <div class="notif-row acct-support-row">
-              <div class="notif-txt"><strong>Un coup de pouce</strong>
-                <span class="notif-sub">Pour couvrir l'hébergement et le développement.</span></div>
-              <div class="sup-actions">
-                <button class="sup-btn primary" type="button" data-support="paypal" data-label="Me soutenir avec PayPal" disabled>Me soutenir avec PayPal <span class="soon">bientôt</span></button>
-                <button class="sup-btn primary" type="button" data-support="kofi" data-label="M'offrir un café" disabled><svg class="sup-coffee" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path class="steam steam-1" d="M8 2c-.5.8-.5 1.7 0 2.5"/><path class="steam steam-2" d="M12 2c-.5.8-.5 1.7 0 2.5"/><path class="steam steam-3" d="M16 2c-.5.8-.5 1.7 0 2.5"/><path d="M4 9h13v4a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V9Z"/><path d="M17 10h2a2.5 2.5 0 0 1 0 5h-2"/></svg>M'offrir un café <span class="soon">bientôt</span></button>
-              </div>
+  <!-- Vue 3 : « Nous soutenir » (contenu de /soutenir, adapté). -->
+  <div class="acct-view" id="acct-view-support" hidden>
+    <button type="button" class="acct-view-back" data-acct-back aria-label="Retour au compte"><svg class="ic-back" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 5 5v3"/></svg></button>
+    <p class="acct-support-lead">La Bonne Alerte est gratuite, sans pub, et le restera. Si le service vous est utile, voici quelques façons d'aider — la plupart ne coûtent rien.</p>
+    <div class="acct-mosaic">
+      <section class="acct-tile">
+        <div class="acct-subhead">💜 Soutien financier</div>
+        <div class="notif-card">
+          <div class="notif-row acct-support-row">
+            <div class="notif-txt"><strong>Un coup de pouce</strong>
+              <span class="notif-sub">Pour couvrir l'hébergement et le développement.</span></div>
+            <div class="sup-actions">
+              <button class="sup-btn primary" type="button" data-support="paypal" data-label="Me soutenir avec PayPal" disabled>Me soutenir avec PayPal <span class="soon">bientôt</span></button>
+              <button class="sup-btn primary" type="button" data-support="kofi" data-label="M'offrir un café" disabled><svg class="sup-coffee" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path class="steam steam-1" d="M8 2c-.5.8-.5 1.7 0 2.5"/><path class="steam steam-2" d="M12 2c-.5.8-.5 1.7 0 2.5"/><path class="steam steam-3" d="M16 2c-.5.8-.5 1.7 0 2.5"/><path d="M4 9h13v4a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V9Z"/><path d="M17 10h2a2.5 2.5 0 0 1 0 5h-2"/></svg>M'offrir un café <span class="soon">bientôt</span></button>
             </div>
           </div>
-
-          <div class="acct-subhead" style="margin-top:18px">⭐ Soutenir sans dépenser</div>
-          <div class="notif-card">
-            <a class="notif-row notif-nav" href="https://github.com/Epilouptique/labonnealerte" target="_blank" rel="noopener">
-              <span class="notif-txt"><strong>Mettre une étoile sur GitHub</strong>
-                <span class="notif-sub">Le plus efficace, et totalement gratuit.</span></span>
-              <span class="notif-chevron" aria-hidden="true">→</span>
-            </a>
-            <a class="notif-row notif-nav" href="/proposer">
-              <span class="notif-txt"><strong>Proposer une source</strong>
-                <span class="notif-sub">Enrichissez le kiosque avec votre détecteur.</span></span>
-              <span class="notif-chevron" aria-hidden="true">→</span>
-            </a>
-          </div>
-
-          <div class="acct-subhead" style="margin-top:18px">🏢 Entreprises</div>
-          <div class="notif-card">
-            <a class="notif-row notif-nav" href="https://dahu-concept.fr/contact" target="_blank" rel="noopener">
-              <span class="notif-txt"><strong>Source sur mesure ou partenariat</strong>
-                <span class="notif-sub">Contactez Dahu-Concept.</span></span>
-              <span class="notif-chevron" aria-hidden="true">→</span>
-            </a>
-          </div>
         </div>
-      </div>
+      </section>
+
+      <section class="acct-tile">
+        <div class="acct-subhead">⭐ Soutenir sans dépenser</div>
+        <div class="notif-card">
+          <a class="notif-row notif-nav" href="https://github.com/Epilouptique/labonnealerte" target="_blank" rel="noopener">
+            <span class="notif-txt"><strong>Mettre une étoile sur GitHub</strong>
+              <span class="notif-sub">Le plus efficace, et totalement gratuit.</span></span>
+            <span class="notif-chevron" aria-hidden="true">→</span>
+          </a>
+          <a class="notif-row notif-nav" href="/proposer">
+            <span class="notif-txt"><strong>Proposer une source</strong>
+              <span class="notif-sub">Enrichissez le kiosque avec votre détecteur.</span></span>
+            <span class="notif-chevron" aria-hidden="true">→</span>
+          </a>
+        </div>
+      </section>
+
+      <section class="acct-tile">
+        <div class="acct-subhead">🏢 Entreprises</div>
+        <div class="notif-card">
+          <a class="notif-row notif-nav" href="https://dahu-concept.fr/contact" target="_blank" rel="noopener">
+            <span class="notif-txt"><strong>Source sur mesure ou partenariat</strong>
+              <span class="notif-sub">Contactez Dahu-Concept.</span></span>
+            <span class="notif-chevron" aria-hidden="true">→</span>
+          </a>
+        </div>
+      </section>
     </div>
   </div>
 </section>
@@ -315,6 +344,7 @@
 <script src="/js/page-loading.js"></script>
 <script src="/js/categories.js"></script>
 <script src="/js/cards.js"></script>
+<script src="/js/holo.js" defer></script>
 <script src="/js/timeline.js"></script>
 <script src="/js/share.js"></script>
 <script src="/js/deck-motifs.js"></script>

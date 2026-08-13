@@ -11,6 +11,7 @@ const { buildExternalSource } = require('./external');
 const { trackDomain } = require('./doomname');
 const { runProbe } = require('./leboncoin-promo-probe'); // OBSERVATION leboncoin (cron dédié, cf. startPoller)
 const { runUserTaskNotify } = require('./user-tasks-notify'); // V3 échéances (cron quotidien, cf. startPoller)
+const { runCommunityReportsExpire } = require('./community-reports-expire'); // Cartes communautaires (cron quotidien, cf. startPoller)
 
 // Purge des sessions expirées : au plus une fois par jour.
 let lastSessionCleanup = 0;
@@ -764,6 +765,13 @@ function startPoller() {
     runUserTaskNotify(pool).catch((err) => console.error('[user-tasks] runUserTaskNotify :', err.message));
   }, { timezone: 'Europe/Paris' });
   console.log('[poller] Relances tâches à échéance : cron quotidien "0 9 * * *" (Europe/Paris).');
+
+  // Cartes communautaires : clôture par expiration (7 jours, prolongeable), cron QUOTIDIEN
+  // dédié — même grain que les relances de tâches ci-dessus, mais ce job CLÔT sans notifier.
+  cron.schedule('0 4 * * *', () => {
+    runCommunityReportsExpire(pool).catch((err) => console.error('[community-reports] runCommunityReportsExpire :', err.message));
+  }, { timezone: 'Europe/Paris' });
+  console.log('[poller] Clôture par expiration (cartes communautaires) : cron quotidien "0 4 * * *" (Europe/Paris).');
 }
 
 // processSource/processParamSource/decideTransition exposés pour le banc d'essai.

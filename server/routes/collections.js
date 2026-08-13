@@ -18,6 +18,18 @@ const { award, getTop20Ids } = require('../points');
 
 const router = express.Router();
 
+// Favori automatique : chaque source réellement abonnée via l'adoption d'un deck est aussi
+// ajoutée à `favorites` (idempotent, best-effort). Miroir du helper de routes/myalerts.js.
+// Le désabonnement du deck ne retire jamais les favoris (but : garder « Ma collection »).
+async function addFavorite(subscriberId, sourceId) {
+  try {
+    await pool.query(
+      `INSERT INTO favorites (subscriber_id, source_id) VALUES ($1, $2)
+       ON CONFLICT (subscriber_id, source_id) DO NOTHING`,
+      [subscriberId, sourceId]);
+  } catch (e) { console.error('[favorites] auto-add :', e.message); }
+}
+
 // GET /api/collections — tuiles-deck du kiosque : packs OFFICIELS + decks perso
 // PUBLICS (visibility='public', pseudo requis, au moins une carte). Chaque ligne
 // porte de quoi filtrer/trier/naviguer cote client sans logique parallele :
@@ -219,6 +231,7 @@ router.post('/collections/:slug/adopt', async (req, res) => {
             [auth.id, it.source_id]
           );
           if (r.rowCount > 0) { added++; await award(auth.id, 'ALERT_SUBSCRIBED', it.source_id); } else already++;
+          await addFavorite(auth.id, it.source_id); // → « Ma collection », idempotent
         } else {
           // Instance paramétrée : validée contre le schéma déclaré (défensif).
           const check = validateParams(it.params_schema, inst);
@@ -231,6 +244,7 @@ router.post('/collections/:slug/adopt', async (req, res) => {
             [auth.id, it.source_id, JSON.stringify(check.params)]
           );
           if (r.rowCount > 0) { added++; await award(auth.id, 'ALERT_SUBSCRIBED', it.source_id); } else already++;
+          await addFavorite(auth.id, it.source_id); // → « Ma collection », idempotent
         }
       }
     }
@@ -299,3 +313,4 @@ router.delete('/collections/:slug/adopt', async (req, res) => {
 module.exports = router;
 module.exports.resolveInstances = resolveInstances; // exposé pour tests
 module.exports.recomputeDeckCategories = recomputeDeckCategories; // réutilisé par routes/decks.js
+module.exports.addFavorite = addFavorite; // réutilisé par routes/decks.js (adoption d'un deck perso)
