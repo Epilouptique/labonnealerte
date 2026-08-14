@@ -157,7 +157,7 @@ function validateLink(raw) {
   if (url.protocol !== 'https:' && url.protocol !== 'http:') return { ok: false, error: 'lien invalide' };
   const host = url.hostname.toLowerCase();
   const allowed = ALLOWED_LINK_DOMAINS.some((d) => host === d || host.endsWith('.' + d));
-  if (!allowed) return { ok: false, error: 'domaine non autorisé pour ce lien' };
+  if (!allowed) return { ok: false, error: 'Lien refusé — domaines autorisés : ' + ALLOWED_LINK_DOMAINS.join(', ') };
   return { ok: true, value: url.toString() };
 }
 

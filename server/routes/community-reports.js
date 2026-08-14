@@ -16,6 +16,7 @@ const { authenticate } = require('../sessions');
 const { resolveCommuneInsee, resolveCommuneCoords } = require('../sources/lib/commune-insee');
 const { distanceKm } = require('../sources/lib/geo-distance');
 const ugc = require('../ugc');
+const { sendCommunityReportSpotNotification } = require('../mailer');
 
 const router = express.Router();
 
@@ -61,7 +62,8 @@ router.get('/community-reports', async (req, res) => {
               EXISTS(SELECT 1 FROM community_report_subscriptions rs
                       WHERE rs.report_id = r.id AND rs.subscriber_id = $1) AS subscribed,
               EXISTS(SELECT 1 FROM community_report_spots sp
-                      WHERE sp.report_id = r.id AND sp.subscriber_id = $1) AS spotted
+                      WHERE sp.report_id = r.id AND sp.subscriber_id = $1) AS spotted,
+              (r.author_subscriber_id = $1) AS is_author
          FROM community_reports r
         WHERE r.type = $2 AND r.status = 'active'`,
       [auth.id, TYPE]
@@ -173,24 +175,36 @@ router.post('/community-reports', async (req, res) => {
 });
 
 /* ------------------------------------------------------------------ */
-/* POST /api/community-reports/:id/spot — « Repéré » (idempotent),     */
-/* fermeture automatique (status='resolved') au 3e signalant distinct. */
+/* POST /api/community-reports/:id/spot — « Je l'ai vu » (témoin,       */
+/* idempotent), Où/Quand OBLIGATOIRES, fermeture auto au 3e signalant   */
+/* distinct. Notifie l'auteur par email dès le 1er spot (best-effort,   */
+/* ne bloque jamais la réponse HTTP ni ne peut la faire échouer).       */
 /* ------------------------------------------------------------------ */
 router.post('/community-reports/:id/spot', async (req, res) => {
-  const { token } = req.body || {};
+  const { token, where, when } = req.body || {};
   const id = parseInt(req.params.id, 10);
   if (!Number.isInteger(id)) return res.status(400).json({ error: 'id invalide' });
   try {
     const auth = await authenticate(token);
     if (!auth) return res.status(401).json({ error: 'Session invalide ou expirée' });
 
-    const rep = await pool.query('SELECT id, status FROM community_reports WHERE id = $1', [id]);
+    const w = ugc.validateText(where, { min: 2, max: 200, allowed: ugc.ALLOWED_FORUM_BODY });
+    if (!w.ok) return res.status(400).json({ error: 'Où : ' + w.error });
+    const wh = ugc.validateText(when, { min: 2, max: 200, allowed: ugc.ALLOWED_FORUM_BODY });
+    if (!wh.ok) return res.status(400).json({ error: 'Quand : ' + wh.error });
+
+    const rep = await pool.query('SELECT id, status, commune_nom, author_subscriber_id FROM community_reports WHERE id = $1', [id]);
     if (!rep.rows.length) return res.status(404).json({ error: 'Signalement introuvable' });
     if (rep.rows[0].status !== 'active') return res.status(409).json({ error: 'Ce signalement n’est plus actif' });
 
+    const already = await pool.query('SELECT 1 FROM community_report_spots WHERE report_id = $1 AND subscriber_id = $2', [id, auth.id]);
+    const isNewSpot = already.rows.length === 0;
+
     await pool.query(
-      `INSERT INTO community_report_spots (report_id, subscriber_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-      [id, auth.id]
+      `INSERT INTO community_report_spots (report_id, subscriber_id, seen_where, seen_when)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (report_id, subscriber_id) DO NOTHING`,
+      [id, auth.id, w.value, wh.value]
     );
     const count = await pool.query('SELECT COUNT(*)::int AS n FROM community_report_spots WHERE report_id = $1', [id]);
     const spotCount = count.rows[0].n;
@@ -200,6 +214,23 @@ router.post('/community-reports/:id/spot', async (req, res) => {
       status = 'resolved';
     }
     res.status(200).json({ spot_count: spotCount, status });
+
+    // Notif email à l'auteur, best-effort, APRÈS la réponse (jamais awaité par elle,
+    // ne peut donc jamais la faire échouer) — même patron que forum.js (notif réponse).
+    // Seulement pour un NOUVEAU spot (idempotence : un témoin qui reposte where/when
+    // sur un spot déjà enregistré via ON CONFLICT DO NOTHING ne redéclenche pas l'email).
+    if (isNewSpot && rep.rows[0].author_subscriber_id !== auth.id) {
+      pool.query('SELECT email, token FROM subscribers WHERE id = $1', [rep.rows[0].author_subscriber_id])
+        .then((a) => {
+          if (a.rows.length && a.rows[0].email) {
+            return sendCommunityReportSpotNotification(
+              { email: a.rows[0].email, token: a.rows[0].token },
+              { communeNom: rep.rows[0].commune_nom, seenWhere: w.value, seenWhen: wh.value }
+            );
+          }
+        })
+        .catch((e) => console.error('[community-reports] notif spot :', e.message));
+    }
   } catch (err) {
     console.error('[community-reports] Erreur POST /:id/spot :', err.message);
     res.status(503).json({ error: 'Service indisponible' });

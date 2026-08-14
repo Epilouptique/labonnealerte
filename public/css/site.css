@@ -524,21 +524,68 @@ main#alertes { width: 100%; }
   background: var(--amber-soft); color: var(--amber); /* .secondary d'emblée : la liste prime */
 }
 .community-report-toggle:hover { filter: brightness(1.08); }
+/* CORRECTIONS 4 (A/B) : même piège que .param-form/.community-form déjà connu — la
+   règle display:inline-block ci-dessus (auteur) l'emportait sur [hidden] (UA), donc
+   btn.hidden = true (site.js) restait sans effet visuel : le bouton restait affiché
+   ET occupait sa hauteur dans le flex column .task-zone (l'« espace vide » constaté
+   sous le formulaire n'était pas un min-height fantôme, juste ce bouton fantôme). */
+.community-report-toggle[hidden] { display: none !important; }
 /* Pas de croix de suppression sur un signalement (contrairement à .task-item d'une
    tâche personnelle) : annule la réserve de marge posée pour elle. */
 .community-item.task-item .task-label { padding-right: 0; }
 .community-item-desc { font-size: 12.5px; color: var(--ink); }
-.community-spot {
+/* Vague 2 : « Je l'ai vu » (témoin, révèle Où/Quand) et « Je l'ai retrouvé » (auteur,
+   clôture directe) partagent le même style d'action que l'ancien .community-spot. */
+.community-spot-toggle, .community-found {
   align-self: flex-start; margin-top: 4px; border: none; cursor: pointer;
   background: var(--amber); color: #fff; font-weight: 700; font-size: 12.5px;
   padding: 7px 14px; border-radius: 999px; transition: filter .15s ease, opacity .15s ease;
 }
-.community-spot:hover { filter: brightness(1.08); }
-.community-spot:disabled { opacity: .55; cursor: default; }
+.community-spot-toggle:hover, .community-found:hover { filter: brightness(1.08); }
+.community-spot-toggle:disabled, .community-found:disabled { opacity: .55; cursor: default; }
+/* [hidden] posé d'emblée cette fois (piège déjà rencontré 2 fois sur ce chantier pour
+   .community-report-toggle/.community-form — display:inline-flex/block auteur bat
+   [hidden] UA sans cet override explicite). */
+.community-spot-toggle[hidden] { display: none !important; }
 .community-spotted-tag { font-size: 12px; font-weight: 700; color: var(--violet, #a567e3); }
 html[data-theme="dark"] .community-spotted-tag { color: var(--violet-l, #bd8ef0); }
 .community-loading { font-size: 12.5px; color: var(--muted); }
-@media (prefers-reduced-motion: reduce) { .community-spot { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .community-spot-toggle, .community-found { transition: none; } }
+
+/* Mini-formulaire Où/Quand (témoin) — même patron empilé que .community-form
+   (un .param-row générique en ligne convient mal à 2 champs + bouton + message). */
+.community-spot-form { flex-direction: column; align-items: stretch; width: 100%; margin-top: 4px; }
+.community-spot-form[hidden] { display: none; }
+.community-spot-where, .community-spot-when {
+  width: 100%; min-width: 0; max-width: 100%; font: inherit; font-size: 13px;
+  color: var(--ink); background: var(--surface); border: 1px solid var(--line);
+  border-radius: 10px; padding: 8px 10px;
+}
+.community-spot-where:focus, .community-spot-when:focus { outline: none; border-color: var(--amber); }
+.community-spot-submit {
+  align-self: flex-start; border: none; cursor: pointer;
+  background: var(--amber); color: #fff; font-weight: 700; font-size: 12.5px;
+  padding: 7px 14px; border-radius: 999px;
+}
+.community-spot-submit:hover { filter: brightness(1.08); }
+.community-spot-submit:disabled { opacity: .55; cursor: default; }
+
+/* Recto dynamique (chat-perdu) : quand ≥1 instance est visible pour le profil, le
+   sous-titre + la description statiques cèdent la place à .community-recto (contenu
+   d'un .task-item.community-item, réutilisé tel quel — cf. cards.js/site.js). Rotation
+   auto (≥2 instances) via le MÊME vocabulaire de transition que le H1 de /favoris
+   (favoris-title.js : classes .bd-slide-out/.bd-slide-in, keyframe bd-slide-in déjà
+   déclarée plus bas dans ce fichier), juste re-scopé à ce conteneur. [hidden] renforcé
+   en !important : au moins un skin (École classique) pose display:flex sur
+   .card-subtitle avec une spécificité supérieure à [hidden] seul (même piège que
+   .community-form plus haut). */
+.card-subtitle[hidden], .card-static-desc[hidden], .community-recto[hidden] { display: none !important; }
+.community-recto { transition: transform .22s ease, opacity .22s ease; will-change: transform, opacity; }
+.community-recto.bd-slide-out { transform: translateY(-70%); opacity: 0; }
+.community-recto.bd-slide-in { animation: bd-slide-in .28s ease; }
+@media (prefers-reduced-motion: reduce) {
+  .community-recto, .community-recto.bd-slide-out, .community-recto.bd-slide-in { transition: none; animation: none; transform: none; opacity: 1; }
+}
 
 .utf-card { width: min(460px, 100%); }
 .utf-form { display: flex; flex-direction: column; gap: 14px; }

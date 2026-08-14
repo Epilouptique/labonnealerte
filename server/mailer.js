@@ -441,7 +441,56 @@ async function sendForumReplyNotification(recipient, info) {
   }
 }
 
+/**
+ * Notifie l'auteur d'un signalement communautaire (« Chat perdu ») qu'un témoin a
+ * cliqué « Je l'ai vu », avec le lieu/moment qu'il a renseignés. Calqué sur
+ * sendForumReplyNotification (même FROM/subject/emailShell/compteurs/best-effort).
+ * @param {{email: string, token: ?string}} recipient
+ * @param {{communeNom: string, seenWhere: string, seenWhen: string}} info
+ * @returns {Promise<{sent: number, failed: number}>}
+ */
+async function sendCommunityReportSpotNotification(recipient, info) {
+  const email = typeof recipient === 'string' ? recipient : recipient.email;
+  const token = typeof recipient === 'string' ? null : recipient.token;
+  if (!email || !info || !info.communeNom) return { sent: 0, failed: 0 };
+
+  const commune = esc(info.communeNom);
+  const where = esc(info.seenWhere || '');
+  const when = esc(info.seenWhen || '');
+  const payload = {
+    from: FROM,
+    to: email,
+    subject: subject(`🐱 Piste pour votre signalement : ${info.communeNom}`),
+    text:
+      `Quelqu'un pense avoir vu le chat de votre signalement à ${info.communeNom}.\n\n` +
+      `Où : ${info.seenWhere || '(non précisé)'}\n` +
+      `Quand : ${info.seenWhen || '(non précisé)'}\n\n` +
+      `—\nVous recevez cet email car vous êtes l'auteur de ce signalement.` +
+      MANAGE_TEXT,
+    html: emailShell({
+      heading: 'Une piste pour votre chat',
+      intro: `Quelqu'un pense avoir vu le chat de votre signalement à <strong>${commune}</strong>.`,
+      note: `<strong>Où :</strong> ${where || '(non précisé)'}<br><strong>Quand :</strong> ${when || '(non précisé)'}`,
+    }),
+  };
+  if (token) {
+    const unsubUrl = `${SITE_URL}/unsubscribe/${token}`;
+    payload.headers = {
+      'List-Unsubscribe': `<${unsubUrl}>`,
+      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+    };
+  }
+  try {
+    await resend.emails.send(payload);
+    await incEmailCounters();
+    return { sent: 1, failed: 0 };
+  } catch (err) {
+    console.error(`[mailer] Échec notif signalement à ${email} :`, err.message);
+    return { sent: 0, failed: 1 };
+  }
+}
+
 module.exports = {
   sendConfirmation, sendPromoAlert, sendMagicLink, sendDeferredDigest,
-  sendTaskDueReminder, sendForumReplyNotification,
+  sendTaskDueReminder, sendForumReplyNotification, sendCommunityReportSpotNotification,
 };

@@ -1016,8 +1016,57 @@
     list.innerHTML = rows.map(function (r) { return LBACards.communityReportItem(r); }).join('');
   }
 
+  // Recto DYNAMIQUE : s'il existe ≥1 instance visible, le sous-titre + la description
+  // statiques du recto cèdent la place au contenu d'un item (.task-item.community-item,
+  // markup réutilisé tel quel via LBACards.communityReportItem — aucune duplication).
+  // Rotation auto toutes les 10 s si ≥2 instances, même vocabulaire de transition que
+  // le H1 de /favoris (favoris-title.js : classes bd-slide-out/bd-slide-in).
+  var communityRotationTimers = new WeakMap();
+  function renderCommunityRecto(card, rows) {
+    var slot = card.querySelector('.card-front .community-recto');
+    if (!slot) return;
+    var prevTimer = communityRotationTimers.get(card);
+    if (prevTimer) { clearInterval(prevTimer); communityRotationTimers.delete(card); }
+
+    var subtitle = card.querySelector('.card-front .card-subtitle');
+    var desc = card.querySelector('.card-front .card-static-desc');
+    if (!rows || !rows.length) {
+      slot.hidden = true; slot.innerHTML = '';
+      if (subtitle) subtitle.hidden = false;
+      if (desc) desc.hidden = false;
+      return;
+    }
+    if (subtitle) subtitle.hidden = true;
+    if (desc) desc.hidden = true;
+    slot.hidden = false;
+
+    function paint(idx, animate) {
+      var html = LBACards.communityReportItem(rows[idx]);
+      if (!animate || REDUCE) { slot.innerHTML = html; return; }
+      slot.classList.add('bd-slide-out');
+      setTimeout(function () {
+        slot.innerHTML = html;
+        slot.classList.remove('bd-slide-out');
+        slot.classList.add('bd-slide-in');
+        setTimeout(function () { slot.classList.remove('bd-slide-in'); }, 280);
+      }, 220);
+    }
+    paint(0, false);
+
+    if (rows.length > 1) {
+      var i = 0;
+      var timer = setInterval(function () {
+        i = (i + 1) % rows.length;
+        paint(i, true);
+      }, 10000);
+      communityRotationTimers.set(card, timer);
+    }
+  }
+
   // Chargée à CHAQUE ouverture de la 5e face (pas de cache) : la liste dépend du
   // rayon/commune du profil, calculé côté serveur à la volée (GET /api/community-reports).
+  // Alimente AUSSI le recto dynamique (renderCommunityRecto) avec la même réponse —
+  // un seul fetch pour les deux, pas de requête dupliquée.
   async function loadCommunityReports(card) {
     var list = card.querySelector('.community-list');
     if (list) list.innerHTML = '<div class="community-loading">Chargement…</div>';
@@ -1027,7 +1076,9 @@
       });
       if (!res.ok) throw new Error('http');
       var rows = await res.json();
-      renderCommunityList(card, Array.isArray(rows) ? rows : []);
+      rows = Array.isArray(rows) ? rows : [];
+      renderCommunityList(card, rows);
+      renderCommunityRecto(card, rows);
     } catch (e) {
       if (list) list.innerHTML = '<div class="community-loading">Impossible de charger les signalements — réessayez.</div>';
     }
@@ -1041,6 +1092,18 @@
   async function submitCommunityReport(card, btn) {
     var villeEl = card.querySelector('.community-ville');
     var ville = villeEl ? villeEl.value.trim() : '';
+    // CORRECTIONS 4 (C) : message dédié AU FORMULAIRE (.community-form-msg), pas
+    // note() — note() écrit dans .card-front .card-content, qui reste dans le DOM
+    // mais n'est PAS la face visible pendant qu'on remplit ce formulaire (verso,
+    // .card-task-face) : le message existait bien mais personne ne le voyait jamais.
+    var msg = card.querySelector('.community-form-msg');
+    function showMsg(text, kind) {
+      if (!msg) return;
+      if (!text) { msg.hidden = true; msg.textContent = ''; return; }
+      msg.textContent = text;
+      msg.className = 'community-form-msg sub-msg ' + (kind || 'ok');
+      msg.hidden = false;
+    }
     if (!ville) {
       if (villeEl) { villeEl.focus(); villeEl.style.borderColor = 'var(--amber)'; }
       return;
@@ -1051,6 +1114,7 @@
     var linkEl = card.querySelector('.community-link');
     var radiusEl = card.querySelector('.community-radius');
     btn.disabled = true;
+    showMsg('', '');
     try {
       var res = await fetch('/api/community-reports', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1062,20 +1126,26 @@
         }),
       });
       var data = await res.json().catch(function () { return {}; });
-      if (res.status === 401) { LBASession.clear(); note(card, 'Session expirée, reconnectez-vous', 'err'); return; }
-      if (!res.ok) { note(card, data.error || 'Réessaie plus tard', 'err'); return; }
+      if (res.status === 401) { LBASession.clear(); showMsg('Session expirée, reconnectez-vous', 'err'); return; }
+      if (!res.ok) { showMsg(data.error || 'Réessaie plus tard', 'err'); return; }
       var communeNom = (data.report && data.report.commune_nom) || ville;
-      note(card, data.joined
+      showMsg(data.joined
         ? 'Vous suivez déjà le signalement actif de ' + communeNom + '.'
         : 'Signalement créé pour ' + communeNom + '. Il expire dans 7 jours.', 'ok');
       if (villeEl) villeEl.value = '';
       if (descEl) descEl.value = '';
       if (linkEl) linkEl.value = '';
-      var form = card.querySelector('.community-form');
-      if (form) form.hidden = true; // referme le sous-formulaire après soumission réussie
       celebrate(card);
-      loadCommunityReports(card); // rafraîchit la liste (la nouvelle/rejointe instance y apparaît)
-    } catch (e) { note(card, 'Réessaie plus tard', 'err'); }
+      loadCommunityReports(card); // rafraîchit la liste ET le recto (la nouvelle/rejointe instance y apparaît)
+      // Referme le formulaire après un court délai — pas immédiatement, sinon le
+      // message de confirmation ci-dessus disparaîtrait avec lui avant d'être lu.
+      setTimeout(function () {
+        var form = card.querySelector('.community-form'); if (form) form.hidden = true;
+        var toggleBtn = card.querySelector('.community-report-toggle'); if (toggleBtn) toggleBtn.hidden = false;
+        var list = card.querySelector('.community-list'); if (list) list.hidden = false;
+        showMsg('', '');
+      }, 1600);
+    } catch (e) { showMsg('Réessaie plus tard', 'err'); }
     finally { btn.disabled = false; }
   }
 
@@ -1091,7 +1161,11 @@
     loadCommunityReports(card);
   });
 
-  // Bascule du sous-formulaire de création/adhésion (masqué par défaut).
+  // Ouverture du sous-formulaire de création/adhésion (masqué par défaut). Masque
+  // AUSSI la liste (dont son texte vide « Aucun signalement… ») et le bouton lui-même
+  // — sinon les deux restaient visibles à côté du formulaire ouvert (oubli constaté).
+  // Pas de bouton d'annulation à ce stade (non demandé) : la liste + le bouton
+  // réapparaissent au succès de la soumission (submitCommunityReport, plus bas).
   document.addEventListener('click', function (e) {
     var btn = e.target.closest('.community-report-toggle');
     if (!btn) return;
@@ -1099,16 +1173,75 @@
     e.preventDefault();
     var card = btn.closest('.card'); if (!card) return;
     var form = card.querySelector('.community-form'); if (!form) return;
-    var willShow = !!form.hidden;
-    form.hidden = !willShow;
-    if (willShow) { var v = form.querySelector('.community-ville'); if (v) v.focus(); }
+    form.hidden = false;
+    btn.hidden = true;
+    var list = card.querySelector('.community-list'); if (list) list.hidden = true;
+    var v = form.querySelector('.community-ville'); if (v) v.focus();
   });
 
-  // « Je l'ai vu » par instance — idempotent côté serveur (PK composite), ferme
-  // automatiquement l'instance au 3e signalant distinct (le serveur renvoie le
-  // statut à jour, reflété ici sans re-fetch de toute la liste).
+  // « Je l'ai vu » (témoin) — RÉVÈLE le mini-formulaire Où/Quand (masqué par défaut,
+  // cf. cards.js), ne poste RIEN au clic lui-même. Masque le bouton-toggle comme
+  // .community-report-toggle plus haut (même piège [hidden] déjà connu → override CSS
+  // posé d'emblée cette fois, cf. site.css).
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest('.community-spot-toggle');
+    if (!btn) return;
+    if (btn.closest('.deck-card')) return;
+    e.preventDefault();
+    var item = btn.closest('.community-item'); if (!item) return;
+    var form = item.querySelector('.community-spot-form'); if (!form) return;
+    btn.hidden = true;
+    form.hidden = false;
+    var w = form.querySelector('.community-spot-where'); if (w) w.focus();
+  });
+
+  // Validation + envoi Où/Quand — idempotent côté serveur (PK composite), ferme
+  // automatiquement l'instance au 3e signalant distinct.
   document.addEventListener('click', async function (e) {
-    var btn = e.target.closest('.community-spot');
+    var btn = e.target.closest('.community-spot-submit');
+    if (!btn) return;
+    if (btn.closest('.deck-card')) return;
+    e.preventDefault();
+    var form = btn.closest('.community-spot-form'); if (!form) return;
+    var item = btn.closest('.community-item'); if (!item) return;
+    var id = item.getAttribute('data-report-id'); if (!id) return;
+    var whereEl = form.querySelector('.community-spot-where');
+    var whenEl = form.querySelector('.community-spot-when');
+    var msg = form.querySelector('.community-spot-msg');
+    function showMsg(text, kind) {
+      if (!msg) return;
+      if (!text) { msg.hidden = true; msg.textContent = ''; return; }
+      msg.textContent = text; msg.className = 'community-spot-msg sub-msg ' + (kind || 'ok'); msg.hidden = false;
+    }
+    var where = whereEl ? whereEl.value.trim() : '';
+    var when = whenEl ? whenEl.value.trim() : '';
+    if (!where) { if (whereEl) { whereEl.focus(); whereEl.style.borderColor = 'var(--amber)'; } return; }
+    if (!when) { if (whenEl) { whenEl.focus(); whenEl.style.borderColor = 'var(--amber)'; } return; }
+    if (whereEl) whereEl.style.borderColor = ''; if (whenEl) whenEl.style.borderColor = '';
+    btn.disabled = true;
+    showMsg('', '');
+    try {
+      var res = await fetch('/api/community-reports/' + encodeURIComponent(id) + '/spot', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: LBASession.get(), where: where, when: when }),
+      });
+      var data = await res.json().catch(function () { return null; });
+      if (!res.ok) { showMsg((data && data.error) || 'Réessaie plus tard', 'err'); return; }
+      form.outerHTML = '';
+      var toggleBtn = item.querySelector('.community-spot-toggle');
+      if (toggleBtn) toggleBtn.outerHTML = '<span class="community-spotted-tag">Déjà signalé ✓</span>';
+      if (data && data.status === 'resolved') {
+        var due = item.querySelector('.task-due');
+        if (due) due.textContent = 'Résolu — merci !';
+      }
+    } catch (err) { showMsg('Réessaie plus tard', 'err'); }
+    finally { btn.disabled = false; }
+  });
+
+  // « Je l'ai retrouvé » (auteur) — clôture DIRECTE (POST /:id/resolve), aucun champ
+  // Où/Quand : réutilise la route déjà en place (auteur seul, déjà vérifié serveur).
+  document.addEventListener('click', async function (e) {
+    var btn = e.target.closest('.community-found');
     if (!btn) return;
     if (btn.closest('.deck-card')) return;
     var item = btn.closest('.community-item'); if (!item) return;
@@ -1116,17 +1249,14 @@
     e.preventDefault();
     btn.disabled = true;
     try {
-      var res = await fetch('/api/community-reports/' + encodeURIComponent(id) + '/spot', {
+      var res = await fetch('/api/community-reports/' + encodeURIComponent(id) + '/resolve', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token: LBASession.get() }),
       });
-      var data = await res.json().catch(function () { return null; });
       if (!res.ok) throw new Error('http');
-      btn.outerHTML = '<span class="community-spotted-tag">Déjà signalé ✓</span>';
-      if (data && data.status === 'resolved') {
-        var due = item.querySelector('.task-due');
-        if (due) due.textContent = 'Résolu — merci !';
-      }
+      btn.outerHTML = '<span class="community-spotted-tag">Résolu — merci !</span>';
+      var card = item.closest('.card');
+      if (card) loadCommunityReports(card); // rafraîchit liste + recto (l'instance close disparaît)
     } catch (err) { btn.disabled = false; }
   });
 
@@ -2442,6 +2572,12 @@
     if (mode === 'connected') {
       if (extras) extras.classList.add('reco-hidden');
       applyReco(pickReco(sources, subMap));
+      // Recto dynamique des cartes communautaires (chat-perdu et famille à venir) :
+      // hydratation eager au chargement du kiosque, indépendante de l'ouverture de
+      // la 5e face (même fetch/rendu, cf. loadCommunityReports).
+      g.querySelectorAll('.card[data-source-id="chat-perdu"]').forEach(function (c) {
+        loadCommunityReports(c);
+      });
     }
 
     document.body.setAttribute('data-mode', mode);

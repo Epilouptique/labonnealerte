@@ -1,7 +1,9 @@
 CREATE TABLE IF NOT EXISTS sources (
   id VARCHAR(64) PRIMARY KEY,            -- ex: 'leboncoin-livraison'
   name VARCHAR(255) NOT NULL,            -- titre court (~15-20 caractères)
-  subtitle TEXT,                         -- fonction en une ligne (~25-30 caractères)
+  subtitle TEXT,                         -- fonction en une ligne, 38 caractères MAXIMUM
+                                         -- (règle produit 14/08/2026, CHECK sources_subtitle_len
+                                         --  en fin de fichier — vaut pour tout type de carte)
   description TEXT,                      -- description courte (~100-120 caractères)
   type VARCHAR(16) NOT NULL DEFAULT 'internal',  -- internal | external | linked
   endpoint_url TEXT,                     -- null si internal
@@ -296,7 +298,7 @@ WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'epic-jeu-gratui
 
 -- Source interne headless (giveaway GOG ponctuel) : notification immédiate.
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
-SELECT 'gog-jeu-offert', 'Jeu offert GOG', 'Les jeux offerts ponctuellement par GOG',
+SELECT 'gog-jeu-offert', 'Jeu offert GOG', 'Les jeux offerts par GOG',
   'GOG offre parfois un jeu PC sans DRM pendant quelques jours. Soyez prévenu dès que ça arrive.',
   'internal', 'official', false, ARRAY['jeux-video', 'bons-plans'], 17
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'gog-jeu-offert');
@@ -564,7 +566,7 @@ WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'statut-railway'
 
 -- Jours fériés & ponts (API calendrier gouv).
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
-SELECT 'jours-feries', 'Fériés & ponts', 'Les prochains jours fériés et leurs ponts',
+SELECT 'jours-feries', 'Fériés & ponts', 'Les prochains fériés et leurs ponts',
   'Un férié approche — et peut-être un pont ! Prévenu une semaine avant, selon votre zone.',
   'internal', 'official', false, ARRAY['vie-locale'], 58
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'jours-feries');
@@ -692,7 +694,7 @@ WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'eclipse-solaire
 
 -- Nuits des Étoiles (AFA), dates annuelles codées en dur.
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
-SELECT 'nuits-des-etoiles', 'Nuits des Étoiles', 'Le grand rendez-vous d''astronomie de l''été',
+SELECT 'nuits-des-etoiles', 'Nuits des Étoiles', 'Le rendez-vous d''astronomie de l''été',
   'Trois soirées d''observation gratuites partout en France : prévenu avant de sortir plaid et télescope.',
   'internal', 'official', false, ARRAY['astronomie', 'etoiles-filantes'], 56
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'nuits-des-etoiles');
@@ -701,7 +703,7 @@ WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'nuits-des-etoil
 
 -- Géminides (pic annuel, nuit du 13 au 14 décembre).
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
-SELECT 'geminides', 'Géminides', 'Le grand essaim d''étoiles filantes d''hiver',
+SELECT 'geminides', 'Géminides', 'L''essaim d''étoiles filantes d''hiver',
   'Jusqu''à 120 étoiles filantes par heure dans la nuit du 13 au 14 décembre : le spectacle est annoncé.',
   'internal', 'official', false, ARRAY['etoiles-filantes', 'astronomie'], 56
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'geminides');
@@ -724,7 +726,7 @@ WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'echeances-fisca
 
 -- Loi Montagne : rappel de l'obligation d'équipements hiver au 1er novembre.
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
-SELECT 'loi-montagne', 'Pneus hiver', 'Obligation Loi Montagne au 1er novembre',
+SELECT 'loi-montagne', 'Pneus hiver', 'Obligation Loi Montagne, 1er novembre',
   '1er novembre : la Loi Montagne entre en vigueur. Pneus hiver ou chaînes obligatoires ? Rappel avant l''hiver.',
   'internal', 'official', false, ARRAY['trafic-routier', 'transports', 'vie-locale'], 37
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'loi-montagne');
@@ -779,7 +781,7 @@ WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'cert-fr-alertes
 
 -- Révisions du taux du Livret A (dates codées : 1er février / 1er août).
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
-SELECT 'taux-livret-a', 'Taux du Livret A', 'Les révisions du taux de l''épargne réglementée',
+SELECT 'taux-livret-a', 'Taux du Livret A', 'Les révisions du taux réglementé',
   'Le taux du Livret A est révisé deux fois par an : prévenu à chaque décision, sans spéculation.',
   'internal', 'official', false, ARRAY['epargne', 'bons-plans'], 60
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'taux-livret-a');
@@ -846,7 +848,7 @@ WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'fetes-musulmane
 
 -- Fêtes juives (calendrier hébraïque, dates fixes fiables).
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
-SELECT 'fetes-juives', 'Fêtes juives', 'Roch Hachana, Kippour, Hanoucca, Pessah',
+SELECT 'fetes-juives', 'Fêtes juives', 'Roch Hachana, Kippour, Hanoucca…',
   'Roch Hachana, Yom Kippour, Hanoucca, Pessah : prévenu une semaine avant chaque grande fête juive.',
   'internal', 'official', false, ARRAY['fetes', 'vie-locale'], 64
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'fetes-juives');
@@ -855,7 +857,7 @@ WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'fetes-juives');
 
 -- Fêtes laïques (solstices, Fête de la musique, Halloween, Nouvel An chinois…).
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
-SELECT 'fetes-laiques', 'Fêtes laïques', 'Solstices, Fête de la musique, Halloween…',
+SELECT 'fetes-laiques', 'Fêtes laïques', 'Solstices, Fête de la musique…',
   'Fête de la musique, Halloween, Saint-Valentin, solstices : les rendez-vous du calendrier, sans surprise.',
   'internal', 'official', false, ARRAY['fetes', 'vie-locale'], 65
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'fetes-laiques');
@@ -864,7 +866,7 @@ WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'fetes-laiques')
 
 -- Élections (source en sommeil : aucune date tant que le décret n'est pas publié).
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
-SELECT 'elections-france', 'Élections', 'Scrutins et dates limites d''inscription',
+SELECT 'elections-france', 'Élections', 'Scrutins et dates d''inscription',
   'Inscription sur les listes, veille et jour de scrutin : les échéances électorales, rappelées factuel.',
   'internal', 'official', false, ARRAY['elections', 'vie-locale'], 66
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'elections-france');
@@ -1671,7 +1673,7 @@ WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'journees-geek')
 
 -- 7.1) Grands salons (calendrier).
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
-SELECT 'grands-salons', 'Grands salons', 'Agriculture, Auto, VivaTech, SIAL, Bourget…',
+SELECT 'grands-salons', 'Grands salons', 'Agriculture, Auto, VivaTech, SIAL…',
   'Salon de l''Agriculture, Mondial de l''Auto, VivaTech : prévenu à l''ouverture des grands salons parisiens.',
   'internal', 'official', false, ARRAY['vie-locale', 'evenements-locaux'], 140
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'grands-salons');
@@ -2028,7 +2030,7 @@ UPDATE sources
 
 -- --- CRUES : création de la source paramétrée (COUVERTURE PARTIELLE, cf. code) ---
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
-SELECT 'vigicrues-departement', 'Crues par département', 'Le département de votre choix (couverture partielle)',
+SELECT 'vigicrues-departement', 'Crues par département', 'Crues du département de votre choix',
   'Crue en vigilance orange ou rouge dans votre département ? Prévenu avant que la rivière ne déborde.',
   'internal', 'official', false, ARRAY['crues', 'vigilance-meteo'], 158,
   '[{"key":"departement","label":"Département","type":"enum","values":[{"value":"02","label":"Aisne"},{"value":"03","label":"Allier"},{"value":"05","label":"Hautes-Alpes"},{"value":"06","label":"Alpes-Maritimes"},{"value":"07","label":"Ardèche"},{"value":"08","label":"Ardennes"},{"value":"09","label":"Ariège"},{"value":"10","label":"Aube"},{"value":"11","label":"Aude"},{"value":"12","label":"Aveyron"},{"value":"13","label":"Bouches-du-Rhône"},{"value":"14","label":"Calvados"},{"value":"16","label":"Charente"},{"value":"17","label":"Charente-Maritime"},{"value":"18","label":"Cher"},{"value":"19","label":"Corrèze"},{"value":"21","label":"Côte-d''Or"},{"value":"22","label":"Côtes-d''Armor"},{"value":"23","label":"Creuse"},{"value":"24","label":"Dordogne"},{"value":"25","label":"Doubs"},{"value":"27","label":"Eure"},{"value":"28","label":"Eure-et-Loir"},{"value":"29","label":"Finistère"},{"value":"2A","label":"Corse-du-Sud"},{"value":"2B","label":"Haute-Corse"},{"value":"30","label":"Gard"},{"value":"31","label":"Haute-Garonne"},{"value":"33","label":"Gironde"},{"value":"34","label":"Hérault"},{"value":"35","label":"Ille-et-Vilaine"},{"value":"36","label":"Indre"},{"value":"37","label":"Indre-et-Loire"},{"value":"38","label":"Isère"},{"value":"40","label":"Landes"},{"value":"41","label":"Loir-et-Cher"},{"value":"42","label":"Loire"},{"value":"43","label":"Haute-Loire"},{"value":"44","label":"Loire-Atlantique"},{"value":"45","label":"Loiret"},{"value":"46","label":"Lot"},{"value":"47","label":"Lot-et-Garonne"},{"value":"49","label":"Maine-et-Loire"},{"value":"50","label":"Manche"},{"value":"51","label":"Marne"},{"value":"52","label":"Haute-Marne"},{"value":"53","label":"Mayenne"},{"value":"54","label":"Meurthe-et-Moselle"},{"value":"55","label":"Meuse"},{"value":"56","label":"Morbihan"},{"value":"57","label":"Moselle"},{"value":"58","label":"Nièvre"},{"value":"59","label":"Nord"},{"value":"60","label":"Oise"},{"value":"61","label":"Orne"},{"value":"62","label":"Pas-de-Calais"},{"value":"63","label":"Puy-de-Dôme"},{"value":"64","label":"Pyrénées-Atlantiques"},{"value":"65","label":"Hautes-Pyrénées"},{"value":"66","label":"Pyrénées-Orientales"},{"value":"67","label":"Bas-Rhin"},{"value":"68","label":"Haut-Rhin"},{"value":"69","label":"Rhône"},{"value":"70","label":"Haute-Saône"},{"value":"71","label":"Saône-et-Loire"},{"value":"72","label":"Sarthe"},{"value":"73","label":"Savoie"},{"value":"74","label":"Haute-Savoie"},{"value":"75","label":"Paris"},{"value":"76","label":"Seine-Maritime"},{"value":"77","label":"Seine-et-Marne"},{"value":"78","label":"Yvelines"},{"value":"79","label":"Deux-Sèvres"},{"value":"80","label":"Somme"},{"value":"81","label":"Tarn"},{"value":"82","label":"Tarn-et-Garonne"},{"value":"83","label":"Var"},{"value":"84","label":"Vaucluse"},{"value":"85","label":"Vendée"},{"value":"86","label":"Vienne"},{"value":"87","label":"Haute-Vienne"},{"value":"88","label":"Vosges"},{"value":"89","label":"Yonne"},{"value":"90","label":"Territoire de Belfort"},{"value":"95","label":"Val-d''Oise"}],"multiple":true,"required":true,"default":null}]'::jsonb
@@ -2701,7 +2703,7 @@ WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'courses-mythiques');
 INSERT INTO source_states (source_id) SELECT 'courses-mythiques'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'courses-mythiques');
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
-SELECT 'iss-passages', 'Passage de l''ISS', 'La Station spatiale au-dessus de votre ville',
+SELECT 'iss-passages', 'Passage de l''ISS', 'La Station spatiale au-dessus de vous',
   'La Station spatiale passe au-dessus de chez vous ce soir ? Levez les yeux — on vous dit quand.',
   'internal', 'official', false, ARRAY['iss', 'espace'], 365, '[{"key":"ville","label":"Commune","type":"commune-coords","placeholder":"Votre commune","multiple":true,"required":true,"default":null,"hint":"Le nom de votre commune (ou une autre). Alerte quand la Station spatiale internationale sera visible à l''œil nu au-dessus."}]'::jsonb
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'iss-passages');
@@ -2927,7 +2929,7 @@ WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'recensement-cit
 
 -- A. Commémorations LOCALES de l'abolition de l'esclavage, PARAMÉTRÉES par territoire.
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
-SELECT 'commemorations-outremer', 'Commémorations outre-mer', 'L''abolition de l''esclavage, par territoire',
+SELECT 'commemorations-outremer', 'Commémorations outre-mer', 'L''abolition de l''esclavage outre-mer',
   'La date de commémoration de l''abolition de l''esclavage propre à votre territoire, rappelée chaque année.',
   'internal', 'official', false, ARRAY['memoire', 'outre-mer'], 384, '[{"key":"territoire","label":"Territoire","type":"enum","values":[{"value":"guadeloupe","label":"Guadeloupe"},{"value":"martinique","label":"Martinique"},{"value":"guyane","label":"Guyane"},{"value":"reunion","label":"La Réunion"},{"value":"mayotte","label":"Mayotte"}],"multiple":true,"required":true,"default":null}]'::jsonb
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'commemorations-outremer');
@@ -2937,7 +2939,7 @@ WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'commemorations-
 
 -- B. Ouverture / fermeture officielle de la saison cyclonique par bassin (broadcast).
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
-SELECT 'saison-cyclonique', 'Saison cyclonique', 'Ouverture et fermeture officielles par bassin',
+SELECT 'saison-cyclonique', 'Saison cyclonique', 'Ouverture et fermeture par bassin',
   'Début et fin de la saison cyclonique de votre bassin : le repère calendaire officiel, sans stress inutile.',
   'internal', 'official', false, ARRAY['meteo', 'outre-mer'], 385
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'saison-cyclonique');
@@ -2985,7 +2987,7 @@ WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'ipc-alimentaire
 
 -- 3. Prix des logements anciens (INSEE-Notaires, glissement annuel trimestriel).
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
-SELECT 'prix-logements-anciens', 'Prix de l''immobilier ancien', 'L''indice INSEE-Notaires, chaque trimestre',
+SELECT 'prix-logements-anciens', 'Prix de l''immobilier ancien', 'L''indice INSEE-Notaires, trimestriel',
   'Les prix de l''immobilier ancien sur un an, en un chiffre : la publication trimestrielle, sans blabla.',
   'internal', 'official', false, ARRAY['immobilier', 'logement', 'consommation'], 390
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'prix-logements-anciens');
@@ -3115,7 +3117,7 @@ INSERT INTO source_states (source_id) SELECT 'entrepreneuriat-seniors'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'entrepreneuriat-seniors');
 
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
-SELECT 'revalorisation-retraite', 'Revalorisation retraites', 'Base (1er janvier) & Agirc-Arrco (1er novembre)',
+SELECT 'revalorisation-retraite', 'Revalorisation retraites', 'Base janvier, Agirc-Arrco novembre',
   'Retraite de base, complémentaire Agirc-Arrco : les deux rendez-vous annuels de revalorisation, rappelés.',
   'internal', 'official', false, ARRAY['retraite', 'seniors'], 405
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'revalorisation-retraite');
@@ -3156,7 +3158,7 @@ INSERT INTO source_states (source_id) SELECT 'manga-conventions'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'manga-conventions');
 
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
-SELECT 'journees-jeunesse-education', 'Journées jeunesse & éducation', 'Éducation, jeunesse, numérique responsable',
+SELECT 'journees-jeunesse-education', 'Journées jeunesse & éducation', 'Éducation, jeunesse, numérique',
   'Éducation, alphabétisation, jeunesse : les grandes journées ONU de la jeunesse, rappelées le jour J.',
   'internal', 'official', false, ARRAY['jeunesse', 'education'], 409
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'journees-jeunesse-education');
@@ -3179,7 +3181,7 @@ WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'domaine-disponi
 -- requires_confirmation = FALSE → alerte IMMÉDIATE dès signalement en blocklist
 -- (une inscription malware est un signal fort en soi, pas de temporisation).
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
-SELECT 'domaine-securite', 'Réputation d''un domaine', 'Le domaine est-il signalé malveillant ?',
+SELECT 'domaine-securite', 'Réputation d''un domaine', 'Ce domaine est-il malveillant ?',
   'Votre domaine signalé dans une base de malware ou phishing ? Alerte immédiate, avec le type de menace.',
   'internal', 'official', false, ARRAY['securite', 'phishing', 'noms-de-domaine'], 411, '[{"key":"domaine","label":"Domaine à vérifier","type":"string","placeholder":"annad.fr","pattern":"^[a-z0-9-]+(\\.[a-z0-9-]+)+$","lowercase":true,"multiple":true,"required":true,"default":null,"hint":"Le nom de domaine seul, sans https:// (exemple : annad.fr). Alerte si le domaine est signalé dans la base malware/phishing publique URLhaus."}]'::jsonb
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'domaine-securite');
@@ -3197,7 +3199,7 @@ WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'domaine-securit
 -- via le runner Playwright partagé) & Bouygues mobile (résolution d'index HTML).
 -- sfr-box écarté (vague 2, 2026-07-21) : doublon SHA-256 avec sfr-red-mobile (cf. module).
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
-SELECT 'hausse-tarif-operateur', 'Grille tarifaire opérateur', 'Un changement dans la grille de votre offre ?',
+SELECT 'hausse-tarif-operateur', 'Grille tarifaire opérateur', 'Un changement sur votre offre ?',
   'Votre opérateur retouche discrètement sa grille tarifaire ? Nous, on le remarque. Et on vous le dit.',
   'internal', 'official', false, ARRAY['consommation', 'vie-pratique'], 412, '[{"key":"offre","label":"Offre","type":"enum","values":[{"value":"bbox","label":"Bouygues — Internet/Box"},{"value":"freebox","label":"Free — Internet/Box"},{"value":"free-mobile","label":"Free Mobile"},{"value":"sfr-red-mobile","label":"SFR RED Mobile"},{"value":"orange-mobile","label":"Orange — Forfait mobile"},{"value":"orange-box","label":"Orange — Internet/Box"},{"value":"bouygues-mobile","label":"Bouygues — Forfait mobile"}],"multiple":true,"required":true,"default":null,"hint":"Choisissez l’offre à surveiller. Vous êtes prévenu qu’un changement a été détecté dans la grille tarifaire — sans montant, à vérifier vous-même sur le document officiel."}]'::jsonb
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'hausse-tarif-operateur');
@@ -3296,7 +3298,7 @@ INSERT INTO source_states (source_id) SELECT 'eau-potable-commune'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'eau-potable-commune');
 
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
-SELECT 'catnat-commune', 'Catastrophe naturelle (commune)', 'Nouvel arrêté CatNat pour votre commune',
+SELECT 'catnat-commune', 'Catastrophe naturelle (commune)', 'Arrêté CatNat pour votre commune',
   'Catastrophe naturelle reconnue dans votre commune : soyez prévenu à temps pour prévenir votre assurance.',
   'internal', 'official', false, ARRAY['risques-naturels', 'assurance', 'inondations'], 421, '[{"key":"commune","label":"Commune","type":"commune","placeholder":"Votre commune","multiple":true,"required":true,"default":null,"hint":"Le nom de votre commune (ou une autre). Alerte à la publication d’un nouvel arrêté de catastrophe naturelle."}]'::jsonb
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'catnat-commune');
@@ -3387,7 +3389,7 @@ WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'veille-hydromet
 -- ================================================================
 
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
-SELECT 'crypto-seuil', 'Seuil de prix crypto', 'Franchissement d''un seuil que vous fixez',
+SELECT 'crypto-seuil', 'Seuil de prix crypto', 'Franchissement du seuil que vous fixez',
   'Votre crypto franchit le prix que VOUS avez fixé ? Alerte immédiate, à la hausse comme à la baisse.',
   'internal', 'official', false, ARRAY['finance', 'crypto'], 429, '[{"key":"paire","label":"Cryptomonnaie","type":"enum","values":[{"value":"BTC","label":"Bitcoin (BTC)"},{"value":"ETH","label":"Ethereum (ETH)"},{"value":"SOL","label":"Solana (SOL)"},{"value":"XRP","label":"XRP (XRP)"},{"value":"ADA","label":"Cardano (ADA)"},{"value":"DOGE","label":"Dogecoin (DOGE)"},{"value":"BNB","label":"BNB (BNB)"},{"value":"LTC","label":"Litecoin (LTC)"}],"multiple":true,"required":true,"default":null},{"key":"seuil","label":"Seuil de prix (€)","type":"number","placeholder":"55000","min":0,"multiple":true,"required":true,"default":null,"hint":"Le prix en euros au franchissement duquel être alerté (hausse ou baisse). Purement informatif, pas un conseil financier."}]'::jsonb
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'crypto-seuil');
@@ -3447,7 +3449,7 @@ WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'veille-legifran
 -- anti-rétroactif au 1er cycle, mutualisé par artiste. Message factuel, lien Deezer.
 -- ================================================================
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
-SELECT 'veille-artiste-deezer', 'Nouvel album', 'La sortie du prochain album de votre artiste',
+SELECT 'veille-artiste-deezer', 'Nouvel album', 'Le prochain album de votre artiste',
   'Votre artiste sort un nouvel album ? Vous le savez dès sa mise en ligne, lien direct inclus.',
   'internal', 'official', false, ARRAY['musique', 'culture'], 433, '[{"key":"artiste","label":"Artiste","type":"string","placeholder":"Daft Punk, Aya Nakamura…","lowercase":false,"multiple":true,"required":true,"default":null,"hint":"Le nom d''un artiste ou groupe. Alerte à la sortie d''un nouvel album sur Deezer."}]'::jsonb
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'veille-artiste-deezer');
@@ -3495,7 +3497,7 @@ WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'eruption-volcan
 
 -- 437. exoplanete-habitable (BROADCAST) — NASA Exoplanet Archive TAP, sous-ensemble petit+zone tempérée, dédoublonnage par pl_name.
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
-SELECT 'exoplanete-habitable', 'Exoplanète habitable', 'Une nouvelle planète potentiellement habitable',
+SELECT 'exoplanete-habitable', 'Exoplanète habitable', 'Une planète potentiellement habitable',
   'Une nouvelle planète potentiellement habitable confirmée ? Vous faites partie des premiers informés.',
   'internal', 'official', false, ARRAY['science', 'espace', 'astronomie'], 437
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'exoplanete-habitable');
@@ -3570,7 +3572,7 @@ WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'arrosage-canal-
 -- Anti-rétroactif : 1er cycle = amorçage sans alerte. Détail : ma-collectivite.js.
 -- ================================================================
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
-SELECT 'ma-collectivite', 'Ma collectivité', 'Les infos de votre mairie ou collectivité',
+SELECT 'ma-collectivite', 'Ma collectivité', 'Les infos de votre collectivité',
   'Les alertes et infos de votre mairie ou collectivité (coupures, travaux, événements...) — choisissez votre ville.',
   'internal', 'official', false, ARRAY['vie-locale'], 442, '[{"key":"url","label":"Votre ville","type":"dynamic-enum","lookup":"ma-collectivite","placeholder":"Ex. Gap, Annecy, Bayonne…","pattern":"^https://app\\.panneaupocket\\.com/ville/[^\\s]{1,200}$","lowercase":false,"multiple":true,"required":true,"default":null,"hint":"Saisissez votre commune, puis choisissez votre collectivité (mairie, syndicat des eaux, ASA…) dans la liste."}]'::jsonb
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'ma-collectivite');
@@ -4612,6 +4614,12 @@ CREATE TABLE IF NOT EXISTS community_report_spots (
   created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (report_id, subscriber_id)
 );
+-- Vague 2 : « Où »/« Quand » saisis par le témoin au clic « Je l'ai vu », transmis par
+-- email à l'auteur. Nullable (des spots existent déjà sans ces champs, posés avant cette
+-- fonctionnalité) — le caractère obligatoire est appliqué côté route (POST /:id/spot),
+-- pas en contrainte SQL, même logique que description sur community_reports.
+ALTER TABLE community_report_spots ADD COLUMN IF NOT EXISTS seen_where TEXT;
+ALTER TABLE community_report_spots ADD COLUMN IF NOT EXISTS seen_when TEXT;
 
 -- Abonnés directs à une instance (auteur inclus dès la création).
 CREATE TABLE IF NOT EXISTS community_report_subscriptions (
@@ -4630,9 +4638,62 @@ ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS hide_community_reports BOOLEAN 
 -- community-reports (hors params_schema, qui reste v2 = un seul paramètre).
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema)
 SELECT 'chat-perdu', 'Chat perdu', 'Signalement communautaire par commune',
-  'Alerte si un chat disparaît près de chez vous. Vous en croisez un ? Signalez-le. C'est le vôtre ? Prévenez le quartier.',
+  'Alerte si un chat disparaît près de chez vous. Vous en croisez un ? Signalez-le. C''est le vôtre ? Prévenez le quartier.',
   'community', 'community', false, ARRAY['communaute'], 500,
   '[{"key":"ville","label":"Commune","type":"commune-coords","placeholder":"Votre commune","multiple":false,"required":true,"default":null,"hint":"La commune où le chat a été vu."}]'::jsonb
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'chat-perdu');
 UPDATE sources SET params_schema = '[{"key":"ville","label":"Commune","type":"commune-coords","placeholder":"Votre commune","multiple":false,"required":true,"default":null,"hint":"La commune où le chat a été vu."}]'::jsonb WHERE id = 'chat-perdu';
-UPDATE sources SET description = 'Alerté si un chat disparaît près de chez vous. Vous en croisez un ? Signalez-le. C''est le vôtre ? Prévenez le quartier.' WHERE id = 'chat-perdu';
+UPDATE sources SET description = 'Alerte si un chat disparaît près de chez vous. Vous en croisez un ? Signalez-le. C''est le vôtre ? Prévenez le quartier.' WHERE id = 'chat-perdu';
+-- forum_slug : cette ligne a été insérée à la main (pas via server/forum-slug.js ni
+-- scripts/backfill-forum-slug.js), donc jamais posée → badge @forum_slug et lien
+-- « On en parle au forum → » absents du verso (cause identifiée, pas une limitation
+-- des sources virtuelles). Valeur posée ici avec LA MÊME règle que forum-slug.js
+-- (slugBase('Chat perdu') = 'chatperdu'), guard IS NULL = même invariant que le
+-- backfill (ne JAMAIS régénérer un slug déjà posé).
+UPDATE sources SET forum_slug = 'chatperdu' WHERE id = 'chat-perdu' AND forum_slug IS NULL;
+
+-- ================================================================
+-- RÈGLE PRODUIT : SOUS-TITRE DE CARTE ≤ 38 CARACTÈRES (14/08/2026)
+-- Vaut pour TOUT type de carte (broadcast, paramétrée, communautaire, user-task).
+-- Le sous-titre est la ligne de fonction sous le titre (.card-subtitle) : au-delà de
+-- 38 caractères il passe sur deux lignes et déséquilibre le recto au format 5/7.
+-- 22 sous-titres dépassaient (39 à 52 car.) et sont réécrits ici. Les valeurs sont
+-- ALIGNÉES sur les INSERT inline plus haut dans ce fichier (règle des DEUX emplacements).
+-- ================================================================
+UPDATE sources SET subtitle = 'Crues du département de votre choix'  WHERE id = 'vigicrues-departement';
+UPDATE sources SET subtitle = 'Base janvier, Agirc-Arrco novembre'   WHERE id = 'revalorisation-retraite';
+UPDATE sources SET subtitle = 'Une planète potentiellement habitable' WHERE id = 'exoplanete-habitable';
+UPDATE sources SET subtitle = 'Les révisions du taux réglementé'     WHERE id = 'taux-livret-a';
+UPDATE sources SET subtitle = 'Un changement sur votre offre ?'      WHERE id = 'hausse-tarif-operateur';
+UPDATE sources SET subtitle = 'Ouverture et fermeture par bassin'    WHERE id = 'saison-cyclonique';
+UPDATE sources SET subtitle = 'La Station spatiale au-dessus de vous' WHERE id = 'iss-passages';
+UPDATE sources SET subtitle = 'Le prochain album de votre artiste'   WHERE id = 'veille-artiste-deezer';
+UPDATE sources SET subtitle = 'L''abolition de l''esclavage outre-mer' WHERE id = 'commemorations-outremer';
+UPDATE sources SET subtitle = 'L''essaim d''étoiles filantes d''hiver' WHERE id = 'geminides';
+UPDATE sources SET subtitle = 'Éducation, jeunesse, numérique'       WHERE id = 'journees-jeunesse-education';
+UPDATE sources SET subtitle = 'Le rendez-vous d''astronomie de l''été' WHERE id = 'nuits-des-etoiles';
+UPDATE sources SET subtitle = 'Solstices, Fête de la musique…'       WHERE id = 'fetes-laiques';
+UPDATE sources SET subtitle = 'Les infos de votre collectivité'      WHERE id = 'ma-collectivite';
+UPDATE sources SET subtitle = 'L''indice INSEE-Notaires, trimestriel' WHERE id = 'prix-logements-anciens';
+UPDATE sources SET subtitle = 'Franchissement du seuil que vous fixez' WHERE id = 'crypto-seuil';
+UPDATE sources SET subtitle = 'Arrêté CatNat pour votre commune'     WHERE id = 'catnat-commune';
+UPDATE sources SET subtitle = 'Ce domaine est-il malveillant ?'      WHERE id = 'domaine-securite';
+UPDATE sources SET subtitle = 'Scrutins et dates d''inscription'     WHERE id = 'elections-france';
+UPDATE sources SET subtitle = 'Roch Hachana, Kippour, Hanoucca…'     WHERE id = 'fetes-juives';
+UPDATE sources SET subtitle = 'Les jeux offerts par GOG'            WHERE id = 'gog-jeu-offert';
+UPDATE sources SET subtitle = 'Obligation Loi Montagne, 1er novembre' WHERE id = 'loi-montagne';
+
+-- Filet de sécurité AVANT le CHECK (même pattern que les descriptions courtes) : une
+-- ligne posée hors de ce fichier ne doit jamais faire ÉCHOUER la migration. Troncature
+-- à 37 + « … », coupée sur un espace. En pratique : 0 ligne concernée après les UPDATE.
+UPDATE sources
+   SET subtitle = regexp_replace(left(subtitle, 37), '\s\S*$', '') || '…'
+ WHERE subtitle IS NOT NULL AND char_length(subtitle) > 38;
+
+-- CHECK idempotent : la règle devient structurelle, plus une convention orale.
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'sources_subtitle_len') THEN
+    ALTER TABLE sources ADD CONSTRAINT sources_subtitle_len
+      CHECK (subtitle IS NULL OR char_length(subtitle) <= 38);
+  END IF;
+END $$;

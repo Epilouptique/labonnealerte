@@ -267,6 +267,11 @@
           '<option value="50">Visible à 50 km</option>' +
         '</select>' +
         '<button type="button" class="community-submit">Envoyer le signalement</button>' +
+        // CORRECTIONS 4 (C) : message dédié à CE formulaire, PAS note() (qui écrit
+        // dans .card-front .card-content — invisible ici, cette face étant celle
+        // affichée pendant la saisie ; note() ne pose donc jamais son message sous
+        // les yeux de l'utilisateur en train de remplir le verso).
+        '<div class="community-form-msg sub-msg" role="alert" hidden></div>' +
       '</div>';
   }
 
@@ -274,15 +279,36 @@
   // déclarée → hissée, donc visible ici aussi) : même vocabulaire d'échéance, aucune
   // 2e fonction de formatage de date.
 
-  // Une ligne de la liste « Signalements en cours » (5e face). Réutilise les classes
-  // .task-item/.task-label/.task-due de 'user-task' (même vocabulaire visuel). Pas de
-  // croix de suppression (contrairement à une tâche personnelle) : un signalement
-  // n'appartient pas au lecteur, seul l'auteur peut le clôturer (hors périmètre ici).
+  // Une ligne de la liste « Signalements en cours » — RÉUTILISÉE À L'IDENTIQUE pour le
+  // recto dynamique ET la 5e face (une seule fonction, cf. renderCommunityRecto/
+  // renderCommunityList dans site.js). Réutilise .task-item/.task-label/.task-due de
+  // 'user-task'. Pas de croix de suppression : un signalement n'appartient pas au
+  // lecteur, seul l'auteur peut le clôturer.
+  //
+  // Vague 2 : 3 variantes d'action selon la situation du profil (r.is_author,
+  // r.spotted — tous deux calculés côté serveur, cf. GET /api/community-reports) :
+  //  - déjà signalé (témoin ayant déjà cliqué)   → tag « Déjà signalé ✓ »
+  //  - auteur du signalement                      → bouton « Je l'ai retrouvé »
+  //    (clôture directe, POST /:id/resolve, AUCUN champ Où/Quand)
+  //  - témoin, pas encore signalé                 → bouton « Je l'ai vu » qui révèle
+  //    un mini-formulaire Où/Quand (OBLIGATOIRES) masqué par défaut, validé avant tout
+  //    envoi (POST /:id/spot { where, when })
   function communityReportItem(r) {
     var due = dueFr(r.expires_at);
-    var action = r.spotted
-      ? '<span class="community-spotted-tag">Déjà signalé ✓</span>'
-      : '<button type="button" class="community-spot" aria-label="Signaler avoir vu ce chat à ' + esc(r.commune_nom) + '">Je l\'ai vu</button>';
+    var action;
+    if (r.spotted) {
+      action = '<span class="community-spotted-tag">Déjà signalé ✓</span>';
+    } else if (r.is_author) {
+      action = '<button type="button" class="community-found" aria-label="Marquer comme retrouvé le chat de ' + esc(r.commune_nom) + '">Je l\'ai retrouvé</button>';
+    } else {
+      action = '<button type="button" class="community-spot-toggle" aria-label="Signaler avoir vu ce chat à ' + esc(r.commune_nom) + '">Je l\'ai vu</button>' +
+        '<div class="param-row community-spot-form" hidden>' +
+          '<input type="text" class="community-spot-where" placeholder="Où ? (ex. rue de la Paix)" aria-label="Où">' +
+          '<input type="text" class="community-spot-when" placeholder="Quand ? (ex. ce matin vers 9h)" aria-label="Quand">' +
+          '<button type="button" class="community-spot-submit">Confirmer</button>' +
+          '<div class="community-spot-msg sub-msg" role="alert" hidden></div>' +
+        '</div>';
+    }
     return '<div class="task-item community-item" data-report-id="' + esc(r.id) + '">' +
         '<div class="task-label">' + esc(r.commune_nom) + '</div>' +
         '<div class="community-item-desc">' + esc(r.description || '') + '</div>' +
@@ -564,6 +590,11 @@
         // Contenu bas (titre + coche, sous-titre, description, compteur, abonnement).
         '<div class="card-content">' +
           topRow(s) +
+          // Recto DYNAMIQUE (chat-perdu uniquement) : conteneur vide, masqué par défaut.
+          // Peuplé par site.js (hydrateCommunityRecto) SEULEMENT s'il existe ≥1 instance
+          // visible pour ce profil — sinon reste vide/hidden et le contenu générique
+          // ci-dessous (sous-titre + description statiques) s'affiche normalement.
+          (isCommunity(s) ? '<div class="community-recto" data-community-recto hidden></div>' : '') +
           // .card-edition : badge (officiel/verifie/communaute) DUPLIQUE en fin de sous-titre,
           // display:none par defaut -> seul L'Assemblee l'affiche (symbole d'edition/rarete a
           // l'extreme droite de la ligne de type). Rendu full-art/teintes INCHANGE (hors flux).
@@ -580,7 +611,7 @@
           // effectifs de .card-content (rendu full-art/teintes INCHANGE ; en grille de skin,
           // p/card-action restent des items de la grid via la chaine display:contents).
           '<div class="card-textbox">' +
-            '<p><span class="card-desc">' + esc(s.description || '') + '</span>' +
+            '<p class="card-static-desc"><span class="card-desc">' + esc(s.description || '') + '</span>' +
               '<span class="card-stat" aria-hidden="true">' + formatCount(Number(s.likes_count) || 0) + '</span></p>' +
             attacksHTML(s) +
             count +
