@@ -442,11 +442,14 @@ async function sendForumReplyNotification(recipient, info) {
 }
 
 /**
- * Notifie l'auteur d'un signalement communautaire (« Chat perdu ») qu'un témoin a
- * cliqué « Je l'ai vu », avec le lieu/moment qu'il a renseignés. Calqué sur
+ * Notifie l'auteur d'un signalement communautaire (chat perdu, chien perdu…) qu'un
+ * témoin a cliqué « Je l'ai vu », avec le lieu/moment qu'il a renseignés. Calqué sur
  * sendForumReplyNotification (même FROM/subject/emailShell/compteurs/best-effort).
+ * Le vocabulaire de l'animal vient de info.type (community-types.js) — aucun libellé
+ * propre à un type n'est écrit ici.
  * @param {{email: string, token: ?string}} recipient
- * @param {{communeNom: string, seenWhere: string, seenWhen: string}} info
+ * @param {{communeNom: string, seenWhere: string, seenWhen: string,
+ *          type: ?{label: string, emoji: string, emailHeading: string}}} info
  * @returns {Promise<{sent: number, failed: number}>}
  */
 async function sendCommunityReportSpotNotification(recipient, info) {
@@ -454,22 +457,25 @@ async function sendCommunityReportSpotNotification(recipient, info) {
   const token = typeof recipient === 'string' ? null : recipient.token;
   if (!email || !info || !info.communeNom) return { sent: 0, failed: 0 };
 
+  // Repli sur chat-perdu si l'appelant n'a pas transmis de type : c'était le seul
+  // type existant, et un email dégradé vaut mieux qu'un email non parti.
+  const t = info.type || { label: 'chat', emoji: '🐱', emailHeading: 'Une piste pour votre chat' };
   const commune = esc(info.communeNom);
   const where = esc(info.seenWhere || '');
   const when = esc(info.seenWhen || '');
   const payload = {
     from: FROM,
     to: email,
-    subject: subject(`🐱 Piste pour votre signalement : ${info.communeNom}`),
+    subject: subject(`${t.emoji} Piste pour votre signalement : ${info.communeNom}`),
     text:
-      `Quelqu'un pense avoir vu le chat de votre signalement à ${info.communeNom}.\n\n` +
+      `Quelqu'un pense avoir vu le ${t.label} de votre signalement à ${info.communeNom}.\n\n` +
       `Où : ${info.seenWhere || '(non précisé)'}\n` +
       `Quand : ${info.seenWhen || '(non précisé)'}\n\n` +
       `—\nVous recevez cet email car vous êtes l'auteur de ce signalement.` +
       MANAGE_TEXT,
     html: emailShell({
-      heading: 'Une piste pour votre chat',
-      intro: `Quelqu'un pense avoir vu le chat de votre signalement à <strong>${commune}</strong>.`,
+      heading: t.emailHeading,
+      intro: `Quelqu'un pense avoir vu le ${esc(t.label)} de votre signalement à <strong>${commune}</strong>.`,
       note: `<strong>Où :</strong> ${where || '(non précisé)'}<br><strong>Quand :</strong> ${when || '(non précisé)'}`,
     }),
   };

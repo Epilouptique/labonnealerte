@@ -68,11 +68,17 @@ setInterval(() => {
 async function enrichItems(deckId) {
   const { rows } = await pool.query(
     `SELECT s.id, s.name, s.subtitle, s.description, s.description_long, s.badge, s.type, s.link_url,
-            s.categories, s.submitted_by_github, s.params_schema, s.likes_count, s.created_at,
+            s.categories, s.submitted_by_github, s.params_schema, s.likes_count, s.created_at, s.forum_slug,
             CASE WHEN s.type = 'linked' THEN NULL ELSE COALESCE(st.state, 'inactive') END AS state,
             (SELECT COUNT(*) FROM subscriptions sub JOIN subscribers subr ON subr.id = sub.subscriber_id
               WHERE sub.source_id = s.id AND subr.confirmed = true)::int AS subscriber_count,
             (SELECT MAX(created_at) FROM source_events e WHERE e.source_id = s.id AND e.event = 'activated') AS last_activated_at,
+            -- Alignement STRICT sur /api/sources (le commentaire de enrichItems l'affirme) : sans
+            -- forum_slug + topic_count, les cartes du deck (édition ET /deck/:token public) perdaient
+            -- leur badge @forum_slug et le lien « On en parle au forum (N) → ». Même sous-requête/alias
+            -- que collections.js (C1). Sujets MASQUÉS exclus (hidden = false) : donnée publique seule.
+            (SELECT COUNT(*) FROM forum_topics ft
+              WHERE ft.hidden = false AND ft.source_id = s.id)::int AS topic_count,
             ci.default_params, ci.position
        FROM collection_items ci
        JOIN sources s ON s.id = ci.source_id AND s.enabled = true

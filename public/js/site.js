@@ -221,17 +221,26 @@
       if (n && window.LBACards) n.textContent = LBACards.formatCount(count);
     }
   }
-  // Marque les cœurs déjà aimés (au chargement / après (ré)insertion de cartes).
-  // Le compteur serveur inclut déjà le like de l'utilisateur → on ne touche pas au nombre.
-  function markLikes() {
-    document.querySelectorAll('.card .like-btn').forEach(function (btn) {
+  // Marque les cœurs pleins dans `root` (défaut document) : liké en local (anonyme/tous)
+  // OU favori serveur (connecté). `favIds` optionnel = liste d'ids favoris (ex. s.data.favorites
+  // de /api/my-alerts) fusionnée dans serverFavs AVANT le marquage → un favori auto-posé à
+  // l'abonnement apparaît rempli partout. Le compteur n'est jamais touché (le like de
+  // l'utilisateur y est déjà inclus). SEULE implémentation du marquage : réutilisée par le
+  // kiosque (markLikes) ET, via window.LBALikes, par /collection/:id et /deck/:token qui ont
+  // leur propre grille (pas de #grid) mais reçoivent le MÊME s.data.favorites.
+  function markFavorites(root, favIds) {
+    if (Array.isArray(favIds)) favIds.forEach(function (id) { if (id) serverFavs[id] = true; });
+    (root || document).querySelectorAll('.card .like-btn').forEach(function (btn) {
       var card = btn.closest('.card'); if (!card) return;
       var id = card.getAttribute('data-source-id');
-      // Cœur rempli = liké en local (anonyme/tous) OU favori serveur (connecté). Un favori
-      // auto-posé à l'abonnement (jamais liké localement) apparaît ainsi rempli partout.
       if (id && (isLiked(id) || serverFavs[id])) setLikeUI(btn, true);
     });
   }
+  // Marque les cœurs déjà aimés (au chargement / après (ré)insertion de cartes du kiosque).
+  function markLikes() { markFavorites(document); }
+  // Exposé pour les pages qui ne montent pas le kiosque (collection-page.js, deck-shared.js) :
+  // marquage identique (localStorage + serverFavs), sans dupliquer la logique.
+  window.LBALikes = { markFavorites: markFavorites };
 
   document.addEventListener('click', function (e) {
     var btn = e.target.closest('.like-btn');
@@ -254,6 +263,11 @@
     var liked = btn.classList.contains('liked');
     var cur = parseInt(btn.dataset.likes, 10) || 0;
     var tok = (window.LBASession && LBASession.get && LBASession.get()) || null;
+    // ANONYME : le like est dédupliqué par compte en base (source_likes) → il n'existe
+    // plus de vote sans compte. Le serveur répondrait 401 ; plutôt que d'envoyer un
+    // appel voué à l'échec puis de ne rien montrer, on emmène à la connexion — même
+    // convention que .task-config-anon (« + configurer » d'une carte tâche).
+    if (!tok) { window.location.href = '/connexion'; return; }
 
     if (liked) {
       // RETRAIT de « Ma collection » : ne touche JAMAIS likes_count (le compteur public de ❤).
@@ -1005,6 +1019,13 @@
      simple. Ce bloc ne gère que : ouverture de la 5e face (chargement de la liste),
      bascule du sous-formulaire, soumission, et « Je l'ai vu » par instance. ---- */
 
+  // Type et libellé de la carte communautaire courante : posés sur la carte par
+  // cards.js depuis la config serveur (community-types.js). communityTypeOf() sert
+  // à cibler LE BON type dans les appels réseau — sans lui, une carte afficherait
+  // aussi les signalements de l'autre type.
+  function communityTypeOf(card) { return (card && card.getAttribute('data-community-type')) || 'chat-perdu'; }
+  function communityLabelOf(card) { return (card && card.getAttribute('data-community-label')) || 'chat'; }
+
   // Rendu de la liste (ou état vide/erreur) dans .community-list.
   function renderCommunityList(card, rows) {
     var list = card.querySelector('.community-list');
@@ -1013,7 +1034,8 @@
       list.innerHTML = '<div class="community-loading">Aucun signalement actif près de chez vous pour l’instant.</div>';
       return;
     }
-    list.innerHTML = rows.map(function (r) { return LBACards.communityReportItem(r); }).join('');
+    var label = communityLabelOf(card);
+    list.innerHTML = rows.map(function (r) { return LBACards.communityReportItem(r, label); }).join('');
   }
 
   // Recto DYNAMIQUE : s'il existe ≥1 instance visible, le sous-titre + la description
@@ -1040,8 +1062,9 @@
     if (desc) desc.hidden = true;
     slot.hidden = false;
 
+    var label = communityLabelOf(card);
     function paint(idx, animate) {
-      var html = LBACards.communityReportItem(rows[idx]);
+      var html = LBACards.communityReportItem(rows[idx], label);
       if (!animate || REDUCE) { slot.innerHTML = html; return; }
       slot.classList.add('bd-slide-out');
       setTimeout(function () {
@@ -1063,6 +1086,23 @@
     }
   }
 
+  // Masque .community-report-toggle si le profil a déjà un signalement actif de ce
+  // type (son propre signalement est TOUJOURS dans `rows`, auto-abonné dès la
+  // création) — un formulaire de création serait de toute façon rejeté (409, 1 actif
+  // par auteur). SEUL point de calcul de cette règle — appelé à CHAQUE rechargement
+  // (ouverture, résolution, spot…) ET, depuis CORRECTIF 1, après la fermeture du
+  // formulaire suivant une création réussie (cf. submitCommunityReport). Ne touche
+  // rien si le formulaire est actuellement ouvert (saisie en cours, ne pas la couper
+  // sous l'utilisateur) — l'appelant doit donc refermer le formulaire AVANT d'appeler
+  // cette fonction s'il veut que le recalcul s'applique.
+  function syncCommunityToggle(card, rows) {
+    var toggleBtn = card.querySelector('.community-report-toggle');
+    var formEl = card.querySelector('.community-form');
+    if (toggleBtn && formEl && formEl.hidden) {
+      toggleBtn.hidden = rows.some(function (r) { return r.is_author; });
+    }
+  }
+
   // Chargée à CHAQUE ouverture de la 5e face (pas de cache) : la liste dépend du
   // rayon/commune du profil, calculé côté serveur à la volée (GET /api/community-reports).
   // Alimente AUSSI le recto dynamique (renderCommunityRecto) avec la même réponse —
@@ -1071,7 +1111,8 @@
     var list = card.querySelector('.community-list');
     if (list) list.innerHTML = '<div class="community-loading">Chargement…</div>';
     try {
-      var res = await fetch('/api/community-reports?token=' + encodeURIComponent(LBASession.get()), {
+      var res = await fetch('/api/community-reports?token=' + encodeURIComponent(LBASession.get()) +
+        '&type=' + encodeURIComponent(communityTypeOf(card)), {
         headers: { Accept: 'application/json' },
       });
       if (!res.ok) throw new Error('http');
@@ -1079,10 +1120,17 @@
       rows = Array.isArray(rows) ? rows : [];
       renderCommunityList(card, rows);
       renderCommunityRecto(card, rows);
+      syncCommunityToggle(card, rows);
+      return rows; // consommé par le handler .community-config (ouverture directe du formulaire)
     } catch (e) {
       if (list) list.innerHTML = '<div class="community-loading">Impossible de charger les signalements — réessayez.</div>';
     }
   }
+
+  // CORRECTIF (généralisation) : exposée pour list-view.js — l'ouverture du volet en
+  // vue liste doit déclencher EXACTEMENT le même chargement que le clic sur
+  // .community-config en vue carte, sans dupliquer ni la requête ni le rendu.
+  window.LBACommunity = { load: loadCommunityReports };
 
   // Carte communautaire : un seul POST couvre création ET adhésion — le serveur seul
   // sait s'il existe déjà une instance active pour la commune saisie (dédup par
@@ -1119,7 +1167,7 @@
       var res = await fetch('/api/community-reports', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          token: LBASession.get(), ville: ville,
+          token: LBASession.get(), type: communityTypeOf(card), ville: ville,
           description: descEl ? descEl.value.trim() : '',
           link: linkEl ? linkEl.value.trim() : '',
           radius_km: radiusEl ? radiusEl.value : undefined,
@@ -1136,47 +1184,78 @@
       if (descEl) descEl.value = '';
       if (linkEl) linkEl.value = '';
       celebrate(card);
-      loadCommunityReports(card); // rafraîchit la liste ET le recto (la nouvelle/rejointe instance y apparaît)
+      // CORRECTIF 1 : rafraîchit la liste ET le recto tout de suite (nouvelle/rejointe
+      // instance visible dès que le formulaire se referme) — mais `rows` est capturé ici
+      // et le recalcul du toggle est REJOUÉ EXPLICITEMENT plus bas, APRÈS la fermeture du
+      // formulaire. Appeler syncCommunityToggle() avant cette fermeture serait un no-op
+      // (son garde-fou exige formEl.hidden === true) : c'est précisément ce qui laissait
+      // le toggle réapparaître en dur sur une CRÉATION réussie (jamais sur une adhésion,
+      // où is_author reste false pour l'utilisateur — le bug ne s'y voyait pas).
+      var reportsRows = null;
+      loadCommunityReports(card).then(function (rows) { reportsRows = rows; });
       // Referme le formulaire après un court délai — pas immédiatement, sinon le
       // message de confirmation ci-dessus disparaîtrait avec lui avant d'être lu.
       setTimeout(function () {
         var form = card.querySelector('.community-form'); if (form) form.hidden = true;
-        var toggleBtn = card.querySelector('.community-report-toggle'); if (toggleBtn) toggleBtn.hidden = false;
         var list = card.querySelector('.community-list'); if (list) list.hidden = false;
         showMsg('', '');
+        // Formulaire refermé : le garde-fou de syncCommunityToggle s'applique désormais.
+        // `reportsRows` est déjà résolu dans l'immense majorité des cas (fetch << 1600ms) ;
+        // s'il ne l'est pas encore (réseau lent), on laisse le toggle dans son état actuel
+        // (déjà masqué depuis l'ouverture s'il y avait un signalement actif) plutôt que de
+        // le réafficher en dur comme avant ce correctif.
+        if (reportsRows) syncCommunityToggle(card, reportsRows);
       }, 1600);
     } catch (e) { showMsg('Réessaie plus tard', 'err'); }
     finally { btn.disabled = false; }
   }
 
+  // Transition liste → formulaire, réutilisée à l'IDENTIQUE par le clic manuel sur
+  // .community-report-toggle ET par l'ouverture automatique depuis .community-config
+  // (ci-dessous) : aucun nouveau mécanisme de masquage, même triplette form/btn/list.
+  function revealCommunityForm(card) {
+    var form = card.querySelector('.community-form'); if (!form) return;
+    var toggleBtn = card.querySelector('.community-report-toggle');
+    form.hidden = false;
+    if (toggleBtn) toggleBtn.hidden = true;
+    var list = card.querySelector('.community-list'); if (list) list.hidden = true;
+    var v = form.querySelector('.community-ville'); if (v) v.focus();
+  }
+
   // Ouverture de la 5e face (même bouton .task-config que 'user-task' → flip déjà
-  // câblé plus haut ; ce handler, distinct, ne fait QUE déclencher le chargement de
-  // la liste — un second marqueur .community-config évite tout court-circuit avec
-  // une éventuelle carte 'user-task').
+  // câblé plus haut ; ce handler, distinct, se charge du chargement de la liste ET,
+  // depuis ce correctif, de l'ouverture directe du formulaire — un second marqueur
+  // .community-config évite tout court-circuit avec une éventuelle carte 'user-task').
+  // Un seul clic doit suffire pour signaler : si le fetch révèle que le profil n'a
+  // AUCUN signalement actif de ce type, le formulaire s'ouvre immédiatement (même
+  // transition que le toggle manuel). S'il en a déjà un, .community-report-toggle est
+  // déjà masqué par loadCommunityReports lui-même (ci-dessus) — rien à faire ici que
+  // de ne PAS ouvrir un formulaire voué à l'échec (409, 1 actif par auteur) ; son
+  // signalement reste visible dans la liste avec « Je l'ai retrouvé ». En cas d'échec
+  // réseau (rows undefined), on ne change rien à l'état par défaut.
   document.addEventListener('click', function (e) {
     var btn = e.target.closest('button.community-config');
     if (!btn) return;
     if (btn.closest('.deck-card')) return;
     var card = btn.closest('.card'); if (!card) return;
-    loadCommunityReports(card);
+    loadCommunityReports(card).then(function (rows) {
+      if (!rows) return;
+      if (!rows.some(function (r) { return r.is_author; })) revealCommunityForm(card);
+    });
   });
 
-  // Ouverture du sous-formulaire de création/adhésion (masqué par défaut). Masque
-  // AUSSI la liste (dont son texte vide « Aucun signalement… ») et le bouton lui-même
-  // — sinon les deux restaient visibles à côté du formulaire ouvert (oubli constaté).
-  // Pas de bouton d'annulation à ce stade (non demandé) : la liste + le bouton
-  // réapparaissent au succès de la soumission (submitCommunityReport, plus bas).
+  // Ouverture MANUELLE du sous-formulaire de création/adhésion (bouton resté visible
+  // quand aucun signalement actif de l'utilisateur n'a déclenché l'ouverture auto
+  // ci-dessus, ou après une fermeture manuelle du formulaire). Pas de bouton
+  // d'annulation à ce stade (non demandé) : la liste + le bouton réapparaissent au
+  // succès de la soumission (submitCommunityReport, plus bas).
   document.addEventListener('click', function (e) {
     var btn = e.target.closest('.community-report-toggle');
     if (!btn) return;
     if (btn.closest('.deck-card')) return;
     e.preventDefault();
     var card = btn.closest('.card'); if (!card) return;
-    var form = card.querySelector('.community-form'); if (!form) return;
-    form.hidden = false;
-    btn.hidden = true;
-    var list = card.querySelector('.community-list'); if (list) list.hidden = true;
-    var v = form.querySelector('.community-ville'); if (v) v.focus();
+    revealCommunityForm(card);
   });
 
   // « Je l'ai vu » (témoin) — RÉVÈLE le mini-formulaire Où/Quand (masqué par défaut,
@@ -2572,10 +2651,12 @@
     if (mode === 'connected') {
       if (extras) extras.classList.add('reco-hidden');
       applyReco(pickReco(sources, subMap));
-      // Recto dynamique des cartes communautaires (chat-perdu et famille à venir) :
+      // Recto dynamique des cartes communautaires (chat-perdu, chien-perdu, …) :
+      // sélection par FAMILLE (data-card-type), jamais par id — sinon tout nouveau
+      // type serait silencieusement privé de recto dynamique.
       // hydratation eager au chargement du kiosque, indépendante de l'ouverture de
       // la 5e face (même fetch/rendu, cf. loadCommunityReports).
-      g.querySelectorAll('.card[data-source-id="chat-perdu"]').forEach(function (c) {
+      g.querySelectorAll('.card[data-card-type="community"]').forEach(function (c) {
         loadCommunityReports(c);
       });
     }
@@ -2664,7 +2745,8 @@
       var stack = LBADeckStack.html({
         name: c.name, tint: c.tint, emoji: c.emoji, count: c.card_count || 0,
         cards: cards, meta: meta, cats: cats, mode: 'anon',
-        description: c.description, href: href, author: c.author, author_pseudo: c.author_pseudo, forum_slug: c.forum_slug
+        description: c.description, href: href, author: c.author, author_pseudo: c.author_pseudo,
+        forum_slug: c.forum_slug, topic_count: c.topic_count
       });
       // Data-attributs IDENTIQUES aux cartes → matches()/catsOf()/modes spéciaux
       // fonctionnent sans logique parallèle. data-source-id = id du deck (distinct des

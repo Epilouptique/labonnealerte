@@ -18,13 +18,21 @@
   var MODE = 'anon';
   var subMap = {};   // id -> subscribed (bool)
   var mineMap = {};  // id -> { instances, state }
+  var favIds = [];   // favoris serveur (s.data.favorites) → cœur rempli comme au kiosque
 
   var ADOPT_KEY = 'lba-adopt-deck';
 
   function esc(s) { return window.LBACards ? LBACards.esc(s) : String(s == null ? '' : s); }
 
-  // Marque les cœurs déjà aimés (site.js le fait dans loadHome, court-circuité ici).
+  // Marque les cœurs déjà aimés. RÉUTILISE le marquage de site.js (window.LBALikes) qui croise
+  // localStorage lba-likes ET les favoris serveur (favIds = s.data.favorites) → un compte
+  // connecté voit rempli ce qu'il a favorisé ailleurs, comme au kiosque. Repli localStorage-seul
+  // si LBALikes absent — jamais de régression anonyme.
   function markLikes() {
+    if (window.LBALikes && window.LBALikes.markFavorites) {
+      window.LBALikes.markFavorites(gridEl, favIds);
+      return;
+    }
     var liked;
     try { liked = JSON.parse(localStorage.getItem('lba-likes') || '[]'); } catch (e) { liked = []; }
     if (!Array.isArray(liked)) return;
@@ -98,7 +106,7 @@
   // Charge session + détail, puis rend. Réappelée après adoption pour rafraîchir.
   async function load() {
     var sToken = window.LBASession && LBASession.get();
-    MODE = 'anon'; subMap = {}; mineMap = {};
+    MODE = 'anon'; subMap = {}; mineMap = {}; favIds = [];
     var profileDept = null;
 
     if (sToken) {
@@ -108,6 +116,7 @@
         else if (s.ok && s.data) {
           MODE = 'connected';
           (s.data.sources || []).forEach(function (x) { subMap[x.id] = x.subscribed; mineMap[x.id] = x; });
+          favIds = s.data.favorites || []; // favoris serveur → croisés au marquage des cœurs
           profileDept = s.data.departement || null;
           LBASession.renderHeader(s.data.email);
         }

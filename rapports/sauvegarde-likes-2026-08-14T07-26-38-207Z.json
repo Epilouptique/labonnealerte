@@ -1,0 +1,45 @@
+{
+  "genere_le": "2026-08-14T07:26:38.208Z",
+  "raison": "Bascule vers source_likes (dédup par compte) — likes_count remis a 0.",
+  "note": "Historique \"qui a like quoi\" NON reconstituable : seul le total par source est sauve.",
+  "total_likes": 14,
+  "valeurs": [
+    {
+      "id": "indice-uv",
+      "likes_count": 3
+    },
+    {
+      "id": "meteo-forets",
+      "likes_count": 3
+    },
+    {
+      "id": "seismes-departement",
+      "likes_count": 2
+    },
+    {
+      "id": "nuits-de-la-lecture",
+      "likes_count": 1
+    },
+    {
+      "id": "perseides",
+      "likes_count": 1
+    },
+    {
+      "id": "qualite-air",
+      "likes_count": 1
+    },
+    {
+      "id": "risque-secheresse",
+      "likes_count": 1
+    },
+    {
+      "id": "tour-de-france-passage",
+      "likes_count": 1
+    },
+    {
+      "id": "vigicrues-departement",
+      "likes_count": 1
+    }
+  ],
+  "sql_de_restauration": "UPDATE sources SET likes_count = 3 WHERE id = 'indice-uv';\nUPDATE sources SET likes_count = 3 WHERE id = 'meteo-forets';\nUPDATE sources SET likes_count = 2 WHERE id = 'seismes-departement';\nUPDATE sources SET likes_count = 1 WHERE id = 'nuits-de-la-lecture';\nUPDATE sources SET likes_count = 1 WHERE id = 'perseides';\nUPDATE sources SET likes_count = 1 WHERE id = 'qualite-air';\nUPDATE sources SET likes_count = 1 WHERE id = 'risque-secheresse';\nUPDATE sources SET likes_count = 1 WHERE id = 'tour-de-france-passage';\nUPDATE sources SET likes_count = 1 WHERE id = 'vigicrues-departement';"
+}

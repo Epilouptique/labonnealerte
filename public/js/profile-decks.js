@@ -39,7 +39,7 @@
       name: c.name, tint: c.tint, emoji: c.emoji, count: c.card_count || 0,
       cards: cards, meta: meta, cats: cats, mode: 'anon',
       description: c.description, href: href, author: c.author,
-      author_pseudo: c.author_pseudo, forum_slug: c.forum_slug
+      author_pseudo: c.author_pseudo, forum_slug: c.forum_slug, topic_count: c.topic_count
     });
     var skin = c.deck_skin ? ' ' + esc(c.deck_skin) : '';
     // Markup identique aux tuiles-deck de /favoris et du kiosque (.deck-card + LBADeckStack).

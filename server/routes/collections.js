@@ -15,6 +15,7 @@ const { pool } = require('../db');
 const { authenticate } = require('../sessions');
 const { validateParams } = require('../params');
 const { award, getTop20Ids } = require('../points');
+const { attachConfig: withCommunityConfig } = require('../community-types');
 
 const router = express.Router();
 
@@ -68,6 +69,10 @@ router.get('/collections', async (req, res) => {
               COUNT(s.id)::int AS card_count,
               COALESCE(SUM(s.likes_count), 0)::int AS total_likes,
               (SELECT COUNT(*) FROM collection_adoptions a WHERE a.collection_id = c.id)::int AS adopt_count,
+              -- Compte de discussions du verso deck (miroir exact de /api/sources, sur
+              -- deck_id). Sujets MASQUÉS exclus (hidden = false) : donnée publique seule.
+              (SELECT COUNT(*) FROM forum_topics ft
+                WHERE ft.hidden = false AND ft.deck_id = c.id)::int AS topic_count,
               -- Apercu : ID des 3 dernieres cartes ajoutees (position DESC), resolus
               -- en objets source complets cote client (/api/sources) puis rendus.
               (SELECT COALESCE(json_agg(p.id), '[]'::json) FROM (
@@ -138,7 +143,7 @@ router.get('/collections/:slug', async (req, res) => {
     const items = await pool.query(
       `SELECT s.id, s.name, s.subtitle, s.description, s.description_long, s.badge, s.type, s.link_url,
               s.categories, s.submitted_by_github, s.params_schema,
-              s.likes_count, s.created_at,
+              s.likes_count, s.created_at, s.forum_slug,
               CASE WHEN s.type = 'linked' THEN NULL
                    ELSE COALESCE(st.state, 'inactive') END AS state,
               (SELECT COUNT(*) FROM subscriptions sub
@@ -146,6 +151,11 @@ router.get('/collections/:slug', async (req, res) => {
                 WHERE sub.source_id = s.id AND subr.confirmed = true)::int AS subscriber_count,
               (SELECT MAX(created_at) FROM source_events e
                 WHERE e.source_id = s.id AND e.event = 'activated') AS last_activated_at,
+              -- Alignement STRICT sur /api/sources (le commentaire du fichier l'affirme) : sans
+              -- forum_slug + topic_count, les cartes de /collection/:id perdaient leur badge
+              -- @forum_slug et le lien « On en parle au forum (N) → ». Même sous-requête/alias.
+              (SELECT COUNT(*) FROM forum_topics ft
+                WHERE ft.hidden = false AND ft.source_id = s.id)::int AS topic_count,
               ci.default_params, ci.position
          FROM collection_items ci
          JOIN sources s ON s.id = ci.source_id AND s.enabled = true
@@ -155,7 +165,9 @@ router.get('/collections/:slug', async (req, res) => {
       [req.params.slug]
     );
 
-    res.json({ collection: meta.rows[0], sources: items.rows });
+    // Même enrichissement que /api/sources (config du type communautaire) : une carte
+    // communautaire glissée dans un pack doit se rendre avec le vocabulaire de SON type.
+    res.json({ collection: meta.rows[0], sources: items.rows.map(withCommunityConfig) });
   } catch (err) {
     console.error('[collections] Erreur GET /collections/:slug :', err.message);
     res.status(503).json({ error: 'DB unavailable' });

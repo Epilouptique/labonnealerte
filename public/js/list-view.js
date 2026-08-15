@@ -53,6 +53,15 @@
   // Familles dont le corps de ligne déplie la VRAIE carte (B1) au lieu d'une description,
   // et dont le switch signifie « actif » (≥1 instance ET non en pause) et non « abonné ».
   function hasBlocks(s) { return isParam(s) || isUserTask(s); }
+  // 'community' (ex. chat-perdu) : le corps de ligne doit LUI AUSSI déplier la vraie
+  // carte (B1) — sa 5e face porte la liste des signalements, comme la 5e face de
+  // user-task porte la liste des tâches. MAIS le switch de la carte 'community' reste
+  // un abonnement broadcast CLASSIQUE (switchRow/s.subscribed, cf. cards.js frontFace) :
+  // pas d'instances/tâches, pas de pause. isCommunity() n'entre donc PAS dans
+  // hasBlocks() (qui piloterait à tort le switch via la branche instance/pause) — elle
+  // n'est utilisée qu'au point d'ouverture du volet (openParams), où switch et corps de
+  // ligne sont déjà traités séparément.
+  function isCommunity(s) { return s.type === 'community'; }
 
   // SVG partagés avec les cartes (aucune duplication de string : exposés par LBACards).
   function ic(name) { return (window.LBACards && LBACards[name]) || ''; }
@@ -99,7 +108,13 @@
           catChip +
           '<span class="lrow-actions">' +
             '<span class="lrow-state" title="État" aria-hidden="true"><span class="dot"></span></span>' +
-            '<button type="button" class="like-btn card-like" aria-pressed="false" aria-label="J\'aime cette alerte">' + ic('LIKE_SVG') + '</button>' +
+            // Anonyme : même marquage que la carte (cf. likeBtn de cards.js). Le clic est
+            // de toute façon FORWARDÉ au cœur de la carte, qui porte la redirection vers
+            // /connexion — ceci n'ajoute que la cohérence visuelle de la vue liste.
+            '<button type="button" class="like-btn card-like' + (mode === 'connected' ? '' : ' like-anon') +
+              '" aria-pressed="false"' + (mode === 'connected' ? '' : ' aria-disabled="true"') +
+              ' aria-label="' + (mode === 'connected' ? 'J\'aime cette alerte' : 'Connectez-vous pour aimer cette alerte') +
+              '">' + ic('LIKE_SVG') + '</button>' +
             '<button type="button" class="share-btn card-share" aria-label="Partager" title="Partager">' + ic('SHARE_SVG') + '</button>' +
             '<button type="button" class="flip-btn" aria-label="En savoir plus (statut)" title="En savoir plus">' + ic('INFO_SVG') + '</button>' +
             ctrl +
@@ -218,6 +233,18 @@
     // que la 5e face était ouverte réapparaîtrait dans #grid en mode « Mes échéances ».
     p.card.classList.remove('flipped', 'face-task', 'face-share', 'face-deck');
     p.card.classList.remove('in-list-exp');
+    // CORRECTIF 3 : remet à l'état FERMÉ le sous-formulaire communautaire si la carte
+    // en a un — sinon .community-report-toggle/.community-form/.community-list
+    // pouvaient rester gravés dans l'état où le volet les a laissés (formulaire ouvert
+    // suite à un clic sur .community-report-toggle pendant le parking), invisible tant
+    // que la 5e face est masquée mais surprenant à la prochaine ouverture. Pas de
+    // recalcul is_author ici (pas nécessaire) : la prochaine ouverture le refera via
+    // CORRECTIF 2 (vue liste) ou le chargement eager/.community-config (vue carte).
+    if (p.card.querySelector('.card-community-face')) {
+      var cForm = p.card.querySelector('.community-form'); if (cForm) cForm.hidden = true;
+      var cToggle = p.card.querySelector('.community-report-toggle'); if (cToggle) cToggle.hidden = false;
+      var cList = p.card.querySelector('.community-list'); if (cList) cList.hidden = false;
+    }
     if (!p.parent) return;
     // Remise EXACTE à sa position d'origine ; si le repère a disparu (grille reconstruite
     // entre-temps), on retombe sur un append sans jamais lever d'exception.
@@ -332,11 +359,25 @@
         // que le volet montre directement les échéances, comme un volet paramétré montre
         // directement ses chips. Ne concerne QUE user-task : .card-usertask-face est la
         // seule 5e face dévoilée en vue liste.
-        // Garde-fou : en anonyme taskFace() ne rend RIEN — sans ce test, .face-task
-        // masquerait le recto pour ne dévoiler aucune face (volet vide). L'anonyme reste
-        // donc sur le recto et son lien « + configurer » → /connexion.
+        // Garde-fou : en anonyme taskFace()/communityReportsFace() ne rendent RIEN — sans
+        // ce test, .face-task masquerait le recto pour ne dévoiler aucune face (volet
+        // vide). L'anonyme reste donc sur le recto et son lien « + configurer »/« Signaler »
+        // → /connexion. Même classe .face-task pour les deux familles (même mécanique de
+        // flip côté site.js) ; .card-usertask-face / .card-community-face (marqueurs
+        // additifs posés dans cards.js) disent laquelle des deux est réellement présente.
         var c = gridCard(id);
-        if (c && c.querySelector('.card-usertask-face')) c.classList.add('face-task');
+        if (c && c.querySelector('.card-usertask-face')) {
+          c.classList.add('face-task');
+        } else if (c && c.querySelector('.card-community-face')) {
+          c.classList.add('face-task');
+          // CORRECTIF 2 : la vue cartes refetch à CHAQUE ouverture de la 5e face
+          // (.community-config, site.js) — sans cet appel, le volet affichait
+          // l'instantané figé au chargement initial de la page (eager load de
+          // loadHome()), jamais rafraîchi tant que l'utilisateur ne repassait pas par
+          // la vue cartes. Même fonction, même comportement, juste un second point
+          // d'appel (exposée par site.js via window.LBACommunity.load).
+          if (window.LBACommunity && window.LBACommunity.load) window.LBACommunity.load(c);
+        }
       });
     }
 
@@ -378,9 +419,11 @@
       // Clic à l'intérieur de la carte déplacée (contrôles param) : ne rien intercepter,
       // ses propres handlers (délégués sur document via .card) s'en chargent.
       if (e.target.closest('.in-list-exp')) return;
-      // Corps de ligne : paramétrée → params inline (B1) ; sinon description courte.
+      // Corps de ligne : paramétrée/user-task/community → volet avec la vraie carte (B1) ;
+      // sinon description courte. isCommunity() volontairement séparée de hasBlocks() :
+      // seul le CORPS de ligne se comporte pareil, le switch reste géré à part (broadcast).
       if (e.target.closest('.lrow-main')) {
-        if (hasBlocks(s)) openParams(row, id);
+        if (hasBlocks(s) || isCommunity(s)) openParams(row, id);
         else toggleKind(row, 'desc', '<p class="lrow-desc">' + esc(s.description || 'Pas de description.') + '</p>');
       }
     });

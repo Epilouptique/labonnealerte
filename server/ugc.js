@@ -137,7 +137,7 @@ function validateForumBody(raw) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Lien externe (carte communautaire « Chat perdu ») : liste BLANCHE de */
+/* Lien externe (cartes communautaires animal perdu) : liste BLANCHE de */
 /* domaines, à l'inverse du reste du fichier (liste noire de mots). Un */
 /* champ Lien est facultatif mais, s'il est renseigné, doit pointer    */
 /* vers un service de signalement d'animaux perdus reconnu.            */
@@ -166,8 +166,15 @@ function genShareToken() { return crypto.randomBytes(16).toString('base64url'); 
 // Id interne d'un deck (non exposé publiquement ; le partage passe par share_token).
 function genDeckId() { return 'deck_' + crypto.randomBytes(9).toString('base64url'); }
 
-// Hachage d'IP pour les signalements (RGPD : jamais d'IP en clair). Sel de déploiement.
-const IP_SALT = process.env.IP_HASH_SALT || 'lba-ugc-report-salt';
+// Hachage d'IP pour les signalements (RGPD : jamais d'IP en clair). Sel de déploiement
+// OBLIGATOIRE : plus de fallback en dur (un sel public rendrait les hachages réversibles
+// par table arc-en-ciel sur l'espace IPv4). Absence = échec bruyant au chargement du module
+// (donc au démarrage du serveur, ugc.js étant requis par la chaîne d'init), jamais un
+// hachage silencieusement faible.
+const IP_SALT = (process.env.IP_HASH_SALT || '').trim();
+if (!IP_SALT) {
+  throw new Error('IP_HASH_SALT manquant : définissez la variable d\'environnement (sel de hachage des IP de signalement) avant de démarrer le serveur.');
+}
 function hashIp(ip) {
   return crypto.createHash('sha256').update(String(ip || 'unknown') + IP_SALT).digest('hex');
 }

@@ -6,6 +6,11 @@ const { COUNTRIES, DEPARTEMENTS_WITH_REGION, REGIONS, isValidDepartement } = req
 const { paramsFromQuery } = require('../params');
 const { authenticate } = require('../sessions');
 const { safeFetchJson } = require('../safe-fetch');
+// Cartes communautaires : joint au payload la part PUBLIQUE de la config du type
+// (libellé de l'animal, choix de rayon) pour que cards.js n'ait aucun texte propre à
+// un type en dur. Aucune requête supplémentaire — c'est une lecture d'un module JS.
+// Les règles métier (dédup, expiration, seuil de clôture) restent côté serveur.
+const { attachConfig: withCommunityConfig } = require('../community-types');
 
 const router = express.Router();
 
@@ -122,67 +127,104 @@ router.get('/sources', async (req, res) => {
                  JOIN subscribers subr ON subr.id = sub.subscriber_id
                 WHERE sub.source_id = s.id AND subr.confirmed = true)::int AS subscriber_count,
               (SELECT MAX(created_at) FROM source_events e
-                WHERE e.source_id = s.id AND e.event = 'activated') AS last_activated_at
+                WHERE e.source_id = s.id AND e.event = 'activated') AS last_activated_at,
+              -- Compte de discussions du verso (« On en parle au forum (N) → »). Porté par
+              -- CETTE requête et pas par /api/forum/source/:slug/count, qui imposerait un
+              -- fetch par carte. Sujets MASQUÉS exclus (hidden = false) : donnée strictement
+              -- publique, même périmètre que le badge @forum_slug juste à côté.
+              (SELECT COUNT(*) FROM forum_topics ft
+                WHERE ft.hidden = false AND ft.source_id = s.id)::int AS topic_count
          FROM sources s
          LEFT JOIN source_states st ON st.source_id = s.id
         WHERE s.enabled = true
         ORDER BY s.display_order ASC, s.name ASC`
     );
-    res.json(rows);
+    // Catalogue PUBLIC, identique pour tous (aucune donnée par-utilisateur : pas de token,
+    // pas d'authenticate). Cacheable 60 s : allège les 3 sous-SELECT corrélés × ~290 lignes
+    // sur une route à fort volume. Contrepartie ASSUMÉE : un like/topic_count qui vient de
+    // changer peut mettre jusqu'à 60 s à apparaître à la navigation suivante — acceptable vu
+    // le volume et la nature non critique de ces compteurs.
+    res.set('Cache-Control', 'public, max-age=60');
+    res.json(rows.map(withCommunityConfig));
   } catch (err) {
     console.error('[api] Erreur GET /sources :', err.message);
     res.status(503).json({ error: 'DB unavailable' });
   }
 });
 
-// A1) POST /api/sources/:id/like — incrémente le compteur de « j'aime ».
-// Le toggle (ne pas ré-aimer) est géré côté client (localStorage lba-likes) ;
-// il n'y a pas de dédup serveur par utilisateur (pas de compte obligatoire) →
-// l'anti-abus repose sur likeLimiter (20/min/IP) + le marquage client. Réversible
-// via DELETE. N'agit que sur une source active (enabled) et connue (sinon 404).
-router.post('/sources/:id/like', likeLimiter, async (req, res) => {
+// ── LIKES : une ligne par (source, compte), plus jamais un compteur nu ───────────
+// INTÉGRITÉ (14/08/2026) : likes_count était incrémenté sans aucune dédup serveur — la
+// seule barrière était localStorage.lba-likes, contournable par un vidage de cache, un
+// autre appareil ou un curl. La table source_likes (PK composite, patron favorites /
+// community_report_spots) porte désormais la vérité ; likes_count n'est plus incrémenté
+// mais RECALCULÉ depuis elle, DANS LA MÊME TRANSACTION que l'écriture de la ligne :
+// une lecture concurrente ne peut donc jamais voir un compteur désaccordé de la table.
+// CONSÉQUENCE ASSUMÉE : liker exige un compte (pas de subscriber_id anonyme = pas de
+// dédup possible). L'anonyme voit le compteur mais reçoit un 401 s'il tente d'écrire.
+// likeLimiter (20/min/IP) est CONSERVÉ en ceinture, malgré l'authentification.
+
+// Écrit la ligne (INSERT idempotent ou DELETE) puis recale likes_count. Renvoie le
+// compteur à jour, ou null si la source est inconnue/désactivée. Transaction unique.
+async function applyLike(sourceId, subscriberId, liked) {
+  const client = await pool.connect();
   try {
-    const { rows } = await pool.query(
-      'UPDATE sources SET likes_count = likes_count + 1 WHERE id = $1 AND enabled = true RETURNING id, likes_count',
-      [req.params.id]
-    );
-    if (rows.length === 0) return res.status(404).json({ error: 'Source inconnue' });
-    // D) Connecté : le like devient aussi un favori personnel (idempotent).
-    const token = (req.body && req.body.token) || req.query.token;
-    if (token) {
-      const auth = await authenticate(token);
-      if (auth) {
-        await pool.query(
-          'INSERT INTO favorites (subscriber_id, source_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
-          [auth.id, req.params.id]
-        );
-      }
+    await client.query('BEGIN');
+    const src = await client.query(
+      'SELECT id FROM sources WHERE id = $1 AND enabled = true FOR UPDATE', [sourceId]);
+    if (src.rows.length === 0) { await client.query('ROLLBACK'); return null; }
+    if (liked) {
+      await client.query(
+        `INSERT INTO source_likes (source_id, subscriber_id) VALUES ($1, $2)
+         ON CONFLICT (source_id, subscriber_id) DO NOTHING`, [sourceId, subscriberId]);
+      // Le like vaut aussi favori personnel (comportement d'origine conservé).
+      await client.query(
+        'INSERT INTO favorites (subscriber_id, source_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+        [subscriberId, sourceId]);
+    } else {
+      await client.query(
+        'DELETE FROM source_likes WHERE source_id = $1 AND subscriber_id = $2', [sourceId, subscriberId]);
+      await client.query(
+        'DELETE FROM favorites WHERE subscriber_id = $1 AND source_id = $2', [subscriberId, sourceId]);
     }
-    res.json({ id: rows[0].id, likes_count: rows[0].likes_count });
+    const { rows } = await client.query(
+      `UPDATE sources SET likes_count = (SELECT COUNT(*) FROM source_likes WHERE source_id = $1)
+        WHERE id = $1 RETURNING id, likes_count`, [sourceId]);
+    await client.query('COMMIT');
+    return rows[0];
+  } catch (err) {
+    try { await client.query('ROLLBACK'); } catch (e) { /* déjà rollback */ }
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+// A1) POST /api/sources/:id/like — pose le « j'aime » du compte connecté (idempotent :
+// re-liker ne change rien, la PK absorbe). 401 si anonyme.
+router.post('/sources/:id/like', likeLimiter, async (req, res) => {
+  const auth = await authenticate((req.body && req.body.token) || req.query.token);
+  if (!auth) return res.status(401).json({ error: 'Connectez-vous pour aimer une alerte' });
+  try {
+    const row = await applyLike(req.params.id, auth.id, true);
+    if (!row) return res.status(404).json({ error: 'Source inconnue' });
+    res.json({ id: row.id, likes_count: row.likes_count });
   } catch (err) {
     console.error('[api] Erreur POST /sources/:id/like :', err.message);
     res.status(503).json({ error: 'DB unavailable' });
   }
 });
 
-// A1) DELETE /api/sources/:id/like — retire un « j'aime » (plancher à 0 pour ne
-// jamais passer négatif). Même limiteur que le POST.
+// A1) DELETE /api/sources/:id/like — retire le « j'aime » du compte connecté. Plus de
+// GREATEST(-1, 0) : le compteur est recalculé, il ne peut structurellement pas dériver.
+// NB : l'interface n'appelle plus cette route (le ❤ du kiosque retire le FAVORI via
+// DELETE /api/favorites, découplage volontaire) — elle reste l'inverse exact du POST.
 router.delete('/sources/:id/like', likeLimiter, async (req, res) => {
+  const auth = await authenticate((req.body && req.body.token) || req.query.token);
+  if (!auth) return res.status(401).json({ error: 'Connectez-vous pour gérer vos j\'aime' });
   try {
-    const { rows } = await pool.query(
-      'UPDATE sources SET likes_count = GREATEST(likes_count - 1, 0) WHERE id = $1 AND enabled = true RETURNING id, likes_count',
-      [req.params.id]
-    );
-    if (rows.length === 0) return res.status(404).json({ error: 'Source inconnue' });
-    // D) Connecté : retirer le like retire aussi le favori personnel.
-    const token = (req.body && req.body.token) || req.query.token;
-    if (token) {
-      const auth = await authenticate(token);
-      if (auth) {
-        await pool.query('DELETE FROM favorites WHERE subscriber_id = $1 AND source_id = $2', [auth.id, req.params.id]);
-      }
-    }
-    res.json({ id: rows[0].id, likes_count: rows[0].likes_count });
+    const row = await applyLike(req.params.id, auth.id, false);
+    if (!row) return res.status(404).json({ error: 'Source inconnue' });
+    res.json({ id: row.id, likes_count: row.likes_count });
   } catch (err) {
     console.error('[api] Erreur DELETE /sources/:id/like :', err.message);
     res.status(503).json({ error: 'DB unavailable' });
@@ -206,7 +248,12 @@ router.get('/favorites', async (req, res) => {
                  JOIN subscribers subr ON subr.id = sub.subscriber_id
                 WHERE sub.source_id = s.id AND subr.confirmed = true)::int AS subscriber_count,
               (SELECT MAX(created_at) FROM source_events e
-                WHERE e.source_id = s.id AND e.event = 'activated') AS last_activated_at
+                WHERE e.source_id = s.id AND e.event = 'activated') AS last_activated_at,
+              -- DOUBLON ASSUMÉ du SELECT de /api/sources (même forme exacte, rendu client
+              -- identique) : toute colonne ajoutée là-bas doit l'être ici, sinon le même
+              -- verso affiche le compte sur le kiosque et pas depuis les favoris.
+              (SELECT COUNT(*) FROM forum_topics ft
+                WHERE ft.hidden = false AND ft.source_id = s.id)::int AS topic_count
          FROM favorites f
          JOIN sources s ON s.id = f.source_id AND s.enabled = true
          LEFT JOIN source_states st ON st.source_id = s.id
@@ -214,7 +261,7 @@ router.get('/favorites', async (req, res) => {
         ORDER BY f.created_at DESC`,
       [auth.id]
     );
-    res.json(rows);
+    res.json(rows.map(withCommunityConfig)); // même enrichissement que /api/sources
   } catch (err) {
     console.error('[api] Erreur GET /favorites :', err.message);
     res.status(503).json({ error: 'DB unavailable' });
@@ -232,18 +279,48 @@ router.post('/favorites/sync', async (req, res) => {
     ? body.ids.filter((x) => typeof x === 'string' && x).slice(0, 1000)
     : [];
   if (!ids.length) return res.status(200).json({ synced: 0 });
+  const client = await pool.connect();
   try {
-    // SELECT depuis sources → ignore les ids inconnus (pas de violation de FK).
-    const r = await pool.query(
+    await client.query('BEGIN');
+    // (1) Favori personnel (« Ma collection ») — SELECT depuis sources → ignore les ids
+    // inconnus/désactivés (pas de violation de FK). Idempotent (ON CONFLICT DO NOTHING).
+    const fav = await client.query(
       `INSERT INTO favorites (subscriber_id, source_id)
          SELECT $1, s.id FROM sources s WHERE s.id = ANY($2::text[]) AND s.enabled = true
        ON CONFLICT DO NOTHING`,
       [auth.id, ids]
     );
-    res.json({ synced: r.rowCount });
+    // (2) CRÉDIT DES LIKES POSÉS AVANT CONNEXION : les cœurs en localStorage (lba-likes)
+    // deviennent des likes RÉELS du compte fraîchement authentifié. Ce N'EST PAS un vote
+    // anonyme temps réel (fermé le 14/08) : au moment de la sync, un subscriber_id réel et
+    // authentifié existe déjà. Dédup par la PK (source_id, subscriber_id), ON CONFLICT DO
+    // NOTHING (même patron que POST /like) → idempotent, aucune double insertion.
+    const liked = await client.query(
+      `INSERT INTO source_likes (source_id, subscriber_id)
+         SELECT s.id, $1 FROM sources s WHERE s.id = ANY($2::text[]) AND s.enabled = true
+       ON CONFLICT (source_id, subscriber_id) DO NOTHING
+       RETURNING source_id`,
+      [auth.id, ids]
+    );
+    // (3) Recale likes_count = COUNT(source_likes) UNIQUEMENT pour les sources réellement
+    // créditées (RETURNING) — même patron que POST/DELETE /like, même transaction. Une sync
+    // rejouée n'insère rien (ON CONFLICT) → changed vide → aucun UPDATE, compteur intact.
+    const changed = liked.rows.map((r) => r.source_id);
+    if (changed.length) {
+      await client.query(
+        `UPDATE sources SET likes_count = (SELECT COUNT(*) FROM source_likes sl WHERE sl.source_id = sources.id)
+          WHERE id = ANY($1::text[])`,
+        [changed]
+      );
+    }
+    await client.query('COMMIT');
+    res.json({ synced: fav.rowCount, liked: liked.rowCount });
   } catch (err) {
+    try { await client.query('ROLLBACK'); } catch (e) { /* déjà rollback */ }
     console.error('[api] Erreur POST /favorites/sync :', err.message);
     res.status(503).json({ error: 'DB unavailable' });
+  } finally {
+    client.release();
   }
 });
 

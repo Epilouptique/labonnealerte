@@ -1784,6 +1784,14 @@ body[data-mode="connected"] #stats { display: none; }
 .param-add:hover, .task-config:hover, .task-config-anon:hover, .community-submit:hover { filter: brightness(1.06); }
 .task-config-anon { text-decoration: none; } /* variante <a> (anonyme → /connexion) */
 
+/* Cœur « j'aime » pour un visiteur SANS COMPTE : le like est dédupliqué par compte en
+   base (source_likes), il n'existe donc plus de vote anonyme. Le compteur reste lisible
+   (donnée publique) ; le bouton s'affiche en retrait et son clic mène à /connexion
+   (site.js) — jamais un clic sans effet. Le curseur reste `pointer` : le bouton FAIT
+   quelque chose, il emmène se connecter. */
+.like-btn.like-anon { opacity: .55; }
+.like-btn.like-anon:hover { opacity: .8; }
+
 /* Carte communautaire (« Chat perdu ») : formulaire empilé (commune, description,
    lien, rayon, bouton), contrairement au .param-row générique en ligne — une
    description tient mal sur une seule ligne. Le bouton .community-submit reprend
@@ -1799,7 +1807,7 @@ body[data-mode="connected"] #stats { display: none; }
   color: var(--ink); background: var(--surface); border: 1px solid var(--line);
   border-radius: 10px; padding: 10px 12px; resize: vertical;
 }
-.community-desc { min-height: 52px; }
+.community-desc { min-height: 90px; }
 .community-radius { cursor: pointer; }
 .community-ville:focus, .community-desc:focus, .community-link:focus, .community-radius:focus {
   outline: none; border-color: var(--amber);
@@ -4446,6 +4454,17 @@ html[data-theme="dark"] .skin-dresseur .card-deck-face::after, html[data-theme="
 .lrow-exp .card.in-list-exp .card-usertask-face .flip-back { display: none; }
 /* Le titre « Mes échéances » fait doublon avec le nom de la source, déjà en tête de ligne. */
 .lrow-exp .card.in-list-exp .card-usertask-face .tf-title { display: none; }
+/* EXCEPTION 'community' (ex. chat-perdu) : même mécanique que ci-dessus pour
+   .card-usertask-face — la 5e face partagée .card-task-face porte ici la liste des
+   signalements (« Je l'ai vu »/« Je l'ai retrouvé »/formulaire de création), sans
+   laquelle la vue liste n'aurait aucun chemin vers ces actions. */
+.lrow-exp .card.in-list-exp.face-task .card-community-face {
+  display: flex; position: relative; inset: auto; transform: none; overflow: visible;
+  background: none; /* le volet fournit déjà son fond */
+}
+.lrow-exp .card.in-list-exp .card-community-face .flip-back { display: none; }
+/* « Signalements en cours » fait doublon avec le nom de la source, déjà en tête de ligne. */
+.lrow-exp .card.in-list-exp .card-community-face .tf-title { display: none; }
 .lrow-exp .card.in-list-exp .fullart,
 .lrow-exp .card.in-list-exp .card-veil,
 .lrow-exp .card.in-list-exp .card-edge,
@@ -4571,6 +4590,41 @@ a.forum-tag:hover { text-decoration: underline; }
 .forum-textarea { min-height: 120px; resize: vertical; line-height: 1.55; }
 .forum-input:focus, .forum-select:focus, .forum-textarea:focus {
   outline: none; border-color: var(--amber); box-shadow: 0 0 0 3px var(--amber-soft); }
+/* Combobox filtrable du tag source/deck (/forum/nouveau). Classes .tag-* distinctes
+   de .dyn-* (collision de handlers délégués, cf. commentaire dans js/forum.js) : le
+   STYLE est repris en groupant les sélecteurs plus haut (.dyn-listbox/.dyn-option),
+   seul le positionnement propre au formulaire vit ici. Le champ visible réutilise
+   .forum-input, donc rien à redéclarer pour lui. */
+.tag-combo { position: relative; }
+.tag-listbox {
+  position: absolute; z-index: 30; left: 0; right: 0; top: calc(100% + 4px);
+  margin: 0; padding: 4px; list-style: none; max-height: 280px; overflow-y: auto;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow);
+}
+.tag-listbox[hidden] { display: none; }
+.tag-option { padding: 9px 11px; border-radius: 8px; font-size: 13.5px; color: var(--ink); cursor: pointer; }
+.tag-option:hover, .tag-option.active { background: var(--amber-soft); }
+/* En-tête de groupe : non cliquable, role="presentation" côté DOM. */
+.tag-group {
+  padding: 8px 11px 4px; font-size: 11px; font-weight: 800; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--muted); cursor: default;
+}
+.tag-status { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+/* Autocomplétion de mention dans un textarea : même coquille .tag-combo (ancrage
+   absolu de la listbox), la liste s'ouvre SOUS le champ. Le textarea porte lui-même
+   role="combobox" (c'est lui qui a le focus). */
+.mention-combo { display: flex; flex-direction: column; }
+.mention-combo .tag-listbox { top: calc(100% - 22px); }
+
+/* Mention RÉSOLUE dans un message publié. Aucune palette nouvelle : même traitement
+   que l'auteur cliquable (.forum-author) — accent violet, souligné au survol. Le
+   badge-pastille .forum-slug-badge reste réservé à l'IDENTIFICATION d'un objet
+   (en-tête de sujet, verso de carte) ; en plein texte, une pastille couperait la
+   lecture. */
+.forum-mention { color: var(--amber); text-decoration: none; font-weight: 600; }
+.forum-mention:hover { text-decoration: underline; }
+
 .forum-counter { font-size: 12px; color: var(--muted); }
 .forum-form-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 4px; }
 .forum-form-msg { color: var(--danger); font-size: 13px; font-weight: 600; }

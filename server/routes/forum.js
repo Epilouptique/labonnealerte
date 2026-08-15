@@ -67,7 +67,70 @@ function escHtml(s) {
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 }
 // Corps multi-lignes : échappé PUIS \n → <br> (aucune injection possible).
-function bodyToHtml(s) { return escHtml(s).replace(/\n/g, '<br>'); }
+// `mentions` (optionnel) = Map slug → { href, kind } résolue EN LOT pour la page
+// (cf. resolveMentions) : la substitution @slug → lien se fait APRÈS l'échappement,
+// donc sur un texte où <, > et " n'existent plus. Sans map : rendu strictement
+// identique à avant (les mentions restent du texte brut).
+function bodyToHtml(s, mentions) {
+  return linkifyMentions(escHtml(s), mentions).replace(/\n/g, '<br>');
+}
+
+// ── Mentions @slug (14/08/2026) ──────────────────────────────────────────────
+// STOCKAGE : le corps garde le TEXTE BRUT « @slug ». Les deux identifiants visés
+// (sources/collections.forum_slug, subscribers.pseudo) sont STABLES par construction
+// (posés une fois, jamais régénérés au renommage) → résoudre au rendu ne peut pas
+// « casser » avec le temps, et un objet supprimé retombe en texte, jamais en lien mort.
+// SÉCURITÉ : la regex n'accepte QUE [a-z0-9] (le jeu exact produit par slugBase), et
+// le href est construit à partir d'une valeur relue EN BASE — jamais du texte de
+// l'utilisateur. Un « @nimportequoi » sans correspondance reste du texte.
+const MENTION_RE = /(^|[\s(])@([a-z0-9]{1,64})\b/g;
+
+// Slugs mentionnés dans un lot de corps (déduplication incluse).
+function collectMentions(bodies) {
+  const set = new Set();
+  for (const b of bodies) {
+    const s = String(b || '').toLowerCase();
+    let m;
+    MENTION_RE.lastIndex = 0;
+    while ((m = MENTION_RE.exec(s)) !== null) set.add(m[2]);
+  }
+  return [...set];
+}
+
+// UNE requête par table pour TOUTE la page (jamais une par mention). Ordre de
+// résolution PSEUDO → SOURCE → DECK (décision Hugo 14/08 ; 0 collision constatée
+// entre les trois espaces de noms, le premier trouvé gagne).
+async function resolveMentions(bodies) {
+  const slugs = collectMentions(bodies);
+  const map = new Map();
+  if (!slugs.length) return map;
+  const [u, s, d] = await Promise.all([
+    pool.query('SELECT pseudo AS slug FROM subscribers WHERE pseudo = ANY($1)', [slugs]),
+    pool.query('SELECT forum_slug AS slug, id FROM sources WHERE forum_slug = ANY($1) AND enabled = true', [slugs]),
+    pool.query(`SELECT forum_slug AS slug, id, share_token, owner_subscriber_id FROM collections
+                 WHERE forum_slug = ANY($1)
+                   AND ((visibility = 'official' AND owner_subscriber_id IS NULL)
+                     OR (visibility = 'public' AND owner_subscriber_id IS NOT NULL))`, [slugs]),
+  ]);
+  // Le premier posé gagne : on remplit dans l'ordre inverse de priorité puis on écrase.
+  d.rows.forEach((r) => map.set(r.slug, {
+    href: (r.owner_subscriber_id && r.share_token) ? `/deck/${r.share_token}` : `/collection/${r.id}`,
+  }));
+  s.rows.forEach((r) => map.set(r.slug, { href: `/source/${r.id}/statut` }));
+  u.rows.forEach((r) => map.set(r.slug, { href: `/u/${r.slug}` }));
+  return map;
+}
+
+// Substitution sur du HTML DÉJÀ ÉCHAPPÉ. `href` vient de resolveMentions (valeur de
+// base), le libellé est le slug lui-même (déjà contraint à [a-z0-9] par la regex).
+function linkifyMentions(escaped, mentions) {
+  if (!mentions || !mentions.size) return escaped;
+  return String(escaped).replace(MENTION_RE, (whole, pre, slug) => {
+    const hit = mentions.get(slug.toLowerCase());
+    if (!hit) return whole;                       // inconnu → texte brut, jamais d'erreur
+    return `${pre}<a class="forum-mention" href="${escHtml(hit.href)}">@${slug}</a>`;
+  });
+}
 
 // Slug : translittération simple + suffixe aléatoire → unicité quasi garantie
 // (l'index unique reste le garde-fou dur). Borné à 160 (VARCHAR(160)).
@@ -186,6 +249,8 @@ ${inner}
 <script src="/js/categories.js"></script>
 <script src="/js/theme.js"></script>
 <script src="/js/header.js"></script>
+<!-- combo.js AVANT forum.js : base ARIA partagée (combobox de tag + mentions @slug). -->
+<script src="/js/combo.js"></script>
 <script src="/js/forum.js"></script>
 ${(opts.scripts || []).map((src) => `<script src="${src}"></script>`).join('\n')}
 <script src="/js/pwa.js"></script>
@@ -359,6 +424,9 @@ router.get('/forum/c/:category', async (req, res) => {
 // Sujets tagués à une source (cible du lien carte→forum).
 router.get('/forum/source/:slug', async (req, res) => {
   const sid = req.params.slug;
+  // Pagination : MÊME motif que /forum/c/:category (page_ + LIMIT/OFFSET + pagerHTML).
+  // Sans elle, le LIMIT 30 tronquait la liste SANS aucun moyen d'aller plus loin.
+  const page_ = Math.max(1, parseInt(req.query.page, 10) || 1);
   try {
     const canonicalId = await resolveSourceId(sid);
     const meta = await pool.query('SELECT name, forum_slug FROM sources WHERE id = $1', [canonicalId]);
@@ -366,14 +434,19 @@ router.get('/forum/source/:slug', async (req, res) => {
     const slug = (meta.rows.length && meta.rows[0].forum_slug) || sid;
     const { rows } = await pool.query(
       `${TOPIC_SELECT} WHERE ft.hidden = false AND ft.source_id = $1
-        ORDER BY ft.last_reply_at DESC LIMIT $2`, [canonicalId, TOPICS_PER_PAGE]);
+        ORDER BY ft.last_reply_at DESC LIMIT $2 OFFSET $3`,
+      [canonicalId, TOPICS_PER_PAGE, (page_ - 1) * TOPICS_PER_PAGE]);
+    // base = l'URL COURANTE (le paramètre reçu, pas l'id canonique) : ?page=2 doit
+    // rester sur la même page, y compris quand on est arrivé par le slug public.
+    const pager = pagerHTML(`/forum/source/${encodeURIComponent(sid)}`, page_, rows.length);
     res.type('html').send(forumShell(`Discussions · ${name} · Forum`,
       `<div class="forum-head">
          <h1 class="forum-title">${escHtml(name)}</h1>
          ${createBtn('source=' + encodeURIComponent(slug))}
        </div>
        <p class="forum-intro">Discussions liées à <a class="forum-slug-badge" href="/source/${escHtml(canonicalId)}/statut">@${escHtml(slug)}</a></p>
-       ${topicList(rows, 'Aucune discussion sur cette source pour le moment — ouvrez la première.')}`,
+       ${topicList(rows, 'Aucune discussion sur cette source pour le moment — ouvrez la première.')}
+       ${pager}`,
       { breadcrumb: breadcrumb([{ label: 'Forum', href: '/forum' }, { label: name }]) }));
   } catch (err) {
     console.error('[forum] GET /forum/source :', err.message);
@@ -384,6 +457,7 @@ router.get('/forum/source/:slug', async (req, res) => {
 // Sujets tagués à un DECK (miroir ; espace de noms séparé).
 router.get('/forum/deck/:slug', async (req, res) => {
   const did = req.params.slug;
+  const page_ = Math.max(1, parseInt(req.query.page, 10) || 1); // cf. /forum/source/:slug
   try {
     const canonicalId = await resolveDeckId(did);
     // owner_subscriber_id + share_token : même règle de destination que slugBadge()
@@ -397,14 +471,17 @@ router.get('/forum/deck/:slug', async (req, res) => {
       : `/collection/${escHtml(canonicalId)}`;
     const { rows } = await pool.query(
       `${TOPIC_SELECT} WHERE ft.hidden = false AND ft.deck_id = $1
-        ORDER BY ft.last_reply_at DESC LIMIT $2`, [canonicalId, TOPICS_PER_PAGE]);
+        ORDER BY ft.last_reply_at DESC LIMIT $2 OFFSET $3`,
+      [canonicalId, TOPICS_PER_PAGE, (page_ - 1) * TOPICS_PER_PAGE]);
+    const pager = pagerHTML(`/forum/deck/${encodeURIComponent(did)}`, page_, rows.length);
     res.type('html').send(forumShell(`Discussions · ${name} · Forum`,
       `<div class="forum-head">
          <h1 class="forum-title">${escHtml(name)}</h1>
          ${createBtn('deck=' + encodeURIComponent(slug))}
        </div>
        <p class="forum-intro">Discussions liées au deck <a class="forum-slug-badge" href="${deckHref}">@${escHtml(slug)}</a></p>
-       ${topicList(rows, 'Aucune discussion sur ce deck pour le moment — ouvrez la première.')}`,
+       ${topicList(rows, 'Aucune discussion sur ce deck pour le moment — ouvrez la première.')}
+       ${pager}`,
       { breadcrumb: breadcrumb([{ label: 'Forum', href: '/forum' }, { label: name }]) }));
   } catch (err) {
     console.error('[forum] GET /forum/deck :', err.message);
@@ -448,6 +525,10 @@ router.get('/forum/t/:slug', async (req, res) => {
         ORDER BY fp.created_at ASC LIMIT $2 OFFSET $3`,
       [topic.id, POSTS_PER_PAGE, (page_ - 1) * POSTS_PER_PAGE]);
 
+    // Mentions : UNE résolution pour toute la page (3 requêtes au total, quel que soit
+    // le nombre de messages et de @slug qu'ils contiennent).
+    const mentions = await resolveMentions(p.rows.map((r) => r.body));
+
     const posts = p.rows.map((post, i) => {
       const cls = (page_ === 1 && i === 0) ? 'card post-card post-card-op forum-in' : 'card post-card forum-in';
       return `<article class="${cls}">
@@ -457,7 +538,7 @@ router.get('/forum/t/:slug', async (req, res) => {
           <span class="post-time">${escHtml(relativeTime(post.created_at))}</span>
           <button type="button" class="forum-report" data-post-id="${post.id}" title="Signaler ce message" aria-label="Signaler ce message">${FLAG_SVG}</button>
         </div>
-        <div class="post-body">${bodyToHtml(post.body)}</div>
+        <div class="post-body">${bodyToHtml(post.body, mentions)}</div>
       </article>`;
     }).join('') || '<p class="forum-empty">Aucun message.</p>';
 
@@ -526,10 +607,29 @@ router.get('/forum/nouveau', (req, res) => {
               placeholder="Un titre clair et concis">
        <span class="forum-counter" data-for="new-title">0 / 140</span>
 
-       <label class="forum-label" for="new-tag">Lier à une source ou un deck <span class="forum-optional">(optionnel)</span></label>
-       <select id="new-tag" class="forum-select">
-         <option value="">— Aucun —</option>
-       </select>
+       <!-- L'attribut for pointe le champ VISIBLE (#new-tag-search) : #new-tag est devenu
+            un input caché, qui ne peut pas recevoir le focus d'un clic sur le libellé.
+            (Rappel : on est dans un template literal — aucun accent grave ici.) -->
+       <label class="forum-label" for="new-tag-search">Lier à une source ou un deck <span class="forum-optional">(optionnel)</span></label>
+       <!-- COMBOBOX FILTRABLE (~300 cibles : un <select> natif était inutilisable au
+            clavier). Filtrage 100 % CLIENT sur /api/forum/taggables, chargé une seule
+            fois par /js/forum.js — aucune requête par frappe (contrairement au combobox
+            dynamic-enum du kiosque, qui interroge le serveur à chaque saisie).
+            Classes .tag-* VOLONTAIREMENT distinctes de .dyn-* : les handlers du kiosque
+            sont délégués sur document et se déclencheraient sur ce formulaire.
+            #new-tag reste un champ CACHÉ portant "source:<id>" / "deck:<id>" → le
+            contrat du POST /forum/t est inchangé. -->
+       <div class="tag-combo" id="new-tag-combo">
+         <input id="new-tag-search" class="forum-input tag-search" type="text"
+                role="combobox" aria-expanded="false" aria-controls="new-tag-listbox"
+                aria-autocomplete="list" aria-haspopup="listbox"
+                placeholder="Tapez pour filtrer… (facultatif)"
+                autocomplete="off" autocapitalize="off" spellcheck="false">
+         <input type="hidden" id="new-tag" value="">
+         <ul class="tag-listbox" id="new-tag-listbox" role="listbox"
+             aria-label="Sources et decks" hidden></ul>
+         <div class="tag-status" role="status" aria-live="polite"></div>
+       </div>
 
        <label class="forum-label" for="new-body">Message</label>
        <textarea id="new-body" class="forum-textarea" maxlength="5000" required
@@ -568,6 +668,45 @@ router.get('/api/forum/taggables', async (req, res) => {
   }
 });
 
+// Cibles MENTIONNABLES (@slug dans un message) : membres + sources + decks.
+// Forme alignée sur /api/forum/taggables, à un détail près : chaque entrée porte son
+// `slug` (c'est lui qu'on écrit dans le texte), là où taggables sert un <select> dont
+// la valeur est un id interne.
+// ⚠️ PÉRIMÈTRE DES MEMBRES — décision Hugo 14/08 : SEULEMENT les pseudos DÉJÀ
+// PUBLIQUEMENT VISIBLES (auteur d'un sujet ou d'un message non masqué, ou propriétaire
+// d'un deck public). Renvoyer tous les comptes ferait de cette route un ANNUAIRE des
+// inscrits, ce que le projet n'expose nulle part (même doctrine que /u/:pseudo et
+// /le-point : on agrège du déjà-public, jamais on ne le crée). Aucun email, aucun id
+// interne, aucun compteur privé ne sort d'ici.
+router.get('/api/forum/mentionables', async (req, res) => {
+  try {
+    const [m, s, d] = await Promise.all([
+      pool.query(
+        `SELECT u.pseudo AS slug, COALESCE(u.display_name, u.pseudo) AS name
+           FROM subscribers u
+          WHERE u.pseudo IS NOT NULL AND (
+            EXISTS (SELECT 1 FROM forum_topics t WHERE t.author_subscriber_id = u.id AND t.hidden = false)
+            OR EXISTS (SELECT 1 FROM forum_posts fp WHERE fp.author_subscriber_id = u.id AND fp.hidden = false)
+            OR EXISTS (SELECT 1 FROM collections c
+                        WHERE c.owner_subscriber_id = u.id AND c.visibility = 'public'))
+          ORDER BY u.pseudo ASC`),
+      pool.query(
+        `SELECT forum_slug AS slug, name FROM sources
+          WHERE enabled = true AND forum_slug IS NOT NULL ORDER BY name ASC`),
+      pool.query(
+        `SELECT forum_slug AS slug, name FROM collections
+          WHERE forum_slug IS NOT NULL
+            AND ((visibility = 'official' AND owner_subscriber_id IS NULL)
+              OR (visibility = 'public'   AND owner_subscriber_id IS NOT NULL))
+          ORDER BY name ASC`),
+    ]);
+    res.json({ members: m.rows, sources: s.rows, decks: d.rows });
+  } catch (err) {
+    console.error('[forum] GET /api/forum/mentionables :', err.message);
+    res.status(503).json({ error: 'Service indisponible' });
+  }
+});
+
 // Page profil publique /u/:pseudo — AGRÉGATION de contenu DÉJÀ public uniquement :
 // decks publics + sujets de forum. JAMAIS email / abonnements / préférences / points /
 // rang / tokens. Résolution STRICTE par pseudo (aucun repli par id interne). noindex.
@@ -575,6 +714,7 @@ router.get('/api/forum/taggables', async (req, res) => {
 // client via /js/profile-decks.js, qui appelle GET /api/forum/u/:pseudo/decks + /api/sources.
 router.get('/u/:pseudo', async (req, res) => {
   const pseudo = req.params.pseudo;
+  const page_ = Math.max(1, parseInt(req.query.page, 10) || 1); // cf. /forum/c/:category
   try {
     const u = await pool.query(
       'SELECT id, display_name, pseudo FROM subscribers WHERE pseudo = $1', [pseudo]);
@@ -583,10 +723,14 @@ router.get('/u/:pseudo', async (req, res) => {
     const name = member.display_name || 'Membre';
 
     // Sujets de forum (non masqués) de ce membre, rendus en topicCard existants.
+    // Paginés comme /forum/c/:category : le LIMIT seul rendait le 31e sujet d'un
+    // membre actif définitivement inatteignable (troncature silencieuse).
     const topics = await pool.query(
       `${TOPIC_SELECT} WHERE ft.hidden = false AND ft.author_subscriber_id = $1
-        ORDER BY ft.last_reply_at DESC LIMIT $2`, [member.id, TOPICS_PER_PAGE]);
+        ORDER BY ft.last_reply_at DESC LIMIT $2 OFFSET $3`,
+      [member.id, TOPICS_PER_PAGE, (page_ - 1) * TOPICS_PER_PAGE]);
     const hasTopics = topics.rows.length > 0;
+    const pager = pagerHTML(`/u/${encodeURIComponent(pseudo)}`, page_, topics.rows.length);
 
     // Section decks : coquille masquée au rendu, révélée + peuplée par profile-decks.js si
     // le membre a au moins un deck public. Grille RÉUTILISÉE telle quelle de /favoris
@@ -594,14 +738,20 @@ router.get('/u/:pseudo', async (req, res) => {
     // `.more-btn` (pattern du kiosque, masqué via style inline) pour révéler au-delà de la
     // 1re ligne (4 decks). Le message « aucun contenu » (rendu seulement si aucun sujet)
     // est masqué côté client dès que des decks apparaissent.
-    const decksSection = `<section id="profile-decks" data-pseudo="${escHtml(member.pseudo)}" hidden>
+    // PAGE 1 SEULEMENT : la pagination ?page= ne porte que sur les SUJETS ; les decks ne
+    // sont pas paginés (ils ont leur propre « Afficher plus »), les répéter à l'identique
+    // en page 2 ferait croire à une seconde collection.
+    const decksSection = page_ === 1 ? `<section id="profile-decks" data-pseudo="${escHtml(member.pseudo)}" hidden>
         <h2 class="forum-h2">Ses decks</h2>
         <div class="grid" id="fav-grid"></div>
         <button type="button" class="more-btn profile-decks-more" style="display:none">Afficher plus de decks</button>
-      </section>`;
+      </section>` : '';
     const topicsSection = hasTopics
       ? `<h2 class="forum-h2">Ses sujets sur le forum</h2>${topicList(topics.rows, '')}` : '';
-    const emptyState = hasTopics ? ''
+    // L'état « aucun contenu » ne vaut QUE pour la page 1 : au-delà, une page vide
+    // signifie « fin de la liste », pas « membre sans contenu » — le pager (← Précédents)
+    // reste alors le seul repère utile.
+    const emptyState = (hasTopics || page_ > 1) ? ''
       : '<p class="forum-empty" id="profile-empty">Ce membre n\'a pas encore de contenu public.</p>';
 
     // Pas de fil d'ariane sur le profil (contrairement aux autres pages forum).
@@ -610,7 +760,8 @@ router.get('/u/:pseudo', async (req, res) => {
        <p class="forum-intro"><span class="forum-slug-badge">@${escHtml(member.pseudo)}</span></p>
        ${decksSection}
        ${topicsSection}
-       ${emptyState}`,
+       ${emptyState}
+       ${pager}`,
       { noindex: true, desc: `Profil public de @${member.pseudo} sur La Bonne Alerte.`,
         scripts: ['/js/cards.js', '/js/deck-motifs.js', '/js/deck-stack.js', '/js/profile-decks.js'] }));
   } catch (err) {
@@ -633,6 +784,11 @@ router.get('/api/forum/u/:pseudo/decks', async (req, res) => {
               (SELECT asset_ref FROM skins WHERE id = c.equipped_skin_id) AS deck_skin,
               COUNT(s.id)::int AS card_count,
               COALESCE(SUM(s.likes_count), 0)::int AS total_likes,
+              -- Compte de discussions du verso deck : MÊME sous-requête que /api/collections
+              -- (profil public = même tuile, même verso → même chiffre). hidden = false :
+              -- rien de masqué ne fuite, et on reste dans le périmètre déjà public de /u/.
+              (SELECT COUNT(*) FROM forum_topics ft
+                WHERE ft.hidden = false AND ft.deck_id = c.id)::int AS topic_count,
               (SELECT COALESCE(json_agg(p.id), '[]'::json) FROM (
                  SELECT s3.id FROM collection_items ci3
                    JOIN sources s3 ON s3.id = ci3.source_id AND s3.enabled = true

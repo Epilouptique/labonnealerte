@@ -75,8 +75,13 @@
     // Lien discret vers les discussions forum de ce deck (même logique que le verso carte :
     // lien de sortie seul, toujours visible dès qu'un forum_slug existe). /forum/deck/:slug
     // gère la résolution slug-ou-id côté serveur. Même token visuel que .back-statut.
+    // Libellé (et compte de discussions) via LBACards.forumLinkText : MÊME fonction que
+    // les cartes, pas de variante ici. Repli sur le texte nu si cards.js n'est pas chargé.
+    var forumLabel = (window.LBACards && LBACards.forumLinkText)
+      ? LBACards.forumLinkText(opts.topic_count) : 'On en parle au forum →';
     var forum = opts.forum_slug
-      ? '<a class="back-statut back-forum" href="/forum/deck/' + esc(opts.forum_slug) + '">On en parle au forum →</a>'
+      ? '<a class="back-statut back-forum" href="/forum/deck/' + esc(opts.forum_slug) + '">'
+        + forumLabel + '</a>'
       : '';
     // Badge @forum_slug en haut-GAUCHE du verso, à hauteur de flip-back — EXACTEMENT le même
     // pattern que les cartes (.card-forum-badge, structure DOM identique : card-back en

@@ -120,6 +120,18 @@
       '</g>' +
     '</svg></span>';
 
+  // Libellé du lien forum du verso, PARTAGÉ cartes + decks (deck-stack.js l'appelle via
+  // LBACards) : « On en parle au forum (3) → ». Le compte vient de `topic_count`, porté
+  // par les charges existantes (/api/sources, /api/collections, /api/favorites,
+  // /api/forum/u/:pseudo/decks) — aucun fetch par carte, les routes
+  // /api/forum/*/:slug/count restent volontairement non câblées.
+  // STRICT : à 0, absent, ou non numérique (ancienne réponse en cache, page qui n'aurait
+  // pas la colonne), le lien garde son texte d'origine — jamais de « (0) ».
+  function forumLinkText(n) {
+    var v = parseInt(n, 10);
+    return (v > 0) ? 'On en parle au forum (' + v + ') →' : 'On en parle au forum →';
+  }
+
   // Format compact du compteur de likes : 1240 → « 1,2 k », 12000 → « 12 k ».
   function formatCount(n) {
     n = Number(n) || 0;
@@ -130,10 +142,20 @@
   }
 
   // Bouton like (recto). Non aimé au rendu ; site.js marque .liked depuis localStorage.
-  function likeBtn(s) {
+  // ANONYME (14/08/2026) : le like est désormais dédupliqué EN BASE par compte
+  // (table source_likes) — un visiteur sans compte n'a pas d'identité à dédupliquer,
+  // il ne peut donc plus voter. Le compteur reste VISIBLE (information publique) mais
+  // le bouton est marqué .like-anon + aria-disabled : le clic mène à /connexion
+  // (site.js), jamais un clic sans effet ni explication. Même convention que
+  // .task-config-anon (action réservée aux comptes → page de connexion).
+  function likeBtn(s, mode) {
     var n = Number(s.likes_count) || 0;
-    return '<button class="like-btn card-like" type="button" aria-pressed="false"' +
-      ' aria-label="J\'aime cette alerte" data-likes="' + n + '">' +
+    var anon = mode !== 'connected';
+    return '<button class="like-btn card-like' + (anon ? ' like-anon' : '') + '" type="button"' +
+      ' aria-pressed="false"' + (anon ? ' aria-disabled="true"' : '') +
+      ' aria-label="' + (anon ? 'Connectez-vous pour aimer cette alerte' : 'J\'aime cette alerte') + '"' +
+      ' title="' + (anon ? 'Connectez-vous pour aimer cette alerte' : 'J\'aime cette alerte') + '"' +
+      ' data-likes="' + n + '">' +
       LIKE_SVG + '<span class="like-n">' + formatCount(n) + '</span></button>';
   }
 
@@ -154,6 +176,18 @@
   // les champs Description/Lien restent donc toujours visibles ; s'ils sont
   // inutiles côté serveur — instance déjà existante — ils sont simplement ignorés).
   function isCommunity(s) { return s.type === 'community'; }
+
+  // Config du TYPE communautaire, jointe au payload par /api/sources (champ
+  // `community`, cf. publicConfig dans server/community-types.js). Le repli n'est
+  // PAS une 2e configuration : c'est le filet si le serveur n'a pas encore été
+  // redéployé — mêmes valeurs que chat-perdu, seul type existant avant le
+  // multi-types.
+  var COMMUNITY_FALLBACK = { type: 'chat-perdu', label: 'chat', radiusChoices: [10, 15, 20, 30, 50], defaultRadiusKm: 15 };
+  function communityCfg(s) {
+    var c = s && s.community;
+    if (!c || !Array.isArray(c.radiusChoices) || !c.radiusChoices.length) return COMMUNITY_FALLBACK;
+    return c;
+  }
 
   // Séquence d'ids uniques pour les listbox des combobox dynamic-enum (aria-controls).
   var dynSeq = 0;
@@ -255,16 +289,19 @@
   function communityFace(s) {
     var field = (Array.isArray(s.params_schema) && s.params_schema[0]) || {};
     var ph = esc(field.placeholder || 'Votre commune');
+    var cc = communityCfg(s);
+    // Rayons : liste et valeur par défaut viennent de la config du type
+    // (server/community-types.js, jointe au payload par /api/sources).
+    var radiusOpts = cc.radiusChoices.map(function (km) {
+      var sel = (km === cc.defaultRadiusKm) ? ' selected' : '';
+      return '<option value="' + esc(km) + '"' + sel + '>Visible à ' + esc(km) + ' km</option>';
+    }).join('');
     return '<div class="param-row community-form" hidden>' +
         '<input type="text" class="community-ville" placeholder="' + ph + '" aria-label="Commune" autocomplete="off">' +
         '<textarea class="community-desc" placeholder="Décrivez la situation (si vous êtes le/la premier·ère à signaler pour cette commune)" aria-label="Description" rows="2"></textarea>' +
         '<input type="url" class="community-link" placeholder="Lien (facultatif, ex. i-cad.fr)" aria-label="Lien">' +
         '<select class="community-radius" aria-label="Rayon de visibilité si vous créez le signalement">' +
-          '<option value="10">Visible à 10 km</option>' +
-          '<option value="15" selected>Visible à 15 km</option>' +
-          '<option value="20">Visible à 20 km</option>' +
-          '<option value="30">Visible à 30 km</option>' +
-          '<option value="50">Visible à 50 km</option>' +
+          radiusOpts +
         '</select>' +
         '<button type="button" class="community-submit">Envoyer le signalement</button>' +
         // CORRECTIONS 4 (C) : message dédié à CE formulaire, PAS note() (qui écrit
@@ -293,15 +330,20 @@
   //  - témoin, pas encore signalé                 → bouton « Je l'ai vu » qui révèle
   //    un mini-formulaire Où/Quand (OBLIGATOIRES) masqué par défaut, validé avant tout
   //    envoi (POST /:id/spot { where, when })
-  function communityReportItem(r) {
+  // `label` : mot de l'animal pour les libellés d'ACCESSIBILITÉ uniquement (« le chat
+  // de … », « ce chien à … »). Fourni par l'appelant depuis la config du type — c'était
+  // le seul texte propre à chat-perdu écrit en dur dans le JS, et il était invisible à
+  // l'œil (aria-label), donc facile à oublier lors de l'ajout d'un type.
+  function communityReportItem(r, label) {
+    var animal = label || COMMUNITY_FALLBACK.label;
     var due = dueFr(r.expires_at);
     var action;
     if (r.spotted) {
       action = '<span class="community-spotted-tag">Déjà signalé ✓</span>';
     } else if (r.is_author) {
-      action = '<button type="button" class="community-found" aria-label="Marquer comme retrouvé le chat de ' + esc(r.commune_nom) + '">Je l\'ai retrouvé</button>';
+      action = '<button type="button" class="community-found" aria-label="Marquer comme retrouvé le ' + esc(animal) + ' de ' + esc(r.commune_nom) + '">Je l\'ai retrouvé</button>';
     } else {
-      action = '<button type="button" class="community-spot-toggle" aria-label="Signaler avoir vu ce chat à ' + esc(r.commune_nom) + '">Je l\'ai vu</button>' +
+      action = '<button type="button" class="community-spot-toggle" aria-label="Signaler avoir vu ce ' + esc(animal) + ' à ' + esc(r.commune_nom) + '">Je l\'ai vu</button>' +
         '<div class="param-row community-spot-form" hidden>' +
           '<input type="text" class="community-spot-where" placeholder="Où ? (ex. rue de la Paix)" aria-label="Où">' +
           '<input type="text" class="community-spot-when" placeholder="Quand ? (ex. ce matin vers 9h)" aria-label="Quand">' +
@@ -326,7 +368,11 @@
   function communityReportsFace(s, mode) {
     if (!isCommunity(s) || mode !== 'connected') return '';
     return '' +
-      '<div class="card-face card-task-face">' +
+      // .card-community-face = marqueur ADDITIF (même raisonnement que .card-usertask-face
+      // ci-dessous pour 'user-task') : distingue cette face de celle des tâches, qui
+      // réutilise le même .card-task-face partagé — nécessaire pour que la vue liste
+      // (list-view.js) sache laquelle dévoiler dans son volet.
+      '<div class="card-face card-task-face card-community-face">' +
         '<button class="flip-back" type="button" aria-label="Retour" title="Retour">' + BACK_SVG + '</button>' +
         '<div class="tf-title">Signalements en cours</div>' +
         '<div class="task-zone">' +
@@ -581,7 +627,7 @@
         '<div class="card-toprow">' +
           state +
           '<div class="card-icons">' +
-            likeBtn(s) +
+            likeBtn(s, mode) +
             '<button class="share-btn card-share" type="button" aria-label="Partager" title="Partager">' + SHARE_SVG + '</button>' +
             addBtn +
             '<button class="flip-btn" type="button" aria-label="En savoir plus" title="En savoir plus">' + INFO_SVG + '</button>' +
@@ -720,7 +766,8 @@
     // forum_slug existe (la liste vide invite à créer le 1er sujet). Résolution slug-ou-id
     // gérée côté serveur (/forum/source/:slug). Même token visuel que .back-statut.
     var forum = s.forum_slug
-      ? '<a class="back-statut back-forum" href="/forum/source/' + esc(s.forum_slug) + '">On en parle au forum →</a>'
+      ? '<a class="back-statut back-forum" href="/forum/source/' + esc(s.forum_slug) + '">'
+        + forumLinkText(s.topic_count) + '</a>'
       : '';
 
     // « i » (verso) : description LONGUE si presente, sinon la courte (jamais de vide).
@@ -797,8 +844,22 @@
     var sub = mode === 'connected' && (!!s.subscribed || hasInstances) ? '1' : '0';
     // F3) La 4e face « deck » n'existe que là où le « + » existe (connecté, non lié).
     var showAdd = mode === 'connected' && !isLinked;
+    // Cartes communautaires : marqueurs de FAMILLE et de TYPE portés par la carte —
+    // site.js sélectionne et interroge par eux, plus par un id en dur (le sélecteur
+    // '.card[data-source-id="chat-perdu"]' n'aurait jamais trouvé chien-perdu).
+    // data-community-label sert aux libellés d'accessibilité rendus PLUS TARD
+    // (communityReportItem, appelé par site.js à l'arrivée de la liste).
+    var comAttrs = '';
+    if (isCommunity(s)) {
+      var cc = communityCfg(s);
+      // Le type communautaire EST l'id de la ligne catalogue (invariant posé dès
+      // chat-perdu et respecté par chien-perdu) : on le lit sur s.id, jamais sur le
+      // repli, qui vaudrait « chat-perdu » à tort pour une carte chien.
+      comAttrs = ' data-card-type="community" data-community-type="' + esc(s.id) + '"' +
+        ' data-community-label="' + esc(cc.label) + '"';
+    }
     return '' +
-      '<div class="card flip" data-cats="' + dataCats + '" data-source-id="' + esc(s.id) + '"' +
+      '<div class="card flip" data-cats="' + dataCats + '" data-source-id="' + esc(s.id) + '"' + comAttrs +
         ' data-subscribed="' + sub + '" data-search="' + esc(searchText(s, cats)) + '">' +
         '<div class="card-inner">' +
           frontFace(s, mode, isLinked) +
@@ -840,6 +901,9 @@
     esc: esc, badgeFor: badgeFor, stateFor: stateFor, domainOf: domainOf, cardHTML: cardHTML, catLabel: catLabel,
     BACK_SVG: BACK_SVG, formatCount: formatCount, celebrateBurst: celebrateBurst,
     normalizeSearch: normalizeSearch,
+    // Libellé du lien forum du verso : UNE seule implémentation, consommée aussi par
+    // deck-stack.js (même règle « rien à 0 » cartes et decks).
+    forumLinkText: forumLinkText,
     // SVG partagés (réutilisés tels quels par la vue liste — pas de duplication de string).
     LIKE_SVG: LIKE_SVG, SHARE_SVG: SHARE_SVG, INFO_SVG: INFO_SVG,
     // Carte communautaire : rendu d'une ligne de la liste, réutilisé par site.js

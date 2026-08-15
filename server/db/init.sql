@@ -2307,6 +2307,34 @@ CREATE TABLE IF NOT EXISTS favorites (
 );
 CREATE INDEX IF NOT EXISTS idx_favorites_sub ON favorites (subscriber_id, created_at DESC);
 
+-- ================================================================
+-- LIKES PAR COMPTE (intégrité de sources.likes_count) — 14/08/2026
+-- AVANT : likes_count était un simple compteur incrémenté par POST /api/sources/:id/like,
+-- SANS aucune dédup serveur (la seule barrière était localStorage.lba-likes côté client,
+-- contournée par un vidage de cache, un autre appareil ou un curl) et sans décrément
+-- réel (l'interface avait cessé d'appeler DELETE /like) → compteur strictement croissant
+-- et classement « Les plus populaires » (top-12) faussable à volonté.
+-- APRÈS : une ligne PAR (source, compte). La PK composite EST la dédup — même patron
+-- que favorites ci-dessus et community_report_spots. likes_count est CONSERVÉ comme
+-- dénormalisation (lu par /api/sources, /le-point, le tri Populaires et le total_likes
+-- agrégé des decks) mais n'est plus jamais incrémenté : il est RECALCULÉ depuis cette
+-- table, dans la même transaction que l'insertion/suppression.
+-- ⚠️ Conséquence produit ASSUMÉE : liker exige désormais un compte (un anonyme n'a pas
+-- de subscriber_id, donc aucune dédup possible pour lui). L'anonyme voit le compteur.
+-- ⚠️ L'historique n'est PAS reconstituable : personne n'a jamais enregistré qui avait
+-- liké quoi. Les compteurs d'avant ont été remis à 0 par scripts/reset-likes.js, qui
+-- en garde une sauvegarde horodatée (rapports/) — voir ce script pour restaurer.
+-- ================================================================
+CREATE TABLE IF NOT EXISTS source_likes (
+  source_id     VARCHAR(64) NOT NULL REFERENCES sources(id) ON DELETE CASCADE,
+  subscriber_id INTEGER     NOT NULL REFERENCES subscribers(id) ON DELETE CASCADE,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (source_id, subscriber_id)
+);
+-- « Les sources aimées par ce compte » (profil, futur écran perso) : la PK sert déjà
+-- au sens inverse (les comptes ayant aimé une source).
+CREATE INDEX IF NOT EXISTS idx_source_likes_sub ON source_likes (subscriber_id);
+
 
 -- ================================================================
 -- DECKS/COLLECTIONS : teinte dominante (motif x teinte). Le champ emoji EST
@@ -4518,6 +4546,24 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_subscribers_pseudo ON subscribers (pseudo) 
 -- via server/forum-slug.js), JAMAIS régénéré au changement de titre. La colonne reste
 -- NULL tant que le backfill n'a pas tourné ; les routes /forum/source/:slug replient
 -- alors sur sources.id. Unicité garantie (index partiel : NULL non contraint).
+--
+-- ⚠️ RÈGLE — TOUTE SOURCE AJOUTÉE ICI REPART SANS SLUG (précédent : chat-perdu, 08/2026).
+-- AUCUN des INSERT de ce fichier ne pose forum_slug, et rien ne le pose tout seul :
+--   · server/forum-slug.js ne s'exécute qu'au RUNTIME, pour les DECKS (création/fork) ;
+--     les sources, elles, ne passent par aucune route de création — elles naissent ici.
+--   · scripts/backfill-forum-slug.js couvre bien n'importe quelle ligne à forum_slug NULL
+--     (aucun filtre de type ni de module — une source « virtuelle » community/user-task/
+--     external est traitée comme les autres), MAIS c'est un one-off JETABLE : personne ne
+--     le rejoue spontanément après un ajout.
+-- Sans slug : pas de badge @slug au verso, pas de lien « On en parle au forum → ».
+-- DEUX GESTES POSSIBLES après avoir ajouté une source ici (l'un OU l'autre) :
+--   (a) relancer le backfill — `node scripts/backfill-forum-slug.js --check` puis sans
+--       `--check` (il ne remplit que les NULL, jamais d'écrasement) ; OU
+--   (b) poser la valeur À LA MAIN en fin de fichier, avec le MÊME calcul que
+--       server/forum-slug.js et le guard `AND forum_slug IS NULL` (modèle : la ligne
+--       chat-perdu en fin de fichier). Jamais de régénération ensuite.
+-- POUR VÉRIFIER : `node scripts/audit-forum-slug.js` (lecture seule) — il liste les
+-- lignes sans slug et rappelle la commande à lancer.
 ALTER TABLE sources ADD COLUMN IF NOT EXISTS forum_slug VARCHAR(64);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_sources_forum_slug ON sources (forum_slug) WHERE forum_slug IS NOT NULL;
 
@@ -4651,6 +4697,27 @@ UPDATE sources SET description = 'Alerte si un chat disparaît près de chez vou
 -- (slugBase('Chat perdu') = 'chatperdu'), guard IS NULL = même invariant que le
 -- backfill (ne JAMAIS régénérer un slug déjà posé).
 UPDATE sources SET forum_slug = 'chatperdu' WHERE id = 'chat-perdu' AND forum_slug IS NULL;
+
+-- ── 2e type communautaire : « Chien perdu » (14/08/2026) ────────────────────────
+-- MÊME table community_reports, MÊMES routes, MÊMES fonctions front : seule la
+-- CONFIGURATION diffère (server/community-types.js). Cette ligne est le pendant
+-- catalogue de l'entrée 'chien-perdu' de ce module — les deux vont ensemble.
+-- ⚠️ forum_slug POSÉ DÈS L'INSERTION (et pas en correctif après coup, comme il a
+-- fallu le faire pour chat-perdu) : la règle documentée plus haut dans ce fichier
+-- s'applique, une ligne insérée à la main ici ne passe jamais par forum-slug.js.
+-- Valeur calculée avec LA MÊME règle : slugBase('Chien perdu') = 'chienperdu'.
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, params_schema, forum_slug)
+SELECT 'chien-perdu', 'Chien perdu', 'Signalement communautaire par commune',
+  'Alerte si un chien disparaît près de chez vous. Vous en croisez un ? Signalez-le. C''est le vôtre ? Prévenez le quartier.',
+  'community', 'community', false, ARRAY['communaute'], 501,
+  '[{"key":"ville","label":"Commune","type":"commune-coords","placeholder":"Votre commune","multiple":false,"required":true,"default":null,"hint":"La commune où le chien a été vu."}]'::jsonb,
+  'chienperdu'
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'chien-perdu');
+UPDATE sources SET params_schema = '[{"key":"ville","label":"Commune","type":"commune-coords","placeholder":"Votre commune","multiple":false,"required":true,"default":null,"hint":"La commune où le chien a été vu."}]'::jsonb WHERE id = 'chien-perdu';
+UPDATE sources SET description = 'Alerte si un chien disparaît près de chez vous. Vous en croisez un ? Signalez-le. C''est le vôtre ? Prévenez le quartier.' WHERE id = 'chien-perdu';
+-- Filet identique au backfill (ne JAMAIS régénérer un slug déjà posé) : couvre le
+-- cas où la ligne aurait été créée avant l'ajout de forum_slug dans l'INSERT.
+UPDATE sources SET forum_slug = 'chienperdu' WHERE id = 'chien-perdu' AND forum_slug IS NULL;
 
 -- ================================================================
 -- RÈGLE PRODUIT : SOUS-TITRE DE CARTE ≤ 38 CARACTÈRES (14/08/2026)
