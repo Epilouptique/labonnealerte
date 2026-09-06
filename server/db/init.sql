@@ -895,6 +895,10 @@ WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'premier-avril')
 -- catégories (tags) et ordre d'affichage.
 UPDATE sources SET name = 'Livraison à 0,99 €', subtitle = 'Promo Mondial Relay sur leboncoin',
        categories = ARRAY['bons-plans'], display_order = 10 WHERE id = 'leboncoin-livraison';
+-- Description courte (≤120 car.) : détection via Dealabs depuis le 06/09/2026, d'où
+-- l'attribution en fin de phrase (même forme que « via Crossref » / « via Frankfurter »).
+UPDATE sources SET description = 'Le week-end, leboncoin passe la livraison Mondial Relay à 0,99 €. On vous prévient dès que ça tombe, via Dealabs.'
+ WHERE id = 'leboncoin-livraison';
 UPDATE sources SET name = 'Vigilance météo — 05', subtitle = 'Alertes orange et rouge Météo-France',
        categories = ARRAY['vigilance-meteo'], display_order = 20 WHERE id = 'vigilance-meteo-05';
 UPDATE sources SET name = 'EcoWatt', subtitle = 'Tension du réseau électrique',

@@ -1,27 +1,28 @@
-// OBSERVATION SEULE — sonde de détection de la promo « livraison Mondial Relay 0,99 € »
-// sur leboncoin. Mode « log uniquement » : écrit dans la table promo_probe_log, n'envoie
-// AUCUNE alerte aux abonnés (la vraie source leboncoin-livraison reste neutralisée, elle
-// renvoie toujours inactive() pendant cette phase).
+// SONDE DE CONTRÔLE TEMPORAIRE — à DÉMONTER après validation de 2-3 week-ends de la
+// vraie alerte (ce module + son cron dans poller.js ; la table promo_probe_log peut
+// survivre le temps de relire l'historique).
 //
-// Deux pistes comparées à chaque passage :
-//   · 'dealabs'          : source tierce communautaire (accessible, non bloquée) — piste
-//                          principale. On lit le JSON __INITIAL_STATE__ de la recherche.
-//   · 'leboncoin-direct' : retest du scraping direct depuis l'IP Railway — sert uniquement
-//                          à mesurer dans le temps la stabilité du blocage DataDome.
+// Depuis le 06/09/2026, la détection Dealabs alimente la VRAIE alerte
+// (server/sources/leboncoin-livraison.js). Cette sonde ne sert plus à choisir une piste :
+// elle continue simplement à journaliser, toutes les 10 min du vendredi au lundi matin,
+// ce que voit le détecteur — pour vérifier a posteriori que l'alerte est partie au bon
+// moment et qu'aucun faux positif/négatif ne passe. Mode LOG UNIQUEMENT : écrit dans
+// promo_probe_log, n'envoie AUCUNE notification.
 //
-// Fenêtre STRICTE vendredi 13:58–15:00 (Europe/Paris) : hors fenêtre, runProbe() sort
-// immédiatement sans aucune requête réseau. La planification fine (cron dédié 3 min) vit
-// dans poller.js — voir le commentaire « EXCEPTION ASSUMÉE » là-bas.
+// UNE SEULE PISTE désormais : 'dealabs'. La sonde 'leboncoin-direct' a été supprimée —
+// la question du scraping direct est tranchée (DataDome intermittent), et ses 403
+// aléatoires polluaient la mesure plus qu'ils ne l'informaient. L'historique de ses
+// 42 passages reste dans promo_probe_log.
+//
+// Le parseur n'est PAS dupliqué ici : il vient de sources/lib/dealabs-promo.js, le même
+// module que la source. C'est tout l'intérêt de garder la sonde — mesurer le code réel,
+// pas une copie qui pourrait dériver de lui en silence.
+//
+// Fenêtre vendredi 08:00 → lundi 09:59 (Europe/Paris). Le cron de poller.js couvre déjà
+// cette plage ; inWindow() la re-vérifie en ceinture-bretelles (et rend { force } utile
+// pour un déclenchement manuel, cf. scripts/probe-leboncoin-force.js).
 
-const fetchFn = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
-
-const UA =
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
-
-const DEALABS_URL =
-  'https://www.dealabs.com/search?q=mondial%20relay%200%2C99%20leboncoin';
-const LBC_URL = 'https://www.leboncoin.fr/service/bons-plans';
-const LBC_MARKER = 'Livraison à 0,99';
+const { fetchDealabs, analyzeDealabs, parseDealabs, isPromoTitle } = require('./sources/lib/dealabs-promo');
 
 // ── Fenêtre horaire (Europe/Paris) ───────────────────────────────────────────
 function parisParts(date = new Date()) {
@@ -30,123 +31,33 @@ function parisParts(date = new Date()) {
   }).formatToParts(date).reduce((acc, p) => { acc[p.type] = p.value; return acc; }, {});
   return { weekday: parts.weekday, hour: parseInt(parts.hour, 10) % 24, minute: parseInt(parts.minute, 10) };
 }
-// Vendredi, entre 13:58 et 15:00 inclus (heure de Paris).
+// Vendredi 08:00 → lundi 09:59 (heure de Paris) : la plage où une promo peut démarrer
+// ou s'éteindre. Volontairement large des deux côtés — on mesure, on ne parie pas.
 function inWindow(date = new Date()) {
-  const { weekday, hour, minute } = parisParts(date);
-  if (weekday !== 'Fri') return false;
-  const mins = hour * 60 + minute;
-  return mins >= (13 * 60 + 58) && mins <= (15 * 60 + 0);
+  const { weekday, hour } = parisParts(date);
+  if (weekday === 'Sat' || weekday === 'Sun') return true;
+  if (weekday === 'Fri') return hour >= 8;
+  if (weekday === 'Mon') return hour < 10;
+  return false;
 }
 
-// ── Utilitaires ──────────────────────────────────────────────────────────────
-function normalizeSpaces(text) {
-  return String(text || '').replace(/[  \s]+/g, ' ');
-}
-async function timedFetch(url, headers, timeoutMs = 8000) {
-  const t0 = Date.now();
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const res = await fetchFn(url, { headers, signal: controller.signal });
-    const body = await res.text();
-    return { status: res.status, body, latency: Date.now() - t0 };
-  } catch (err) {
-    return { status: null, body: '', latency: Date.now() - t0, error: err.message };
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-// ── Piste Dealabs ──────────────────────────────────────────────────────────────
-// Titre pertinent = contient à la fois « mondial relay », « 0,99/0.99 » et « leboncoin ».
-function isPromoTitle(title) {
-  const t = String(title || '').toLowerCase();
-  return t.includes('mondial relay') && (t.includes('0,99') || t.includes('0.99')) && t.includes('leboncoin');
-}
-// Extrait les threads pertinents du HTML (blob JSON __INITIAL_STATE__) : pour chaque titre
-// promo, on récupère isExpired / publishedAt / status / temperature dans sa fenêtre proche.
-function parseDealabs(html) {
-  const threads = [];
-  const re = /"title":"([^"]{5,140})"/g;
-  let m;
-  while ((m = re.exec(html))) {
-    const rawTitle = m[1];
-    const title = rawTitle.replace(/\\u([0-9a-fA-F]{4})/g, (_, h) => String.fromCharCode(parseInt(h, 16)));
-    if (!isPromoTitle(title)) continue;
-    const around = html.slice(m.index, m.index + 900);
-    const exp = /"isExpired":(true|false)/.exec(around);
-    const pub = /"publishedAt":(\d{9,13})/.exec(around);
-    const st = /"status":"([^"]+)"/.exec(around);
-    const temp = /"temperature":([\d.]+)/.exec(around);
-    threads.push({
-      title,
-      isExpired: exp ? exp[1] === 'true' : null,
-      publishedAt: pub ? Number(pub[1]) : null,
-      status: st ? st[1] : null,
-      temperature: temp ? Number(temp[1]) : null,
-    });
-  }
-  return threads;
-}
+// ── Piste Dealabs (la seule) ─────────────────────────────────────────────────
+// fetchDealabs ne throw jamais : on veut journaliser l'échec (HTTP, réseau) plutôt que
+// de le perdre — c'est exactement ce qu'une sonde doit capturer.
 async function probeDealabs() {
-  const r = await timedFetch(DEALABS_URL, { 'User-Agent': UA, 'Accept-Language': 'fr-FR,fr;q=0.9' });
+  const r = await fetchDealabs();
   if (r.status !== 200) {
     return { probe: 'dealabs', detected: false, http_status: r.status, blocked: false,
       latency_ms: r.latency, detail: { error: r.error || null, note: 'HTTP != 200' } };
   }
-  const threads = parseDealabs(r.body);
-  // Un thread ACTIF (isExpired=false) = promo en cours d'après la communauté.
-  const active = threads.filter((t) => t.isExpired === false);
-  // À défaut d'un actif, on garde le plus récemment publié (info de fraîcheur).
-  const freshest = threads.slice().sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0))[0] || null;
-  const best = active[0] || freshest;
+  const a = analyzeDealabs(r.body);
   return {
     probe: 'dealabs',
-    detected: active.length > 0,
+    detected: a.active,
     http_status: 200,
     blocked: false,
     latency_ms: r.latency,
-    detail: {
-      matched_count: threads.length,
-      active_count: active.length,
-      best: best ? {
-        title: best.title, isExpired: best.isExpired, publishedAt: best.publishedAt,
-        status: best.status, temperature: best.temperature,
-      } : null,
-    },
-  };
-}
-
-// ── Piste Leboncoin direct (retest du blocage DataDome) ──────────────────────────
-function looksLikeAntiBot(text) {
-  const hay = normalizeSpaces(text).toLowerCase();
-  return hay.includes('captcha-delivery') || hay.includes('datadome') || hay.includes('geo.captcha')
-    || hay.includes('pardon our interruption') || hay.includes('vous avez été bloqué')
-    || hay.includes('verifying you are human');
-}
-async function probeLeboncoinDirect() {
-  const headers = {
-    'User-Agent': UA,
-    Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-    'Accept-Language': 'fr-FR,fr;q=0.9,en;q=0.8',
-    Referer: 'https://www.leboncoin.fr/',
-    'Upgrade-Insecure-Requests': '1',
-  };
-  const r = await timedFetch(LBC_URL, headers);
-  if (r.status == null) {
-    return { probe: 'leboncoin-direct', detected: false, http_status: null, blocked: false,
-      latency_ms: r.latency, detail: { error: r.error || 'réseau' } };
-  }
-  const blocked = r.status === 403 || looksLikeAntiBot(r.body);
-  const realPage = r.body.includes('__NEXT_DATA__');
-  const markerFound = !blocked && realPage && normalizeSpaces(r.body).includes(LBC_MARKER);
-  return {
-    probe: 'leboncoin-direct',
-    detected: markerFound,
-    http_status: r.status,
-    blocked,
-    latency_ms: r.latency,
-    detail: { realPage, markerFound, blocked },
+    detail: { matched_count: a.matched_count, active_count: a.active_count, best: a.best },
   };
 }
 
@@ -161,14 +72,14 @@ async function logProbe(pool, row) {
 }
 
 /**
- * Lance les deux sondes et journalise — OBSERVATION SEULE, aucune alerte.
+ * Lance la sonde et journalise — OBSERVATION SEULE, aucune alerte.
  * @param {object} pool  pool pg
  * @param {object} [opts] { force } bypass de la fenêtre (tests manuels uniquement)
  */
 async function runProbe(pool, opts = {}) {
   if (!opts.force && !inWindow()) return { skipped: true, reason: 'hors fenêtre' };
   const results = [];
-  for (const fn of [probeDealabs, probeLeboncoinDirect]) {
+  for (const fn of [probeDealabs]) {
     try {
       const row = await fn();
       results.push(row);

@@ -9,7 +9,7 @@ const { cleanupExpired } = require('./sessions');
 const { resolveLabel } = require('./params');
 const { buildExternalSource } = require('./external');
 const { trackDomain } = require('./doomname');
-const { runProbe } = require('./leboncoin-promo-probe'); // OBSERVATION leboncoin (cron dédié, cf. startPoller)
+const { runProbe } = require('./leboncoin-promo-probe'); // Sonde de contrôle leboncoin, TEMPORAIRE (cf. startPoller)
 const { runUserTaskNotify } = require('./user-tasks-notify'); // V3 échéances (cron quotidien, cf. startPoller)
 const { runCommunityReportsExpire } = require('./community-reports-expire'); // Cartes communautaires (cron quotidien, cf. startPoller)
 
@@ -743,18 +743,24 @@ function startPoller() {
   runCycle();
   cron.schedule(SCHEDULE, runCycle);
 
-  // ── EXCEPTION ASSUMÉE (ne PAS copier ailleurs sans réflexion) ───────────────
-  // Sonde d'OBSERVATION leboncoin-livraison : cron DÉDIÉ à cadence fine (3 min),
-  // le seul du projet en dehors du cron global de 30 min. Justification : la
-  // latence de détection est le cœur de la valeur de cette alerte (promo qui
-  // démarre le vendredi vers 14h). node-cron avec timezone Europe/Paris déclenche
-  // pendant 13h-15h le vendredi ; runProbe() re-vérifie la fenêtre exacte
-  // 13:58-15:00 (Paris) et sort sans requête réseau en dehors. MODE LOG UNIQUEMENT :
-  // écrit dans promo_probe_log, n'envoie AUCUNE alerte (cf. leboncoin-promo-probe.js).
-  cron.schedule('*/3 13-15 * * 5', () => {
+  // SONDE DE CONTRÔLE TEMPORAIRE — À DÉMONTER après validation de 2-3 week-ends de
+  // l'alerte réelle (ce bloc + server/leboncoin-promo-probe.js).
+  // leboncoin-livraison est repassée dans le cycle global ci-dessus depuis le
+  // 06/09/2026 : elle n'a plus de cron dédié. Cette sonde ne déclenche AUCUNE alerte,
+  // elle journalise seulement dans promo_probe_log ce que voit le même détecteur
+  // Dealabs que la source — de quoi vérifier après coup que l'alerte est partie au bon
+  // moment. Vendredi 8h → lundi 9h59 (Europe/Paris), cadence 10 min ; runProbe()
+  // re-vérifie la fenêtre exacte et sort sans requête réseau en dehors.
+  const probeTick = () => {
     runProbe(pool).catch((err) => console.error('[promo-probe] runProbe :', err.message));
-  }, { timezone: 'Europe/Paris' });
-  console.log('[poller] Sonde observation leboncoin-livraison : cron dédié "*/3 13-15 * * 5" (Europe/Paris), fenêtre effective vendredi 13:58-15:00.');
+  };
+  // Trois expressions et non deux : samedi et dimanche doivent couvrir la journée
+  // ENTIÈRE (0-23h). Un « 8-23 * * 5,6,0 » laisserait un trou de 8 h chaque nuit de
+  // week-end — précisément quand une promo peut s'ouvrir ou se fermer sans témoin.
+  cron.schedule('*/10 8-23 * * 5', probeTick, { timezone: 'Europe/Paris' }); // vendredi dès 8h
+  cron.schedule('*/10 * * * 6,0', probeTick, { timezone: 'Europe/Paris' });  // samedi + dimanche, 24h
+  cron.schedule('*/10 0-9 * * 1', probeTick, { timezone: 'Europe/Paris' });  // lundi jusqu'à 9h59
+  console.log('[poller] Sonde de contrôle leboncoin (temporaire) : vendredi 8h → lundi 9h59, toutes les 10 min (Europe/Paris), Dealabs seul, log uniquement.');
 
   // Relances des tâches à échéance glissante (V3) : cron QUOTIDIEN dédié.
   // Pourquoi pas dans runCycle : le cycle tourne toutes les 30 min, ce qui
