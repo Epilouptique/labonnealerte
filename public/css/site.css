@@ -772,14 +772,14 @@ html[data-theme="light"] footer { background: color-mix(in srgb, #ffffff 66%, tr
 footer a { color: var(--muted); }
 
 /* ---------- bouton « Se connecter / déconnecter » ---------- */
-.btn-login {
+.btn-login, .hero-cta {
   border: none; background: var(--amber); color: #fff;
   font-weight: 700; font-size: 13.5px; border-radius: 999px;
   padding: 8px 16px; text-decoration: none; cursor: pointer; font-family: inherit;
   transition: background .15s;
 }
 .nav-right a.btn-login { color: #fff; }
-.btn-login:hover, .nav-right a.btn-login:hover { background: color-mix(in srgb, var(--amber) 88%, #000); color: #fff; }
+.btn-login:hover, .nav-right a.btn-login:hover, .hero-cta:hover { background: color-mix(in srgb, var(--amber) 88%, #000); color: #fff; }
 
 /* ---------- menu mobile (hamburger) ---------- */
 .nav-toggle {
@@ -953,6 +953,9 @@ body.high-contrast :focus-visible { outline: 3px solid var(--amber); outline-off
   grid-column: 1 / -1; text-align: center; color: var(--muted);
   font-size: 14px; padding: 28px 0;
 }
+/* Le message porte desormais une action (« Reessayer », pilule .empty-btn du site). */
+.grid-error p { margin: 0 0 14px; }
+.grid-error[hidden] { display: none; }
 
 /* ---------- accessibilité : focus clavier visible ---------- */
 a:focus-visible,
@@ -1246,6 +1249,10 @@ body[data-mode="connected"] .grid { min-height: 0; }
 .hist-section { padding: 8px 0 44px; }
 .history-empty { color: var(--muted); background: var(--surface); border-radius: 16px; padding: 22px; font-size: 15px; }
 .grid-empty { text-align: center; padding: 44px 0; color: var(--muted); }
+/* Piege maison : une regle auteur `display:` l'emporterait sur [hidden] — les deux
+   blocs ci-dessous sont masquables par JS, on garde l'override explicite. */
+.grid-empty[hidden] { display: none; }
+.empty-btn[hidden] { display: none; }
 .grid-empty p { font-size: 16px; margin-bottom: 16px; }
 .empty-btn { border: none; background: var(--amber); color: #fff; font-weight: 700; border-radius: 999px; padding: 11px 22px; cursor: pointer; font-family: inherit; font-size: 14px; }
 .empty-btn:hover { background: color-mix(in srgb, var(--amber) 88%, #000); }
@@ -1328,6 +1335,26 @@ html[data-theme="dark"] .stats-section { background: color-mix(in srgb, var(--su
 /* Connecté : le h1 reste affiché (« Bonjour <prénom> », prénom en accent via
    .hl-name) ; seule la tagline est masquée. */
 body[data-mode="connected"] .hero p { display: none; }
+
+/* Bloc d'amorce du hero (ANONYME uniquement) : promesse concrete + bouton vers
+   /connexion. Masque par defaut et revele par [data-mode="anon"] : tant que le mode
+   n'est pas connu (body.loading), rien ne s'affiche — donc pas de flash puis
+   disparition chez un visiteur connecte, dont le hero reste strictement identique.
+   Le bouton reprend le style de .btn-login par GROUPEMENT de selecteur (pas de
+   classe ajoutee) : aucun handler du header ne peut le capter. */
+.hero-start { display: none; }
+body[data-mode="anon"] .hero-start { display: block; margin-top: 20px; }
+.hero-promise {
+  color: var(--ink); font-size: 16px; line-height: 1.5;
+  margin: 0 auto 18px; max-width: 560px;
+}
+.hero-cta {
+  display: inline-block; font-size: 15px; padding: 12px 26px;
+}
+@media (max-width: 640px) {
+  .hero-promise { font-size: 15px; }
+  .hero-cta { width: 100%; max-width: 320px; text-align: center; }
+}
 body[data-mode="connected"] .hero { padding: 0px 0 0px; }
 body[data-mode="connected"] #stats { display: none; }
 .hero h1 .hl-name { color: var(--amber); } /* prénom en accent, « Bonjour » en --ink */
@@ -2288,7 +2315,6 @@ body.m-menu-open { overflow: hidden; }
   .favoris-main .grid { grid-template-columns: repeat(auto-fill, minmax(min(230px, 100%), 1fr)); }
 }
 .coll-head { position: relative; margin-bottom: 22px; }
-.coll-head-top { display: flex; align-items: center; gap: 12px; }
 .coll-emoji { font-size: 2.2rem; line-height: 1; }
 .coll-head h1 { margin: 0; font-size: 1.7rem; letter-spacing: -.02em; }
 .coll-meta { display: flex; gap: 14px; align-items: center; color: var(--muted); font-size: .9rem; margin: 6px 0 16px; }
@@ -2993,8 +3019,6 @@ html[data-theme="dark"] .tint-11 .ds-ribbon {
 
 /* En-tete de detail : la pile pleine taille remplace la vignette .deck-thumb-lg. On la
    borne a une largeur de carte pour ne pas ecraser le titre a cote. */
-.coll-head-top { align-items: flex-start; }
-.coll-head-top .deck-card,
 .deck-detail-layout .deck-card { width: min(250px, 48vw); flex: 0 0 auto; padding: 10px;}
 
 /* Detail d'un deck (/mes-decks) : titre .page-title EN PLEINE LARGEUR, puis rangee
@@ -3008,25 +3032,30 @@ html[data-theme="dark"] .tint-11 .ds-ribbon {
   .deck-detail-layout .deck-card { width: min(230px, 60vw); }
   .deck-detail-body { width: 100%; }
 }
-/* Corps de l'en-tete (nom, description, meta, actions) empile verticalement, a DROITE
-   de la pile/vignette (.coll-emoji). */
-.coll-head-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
-.coll-head-body .page-title { text-align: left; }
+/* Le corps du detail de collection REUTILISE .deck-detail-body : on n'ajoute que
+   l'ecart vertical entre ses blocs et la pile en element flex non etirable. */
+.deck-detail-body { gap: 6px; }
+.deck-detail-layout > .coll-emoji { flex: 0 0 auto; line-height: 1; }
+.coll-head .page-title { text-align: left; margin-bottom: 12px; }
 
 /* Cartes d'apercu HORS grille (en-tete de detail, apercu du formulaire) : elles sont
    toujours etroites, mais ne recoivent pas les regles « carte etroite » de .grid (limitees
    au mobile). On leur applique donc le MEME traitement, quelle que soit la largeur d'ecran :
    etat SOUS la bande d'icones (fini le chevauchement coeur/partage/i avec « Rien a signaler »)
    et titre pleine largeur (fini la coupure en plein milieu d'un mot). */
-.coll-head-top .deck-card .card-front > .state:first-of-type,
 .deck-detail-layout .deck-card .card-front > .state:first-of-type,
 .deck-preview-wrap .deck-card .card-front > .state:first-of-type { padding-right: 0; margin-top: 30px; min-height: 0; }
-.coll-head-top .deck-card .card-front .card-top,
 .deck-detail-layout .deck-card .card-front .card-top,
 .deck-preview-wrap .deck-card .card-front .card-top { padding-right: 0; }
-.coll-head-top .deck-card .card-front .card-top h3,
 .deck-detail-layout .deck-card .card-front .card-top h3,
 .deck-preview-wrap .deck-card .card-front .card-top h3 { flex: 1 1 auto; }
+/* Meme motif pour le format « toprow » (pastille d'etat + icones sur UNE ligne) : a 250px
+   de large la pastille etait rognee (« Rien a signal... »). Hors grille, on autorise le
+   retour a la ligne : icones en haut, pastille entiere en dessous. */
+.deck-detail-layout .deck-card .card-toprow,
+.deck-preview-wrap .deck-card .card-toprow { flex-wrap: wrap; justify-content: flex-end; row-gap: 6px; }
+.deck-detail-layout .deck-card .card-toprow .state,
+.deck-preview-wrap .deck-card .card-toprow .state { order: 2; flex: 0 0 auto; }
 
 /* ---------------- Page « Le Point » ---------------- */
 .lepoint-main { max-width: 760px; padding-bottom: 60px; }
@@ -3360,18 +3389,61 @@ overflow: hidden;
    « .grid .card-* ») portant la classe de skin ; on neutralise donc sa mise en page
    de grille pour qu'elle se comporte comme une simple cellule. */
 .shop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); gap: 18px; align-content: start; }
-.shop-grid > .shop-item { display: block; padding: 0; width: 100%; }
-.shop-grid > .shop-item > .card { max-width: 300px; margin-inline: auto; }
+.shop-grid > .shop-item { padding: 0; width: 100%; }
+/* Tuile de skin de DECK : le wrapper porte .grid (pour la cascade « .grid .deck-card »),
+   on neutralise donc sa mise en page de grille. Les tuiles de skin de CARTE ont leur
+   propre mise en page (colonne apercu + CTA, plus bas) et ne sont pas concernees. */
+.shop-grid > .shop-item:not(.shop-card-item) { display: block; }
 @media (max-width: 620px) {
   .shop-grid { grid-template-columns: repeat(1, minmax(0, 1fr)); gap: 12px; }
-  .shop-grid > .shop-item > .card { max-width: none; }
 }
+
+/* ---- APERCU D'UN SKIN DE CARTE : BOITE DE DIMENSIONS FIXES + CTA SOUS LA BOITE ----
+   Correctif du 06/09. Avant : la carte etait rendue « taille reelle » directement dans
+   la cellule de grille et le CTA vivait DANS le recto (.card-action). Les 4 skins
+   structures posent .card-front en `display:grid` avec des zones nommees, dont `foot`
+   pour .switch-row : le CTA se retrouvait donc AVALE par la carte (L'Assemblee), les
+   hauteurs partaient (Le Dresseur debordait la cellule, L'Arcane laissait ~150px de
+   vide) et le titre chevauchait la rangee d'icones (L'Ecole classique).
+   Desormais : (1) la carte vit dans .shop-preview, boite de taille FIXE et IDENTIQUE
+   pour les 10 skins ; (2) le CTA est un frere de cette boite, donc hors d'atteinte de
+   toute grid-area de skin -> meme hauteur de tuile et meme emplacement de CTA partout.
+   Ratio 2/3 conserve : la boite EST au ratio 2/3, et .grid .card-front aussi. */
+.shop-item.shop-card-item { --shop-prev-w: 240px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.shop-preview {
+  position: relative; width: var(--shop-prev-w, 240px); height: calc(var(--shop-prev-w, 240px) * 3 / 2);
+  max-width: 100%; overflow: hidden; border-radius: 16px;
+}
+/* La scene est le .grid qui porte la classe de skin. En absolu top/left : c'est le seul
+   ancrage qui rende `transform: scale()` previsible (un centrage laissait la boite
+   pleine taille deborder puis se faire clipper de travers). */
+.shop-preview > .shop-stage { position: absolute; top: 0; left: 0; display: block; padding: 0; margin: 0; }
+/* TEINTES (base + fullart-*) : recolorations pures -> la carte est rendue directement A
+   LA TAILLE de la boite. Mini carte-front au ratio 2/3, radar reel anime. */
+.shop-preview.has-card > .shop-stage { width: var(--shop-prev-w); }
+/* STRUCTURES : leur CSS est calibre sur la geometrie NATURELLE de la carte (cadres,
+   sceaux, encarts en px). On rend donc a 300px puis on reduit par transform:scale
+   depuis transform-origin:top-left, dans une boite DE LA TAILLE SCALEE (240 = 300 x .8,
+   360 = 450 x .8) : rien a centrer, donc rien a deborder. */
+.shop-preview.has-card-full > .shop-stage { width: 300px; transform: scale(.8); transform-origin: top left; }
+.shop-preview .card { width: 100%; max-width: none; margin: 0; }
+/* Apercu inerte : aucun switch, coeur ou « i » n'est cliquable dans la boutique. */
+.shop-preview, .shop-preview * { pointer-events: none; }
+/* Desynchronise les radars d'une tuile a l'autre (chaque carte est seule dans sa scene :
+   les :nth-child(5n+k) du kiosque, qui visent des cartes soeurs, ne peuvent pas jouer). */
+.shop-grid > .shop-item:nth-child(5n+2) .shop-stage .card { --fa-shift: -1.1s; }
+.shop-grid > .shop-item:nth-child(5n+3) .shop-stage .card { --fa-shift: -2.3s; }
+.shop-grid > .shop-item:nth-child(5n+4) .shop-stage .card { --fa-shift: -3.4s; }
+.shop-grid > .shop-item:nth-child(5n+5) .shop-stage .card { --fa-shift: -4.5s; }
+
 /* Skin equipe : liseré ambre autour de la carte (etat, pas decoration de skin). */
-.shop-item.is-equipped > .card,
+.shop-item.is-equipped > .shop-preview,
 .shop-item.is-equipped > .deck-card { outline: 2px solid var(--amber); outline-offset: 3px; border-radius: 16px; }
 /* Le bouton d'achat/equipement prend la place du switch d'abonnement. */
 .shop-act { display: flex; }
 .shop-act .sup-btn { width: 100%; justify-content: center; }
+/* CTA toujours au meme endroit, et de la meme largeur que la boite d'apercu. */
+.shop-item.shop-card-item > .shop-act { width: var(--shop-prev-w, 240px); max-width: 100%; }
 /* Deux rayons : « Skins de cartes » / « Skins de decks ». */
 .shop-h2 { font-family: 'Baloo 2', sans-serif; font-size: 22px; margin: 26px 0 2px; }
 /* Skins de DECK : la tuile est celle du kiosque (.grid > .deck-card + LBADeckStack),
@@ -3398,7 +3470,7 @@ overflow: hidden;
    vrais visuels arrivent. Dashboard = classe sur #grid (cascade sur .card). Deck =
    classe sur la tuile kiosque et sur la vue detail. --- */
 #grid[class*="skin-"] .card,
-.shop-item[class*="skin-"] .card { box-shadow: inset 0 0 0 2px var(--skin-accent, transparent); }
+.shop-stage[class*="skin-"] .card { box-shadow: inset 0 0 0 2px var(--skin-accent, transparent); }
 /* Skin de DECK : le lisere entourait la TUILE (rectangle englobant invisible derriere
    la pile) -> quasiment pas vu. Il ceinture desormais CHACUNE des 3 cartes de la pile,
    eventail compris : c'est la seule surface reellement visible d'une tuile-deck.

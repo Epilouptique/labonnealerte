@@ -36,10 +36,12 @@
       <a class="src-back" href="/#alertes" aria-label="Revenir à ma collection" title="Ma collection">
         <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 5 5v3"/></svg>
       </a>
-      <div class="coll-head-top">
+      <h1 id="coll-name" class="page-title" data-hero-done="1"></h1>
+      <!-- Meme mise en page que le detail d'un deck (/mes-decks) : titre pleine largeur,
+           puis rangee [pile a gauche | corps a droite]. Classes REUTILISEES telles quelles. -->
+      <div class="deck-detail-layout">
         <span id="coll-emoji" class="coll-emoji" aria-hidden="true"></span>
-        <div class="coll-head-body">
-          <h1 id="coll-name" class="page-title"></h1>
+        <div class="deck-detail-body">
           <p id="coll-desc" class="src-desc"></p>
           <div class="coll-meta">
             <span id="coll-count"></span>
@@ -56,9 +58,7 @@
           <div id="coll-share-grid" class="share-face-grid coll-share-grid" hidden></div>
         </div>
       </div>
-     
-   
-    
+    </div>
 
     <div class="grid" id="coll-grid"></div>
   </section>
