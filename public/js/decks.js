@@ -1050,7 +1050,7 @@
     STATE.max_decks = d.max_decks || 15;
 
     // En-tête connecté (masque « Se connecter », affiche « Mon compte »).
-    LBASession.renderHeader(d.email || 'compte');
+    LBASession.renderHeader(d.email || null);
 
     if (loadingEl) loadingEl.hidden = true;
     if (anonEl) anonEl.hidden = true;
