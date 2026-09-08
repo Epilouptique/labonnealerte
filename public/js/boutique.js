@@ -2,8 +2,9 @@
    Liste les skins actifs, gere l'achat (points) et l'equipement du skin dashboard.
    Les skins de type 'deck' s'equipent PAR deck depuis la gestion des decks (hors
    de cette grille) : ici on permet l'achat, l'etat « Possede » suffit.
-   RENDU : chaque skin est une VRAIE carte taille reelle habillee du skin (meme
-   grille et meme largeur que le kiosque), pas une vignette dans un conteneur. */
+   RENDU : chaque skin est une VRAIE carte (LBACards.cardHTML, aucun markup duplique)
+   habillee du skin, posee dans une boite d'apercu de DIMENSIONS FIXES identiques pour
+   tous les skins, le CTA etant TOUJOURS sous la boite. */
 
 (function () {
   'use strict';
@@ -48,48 +49,39 @@
 
   function typeLabel(t) { return t === 'deck' ? 'Skin de deck' : 'Skin de carte'; }
 
-  // Motif full-art (identique a FULLART_SVG de cards.js) : cibles .fa-c1..4 / .fa-dot
-  // de l'animation « radar calme ». Reutilise pour l'apercu « vrai rendu » des teintes.
-  var FA_SVG =
-    '<span class="fullart" aria-hidden="true">' +
-    '<svg viewBox="0 0 280 420" fill="none" stroke="currentColor" stroke-linecap="round" preserveAspectRatio="xMidYMid slice">' +
-      '<g class="tc-rings">' +
-        '<circle class="fa-c1" cx="140" cy="128" r="34" stroke-width="2"/>' +
-        '<circle class="fa-c2" cx="140" cy="128" r="64" stroke-width="1.6" opacity=".6"/>' +
-        '<circle class="fa-c3" cx="140" cy="128" r="98" stroke-width="1.4" opacity=".35"/>' +
-        '<circle class="fa-c4" cx="140" cy="128" r="136" stroke-width="1.2" opacity=".2"/>' +
-      '</g>' +
-      '<circle class="tc-dot fa-dot" cx="140" cy="128" r="8" stroke="none"/>' +
-      '<path class="tc-line" d="M-10 296 L70 232 L120 268 L180 216 L236 264 L300 226" stroke-width="4"/>' +
-    '</svg></span>';
-
-  // Structure neutre complete (identique a cards.js) : chaque skin est presente comme
-  // une VRAIE carte taille reelle, la classe de skin etant posee sur le .grid qui
-  // enveloppe la carte (meme cascade CSS que le kiosque, aucune branche de rendu).
-  // Trois substitutions seulement par rapport a une carte d'alerte :
-  //   titre = nom du skin · sous-titre = type de skin · switch/parametres = bouton d'action.
-  function cardFront(sk, actionHTML) {
-    return '<div class="card-face card-front">' +
-      '<div class="card-art">' + FA_SVG + '<span class="card-veil"></span></div>' +
-      '<span class="card-edge"></span>' +
-      '<div class="card-toprow"><div class="state active"><span class="dot-live"></span> Alerte</div>' +
-        '<div class="card-icons" aria-hidden="true"><span class="like-btn card-like"><span class="like-n">1</span></span>' +
-        '<span class="share-btn card-share">&#8862;</span><span class="add-deck-btn card-add-deck">+</span>' +
-        '<span class="flip-btn">&#9432;</span></div></div>' +
-      '<div class="card-content"><div class="card-top"><h3>' + esc(sk.name) + '</h3>' +
-        '<span class="card-seal"></span><span class="card-seal"></span></div>' +
-        '<div class="card-subtitle">' + esc(typeLabel(sk.type)) + '</div>' +
-        '<div class="card-textbox"><p><span class="card-desc">Un aperçu de vos alertes, habillées par ce skin.</span>' +
-          '<span class="card-stat" aria-hidden="true">' + esc(String(sk.cost)) + '</span></p>' +
-          '<div class="card-attacks"><div class="card-atk"><span class="card-en"><span class="card-pip p1"></span>' +
-            '<span class="card-pip p2"></span><span class="card-pip p3"></span></span>' +
-            '<span class="card-atkbody"><span class="card-atkname">Signal</span>' +
-            '<span class="card-atkeff">Un aperçu de votre alerte, habillée par ce skin.</span></span>' +
-            '<span class="card-dmg">' + esc(String(sk.cost)) + '</span></div></div>' +
-          '<div class="card-action"><div class="switch-row shop-act">' + actionHTML + '</div></div></div>' +
-        '<div class="card-fineprint" aria-hidden="true">Boutique · LaBonneAlerte</div></div>' +
-    '</div>';
+  // APERCU = LA VRAIE CARTE. La boutique ne redessine plus une copie du recto : elle
+  // appelle LBACards.cardHTML sur une source de demonstration. C'est LA correction de
+  // fond du 06/09 : la copie locale avait derive (coeur sans SVG, « partage » rendu par
+  // le caractere ⊞, .card-static-desc / .card-foot / .card-edition absents), donc les
+  // skins structures — dont les grid-template-areas visent CE markup — se disloquaient.
+  // mode 'connected' + subscribed : rangee d'icones complete (coeur / partage / + deck /
+  // i) et switch d'abonnement, exactement comme au kiosque.
+  function previewSource(sk) {
+    return {
+      id: 'skin-preview-' + sk.id,
+      name: sk.name,
+      subtitle: typeLabel(sk.type),
+      description: 'Un aperçu de vos alertes, habillées par ce skin.',
+      badge: 'official',
+      categories: [],
+      state: 'active',
+      subscribed: true,
+      likes_count: sk.cost,
+    };
   }
+
+  // Deux chemins d'apercu, POUR UNE SEULE BOITE de dimensions fixes (cf. site.css) :
+  //  - .has-card       : teintes (base + fullart-*). Recolorations pures -> la carte est
+  //                      rendue directement A LA TAILLE de la boite (mini carte, ratio 2/3).
+  //  - .has-card-full  : structures. Leur CSS est calibre sur la geometrie NATURELLE de la
+  //                      carte -> rendue a 300px puis reduite par transform:scale dans une
+  //                      boite de la TAILLE SCALEE (jamais la boite pleine taille centree,
+  //                      qui debordait). Le CTA est hors de la boite : aucune grid-area
+  //                      « foot » de skin ne peut plus l'avaler.
+  var STRUCT_REFS = {
+    'skin-ecole-classique': 1, 'skin-arcane': 1, 'skin-assemblee': 1, 'skin-dresseur': 1,
+  };
+  function previewMode(ref) { return STRUCT_REFS[ref] ? 'has-card-full' : 'has-card'; }
 
   // Skin de BASE (cout 0) : possede par tout le monde, et equipe des que le compte
   // n'a aucun skin explicite. Son etat en base est `equipped_dashboard_skin_id = NULL`
@@ -124,19 +116,20 @@
     return '<a class="sup-btn primary shop-godecks" href="/mes-decks">Équiper sur un deck</a>';
   }
 
-  // Une tuile = une VRAIE carte taille reelle habillee du skin. Le wrapper porte
-  // .grid (indispensable : tout le CSS carte est scope « .grid .card-* ») + la classe
-  // de skin (asset_ref), exactement comme le kiosque pose le skin sur #grid.
-  function skinCard(sk, i) {
+  // Une tuile = une boite d'apercu de DIMENSIONS FIXES (identiques pour les 10 skins)
+  // surmontant un CTA toujours au meme endroit, SOUS la carte. Le wrapper de scene porte
+  // .grid (tout le CSS carte est scope « .grid .card-* ») + la classe de skin (asset_ref),
+  // exactement comme le kiosque pose le skin sur #grid.
+  function skinCard(sk) {
     var ref = sk.asset_ref || '';
-    var equipped = isEquipped(sk);
-    // Desynchronise les radars d'une tuile a l'autre (chaque carte est seule dans sa
-    // grille : les regles :nth-child(5n+k) du kiosque ne peuvent pas jouer ici).
-    var shift = ' style="--fa-shift:' + (-1.1 * (i % 5)).toFixed(1) + 's"';
-    return '<div class="grid shop-item ' + esc(ref) + (equipped ? ' is-equipped' : '') + '">'
-      // « card flip » comme cards.js : c'est .card.flip qui met padding:0/fond
-      // transparent — sans lui la carte heriterait des 22px de .card (cadre parasite).
-      + '<div class="card flip"' + shift + '><div class="card-inner">' + cardFront(sk, actionHTML(sk)) + '</div></div>'
+    var card = window.LBACards
+      ? LBACards.cardHTML(previewSource(sk), 'connected')
+      : '';
+    return '<div class="shop-item shop-card-item' + (isEquipped(sk) ? ' is-equipped' : '') + '">'
+      + '<div class="shop-preview ' + previewMode(ref) + '" aria-hidden="true">'
+        + '<div class="shop-stage grid ' + esc(ref) + '">' + card + '</div>'
+      + '</div>'
+      + '<div class="switch-row shop-act">' + actionHTML(sk) + '</div>'
       + '</div>';
   }
 
@@ -149,7 +142,7 @@
   function skinDeck(sk) {
     // Pas de tuile possible (LBADeckStack absent ou /api/sources KO) : on retombe sur la
     // presentation « carte » plutot que sur un trou.
-    if (!window.LBADeckStack || !STATE.previewCards.length) return skinCard(sk, 0);
+    if (!window.LBADeckStack || !STATE.previewCards.length) return skinCard(sk);
     // MEME wrapper .grid que les skins de carte : toutes les regles « .grid .deck-card … »
     // (largeur de la carte de devant, geometrie de l'eventail, ancrage du ruban) jouent
     // alors telles quelles. Aucun CSS specifique a la boutique — c'est la tuile du kiosque.
@@ -204,6 +197,9 @@
   async function buy(id) {
     var r = await post('/api/skins/buy', { skin_id: id });
     if (r.ok && r.data) {
+      // Le solde de points vit aussi dans /api/my-alerts : invalide la fenêtre de
+      // déduplication pour que la prochaine lecture reparte en réseau.
+      if (window.LBASession && LBASession.refreshAlerts) LBASession.refreshAlerts();
       STATE.balance = r.data.balance;
       setOwned(id);
       flash('Skin débloqué ✓', true);
