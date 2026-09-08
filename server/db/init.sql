@@ -3957,7 +3957,7 @@ ON CONFLICT (id) DO UPDATE SET
 -- variante 'deck' plus tard = simple ligne de seed, sans toucher au CSS. Prix alignes
 -- sur le modele existant (skins dashboard 30/60). Idempotent (meme ON CONFLICT).
 INSERT INTO skins (id, type, name, cost, asset_ref) VALUES
-  ('fullart-ocean',  'dashboard', 'Ocean',  30,  'skin-fullart-ocean'),
+  ('fullart-ocean',  'dashboard', 'Océan',  30,  'skin-fullart-ocean'),
   ('fullart-braise', 'dashboard', 'Braise', 30,  'skin-fullart-braise'),
   ('fullart-aurore', 'dashboard', 'Aurore', 40,  'skin-fullart-aurore'),
   ('fullart-or',     'dashboard', 'Or',     50,  'skin-fullart-or'),
@@ -3971,12 +3971,26 @@ ON CONFLICT (id) DO UPDATE SET
 -- 'dashboard' (rehabillent la carte du kiosque) ; plus elabores que les teintes
 -- -> prix plus eleves, coherents avec le modele (or-royal=100). Idempotent.
 INSERT INTO skins (id, type, name, cost, asset_ref) VALUES
-  ('ecole-classique', 'dashboard', 'L''ecole classique', 100, 'skin-ecole-classique'),
+  ('ecole-classique', 'dashboard', 'L''école classique', 100, 'skin-ecole-classique'),
   ('arcane',          'dashboard', 'L''Arcane',          120, 'skin-arcane'),
-  ('assemblee',       'dashboard', 'L''Assemblee',       130, 'skin-assemblee'),
+  ('assemblee',       'dashboard', 'L''Assemblée',       130, 'skin-assemblee'),
   ('dresseur',        'dashboard', 'Le Dresseur',        150, 'skin-dresseur')
 ON CONFLICT (id) DO UPDATE SET
   type = EXCLUDED.type, name = EXCLUDED.name, cost = EXCLUDED.cost, asset_ref = EXCLUDED.asset_ref;
+
+-- MIGRATION 08/09/2026 — ACCENTS des noms de skins. Trois noms avaient ete seedes sans
+-- accent (« Ocean », « L'ecole classique », « L'Assemblee ») alors que la spec du fil
+-- skins les ecrit accentues. Les INSERT inline ci-dessus sont corriges (installation
+-- neuve) ; ce bloc realigne les bases DEJA installees.
+-- Les ON CONFLICT DO UPDATE ci-dessus recrivent deja `name`, mais on ne s'appuie pas
+-- dessus : un UPDATE explicite dit ce qui est corrige et reste lisible en revue.
+-- WHERE sur la CLE PRIMAIRE `id` (jamais sur un libelle, jamais sans clause : cf.
+-- l'incident du 14/08 ou une colonne description a ete ecrasee sur toutes les sources)
+-- + garde sur l'ancienne valeur exacte -> 0 ligne touchee des que c'est deja bon,
+-- et un nom renomme a la main plus tard n'est pas ecrase. Idempotent.
+UPDATE skins SET name = 'Océan'             WHERE id = 'fullart-ocean'   AND name = 'Ocean';
+UPDATE skins SET name = 'L''école classique' WHERE id = 'ecole-classique' AND name = 'L''ecole classique';
+UPDATE skins SET name = 'L''Assemblée'       WHERE id = 'assemblee'       AND name = 'L''Assemblee';
 
 -- ================================================================
 -- DESCRIPTIONS : courte (<=120, affichee sur la carte) + longue (<=300, popup « i » +
