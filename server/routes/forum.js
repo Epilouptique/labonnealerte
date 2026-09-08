@@ -1021,3 +1021,5 @@ router.post('/forum/admin/topic/:id/lock',   setTopicFlag('locked', true));
 router.post('/forum/admin/topic/:id/unlock', setTopicFlag('locked', false));
 
 module.exports = router;
+// Liste des categories exposee pour le sitemap (source unique de verite).
+module.exports.CATEGORIES = CATEGORIES;

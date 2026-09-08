@@ -19,6 +19,7 @@ const { apiRouter: lePointApiRouter } = require('./routes/le-point');
 const { pagesRouter: userTasksPagesRouter, apiRouter: userTasksApiRouter } = require('./routes/user-tasks');
 const forumRouter = require('./routes/forum');
 const communityReportsRouter = require('./routes/community-reports');
+const sitemapRouter = require('./routes/sitemap');
 const { cleanupExpired } = require('./sessions');
 const { startPoller } = require('./poller');
 
@@ -128,6 +129,9 @@ app.get('/sw.js', (req, res) => {
   res.set('Cache-Control', 'no-cache');
   res.sendFile(path.join(publicDir, 'sw.js'));
 });
+
+// Sitemap XML genere a la volee (avant le static : aucun fichier a servir).
+app.use('/', sitemapRouter);
 
 app.use(express.static('public'));
 
