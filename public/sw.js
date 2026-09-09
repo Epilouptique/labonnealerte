@@ -7,7 +7,7 @@
 //
 // Versionnage : bump CACHE_VERSION pour invalider tous les caches au déploiement.
 
-const CACHE_VERSION = 'v10';
+const CACHE_VERSION = 'v11';
 const STATIC_CACHE = `lba-static-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `lba-runtime-${CACHE_VERSION}`;
 const OFFLINE_URL = '/offline.html';
@@ -83,7 +83,14 @@ async function staleWhileRevalidate(request) {
       return res;
     })
     .catch(() => null);
-  return cached || network || fetch(request);
+  // Le troisieme terme d'un `cached || network || fetch(request)` etait INATTEIGNABLE :
+  // network est une promesse, donc toujours truthy, meme quand elle resoudra a null.
+  // Le repli reseau n'a donc jamais servi, et le code mentait sur son intention.
+  if (cached) return cached;
+  const res = await network;
+  // network resout a null si la requete a echoue (voir le .catch ci-dessus). Rien a
+  // servir dans ce cas : l'asset n'est ni en cache ni joignable.
+  return res || Response.error();
 }
 
 // Network-first : le réseau gagne ; en cas d'échec, cache (HTML) puis hors-ligne.
