@@ -131,10 +131,26 @@ app.get('/manifest.webmanifest', (req, res) => {
 });
 app.get('/sw.js', (req, res) => {
   res.type('application/javascript');
-  // Autorise un scope racine et force la revalidation (mises à jour du SW).
   res.set('Service-Worker-Allowed', '/');
-  res.set('Cache-Control', 'no-cache');
-  res.sendFile(path.join(publicDir, 'sw.js'));
+  // CACHE DU SERVICE WORKER — mesure du 10/09/2026, cause racine d'un bug reel :
+  // un navigateur executait encore l'ANCIEN session.js apres le deploiement du lot C.
+  // /sw.js etait servi au navigateur avec Cache-Control: max-age=14400 (QUATRE HEURES),
+  // donc un bump de CACHE_VERSION n'etait meme pas DETECTE pendant 4 h.
+  //
+  // ATTENTION, l'origine n'etait PAS la coupable : elle envoyait deja 'no-cache'
+  // (verifie en local sur ce meme code). C'est CLOUDFLARE qui reecrivait l'en-tete, via
+  // son reglage Browser Cache TTL = 4 h, applique a tout ce qu'il met en cache
+  // (cf-cache-status: REVALIDATED). Les assets /js/*, /css/* subissent la meme reecriture.
+  //
+  // Le seul levier cote origine est de rendre la reponse NON CACHEABLE pour Cloudflare :
+  // 'no-store' l'empeche de la mettre en cache, donc de lui appliquer son TTL, et les
+  // en-tetes d'origine repassent tels quels. 'no-cache' seul ne suffisait pas : une
+  // reponse no-cache reste cacheable-avec-revalidation pour Cloudflare.
+  // Un service worker est fait pour etre re-telecharge a chaque controle de mise a jour :
+  // no-store n'a aucun cout ici.
+  // cacheControl: false -> on garde la main, sendFile ne repose pas son propre en-tete.
+  res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.sendFile(path.join(publicDir, 'sw.js'), { cacheControl: false });
 });
 
 // Sitemap XML genere a la volee (avant le static : aucun fichier a servir).
