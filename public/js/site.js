@@ -2095,8 +2095,8 @@
       var msg = el.querySelector('#search-empty-msg');
       var btn = el.querySelector('#search-empty-btn');
       if (q) {
-        if (msg) msg.textContent = 'Aucune alerte ne correspond a « ' + q + ' »'
-          + (cat !== 'all' ? ' dans cette categorie.' : '.');
+        if (msg) msg.textContent = 'Aucune alerte ne correspond à « ' + q + ' »'
+          + (cat !== 'all' ? ' dans cette catégorie.' : '.');
         if (btn) btn.hidden = false;
       } else {
         if (msg) msg.textContent = 'Aucune alerte dans « ' + catLabel(cat) + ' » pour l\'instant.';
@@ -2109,7 +2109,7 @@
   // Libelle affichable d'un filtre : les modes speciaux ne sont pas des categories
   // (LBACat.label ne les connait pas).
   function catLabel(slug) {
-    if (slug === 'nouveautes') return 'Nouveautes';
+    if (slug === 'nouveautes') return 'Nouveautés';
     if (slug === 'selection') return 'Populaires';
     return LBACat.label(slug);
   }

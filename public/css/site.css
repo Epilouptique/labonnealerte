@@ -285,6 +285,18 @@ h1 .hl { color: var(--amber); }
    (pas seulement au focus) pour qu'il reste bien délimité. */
 html[data-theme="dark"] .search { border: 1px solid color-mix(in srgb, var(--muted) 40%, transparent); }
 .search input { flex: 1 1 auto; border: none; background: transparent; font: inherit; font-size: 14.5px; color: var(--ink); width: 100%; min-width: 0; outline: none; }
+/* #q est un input[type=search] : Chromium y dessine SA PROPRE croix d'effacement
+   (::-webkit-search-cancel-button) EN PLUS de notre .search-clear -> deux « x » cote a
+   cote, l'un natif l'autre maison. On neutralise le natif ; .search-clear reste la seule
+   croix, avec son handler, son focus clavier et le rejeu du filtre.
+   Piege de reproduction : le bouton natif n'apparait QU'APRES UNE VRAIE FRAPPE CLAVIER —
+   remplir #q par script (value = ... + dispatchEvent) ne le fait pas apparaitre, on croit
+   alors le defaut absent. Se tester en tapant reellement.
+   ::-webkit-search-decoration est neutralise avec lui (meme famille, memes surprises). */
+.search input::-webkit-search-cancel-button,
+.search input::-webkit-search-decoration {
+  -webkit-appearance: none; appearance: none; display: none;
+}
 /* Loupe à gauche (défaut / mobile) ; bouton de recherche à droite masqué (desktop). */
 .search-ic { flex: none; opacity: .5; }
 .search-go { display: none; }
@@ -2886,7 +2898,35 @@ html[data-theme="dark"] .tint-11 .deck-motif-bg::after { background: color-mix(i
    plafonnees a 80 % de la face (regle ci-dessous), l'excursion laterale maximale vaut
    0,8 x 0,5635 + --ds-fan = 45,1 % + 4,5 % = 49,6 % < 50 % : l'eventail tient DANS la
    tuile dans tous les contextes, sans dependre d'un overflow:hidden. */
-.deck-stack { --ds-fan: 4.5%; /* --ds-front supprime : la taille vient de max-width, plus du scale */ }
+.deck-stack {
+  --ds-fan: 4.5%; /* --ds-front supprime : la taille vient de max-width, plus du scale */
+  /* Bande du ruban, en pourcentage de la hauteur de pile, mesuree depuis le BAS. Declaree
+     ICI (et non sur .ds-ribbon) parce que deux regles la lisent : le ruban s'y place, et le
+     bloc de texte des cartes s'y plafonne. Les skins structures la redefinissent plus bas,
+     sur .deck-stack egalement, pour que le plafond suive automatiquement. */
+  --ds-ribbon-bottom: 56%;
+  /* Degagement minimal garanti entre le bord bas du ruban et le haut du bloc de texte. */
+  --ds-ribbon-gap: 10px;
+}
+/* INVARIANT PAR CONSTRUCTION : « le ruban ne recouvre jamais le titre ni le sous-titre ».
+   .card-content est ancre EN BAS (margin-top:auto) et grandit vers le HAUT, donc il finit
+   par entrer sous le ruban des que la carte est riche (cf. l'incident « Indice UV » decrit
+   sur .ds-ribbon). On lui interdit purement et simplement la bande du ruban : sa hauteur
+   est plafonnee a --ds-ribbon-bottom moins le degagement. Le titre ne PEUT donc plus y
+   passer, quels que soient le contenu de la carte, la taille de la pile et le skin.
+   C'est un NO-OP tant que le contenu tient dans la bande (verifie : les 5 packs qui
+   passaient deja sont inchanges au pixel) — il ne se declenche que sur le cas limite.
+   Ce qui cede alors est la DESCRIPTION, seul element concu pour se couper (elle a deja
+   min-height:0 + overflow:hidden plus haut) : le titre, le sous-titre et la ligne
+   d'abonnement restent entiers. D'ou le flex : sans lui, le plafond rognerait le BAS du
+   bloc, c'est-a-dire la ligne d'abonnement, au lieu de la description.
+   Aucune incidence sur la hauteur de la carte : l'aspect-ratio 2/3 est intact. */
+.deck-stack .ds-face .card-content {
+  display: flex; flex-direction: column;
+  max-height: calc(var(--ds-ribbon-bottom) - var(--ds-ribbon-gap));
+  overflow: hidden;
+}
+.deck-stack .ds-face .card-content .card-static-desc { flex: 0 1 auto; min-height: 0; overflow: hidden; }
 .ds-i0 { position: relative; z-index: 3; /* Plus de tansformation transform: scale(var(--ds-front));*/ }
 /* Parite avec .grid > .card : la carte de devant fait la MEME TAILLE REELLE (300px), a
    taille native (contenu non reduit). Le scale(--ds-front) a ete retire : on plafonne donc
@@ -2974,16 +3014,29 @@ html[data-theme="dark"] .tint-11 .deck-motif-bg::after { background: color-mix(i
      donc il retombait pile sur le bloc de titre de la carte d'apercu, qui est ancre EN BAS
      (.card-content { margin-top:auto }) et remonte d'autant que son contenu est riche
      (titre sur 2 lignes, chips de parametres...). Le titre/sous-titre etaient masques.
-     On ancre desormais le ruban par son BORD BAS, a --ds-ribbon-bottom du bas de la pile :
-     - la valeur est un POURCENTAGE de la hauteur de la pile : le bloc de texte occupe une
-       fraction a peu pres stable de la carte (une carte plus etroite est plus courte, mais
-       son texte se replie sur davantage de lignes) — c'est ce qui tient a la fois sur les
-       tuiles de grille et sur les piles plus petites des en-tetes de detail ;
-     - le ruban grandit alors vers le HAUT (nom long, 3 categories), c'est-a-dire vers la
-       fenetre d'art, jamais vers le titre.
-     REGLE : le ruban ne recouvre JAMAIS .card-top (titre) ni .card-subtitle. Chaque skin
-     structure a sa propre geometrie -> sa propre valeur, juste en dessous. */
-  --ds-ribbon-bottom: 56%;
+     On ancre le ruban par son BORD BAS, a --ds-ribbon-bottom du bas de la pile ; il grandit
+     alors vers le HAUT (nom long, 3 categories), c'est-a-dire vers la fenetre d'art.
+     La variable est declaree sur .deck-stack (et non ici) pour que les DEUX cotes de la
+     regle la lisent : le ruban qui se place, et le bloc de texte qui se plafonne.
+
+     REGLE : le ruban ne recouvre JAMAIS .card-top (titre) ni .card-subtitle.
+
+     CE QUE CETTE REGLE VALAIT AU LOT 4, ET POURQUOI ELLE ETAIT FAUSSE (verifie au
+     navigateur le 09/09/2026) : elle reposait sur l'idee que le bloc de texte occupe une
+     fraction a peu pres stable de la carte, donc qu'un pourcentage suffisait. Faux. Le
+     pourcentage mesure la hauteur de PILE, qui ne sait rien de la hauteur reelle du
+     contenu. Contexte qui l'a mise en defaut : la PILE REDUITE DE L'EN-TETE DE DETAIL
+     (/collection/<pack>), plus etroite que les tuiles de grille — le sous-titre
+     « LE DEPARTEMENT DE VOTRE CHOIX » de la carte « Indice UV » y passe sur DEUX lignes au
+     lieu d'une, le bloc monte a 58,6 % de la carte pour un ruban ancre a 56 %, et le titre
+     etait coupe en deux sur 9 px (packs ciel et montagne, clair et sombre, 1440 et 390 px).
+     N'importe quelle future carte au sous-titre aussi long aurait refait le meme defaut,
+     sur n'importe quel pack : le lot 4 n'avait valide que les tuiles de grille.
+
+     LA REGLE EST DESORMAIS VRAIE PAR CONSTRUCTION, pas par reglage : le bloc de texte est
+     PLAFONNE a la bande libre sous le ruban (voir .deck-stack .ds-face .card-content plus
+     bas). Ne pas « ajuster » les pourcentages ci-dessous pour rattraper un chevauchement :
+     s'il y en a un, c'est le plafond qui n'est pas applique. */
   position: absolute; left: 8px; right: 8px; top: auto; bottom: var(--ds-ribbon-bottom); z-index: 4;
   text-align: center; line-height: 1.25; color: var(--ink);
   padding: calc(3 * var(--r)) 14px 9px;
@@ -3020,11 +3073,13 @@ html[data-theme="dark"] .tint-11 .deck-motif-bg::after { background: color-mix(i
    L'Assemblee / Le Dresseur : dans la fenetre d'art, au-dessus de la ligne de type (leur
    plaque de nom est tout en haut, le ruban passe donc entre les deux).
    Valeurs verifiees au navigateur (aucun recouvrement, marge >= 14px) sur les tuiles de
-   grille en 1440 et 390, themes clair et sombre. */
-.skin-ecole-classique .ds-ribbon { --ds-ribbon-bottom: 24%; }
-.skin-arcane .ds-ribbon { --ds-ribbon-bottom: 66%; }
-.skin-assemblee .ds-ribbon { --ds-ribbon-bottom: 56%; }
-.skin-dresseur .ds-ribbon { --ds-ribbon-bottom: 56%; }
+   grille en 1440 et 390, themes clair et sombre.
+   Redeclarees sur .deck-stack et non sur .ds-ribbon : c'est ce qui permet au plafond de
+   .card-content (cf. plus haut) de suivre automatiquement la bande de chaque skin. */
+.skin-ecole-classique .deck-stack { --ds-ribbon-bottom: 24%; }
+.skin-arcane .deck-stack { --ds-ribbon-bottom: 66%; }
+.skin-assemblee .deck-stack { --ds-ribbon-bottom: 56%; }
+.skin-dresseur .deck-stack { --ds-ribbon-bottom: 56%; }
 .ds-cat-tag {
   font-size: 10px; font-weight: 600; color: var(--amber); line-height: 1.3;
   background: var(--amber-soft); border-radius: 999px; padding: 3px 9px; border: none;
