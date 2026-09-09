@@ -89,7 +89,7 @@ router.get('/sitemap.xml', async (req, res) => {
     res.send(xml);
   } catch (err) {
     console.error('[sitemap] Erreur /sitemap.xml :', err.message);
-    res.status(503).type('text/plain').send('Service momentanement indisponible.');
+    res.status(503).type('text/plain').send('Service momentanément indisponible.');
   }
 });
 
