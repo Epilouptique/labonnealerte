@@ -612,7 +612,10 @@ router.get('/forum/t/:slug', async (req, res) => {
        </article>
        <div class="forum-posts">${posts}</div>
        <section class="forum-reply">${replyZone}</section>`,
-      { url: SITE_URL + '/forum/t/' + encodeURIComponent(topic.slug),
+      // slug = req.params.slug : le sujet est trouve par egalite EXACTE sur ft.slug,
+      // c'est donc deja la valeur canonique. Ne pas utiliser topic.slug : le SELECT
+      // ci-dessus ne ramene pas ft.slug (canonical rendu en /forum/t/undefined).
+      { url: SITE_URL + '/forum/t/' + encodeURIComponent(slug),
         ogTitle: topic.title,
         desc: 'Un sujet du forum La Bonne Alerte, dans la categorie ' + catLabel + '.',
         breadcrumb: breadcrumb([
