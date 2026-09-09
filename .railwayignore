@@ -1,17 +1,18 @@
-# Contexte de build Docker.
+# Contexte d'ENVOI de `railway up`.
 #
-# POURQUOI CE FICHIER EXISTE. Le Dockerfile fait `COPY . .` et il n'y avait
-# AUCUN .dockerignore : tout ce qui trainait dans le dossier partait dans
-# l'image a chaque deploiement, suivi par git ou non. Le .gitignore n'y change
-# rien, Docker ne le lit pas. Pesaient notamment pour rien : les dossiers de
-# captures (~69 Mo), reference/ (~28 Mo) et rapports/ (~1,2 Mo).
+# POURQUOI CE FICHIER EN PLUS DU .dockerignore. Le .dockerignore n'agit qu'au
+# BUILD, cote Railway. Or `railway up` commence par ENVOYER le dossier sur le
+# reseau, et cet envoi ne lit pas le .dockerignore. Sans ce fichier-ci, les
+# ~30 Mo de reference/ et rapports/ traversaient le reseau a chaque deploiement
+# avant d'etre ecartes au build. Meme syntaxe que .gitignore (doc Railway).
 #
-# CE QUI RESTE INDISPENSABLE A L'EXECUTION, ne jamais l'exclure :
-#   server/ (dont server/sources/), public/, package*.json.
-# Les taches planifiees sont des fonctions node-cron appelees DANS le processus
-# (server/poller.js) : aucun script externe n'est lance a l'execution. Verifie
-# par grep, aucun child_process/spawn/exec dans server/, et aucun require()
-# vers scripts/, robots/, docs/, reference/ ou rapports/.
+# CE QUE LE CLI ECARTE DEJA TOUT SEUL, inutile de le repeter ici : le
+# .gitignore est respecte par defaut, ainsi que .git et node_modules. C'est
+# aussi la raison pour laquelle .env n'a JAMAIS ete envoye : il est gitignore
+# depuis toujours. On le laisse malgre tout ci-dessous, par ceinture et
+# bretelles - un `railway up --no-gitignore` desactiverait cette protection.
+#
+# Garder en tete que ce fichier et le .dockerignore doivent evoluer ENSEMBLE.
 
 # --- Secrets -----------------------------------------------------------------
 # .env n'a rien a faire dans une image : Railway injecte ses variables par
