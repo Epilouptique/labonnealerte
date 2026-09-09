@@ -187,8 +187,12 @@ const Q_SCHEMA = `
 const Q_PP_VITALITY = `
   SELECT s.id, s.name, s.type,
          ss.state, ss.checked_at,
-         CASE WHEN ss.ref IS NULL THEN NULL
-              ELSE jsonb_array_length(ss.ref) END           AS ref_panneau_count,
+         -- jsonb_array_length LEVE si ss.ref n'est pas un tableau. Or la colonne
+         -- ref est un champ libre : selon la source elle porte un objet, un
+         -- scalaire ou un tableau. Une seule ligne non-tableau suffisait donc a
+         -- faire echouer TOUTE la requete. On teste le type au lieu de supposer.
+         CASE WHEN jsonb_typeof(ss.ref) = 'array' THEN jsonb_array_length(ss.ref)
+              ELSE NULL END                                 AS ref_panneau_count,
          (SELECT MAX(e.created_at) FROM source_events e
            WHERE e.source_id = s.id AND e.event = 'activated') AS last_activated_at
     FROM sources s
@@ -310,6 +314,10 @@ async function main() {
     const pp = await pool.query(Q_PP_VITALITY);
     out.panneaupocket_vitality = pp.rows;
   } catch (e) {
+    // NE PAS degrader en silence. Sans ce journal, le robot annoncait « aucune
+    // donnee de vitalite » — indiscernable d'un jeu vide legitime — alors que la
+    // requete etait cassee. Le rapport a menti pendant des semaines.
+    console.error('[veille] panneaupocket_vitality indisponible :', e.message);
     out.panneaupocket_vitality = [];
   }
 
