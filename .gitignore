@@ -10,3 +10,25 @@ captures-decks-review/
 # Captures du chantier « format carte a jouer » (locales, non versionnées)
 captures-cards-format/
 captures-decks-ribbon/
+
+# --- Hygiene du depot (lot du 09/09) ---------------------------------------
+# Objectif : que `git status` puisse etre VIDE, sans quoi le garde-fou de
+# deploiement (Deploy-LBA) ne peut pas exister. Rappel de la raison d'etre du
+# garde-fou : `railway up` expedie le DOSSIER, pas HEAD, donc un arbre sale
+# envoie du travail en cours en production.
+
+# Sorties temporaires des robots de veille.
+tmp-*.json
+# Meme cause, nom mange par une redirection PowerShell ratee (90 ko).
+C*DevLabonnealertetmp-veille.json
+
+# Journaux d'execution des robots : bruit, regenere a chaque passage.
+# Ceux d'avant mi-aout restent SUIVIS (un .gitignore ne desuit rien) ; c'est
+# volontaire, on ne reecrit pas l'historique pour si peu.
+rapports/**/run-*.log
+
+# PNG de travail a la racine. Les references existantes ont ete deplacees dans
+# reference/captures/ et restent versionnees : cette regle ne vaut donc que pour
+# les FUTURS brouillons, pour qu'ils ne s'accumulent plus ici.
+/*.png
+
