@@ -48,6 +48,7 @@
         body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error('http ' + res.status);
+      LBASession.refreshAlerts(); // heures calmes modifiées : invalide la fenêtre de déduplication
       var d = await res.json();
       state.disabled = d.quiet_disabled === true;
       state.start = d.quiet_start;
@@ -104,9 +105,10 @@
 
   (async function initQuiet() {
     try {
-      var me = await fetch('/api/my-alerts?token=' + encodeURIComponent(token), {
-        headers: { Accept: 'application/json' },
-      }).then(function (r) { return r.status === 401 ? null : r.json(); });
+      // Via LBASession.fetchAlerts (déduplication des appels concurrents, cf. session.js).
+      var me = await LBASession.fetchAlerts(token).then(function (r) {
+        return r.status === 401 ? null : r.data;
+      });
       if (me === null) return;
       if (typeof me.quiet_start === 'number') state.start = me.quiet_start;
       if (typeof me.quiet_end === 'number') state.end = me.quiet_end;

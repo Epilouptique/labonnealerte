@@ -208,6 +208,7 @@
     if (btn) btn.disabled = true;
     try {
       var res = await apiSend('POST', '/api/my-alerts/display-name', { display_name: name });
+      LBASession.refreshAlerts(); // pseudo modifié : invalide la fenêtre de déduplication
       var d = await readJson(res);
       if (res.ok && d && d.display_name) {
         STATE.display_name = d.display_name;
@@ -837,7 +838,7 @@
     try {
       var results = await Promise.all([
         fetch('/api/sources', { headers: { Accept: 'application/json' } }).then(function (r) { return r.ok ? r.json() : []; }),
-        apiGet('/api/my-alerts').then(function (r) { return r.status === 401 ? null : r.json(); })
+        LBASession.fetchAlerts(TOKEN).then(function (r) { return r.status === 401 ? null : r.data; })
       ]);
       CATALOG = Array.isArray(results[0]) ? results[0] : [];
       var me = results[1];

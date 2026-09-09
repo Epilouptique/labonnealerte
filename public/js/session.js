@@ -15,14 +15,48 @@
   // Récupère les alertes de l'utilisateur pour un token donné.
   // Persiste automatiquement le token de session renvoyé (rotation : échange d'un
   // magic token, ou simple confirmation). -> { status, ok, data }
-  async function fetchAlerts(token) {
-    var res = await fetch(API + '?token=' + encodeURIComponent(token), {
-      headers: { Accept: 'application/json' }
-    });
-    var data = null;
-    try { data = await res.json(); } catch (e) {}
-    if (res.ok && data && data.token && data.token !== get()) set(data.token);
-    return { status: res.status, ok: res.ok, data: data };
+  //
+  // DÉDUPLICATION D'APPELS CONCURRENTS (perf chargement home) : au chargement, quatre
+  // modules indépendants (site.js, push.js, quiet.js, profile.js) demandaient la même
+  // charge en parallèle ; les quatre requêtes se sérialisaient côté serveur (jusqu'à
+  // 6 s pour la dernière). Tant qu'un appel est EN VOL pour le même token, on renvoie
+  // LA MÊME promesse — donc un seul aller-retour, et la rotation de jeton ci-dessous
+  // ne s'exécute qu'une fois par appel réel, pas une fois par appelant.
+  //
+  // CE N'EST PAS UN CACHE : `inflight` retombe à null dès la résolution (succès comme
+  // échec), si bien que tout appel postérieur à la fenêtre en vol refait un vrai
+  // aller-retour. Un toggle d'abonnement, une mise en pause ou un achat de skin
+  // relisent donc bien des données fraîches. Pour forcer explicitement un nouvel appel
+  // depuis une mutation, cf. refreshAlerts() ci-dessous.
+  var inflight = null;      // promesse en vol, ou null
+  var inflightToken = null; // token associé à cette promesse
+
+  function fetchAlerts(token) {
+    if (inflight && inflightToken === token) return inflight;
+    inflightToken = token;
+    inflight = (async function () {
+      var res = await fetch(API + '?token=' + encodeURIComponent(token), {
+        headers: { Accept: 'application/json' }
+      });
+      var data = null;
+      try { data = await res.json(); } catch (e) {}
+      if (res.ok && data && data.token && data.token !== get()) set(data.token);
+      return { status: res.status, ok: res.ok, data: data };
+    })();
+    // Libération dans les DEUX issues : la fenêtre de déduplication se referme à la
+    // résolution. `finally` ne consomme pas le rejet — l'appelant reçoit bien l'erreur.
+    var release = function () { inflight = null; inflightToken = null; };
+    inflight.then(release, release);
+    return inflight;
+  }
+
+  // Invalidation explicite : abandonne la fenêtre de déduplication en cours pour que
+  // le PROCHAIN fetchAlerts() reparte forcément en réseau. À appeler après une
+  // mutation (toggle, pause, achat) dont on veut relire l'effet immédiatement, y
+  // compris si un appel initié avant la mutation est encore en vol.
+  function refreshAlerts() {
+    inflight = null;
+    inflightToken = null;
   }
 
   // Tronque un email long pour l'affichage discret dans le header.
@@ -191,6 +225,7 @@
     KEY: KEY,
     get: get, set: set, clear: clear,
     fetchAlerts: fetchAlerts,
+    refreshAlerts: refreshAlerts,
     truncateEmail: truncateEmail,
     firstName: firstName,
     renderHeader: renderHeader,

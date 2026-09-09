@@ -85,6 +85,7 @@
         if (msg) { msg.textContent = d.error || 'Échec'; msg.classList.add('err'); }
         return;
       }
+      LBASession.refreshAlerts(); // pseudo modifié : invalide la fenêtre de déduplication
       state.displayName = d.display_name || null;
       // Pseudo unifié : rafraîchit « Bonjour <prénom> » + l'avatar sans recharger.
       if (window.LBAAccount && window.LBAAccount.refreshName) window.LBAAccount.refreshName(state.displayName);
@@ -113,6 +114,7 @@
         body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error('http ' + res.status);
+      LBASession.refreshAlerts(); // profil modifié : invalide la fenêtre de déduplication
       var d = await res.json();
       // La France reste le défaut d'affichage si rien n'est renseigné.
       state.country = d.country || 'FR';
@@ -414,7 +416,7 @@
       if (window.LBACat && LBACat.load) await LBACat.load();
       var results = await Promise.all([
         fetch('/api/geo', { headers: { Accept: 'application/json' } }).then(function (r) { return r.ok ? r.json() : { countries: [], departements: [], regions: [] }; }),
-        fetch('/api/my-alerts?token=' + encodeURIComponent(token), { headers: { Accept: 'application/json' } }).then(function (r) { return r.status === 401 ? null : r.json(); }),
+        LBASession.fetchAlerts(token).then(function (r) { return r.status === 401 ? null : r.data; }),
         fetch('/api/sources', { headers: { Accept: 'application/json' } }).then(function (r) { return r.ok ? r.json() : []; }),
       ]);
       var g = results[0], me = results[1], srcs = results[2];

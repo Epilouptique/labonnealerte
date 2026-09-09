@@ -152,6 +152,7 @@
     try {
       var res = await api('/api/my-alerts/preferences', { token: token, email_enabled: next });
       if (!res.ok) throw new Error('HTTP ' + res.status);
+      LBASession.refreshAlerts(); // préférence email modifiée : invalide la fenêtre de déduplication
     } catch (err) {
       state.emailEnabled = !next; // rollback visuel
       renderEmail();
@@ -162,11 +163,12 @@
   // ---- Chargement initial de l'état ----
   (async function init() {
     try {
-      var alertsRes = await fetch('/api/my-alerts?token=' + encodeURIComponent(token), {
-        headers: { Accept: 'application/json' },
-      });
+      // Passe par LBASession.fetchAlerts : au chargement de la home, quatre modules
+      // demandent cette même charge en parallèle — la déduplication d'appels en vol
+      // (session.js) les ramène à un seul aller-retour.
+      var alertsRes = await LBASession.fetchAlerts(token);
       if (alertsRes.status === 401) return; // session invalide : on n'affiche rien
-      var data = await alertsRes.json();
+      var data = alertsRes.data || {};
       state.emailEnabled = data.email_enabled !== false;
 
       if (pushSupported) {
