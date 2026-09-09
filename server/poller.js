@@ -629,7 +629,39 @@ async function flushDeferredNotifications() {
   }
 }
 
+// VERROU D'EXECUTION. Le cycle parcourt ~273 sources EN SERIE, chacune avec un
+// timeout de 10 s : rien ne garantit qu'il tienne dans les 30 min qui separent
+// deux declenchements de cron. Sans verrou, un second cycle demarrait par-dessus
+// le premier, avec en ligne de mire des notifications en double et des
+// transitions d'etat en course (deux cycles lisant le meme etat avant que l'un
+// des deux ne l'ecrive).
+//
+// Aucun chevauchement n'a ete retrouve dans l'historique : c'est de l'assurance,
+// pas la correction d'un incident. La duree du cycle est desormais journalisee,
+// faute de quoi on ne saurait toujours pas de quelle marge on dispose.
+//
+// runCycle enveloppe runCycleInner plutot que de poser le drapeau a l'interieur :
+// le corps a plusieurs `return` anticipes (DB indisponible, aucune source active)
+// et un `finally` place ici les couvre tous, y compris une exception imprevue.
+let cycleRunning = false;
+
 async function runCycle() {
+  if (cycleRunning) {
+    console.warn('[poller] Cycle precedent encore en cours - declenchement ignore.');
+    return;
+  }
+  cycleRunning = true;
+  const startedAt = Date.now();
+  try {
+    await runCycleInner();
+  } finally {
+    cycleRunning = false;
+    const secs = ((Date.now() - startedAt) / 1000).toFixed(1);
+    console.log(`[poller] Fin de cycle en ${secs} s`);
+  }
+}
+
+async function runCycleInner() {
   console.log(`\n[poller] ── Cycle ${new Date().toISOString()} ──`);
 
   // Purge des sessions expirées au plus une fois par jour.
