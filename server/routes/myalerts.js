@@ -194,7 +194,12 @@ apiRouter.get('/my-alerts', async (req, res) => {
     const auth = await authenticate(req.query.token);
     if (!auth) return res.status(401).json({ error: 'Lien invalide ou expiré' });
 
-    const { rows } = await pool.query(
+    // LES CINQ LECTURES CI-DESSOUS SONT INDEPENDANTES : chacune ne depend que de
+    // auth.id, aucune ne consomme le resultat d'une autre. Enchainees, elles coutaient
+    // cinq allers-retours serie a ~145 ms. On les emet ensemble et on attend une fois.
+    // L'assemblage plus bas garde son ordre d'origine, lui, il en depend.
+    // Prerequis: max: 10 pose explicitement dans db.js (5 requetes = 5 connexions).
+    const pRows = pool.query(
       `SELECT s.id, s.name, s.description, s.description_long, s.badge,
               COALESCE(st.state, 'inactive') AS state,
               (sub.subscriber_id IS NOT NULL) AS subscribed,
@@ -211,7 +216,7 @@ apiRouter.get('/my-alerts', async (req, res) => {
     // Instances paramétrées (OpenAlert v2) : une entrée par combinaison souscrite,
     // avec libellé résolu et état de source_param_states. On enrichit la carte
     // correspondante (subscribed = a des instances ; state = le pire des instances).
-    const paramSubs = await pool.query(
+    const pParamSubs = pool.query(
       `SELECT sub.source_id, sub.params, sub.muted, s.params_schema,
               COALESCE(sps.state, 'inactive') AS state
          FROM subscriptions sub
@@ -221,23 +226,10 @@ apiRouter.get('/my-alerts', async (req, res) => {
         WHERE sub.subscriber_id = $1 AND sub.params IS NOT NULL AND s.enabled = true`,
       [auth.id]
     );
-    const byId = {};
-    rows.forEach((r) => { byId[r.id] = r; r.params_schema = null; r.instances = []; });
-    // Réexpose le schéma pour les sources paramétrées (le SELECT principal ne le renvoie pas).
-    const schemaRows = await pool.query(
-      "SELECT id, params_schema FROM sources WHERE params_schema IS NOT NULL AND enabled = true AND type <> 'linked'"
-    );
-    schemaRows.rows.forEach((sr) => { if (byId[sr.id]) byId[sr.id].params_schema = sr.params_schema; });
-
-    paramSubs.rows.forEach((ps) => {
-      const row = byId[ps.source_id];
-      if (!row) return;
-      row.instances.push({ params: ps.params, label: resolveLabel(ps.params_schema, ps.params), state: ps.state, muted: ps.muted === true });
-    });
     // V3 · tâches à échéance glissante. STRICTEMENT PRIVÉES : elles ne transitent que
     // par cette route authentifiée, jamais par /api/sources (publique). Attachées à la
     // carte 'user-task' correspondante, comme instances[] l'est aux cartes paramétrées.
-    const taskRows = await pool.query(
+    const pTaskRows = pool.query(
       `SELECT ut.id, ut.label, ut.tracking_mode, ut.next_due, ut.announce_days,
               ut.counter_unit, ut.counter_current, ut.counter_threshold,
               s.id AS source_id
@@ -247,6 +239,39 @@ apiRouter.get('/my-alerts', async (req, res) => {
         ORDER BY ut.next_due ASC NULLS LAST, ut.id ASC`,
       [auth.id]
     );
+    // Préférences : email activé, appareils push, et personnalisation d'affichage.
+    const pPrefs = pool.query(
+      `SELECT s.email_enabled, s.country, s.departement, s.region, s.ville, s.interests, s.display_name, s.pseudo,
+              s.points_balance, s.leaderboard_optout, s.quiet_start, s.quiet_end, s.quiet_disabled, s.view_mode,
+              s.hide_community_reports,
+              (SELECT asset_ref FROM skins WHERE id = s.equipped_dashboard_skin_id) AS dashboard_skin,
+              (SELECT COUNT(*)::int FROM push_subscriptions p WHERE p.subscriber_id = s.id) AS push_endpoints_count
+         FROM subscribers s WHERE s.id = $1`,
+      [auth.id]
+    );
+    // Réexpose le schéma pour les sources paramétrées (le SELECT principal ne le renvoie pas).
+    const pSchemaRows = pool.query(
+      "SELECT id, params_schema FROM sources WHERE params_schema IS NOT NULL AND enabled = true AND type <> 'linked'"
+    );
+
+    // Une seule attente pour les cinq. Promise.all rejette au premier echec, ce qui
+    // est le comportement voulu : le catch de la route repond 500 comme avant.
+    const [rows_, paramSubs, taskRows, prefs, schemaRows] = await Promise.all(
+      [pRows, pParamSubs, pTaskRows, pPrefs, pSchemaRows]
+    );
+    const rows = rows_.rows;
+
+    const byId = {};
+    rows.forEach((r) => { byId[r.id] = r; r.params_schema = null; r.instances = []; });
+
+    schemaRows.rows.forEach((sr) => { if (byId[sr.id]) byId[sr.id].params_schema = sr.params_schema; });
+
+    paramSubs.rows.forEach((ps) => {
+      const row = byId[ps.source_id];
+      if (!row) return;
+      row.instances.push({ params: ps.params, label: resolveLabel(ps.params_schema, ps.params), state: ps.state, muted: ps.muted === true });
+    });
+
     rows.forEach((r) => { r.tasks = []; });
     taskRows.rows.forEach((t) => {
       const row = byId[t.source_id];
@@ -271,16 +296,7 @@ apiRouter.get('/my-alerts', async (req, res) => {
       }
     });
 
-    // Préférences : email activé, appareils push, et personnalisation d'affichage.
-    const prefs = await pool.query(
-      `SELECT s.email_enabled, s.country, s.departement, s.region, s.ville, s.interests, s.display_name, s.pseudo,
-              s.points_balance, s.leaderboard_optout, s.quiet_start, s.quiet_end, s.quiet_disabled, s.view_mode,
-              s.hide_community_reports,
-              (SELECT asset_ref FROM skins WHERE id = s.equipped_dashboard_skin_id) AS dashboard_skin,
-              (SELECT COUNT(*)::int FROM push_subscriptions p WHERE p.subscriber_id = s.id) AS push_endpoints_count
-         FROM subscribers s WHERE s.id = $1`,
-      [auth.id]
-    );
+
     const pr = prefs.rows[0] || {};
 
     // Auto-remplissage à la première connexion par lien magique (aucun nom OAuth) :
