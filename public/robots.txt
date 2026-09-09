@@ -1,0 +1,17 @@
+# La Bonne Alerte — https://labonnealerte.fr
+#
+# /api/ : aucune valeur de recherche, et depuis la bascule DNS le trafic de crawl
+# arrive directement sur l'origine, sans filtre devant. On evite de faire tourner
+# des requetes SQL pour des robots.
+#
+# ATTENTION A NE PAS "COMPLETER" CE FICHIER : les pages de compte (/mes-decks,
+# /favoris, /connexion, /u/:pseudo) NE DOIVENT PAS y figurer en Disallow. Un
+# Disallow empeche le crawl, donc empeche de LIRE le noindex : l'URL peut alors
+# etre indexee quand meme, sans contenu, sur la foi d'un simple lien externe. Les
+# deux directives s'annulent. Pour ces pages c'est noindex SEUL, dans le HTML
+# servi, et le crawl doit rester autorise pour qu'il soit vu.
+
+User-agent: *
+Disallow: /api/
+
+Sitemap: https://labonnealerte.fr/sitemap.xml
