@@ -156,7 +156,14 @@ app.get('/sw.js', (req, res) => {
 // Sitemap XML genere a la volee (avant le static : aucun fichier a servir).
 app.use('/', sitemapRouter);
 
-app.use(express.static('public'));
+// Cache navigateur des assets statiques. Cloudflare est passe sur  Respect Existing
+// Headers  : l'origine reprend la main sur la duree de cache. Sans maxAge,
+// express.static envoie public, max-age=0, ce qui fait revalider ~40 fichiers a
+// CHAQUE chargement de page. 60 s : plus aucune revalidation pendant une minute de
+// navigation, et une peremption bornee a 60 s apres un deploiement.
+// La route /sw.js ci-dessus n'est pas concernee : elle est servie AVANT ce static et
+// garde son propre no-store + cacheControl: false.
+app.use(express.static('public', { maxAge: '60s' }));
 
 // C) Limiteur global sur /api : 120 requêtes/minute/IP (la home fait plusieurs appels).
 //    Les limiteurs stricts (subscribe, my-alerts, dev) restent actifs en plus.
