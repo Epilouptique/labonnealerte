@@ -1,0 +1,54 @@
+# Contexte de build Docker.
+#
+# POURQUOI CE FICHIER EXISTE. Le Dockerfile fait `COPY . .` et il n'y avait
+# AUCUN .dockerignore : tout ce qui trainait dans le dossier partait dans
+# l'image a chaque deploiement, suivi par git ou non. Le .gitignore n'y change
+# rien, Docker ne le lit pas. Pesaient notamment pour rien : les dossiers de
+# captures (~69 Mo), reference/ (~28 Mo) et rapports/ (~1,2 Mo).
+#
+# CE QUI RESTE INDISPENSABLE A L'EXECUTION, ne jamais l'exclure :
+#   server/ (dont server/sources/), public/, package*.json.
+# Les taches planifiees sont des fonctions node-cron appelees DANS le processus
+# (server/poller.js) : aucun script externe n'est lance a l'execution. Verifie
+# par grep, aucun child_process/spawn/exec dans server/, et aucun require()
+# vers scripts/, robots/, docs/, reference/ ou rapports/.
+
+# --- Secrets -----------------------------------------------------------------
+# .env n'a rien a faire dans une image : Railway injecte ses variables par
+# ailleurs, et un secret ecrit dans une couche d'image y reste meme s'il est
+# supprime dans une couche suivante.
+.env
+.env.*
+!.env.example
+
+# --- Metadonnees et dependances ---------------------------------------------
+.git
+.gitignore
+.dockerignore
+.claude
+node_modules
+npm-debug.log*
+
+# --- Outillage local, jamais execute en production --------------------------
+scripts/
+robots/
+docs/
+
+# --- Sorties et references de travail ---------------------------------------
+rapports/
+reference/
+captures-cards-format/
+captures-decks-review/
+captures-decks-ribbon/
+tmp-*.json
+*.png
+!public/**/*.png
+*.zip
+
+# --- Documentation ----------------------------------------------------------
+README.md
+OPENALERT.md
+audit-architecture.md
+descriptions-courtes-reecrites.md
+skins-reference.html
+skins2-reference.html
