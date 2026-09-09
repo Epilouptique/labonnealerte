@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const express = require('express');
 const helmet = require('helmet');
+const { authTransport } = require('./auth-transport');
 const rateLimit = require('express-rate-limit');
 const { pool } = require('./db');
 const apiRouter = require('./routes/api');
@@ -115,6 +116,12 @@ app.use(helmet({
 }));
 
 app.use(express.json());
+
+// TRANSPORT DU JETON — monté ici, APRES express.json() (il complète req.body) et AVANT
+// toute route. Lit Authorization: Bearer et le recopie là où les routes cherchent déjà
+// le token ; pose Cache-Control: private, no-store sur toute requête authentifiée.
+// Point unique : aucune des 37 routes qui appellent authenticate() n'a eu à changer.
+app.use(authTransport);
 
 // PWA — servis explicitement AVANT le static pour maîtriser les en-têtes.
 const publicDir = path.join(__dirname, '..', 'public');

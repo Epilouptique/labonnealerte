@@ -4,6 +4,7 @@
 
 const crypto = require('crypto');
 const { pool } = require('./db');
+const { tokenFrom } = require('./auth-transport');
 
 async function createSession(subscriberId) {
   const token = crypto.randomBytes(32).toString('hex');
@@ -17,7 +18,17 @@ async function createSession(subscriberId) {
 
 // Valide un token : session existante (avec expiration glissante) OU magic_token
 // à échanger en session. Retourne { id, email, sessionToken } ou null.
-async function authenticate(token) {
+//
+// ACCEPTE DEUX FORMES :
+//   authenticate(req)      -> lit Authorization: Bearer, puis (repli temporaire) le
+//                             token en query/corps. C'est la forme à préférer.
+//   authenticate('<token>') -> forme historique, conservée : les 37 appels existants
+//                             passent une chaîne déjà extraite par la route. Le
+//                             middleware authTransport recopie l'en-tête Bearer là où
+//                             ces routes le cherchent, donc elles n'ont pas à changer.
+// Cf. auth-transport.js pour l'ordre de lecture et la fin de la transition.
+async function authenticate(tokenOrReq) {
+  const token = tokenFrom(tokenOrReq);
   if (!token || typeof token !== 'string') return null;
 
   // 1) Session valide → prolonge si < 60 jours restants, met à jour last_seen_at.

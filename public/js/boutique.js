@@ -264,7 +264,7 @@
   (async function init() {
     if (!token) { done(); if (anonEl) anonEl.hidden = false; return; }
     try {
-      var res = await fetch('/api/skins?token=' + encodeURIComponent(token), { headers: { Accept: 'application/json' } });
+      var res = await LBASession.authFetch('/api/skins', token, { headers: { Accept: 'application/json' } });
       if (res.status === 401) { S.clear && S.clear(); done(); if (anonEl) anonEl.hidden = false; return; }
       var d = await res.json();
       STATE.balance = d.balance || 0;

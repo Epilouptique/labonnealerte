@@ -1122,10 +1122,10 @@
   function fetchCommunityReports(type) {
     if (communityInflight[type]) return communityInflight[type];
     var p = (async function () {
-      var res = await fetch('/api/community-reports?token=' + encodeURIComponent(LBASession.get()) +
-        '&type=' + encodeURIComponent(type), {
-        headers: { Accept: 'application/json' },
-      });
+      var res = await LBASession.authFetch(
+        '/api/community-reports?type=' + encodeURIComponent(type),
+        LBASession.get(),
+        { headers: { Accept: 'application/json' } });
       if (!res.ok) throw new Error('http');
       var rows = await res.json();
       return Array.isArray(rows) ? rows : [];
@@ -2596,7 +2596,7 @@
     var empty = document.getElementById('history-empty');
     if (!tl) return;
     try {
-      var r = await fetch('/api/my-alerts/history?token=' + encodeURIComponent(token), { headers: { Accept: 'application/json' } });
+      var r = await LBASession.authFetch('/api/my-alerts/history', token, { headers: { Accept: 'application/json' } });
       var d = r.ok ? await r.json() : { events: [] };
       var events = d.events || [];
       if (events.length === 0) { if (empty) empty.hidden = false; if (tl) tl.innerHTML = ''; }
@@ -2829,9 +2829,9 @@
     // Token (si connecté) : alimente `adopted` par deck -> la reco exclut les decks
     // deja adoptes. Anonyme : pas de token, adopted=false partout (sans effet reco).
     var deckTok = window.LBASession && LBASession.get ? LBASession.get() : null;
-    var url = '/api/collections' + (deckTok ? ('?token=' + encodeURIComponent(deckTok)) : '');
     try {
-      var r = await fetch(url, { headers: { Accept: 'application/json' } });
+      // authFetch sans jeton = fetch nu : l'appel anonyme reste possible (adopted=false).
+      var r = await LBASession.authFetch('/api/collections', deckTok, { headers: { Accept: 'application/json' } });
       if (!r.ok) return;
       data = await r.json();
     } catch (e) { return; }
@@ -3356,7 +3356,7 @@
     if (!token) return;
     var sources = [];
     try {
-      var r = await fetch('/api/my-alerts/sources?token=' + encodeURIComponent(token), { headers: { Accept: 'application/json' } });
+      var r = await LBASession.authFetch('/api/my-alerts/sources', token, { headers: { Accept: 'application/json' } });
       if (r.ok) { var d = await r.json(); sources = (d && d.sources) || []; }
     } catch (e) { /* réseau : on n'affiche rien */ }
 

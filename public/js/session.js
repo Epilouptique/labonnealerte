@@ -8,6 +8,27 @@
   var KEY = 'lba-token';
   var API = '/api/my-alerts';
 
+  // ---- TRANSPORT DU JETON : en-tete Authorization, plus jamais la query string ----
+  // Le jeton partait en ?token=<64 hex>, donc dans les journaux Railway, les journaux
+  // Cloudflare, l'historique du navigateur, la cle de cache de tout edge cache et
+  // n'importe quelle capture de l'onglet Reseau. Referrer-Policy: no-referrer ne
+  // protegeait aucun de ces chemins. Le stockage ne change pas (localStorage 'lba-token'),
+  // seul le TRANSPORT change.
+  // EXCEPTION QUI RESTE EN URL, volontairement : le lien magique de connexion arrive en
+  // /connexion?token=<magic_token> et les liens d'email utilisent des parametres de
+  // chemin (/confirm/:token, /unsubscribe/:token, /tache/:id/confirmer/:token). Un
+  // client mail ne peut pas poser d'en-tete. Ne pas « corriger » ces cas-la.
+  function authHeaders(token, extra) {
+    var h = extra ? Object.assign({}, extra) : {};
+    if (token) h.Authorization = 'Bearer ' + token;
+    return h;
+  }
+  // fetch authentifie : meme signature que fetch, le jeton part en en-tete.
+  function authFetch(url, token, opts) {
+    opts = opts || {};
+    return fetch(url, Object.assign({}, opts, { headers: authHeaders(token, opts.headers) }));
+  }
+
   function get() { try { return localStorage.getItem(KEY); } catch (e) { return null; } }
   function set(t) { try { localStorage.setItem(KEY, t); } catch (e) {} }
   function clear() { try { localStorage.removeItem(KEY); } catch (e) {} }
@@ -35,9 +56,7 @@
     if (inflight && inflightToken === token) return inflight;
     inflightToken = token;
     inflight = (async function () {
-      var res = await fetch(API + '?token=' + encodeURIComponent(token), {
-        headers: { Accept: 'application/json' }
-      });
+      var res = await authFetch(API, token, { headers: { Accept: 'application/json' } });
       var data = null;
       try { data = await res.json(); } catch (e) {}
       if (res.ok && data && data.token && data.token !== get()) set(data.token);
@@ -224,6 +243,7 @@
   window.LBASession = {
     KEY: KEY,
     get: get, set: set, clear: clear,
+    authHeaders: authHeaders, authFetch: authFetch,
     fetchAlerts: fetchAlerts,
     refreshAlerts: refreshAlerts,
     truncateEmail: truncateEmail,

@@ -7,7 +7,7 @@
 //
 // Versionnage : bump CACHE_VERSION pour invalider tous les caches au déploiement.
 
-const CACHE_VERSION = 'v7';
+const CACHE_VERSION = 'v8';
 const STATIC_CACHE = `lba-static-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `lba-runtime-${CACHE_VERSION}`;
 const OFFLINE_URL = '/offline.html';

@@ -50,7 +50,7 @@
   async function loadDecks() {
     if (decksCache) return decksCache;
     var token = S.get(); if (!token) return null;
-    var r = await fetch('/api/decks?token=' + encodeURIComponent(token), { headers: { Accept: 'application/json' } });
+    var r = await LBASession.authFetch('/api/decks', token, { headers: { Accept: 'application/json' } });
     if (!r.ok) return null;
     decksCache = await r.json();
     return decksCache;

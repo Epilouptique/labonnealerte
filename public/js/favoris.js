@@ -176,7 +176,7 @@
             });
           }
         } catch (e) { /* non bloquant */ }
-        var r = await fetch('/api/favorites?token=' + encodeURIComponent(token), { headers: { Accept: 'application/json' } });
+        var r = await LBASession.authFetch('/api/favorites', token, { headers: { Accept: 'application/json' } });
         if (r.status === 401) { LBASession.clear(); MODE = 'anon'; document.body.setAttribute('data-mode', 'anon'); return loadAnon(); }
         if (!r.ok) throw new Error('http ' + r.status);
         sources = await r.json();

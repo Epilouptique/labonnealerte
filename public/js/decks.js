@@ -60,10 +60,8 @@
   // --- Appels API -----------------------------------------------------------
 
   function apiGet(path) {
-    var sep = path.indexOf('?') === -1 ? '?' : '&';
-    return fetch(path + sep + 'token=' + encodeURIComponent(TOKEN), {
-      headers: { Accept: 'application/json' }
-    });
+    // Jeton en en-tete Authorization (plus en query string) : cf. session.js.
+    return LBASession.authFetch(path, TOKEN, { headers: { Accept: 'application/json' } });
   }
   function apiSend(method, path, body) {
     var payload = body || {};
