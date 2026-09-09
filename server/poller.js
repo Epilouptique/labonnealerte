@@ -186,6 +186,33 @@ async function incCounter(key, by = 1) {
   }
 }
 
+// COMPTEURS AGREGES. incCounter etait appele DEUX fois par source verifiee, soit
+// ~546 UPSERT par cycle sur seulement DEUX lignes de `counters` : chaque ecriture
+// verrouille la meme ligne, donc elles se serialisent et se disputent le verrou en
+// permanence, pour un resultat identique a une seule addition.
+//
+// On accumule en memoire pendant le cycle et on ecrit une fois a la fin : 546 -> 2.
+// Une Map plutot qu'un simple entier parce que la cle mensuelle peut CHANGER en
+// cours de cycle (un cycle a cheval sur minuit le 1er du mois) : les deux mois
+// doivent alors etre credites separement, pas fusionnes sur le dernier vu.
+const pendingCounters = new Map();
+
+function bumpCounter(key, by = 1) {
+  pendingCounters.set(key, (pendingCounters.get(key) || 0) + by);
+}
+
+// Vide l'accumulateur. Appele dans le `finally` du cycle, donc y compris quand le
+// cycle s'interrompt sur une exception : les verifications deja faites doivent
+// etre comptees, sans quoi une panne en fin de cycle effacerait tout le decompte.
+async function flushCounters() {
+  if (pendingCounters.size === 0) return;
+  const entries = [...pendingCounters.entries()];
+  pendingCounters.clear();
+  for (const [key, by] of entries) {
+    await incCounter(key, by);
+  }
+}
+
 async function logEvent(sourceId, event, message = null) {
   try {
     await pool.query(
@@ -364,8 +391,8 @@ async function processSource(source, requiresConfirmation = true) {
   try {
     result = await source.check();
     console.log(`[poller] ${source.id} → check state=${result.state}`);
-    await incCounter('checks_total');
-    await incCounter('checks_' + monthKey());
+    bumpCounter('checks_total');
+    bumpCounter('checks_' + monthKey());
   } catch (err) {
     console.error(`[poller] ${source.id} : échec du check :`, err.message);
     await logFailedDedup(source.id, err.message);
@@ -510,8 +537,8 @@ async function processParamSource(source, requiresConfirmation = true) {
   try {
     results = await source.checkWithParams(combos);
     console.log(`[poller] ${source.id} → checkWithParams (${combos.length} combinaison(s))`);
-    await incCounter('checks_total');
-    await incCounter('checks_' + monthKey());
+    bumpCounter('checks_total');
+    bumpCounter('checks_' + monthKey());
   } catch (err) {
     console.error(`[poller] ${source.id} : échec checkWithParams :`, err.message);
     await logFailedDedup(source.id, err.message);
@@ -655,6 +682,7 @@ async function runCycle() {
   try {
     await runCycleInner();
   } finally {
+    await flushCounters();
     cycleRunning = false;
     const secs = ((Date.now() - startedAt) / 1000).toFixed(1);
     console.log(`[poller] Fin de cycle en ${secs} s`);

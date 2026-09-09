@@ -21,14 +21,20 @@ const pool = new Pool({
   // 1,69 s contre 0,23 s à chaud, deux fois de suite, pendant que /sw.js (sans SQL)
   // répondait en 71 ms — le conteneur ne dormait pas, seule la connexion était morte.
   idleTimeoutMillis: 300000, // 5 min : couvre les creux de trafic réels.
-  min: 2,                    // deux connexions ne sont jamais fermées une fois ouvertes.
+  min: 4,                    // quatre connexions ne sont jamais fermées une fois ouvertes.
                              // C'est la pièce décisive : relever idleTimeoutMillis seul
                              // déplacerait le mur à 5 min au lieu de le supprimer.
+                             // 4 et non 2 : le poller occupe une connexion en
+                             // permanence pendant son cycle. Avec min: 2, une requête
+                             // web n'en trouvait qu'une seule d'inactive, voire aucune
+                             // dès qu'une seconde requête arrivait, et repayait
+                             // l'établissement (~430 ms mesurés après 30 s
+                             // d'inactivité, pendant un cycle de poller).
   max: 10,                   // explicite (c'était déjà le défaut implicite). Nécessaire
                              // aux lectures en Promise.all : 5 requêtes = 5 connexions.
   keepAlive: true,           // sans keepalive TCP, une connexion longue distance restée
                              // inactive se fait couper par un équipement intermédiaire,
-                             // et min: 2 garderait des connexions mortes.
+                             // et min: 4 garderait des connexions mortes.
   connectionTimeoutMillis: 10000, // borne l'attente si un établissement se bloque.
 });
 
