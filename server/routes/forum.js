@@ -211,18 +211,49 @@ function relativeTime(d) {
   return new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+// Partage social des pages de forum. Rendu SERVEUR, jamais par script : les crawlers
+// sociaux n'executent pas le JavaScript. og:image en URL ABSOLUE (une relative est
+// ignoree par la plupart d'entre eux).
+// REGLE : rien de tout ca sur une page noindex. C'est ce qui protege /u/:pseudo, dont
+// le profil ne doit exposer ni vignette ni description (il passe deja noindex:true) ;
+// la 404 et le formulaire de creation en beneficient au passage.
+const OG_IMAGE = SITE_URL + '/img/og-default.png';
+function socialHead(title, desc, url) {
+  return `<link rel="canonical" href="${escHtml(url)}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="La Bonne Alerte">
+<meta property="og:locale" content="fr_FR">
+<meta property="og:title" content="${escHtml(title)}">
+<meta property="og:description" content="${escHtml(desc)}">
+<meta property="og:url" content="${escHtml(url)}">
+<meta property="og:image" content="${OG_IMAGE}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="La Bonne Alerte — toutes vos alertes, en un clic.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="${escHtml(title)}">
+<meta name="twitter:description" content="${escHtml(desc)}">
+<meta name="twitter:image" content="${OG_IMAGE}">`;
+}
+
 // Layout commun (head + header injecté par header.js + footer + scripts partagés).
+// opts.url : URL canonique absolue de la page. Sa presence (et l'absence de noindex)
+// declenche le bloc de partage social ci-dessus.
 function forumShell(title, inner, opts) {
   opts = opts || {};
   const bc = opts.breadcrumb ? `<nav class="forum-breadcrumb" aria-label="Fil d'Ariane">${opts.breadcrumb}</nav>` : '';
+  const desc = opts.desc || 'Le forum de la communauté La Bonne Alerte.';
+  const social = (!opts.noindex && opts.url)
+    ? '\n' + socialHead(opts.ogTitle || title, desc, opts.url)
+    : '';
   return `<!DOCTYPE html>
 <html lang="fr" data-theme="light">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>${escHtml(title)}</title>
-<meta name="description" content="${escHtml(opts.desc || 'Le forum de la communauté La Bonne Alerte.')}">
-${opts.noindex ? '<meta name="robots" content="noindex">' : ''}
+<meta name="description" content="${escHtml(desc)}">
+${opts.noindex ? '<meta name="robots" content="noindex">' : ''}${social}
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="stylesheet" href="/css/fonts.css">
 <link rel="stylesheet" href="/css/tokens.css">
@@ -387,7 +418,9 @@ router.get('/forum', async (req, res) => {
        <div class="forum-cats-grid">${catCards}</div>
        <h2 class="forum-h2">Sujets récents</h2>
        ${topicList(recent.rows, 'Aucun sujet pour le moment — lancez le premier !')}`,
-      { breadcrumb: breadcrumb([{ label: 'Forum' }]) }));
+      { url: SITE_URL + '/forum',
+        desc: 'Le forum de la communaute La Bonne Alerte : entraide, propositions de sources et suggestions.',
+        breadcrumb: breadcrumb([{ label: 'Forum' }]) }));
   } catch (err) {
     console.error('[forum] GET /forum :', err.message);
     res.status(503).type('html').send('Service momentanément indisponible.');
@@ -414,7 +447,9 @@ router.get('/forum/c/:category', async (req, res) => {
        <p class="forum-intro">${escHtml(meta.desc || '')}</p>
        ${topicList(rows, 'Aucun sujet dans cette catégorie — soyez le premier.')}
        ${pager}`,
-      { breadcrumb: breadcrumb([{ label: 'Forum', href: '/forum' }, { label: CATEGORIES[cat] }]) }));
+      { url: SITE_URL + '/forum/c/' + encodeURIComponent(cat),
+        desc: meta.desc || ('Les sujets de la categorie ' + CATEGORIES[cat] + ' sur le forum La Bonne Alerte.'),
+        breadcrumb: breadcrumb([{ label: 'Forum', href: '/forum' }, { label: CATEGORIES[cat] }]) }));
   } catch (err) {
     console.error('[forum] GET /forum/c :', err.message);
     res.status(503).type('html').send('Service momentanément indisponible.');
@@ -447,7 +482,9 @@ router.get('/forum/source/:slug', async (req, res) => {
        <p class="forum-intro">Discussions liées à <a class="forum-slug-badge" href="/source/${escHtml(canonicalId)}/statut">@${escHtml(slug)}</a></p>
        ${topicList(rows, 'Aucune discussion sur cette source pour le moment — ouvrez la première.')}
        ${pager}`,
-      { breadcrumb: breadcrumb([{ label: 'Forum', href: '/forum' }, { label: name }]) }));
+      { url: SITE_URL + '/forum/source/' + encodeURIComponent(sid),
+        desc: 'Les discussions liees a la source ' + name + ' sur La Bonne Alerte.',
+        breadcrumb: breadcrumb([{ label: 'Forum', href: '/forum' }, { label: name }]) }));
   } catch (err) {
     console.error('[forum] GET /forum/source :', err.message);
     res.status(503).type('html').send('Service momentanément indisponible.');
@@ -482,7 +519,9 @@ router.get('/forum/deck/:slug', async (req, res) => {
        <p class="forum-intro">Discussions liées au deck <a class="forum-slug-badge" href="${deckHref}">@${escHtml(slug)}</a></p>
        ${topicList(rows, 'Aucune discussion sur ce deck pour le moment — ouvrez la première.')}
        ${pager}`,
-      { breadcrumb: breadcrumb([{ label: 'Forum', href: '/forum' }, { label: name }]) }));
+      { url: SITE_URL + '/forum/deck/' + encodeURIComponent(did),
+        desc: 'Les discussions liees au deck ' + name + ' sur La Bonne Alerte.',
+        breadcrumb: breadcrumb([{ label: 'Forum', href: '/forum' }, { label: name }]) }));
   } catch (err) {
     console.error('[forum] GET /forum/deck :', err.message);
     res.status(503).type('html').send('Service momentanément indisponible.');
@@ -573,7 +612,10 @@ router.get('/forum/t/:slug', async (req, res) => {
        </article>
        <div class="forum-posts">${posts}</div>
        <section class="forum-reply">${replyZone}</section>`,
-      { breadcrumb: breadcrumb([
+      { url: SITE_URL + '/forum/t/' + encodeURIComponent(topic.slug),
+        ogTitle: topic.title,
+        desc: 'Un sujet du forum La Bonne Alerte, dans la categorie ' + catLabel + '.',
+        breadcrumb: breadcrumb([
           { label: 'Forum', href: '/forum' },
           { label: catLabel, href: '/forum/c/' + topic.category },
           { label: topic.title }]) }));
