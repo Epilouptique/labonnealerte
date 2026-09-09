@@ -17,6 +17,7 @@ const { resolveCommuneInsee, isInsee, resolveCommuneCoords, encodeCoords, isEnco
 const { trackDomain } = require('../doomname');
 const { applyAutofill, deriveDisplayNameFromEmail, clientIp } = require('../profile-autofill');
 const { award, getRank } = require('../points');
+const { publicEventMessage } = require('../public-events');
 
 // État « le pire » d'un ensemble d'instances (pour l'affichage de la carte).
 const STATE_RANK = { active: 3, pending: 2, inactive: 1 };
@@ -799,7 +800,10 @@ apiRouter.get('/my-alerts/history', async (req, res) => {
       const label = r.params ? resolveLabel(r.params_schema, r.params) : '';
       return {
         event: r.event,
-        message: r.message,
+        // Meme assainissement que la route publique : cet historique est derriere un
+        // compte, mais le diagnostic technique n'a pas a etre expose a un abonne non
+        // plus. La frise n'affiche le message que pour les 'activated'.
+        message: publicEventMessage(r.event, r.message),
         created_at: r.created_at.toISOString(),
         source_id: r.source_id,
         source_name: label ? `${r.source_name} — ${label}` : r.source_name,

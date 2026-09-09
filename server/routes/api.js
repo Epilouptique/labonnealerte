@@ -4,6 +4,7 @@ const { pool } = require('../db');
 const { CATEGORIES } = require('../categories');
 const { COUNTRIES, DEPARTEMENTS_WITH_REGION, REGIONS, isValidDepartement } = require('../geo');
 const { paramsFromQuery } = require('../params');
+const { publicEventMessage } = require('../public-events');
 const { authenticate } = require('../sessions');
 const { safeFetchJson } = require('../safe-fetch');
 // Cartes communautaires : joint au payload la part PUBLIQUE de la config du type
@@ -455,8 +456,15 @@ router.get('/sources/:id/history', async (req, res) => {
         WHERE source_id = $1 ${paramFilter} ORDER BY created_at DESC LIMIT 50`,
       evArgs
     );
+    // FUITE CORRIGEE : cette route est publique (aucun compte requis) et renvoyait
+    // r.message brut, donc le diagnostic technique des evenements 'failed'.
+    // publicEventMessage garde le texte des 'activated' (contenu d'alerte, affiche par
+    // timeline.js) et remplace le reste par un libelle publiable. Le message technique
+    // reste en base pour les rapports du Robot 1.
     const events = evRes.rows.map((r) => ({
-      event: r.event, message: r.message, created_at: r.created_at.toISOString(),
+      event: r.event,
+      message: publicEventMessage(r.event, r.message),
+      created_at: r.created_at.toISOString(),
     }));
 
     // Tous les events (asc) pour reconstruire les intervalles actifs + compter les échecs.
