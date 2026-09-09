@@ -37,7 +37,7 @@
     if (!el) return;
     options = options || {};
     if (!events || !events.length) {
-      el.innerHTML = '<p class="tl-empty">Aucun événement pour l\'instant.</p>';
+      el.innerHTML = '<p class="tl-empty">Aucun événement enregistré pour l\'instant.</p>';
       return;
     }
     var html = '<ul class="tl">' + events.map(function (ev) {

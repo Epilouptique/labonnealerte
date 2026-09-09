@@ -674,6 +674,7 @@
         body: JSON.stringify({ token: LBASession.get(), source_id: sourceId, subscribed: desired })
       });
       if (!res.ok) throw new Error('http ' + res.status);
+      LBASession.refreshAlerts(); // abonnement modifié : invalide la fenêtre de déduplication
       // Succès : on met à jour l'appartenance interne + tout ce qui en dépend.
       card.dataset.subscribed = desired ? '1' : '0';
       // Vue « Mes alertes » : désabonnement → sursis avant disparition ; ré-abonnement (y
@@ -738,6 +739,7 @@
         body: JSON.stringify({ token: LBASession.get(), source_id: sourceId, muted: muted })
       });
       if (!res.ok) throw new Error('http ' + res.status);
+      LBASession.refreshAlerts(); // pause/reprise : invalide la fenêtre de déduplication
     } catch (e) {
       input.checked = !input.checked; paint(!input.checked); // rollback
       syncMineGrace(card); // rollback : ré-aligne le sursis sur l'état réel rétabli
@@ -977,6 +979,7 @@
         body: JSON.stringify({ token: LBASession.get(), source_id: card.getAttribute('data-source-id'), params: params, subscribed: true })
       });
       if (!res.ok) throw new Error('http');
+      LBASession.refreshAlerts(); // paramètre ajouté : invalide la fenêtre de déduplication
       var data = await res.json();
       addChip(card, data.params || params, data.label || label);
       card.dataset.subscribed = '1';
@@ -1107,17 +1110,47 @@
   // rayon/commune du profil, calculé côté serveur à la volée (GET /api/community-reports).
   // Alimente AUSSI le recto dynamique (renderCommunityRecto) avec la même réponse —
   // un seul fetch pour les deux, pas de requête dupliquée.
-  async function loadCommunityReports(card) {
-    var list = card.querySelector('.community-list');
-    if (list) list.innerHTML = '<div class="community-loading">Chargement…</div>';
-    try {
+  // Déduplication des appels CONCURRENTS, par TYPE (chat-perdu, chien-perdu, …) : la
+  // réponse dépend du type, deux types restent donc deux requêtes légitimes. Ce qui est
+  // évité ici, c'est le même type demandé deux fois dans la même fenêtre — hydratation
+  // eager du kiosque (loadHome) et ouverture du volet en vue liste (list-view.js), par
+  // exemple. Comme dans session.js : PAS un cache — la promesse est libérée à la
+  // résolution (succès comme échec), tout appel ultérieur refait un vrai aller-retour,
+  // ce qui préserve la règle « rechargée à CHAQUE ouverture de la 5e face ».
+  var communityInflight = {}; // type -> promesse de rows en vol
+
+  function fetchCommunityReports(type) {
+    if (communityInflight[type]) return communityInflight[type];
+    var p = (async function () {
       var res = await fetch('/api/community-reports?token=' + encodeURIComponent(LBASession.get()) +
-        '&type=' + encodeURIComponent(communityTypeOf(card)), {
+        '&type=' + encodeURIComponent(type), {
         headers: { Accept: 'application/json' },
       });
       if (!res.ok) throw new Error('http');
       var rows = await res.json();
-      rows = Array.isArray(rows) ? rows : [];
+      return Array.isArray(rows) ? rows : [];
+    })();
+    // Ne libère QUE si l'entrée est toujours celle-ci : une invalidation explicite
+    // (refreshCommunityReports, après une mutation) a pu la remplacer entre-temps.
+    var release = function () { if (communityInflight[type] === p) delete communityInflight[type]; };
+    p.then(release, release);
+    communityInflight[type] = p;
+    return p;
+  }
+
+  // Invalidation explicite après une MUTATION (création/adhésion, « je l'ai vu »,
+  // « je l'ai retrouvé ») : la fenêtre de déduplication en cours est abandonnée pour
+  // que le rechargement qui suit reparte forcément en réseau et lise l'effet du POST.
+  function refreshCommunityReports(card) {
+    delete communityInflight[communityTypeOf(card)];
+    return loadCommunityReports(card);
+  }
+
+  async function loadCommunityReports(card) {
+    var list = card.querySelector('.community-list');
+    if (list) list.innerHTML = '<div class="community-loading">Chargement…</div>';
+    try {
+      var rows = await fetchCommunityReports(communityTypeOf(card));
       renderCommunityList(card, rows);
       renderCommunityRecto(card, rows);
       syncCommunityToggle(card, rows);
@@ -1192,7 +1225,7 @@
       // le toggle réapparaître en dur sur une CRÉATION réussie (jamais sur une adhésion,
       // où is_author reste false pour l'utilisateur — le bug ne s'y voyait pas).
       var reportsRows = null;
-      loadCommunityReports(card).then(function (rows) { reportsRows = rows; });
+      refreshCommunityReports(card).then(function (rows) { reportsRows = rows; });
       // Referme le formulaire après un court délai — pas immédiatement, sinon le
       // message de confirmation ci-dessus disparaîtrait avec lui avant d'être lu.
       setTimeout(function () {
@@ -1335,7 +1368,7 @@
       if (!res.ok) throw new Error('http');
       btn.outerHTML = '<span class="community-spotted-tag">Résolu — merci !</span>';
       var card = item.closest('.card');
-      if (card) loadCommunityReports(card); // rafraîchit liste + recto (l'instance close disparaît)
+      if (card) refreshCommunityReports(card); // rafraîchit liste + recto (l'instance close disparaît)
     } catch (err) { btn.disabled = false; }
   });
 
@@ -1348,6 +1381,7 @@
         body: JSON.stringify({ token: LBASession.get(), source_id: card.getAttribute('data-source-id'), params: params, subscribed: false })
       });
       if (!res.ok) throw new Error('http');
+      LBASession.refreshAlerts(); // paramètre retiré : invalide la fenêtre de déduplication
       chip.remove();
       var c = card.querySelector('.param-chips');
       if (c && !c.querySelector('.param-chip')) {
@@ -2044,7 +2078,50 @@
         : 'Aucune alerte suivie pour l\'instant.';
     }
     el.hidden = !show;
-    grid.style.display = show ? 'none' : '';
+    return show;
+  }
+
+  // Etat vide de la RECHERCHE et des CATEGORIES (3a). Sans lui, « qwertyxyz123 » vidait la
+  // grille sans un mot : ni explication, ni retour en arriere autre que vider le champ.
+  // Le bouton n'a de sens que s'il y a une recherche a effacer -> masque sur une categorie
+  // vide, ou le message suffit. Les filtres personnels (mine/favoris) restent a #mine-empty.
+  function updateSearchEmpty() {
+    var el = document.getElementById('search-empty');
+    if (!el) return false;
+    var q = qInput ? qInput.value.trim() : '';
+    var anyElig = cards.some(function (c) { return c._elig; });
+    var show = !anyElig && (q.length > 0 || cat !== 'all');
+    if (show) {
+      var msg = el.querySelector('#search-empty-msg');
+      var btn = el.querySelector('#search-empty-btn');
+      if (q) {
+        if (msg) msg.textContent = 'Aucune alerte ne correspond a « ' + q + ' »'
+          + (cat !== 'all' ? ' dans cette categorie.' : '.');
+        if (btn) btn.hidden = false;
+      } else {
+        if (msg) msg.textContent = 'Aucune alerte dans « ' + catLabel(cat) + ' » pour l\'instant.';
+        if (btn) btn.hidden = true;
+      }
+    }
+    el.hidden = !show;
+    return show;
+  }
+  // Libelle affichable d'un filtre : les modes speciaux ne sont pas des categories
+  // (LBACat.label ne les connait pas).
+  function catLabel(slug) {
+    if (slug === 'nouveautes') return 'Nouveautes';
+    if (slug === 'selection') return 'Populaires';
+    return LBACat.label(slug);
+  }
+
+  // Un seul point qui masque la grille : deux etats vides concurrents piloteraient
+  // sinon grid.style.display l'un contre l'autre.
+  function updateEmptyStates() {
+    var mine = updateMineEmpty();
+    var search = false;
+    if (mine) { var se = document.getElementById('search-empty'); if (se) se.hidden = true; }
+    else search = updateSearchEmpty();
+    if (grid) grid.style.display = (mine || search) ? 'none' : '';
   }
 
   // « Afficher plus » : re-impose la position de scroll y le temps de la reveal + de
@@ -2176,7 +2253,7 @@
     function commit() {
       setClasses();
       updateMore(info);
-      updateMineEmpty();
+      updateEmptyStates();
       if (doAnim) { flipMoves(first, fromAddH, grow); animateGridHeight(fromH); }
       if (pinY !== null) holdScroll(pinY); // grow : verrouille la position de scroll
       // Vue liste : recopie visibilité (filtre/recherche/pagination) + état carte→ligne.
@@ -2354,6 +2431,15 @@
     });
     // Point 6 : bouton de recherche (déclencheur explicite, la recherche reste
     // instantanée à la frappe). Applique immédiatement le filtre courant.
+    // Etat vide de recherche (3a) : meme geste que la croix d'effacement du champ.
+    var seb = document.getElementById('search-empty-btn');
+    if (seb) seb.addEventListener('click', function () {
+      qInput.value = '';
+      syncClear();
+      runSearch();
+      qInput.focus();
+    });
+
     var searchGo = document.querySelector('.search .search-go');
     if (searchGo) searchGo.addEventListener('click', function () {
       clearTimeout(searchTimer);
@@ -2524,11 +2610,32 @@
   function removeSkeletons(g) {
     g.querySelectorAll('.card.skeleton').forEach(function (n) { n.remove(); });
   }
+  // Le message portait le mot « reessayez » sans aucun moyen de le faire : seul recours,
+  // recharger la page a la main. Le bouton relance loadHome() — le MEME chemin que le
+  // chargement initial — sans rechargement (l'echec sort avant toute insertion de carte,
+  // rejouer la fonction est donc sans effet de bord).
   function showGridError(g, extras) {
     removeSkeletons(g);
+    var old = document.getElementById('grid-error');
+    if (old) old.remove();
     var el = document.createElement('div');
     el.className = 'grid-error';
-    el.textContent = 'Impossible de charger les alertes, réessayez.';
+    el.id = 'grid-error';
+    var p = document.createElement('p');
+    p.textContent = 'Impossible de charger les alertes, réessayez.';
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    // .empty-btn : STYLE seul (aucun handler delegue sur cette classe, verifie), la
+    // pilule est identique a celle des autres etats vides.
+    btn.className = 'empty-btn';
+    btn.textContent = 'Réessayer';
+    btn.addEventListener('click', function () {
+      el.remove();
+      document.body.classList.add('loading');
+      loadHome();
+    });
+    el.appendChild(p);
+    el.appendChild(btn);
     if (extras) extras.insertAdjacentElement('beforebegin', el);
     else g.appendChild(el);
   }

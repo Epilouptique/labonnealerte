@@ -45,6 +45,13 @@
 <section class="hero wrap">
   <h1 class="page-title">Toutes vos alertes,<br><span class="hl">en un clic.</span></h1>
   <p>Gratuit, sans spam, sans pub, open source.</p>
+  <!-- Bloc d'amorce ANONYME uniquement : promesse concrete + entree vers /connexion.
+       Masque par defaut, revele par body[data-mode="anon"] (site.css) : aucun flash
+       ni decalage pour un visiteur connecte, dont le hero reste « Bonjour <prenom> ». -->
+  <div class="hero-start">
+    <p class="hero-promise">Choisissez vos alertes, recevez un e-mail des qu'il se passe quelque chose : au plus une fois par jour, jamais rien d'autre.</p>
+    <a class="hero-cta" href="/connexion">Commencer gratuitement</a>
+  </div>
   <div class="kpi"><span id="kpi-dot" class="dot-idle"></span> <span id="kpi-num"></span><span id="kpi-text"></span></div>
 </section>
 
@@ -113,6 +120,15 @@
   <div class="grid-empty" id="mine-empty" hidden>
     <p>Aucune alerte suivie pour l'instant.</p>
     <button class="empty-btn" type="button" id="mine-empty-btn">Découvrir le kiosque</button>
+  </div>
+
+  <!-- Etat vide de la RECHERCHE / d'une CATEGORIE sans resultat. Sans lui, la grille se
+       vidait sans un mot (fond violet nu) et le seul recours etait de vider le champ a la
+       main. Le message est ecrit par site.js (updateSearchEmpty) ; le bouton d'effacement
+       n'apparait que s'il y a bien une recherche a effacer. -->
+  <div class="grid-empty" id="search-empty" hidden>
+    <p id="search-empty-msg"></p>
+    <button class="empty-btn" type="button" id="search-empty-btn">Effacer la recherche</button>
   </div>
 
   <div class="more-wrap">

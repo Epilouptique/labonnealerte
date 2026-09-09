@@ -69,9 +69,37 @@
   }
 
   // Barres d'uptime : rendu partagé (LBATimeline.uptimeBars) avec la vue liste.
+  // Date locale en AAAA-MM-JJ : toISOString() repasserait en UTC et decalerait d'un
+  // jour les libelles de la frise (infobulles) en heure d'ete.
+  function ymd(d) {
+    function p2(n) { return (n < 10 ? '0' : '') + n; }
+    return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+  }
+
+  // La frise doit TOUJOURS montrer ses 90 cases : une source sans historique — ou un
+  // /history en echec — renvoyait un tableau vide, donc une bande blanche muette sous
+  // « 90 derniers jours » (visible meme sur une source annoncee « Active »). On complete
+  // a gauche avec des jours « Pas de donnees », deja prevus par la legende.
+  function fill90(days) {
+    var out = Array.isArray(days) ? days.slice(-90) : [];
+    var missing = 90 - out.length;
+    if (missing <= 0) return out;
+    // Point d'ancrage : le 1er jour connu, sinon aujourd'hui (frise entierement vide).
+    var anchor = (out.length && out[0].date) ? new Date(out[0].date + 'T00:00:00') : new Date();
+    anchor.setHours(0, 0, 0, 0);
+    var shift = out.length ? 0 : 1; // sans donnees, la derniere case est aujourd'hui
+    var pad = [];
+    for (var i = missing; i >= 1; i--) {
+      var d = new Date(anchor);
+      d.setDate(anchor.getDate() - i + shift);
+      pad.push({ date: ymd(d), status: 'nodata' });
+    }
+    return pad.concat(out);
+  }
+
   function renderUptime(days) {
     var el = document.getElementById('uptime');
-    el.innerHTML = LBATimeline.uptimeBars(days);
+    el.innerHTML = LBATimeline.uptimeBars(fill90(days));
   }
 
   var myInstances = []; // instances paramétrées de l'utilisateur connecté (volet 1)
@@ -92,14 +120,16 @@
   // Historique (broadcast, ou par combinaison si source paramétrée).
   async function loadHistory() {
     var qs = (paramSchema && currentDept) ? ('?' + paramKey() + '=' + encodeURIComponent(currentDept)) : '';
+    // On peint TOUJOURS les deux blocs, meme en echec : sans ca, un /history KO laissait
+    // deux titres suivis de vide (frise blanche + timeline muette) au lieu d'une frise
+    // grise et d'un « aucun evenement ».
+    var hist = { days: [], events: [] };
     try {
       var hres = await fetch('/api/sources/' + encodeURIComponent(ID) + '/history' + qs, { headers: { Accept: 'application/json' } });
-      if (hres.ok) {
-        var hist = await hres.json();
-        renderUptime(hist.days || []);
-        LBATimeline.render(document.getElementById('timeline'), hist.events || []);
-      }
-    } catch (e) { /* silencieux */ }
+      if (hres.ok) hist = await hres.json();
+    } catch (e) { /* silencieux : la frise vide et le message suffisent */ }
+    renderUptime(hist.days || []);
+    LBATimeline.render(document.getElementById('timeline'), hist.events || []);
   }
 
   /* ---- Abonnement (switch) ---- */
@@ -176,6 +206,7 @@
         body: JSON.stringify({ token: token, source_id: ID, subscribed: desired })
       }).then(function (r) {
         if (!r.ok) throw new Error('http');
+        LBASession.refreshAlerts(); // abonnement modifié : invalide la fenêtre de déduplication
         subscribed = desired;
         if (desired) celebrate();
       }).catch(function () { input.checked = !desired; setLabel(!desired); })

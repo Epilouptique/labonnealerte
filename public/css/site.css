@@ -2877,15 +2877,29 @@ html[data-theme="dark"] .tint-11 .deck-motif-bg::after { background: color-mix(i
    --ds-front : reduction de la carte de devant, qui LIBERE la place laterale ou l'eventail
    se voit. La carte de devant reste EN FLUX (elle donne largeur+hauteur a la tuile → pas
    d'effondrement « une lettre par ligne ») ; le scale est purement visuel (n'affecte pas la
-   largeur min-content). Tout reste CONTENU par overflow:hidden de la tuile. */
-.deck-stack { --ds-fan: 7%; /* --ds-front supprime : la taille vient de max-width, plus du scale */ }
+   largeur min-content). La contenance de l'eventail ne repose PAS sur un overflow:hidden
+   (la tuile est en overflow:visible pour l'etiquette « Recommandee ») mais sur la geometrie :
+   cf. --ds-fan et le plafond de largeur juste en dessous. */
+/* --ds-fan : decalage lateral d'une carte du fond, en fraction de la LARGEUR DE FACE.
+   Valeur bornee (correctif 4b) : une carte du fond au ratio 2/3 tournee de 5deg deborde
+   deja de ~5,6 % de sa largeur de chaque cote (demi-diagonale projetee). Avec des cartes
+   plafonnees a 80 % de la face (regle ci-dessous), l'excursion laterale maximale vaut
+   0,8 x 0,5635 + --ds-fan = 45,1 % + 4,5 % = 49,6 % < 50 % : l'eventail tient DANS la
+   tuile dans tous les contextes, sans dependre d'un overflow:hidden. */
+.deck-stack { --ds-fan: 4.5%; /* --ds-front supprime : la taille vient de max-width, plus du scale */ }
 .ds-i0 { position: relative; z-index: 3; /* Plus de tansformation transform: scale(var(--ds-front));*/ }
 /* Parite avec .grid > .card : la carte de devant fait la MEME TAILLE REELLE (300px), a
    taille native (contenu non reduit). Le scale(--ds-front) a ete retire : on plafonne donc
    la largeur REELLE a 300px directement (avant, on plafonnait a 300/--ds-front car le scale
-   reduisait ensuite la carte). margin-inline:auto la recentre dans sa face. Scope grille
-   uniquement (kiosque + mes-decks). Ne touche NI l'eventail (.ds-i1/.ds-i2) NI le ruban. */
-.grid .deck-card .ds-i0 .card { max-width: 300px; margin-inline: auto; }
+   reduisait ensuite la carte). margin-inline:auto la recentre dans sa face. */
+/* Le plafond s'applique a TOUTES les faces (devant + eventail) et dans TOUS les contextes
+   — plus seulement dans .grid. C'etait la cause du debordement de l'eventail (4b) : hors
+   grille (en-tete de detail, apercu de formulaire) et en 1 colonne sur mobile, la carte
+   remplissait toute la face, il ne restait aucune marge laterale pour l'offset + la
+   rotation, et .ds-i1/.ds-i2 sortaient de la tuile sur la gouttiere voisine. Le second
+   plafond (80 % de la face) reserve cette marge partout ; le 300px garde la parite de
+   taille avec les cartes classiques de la grille (ou 80 % vaut plus de 300px). */
+.deck-card .ds-face .card { max-width: min(300px, 80%); margin-inline: auto; }
 .ds-i1, .ds-i2 { position: absolute; inset: 0; }
 .ds-i1 .card, .ds-i2 .card { height: 100%; }
 /* Cartes de FOND : MEME base de taille que le front (max-width 300px + centrage), au lieu
@@ -2894,8 +2908,8 @@ html[data-theme="dark"] .tint-11 .deck-motif-bg::after { background: color-mix(i
    empirique. Ici la taille de base est deja bonne via max-width ; le transform ne garde que
    l'offset + la rotation (+ un scale tres subtil pour la profondeur, cf. plus bas). Parite
    avec .ds-i0 .card ; scope grille (kiosque + mes-decks), comme le front. */
-.grid .deck-card .ds-i1 .card,
-.grid .deck-card .ds-i2 .card { max-width: 300px; margin-inline: auto; }
+/* (Le plafond de largeur des cartes du fond est desormais celui de .ds-face .card
+   ci-dessus : meme base de taille que le devant, dans tous les contextes.) */
 /* Cartes d'APERCU : non interactives (la tuile entiere navigue). Le switch « S'abonner »
    reste visible mais grise (desactive). */
 .deck-card .ds-face { pointer-events: none; }
@@ -2956,7 +2970,21 @@ html[data-theme="dark"] .tint-11 .deck-motif-bg::after { background: color-mix(i
 .ds-ribbon {
   --r: 9px;
   --ds-ribbon-shadow: rgba(30, 20, 50, .33);
-  position: absolute; left: 8px; right: 8px; top: 54%; transform: translateY(-50%); z-index: 4;
+  /* POSITION (correctif 4a) : le ruban etait centre verticalement (top:54% + translate),
+     donc il retombait pile sur le bloc de titre de la carte d'apercu, qui est ancre EN BAS
+     (.card-content { margin-top:auto }) et remonte d'autant que son contenu est riche
+     (titre sur 2 lignes, chips de parametres...). Le titre/sous-titre etaient masques.
+     On ancre desormais le ruban par son BORD BAS, a --ds-ribbon-bottom du bas de la pile :
+     - la valeur est un POURCENTAGE de la hauteur de la pile : le bloc de texte occupe une
+       fraction a peu pres stable de la carte (une carte plus etroite est plus courte, mais
+       son texte se replie sur davantage de lignes) — c'est ce qui tient a la fois sur les
+       tuiles de grille et sur les piles plus petites des en-tetes de detail ;
+     - le ruban grandit alors vers le HAUT (nom long, 3 categories), c'est-a-dire vers la
+       fenetre d'art, jamais vers le titre.
+     REGLE : le ruban ne recouvre JAMAIS .card-top (titre) ni .card-subtitle. Chaque skin
+     structure a sa propre geometrie -> sa propre valeur, juste en dessous. */
+  --ds-ribbon-bottom: 56%;
+  position: absolute; left: 8px; right: 8px; top: auto; bottom: var(--ds-ribbon-bottom); z-index: 4;
   text-align: center; line-height: 1.25; color: var(--ink);
   padding: calc(3 * var(--r)) 14px 9px;
   border-radius: var(--r);
@@ -2981,9 +3009,22 @@ html[data-theme="dark"] .tint-11 .deck-motif-bg::after { background: color-mix(i
 /* Categories auto (top-3) sur le ruban : pastilles au style des tags de carte, LECTURE
    SEULE (jamais cliquables ici — elles decrivent le deck, elles ne filtrent pas). */
 .ds-ribbon-cats { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; margin-top: 5px; }
-/* (Ruban : centrage d'origine conserve pour TOUS les skins — le retour au ratio 2/3
-   des skins structures a restaure la geometrie des faces, l'ancrage bas du tour
-   precedent n'est plus necessaire.) */
+/* ANCRAGE DU RUBAN PAR SKIN STRUCTURE (correctif 4a). Les 4 skins structures rangent le
+   titre et le sous-titre ailleurs que le rendu par defaut (plaque de nom en haut, ligne de
+   type au milieu...) : le creux libre n'est pas au meme endroit. Chaque skin declare donc
+   OU passe le ruban, toujours dans une bande ou ne vit ni .card-top ni .card-subtitle.
+   Le selecteur est un simple ancetre : il marche que la classe soit posee sur #grid (skin
+   de carte equipe) ou sur la tuile .deck-card (apercu de boutique, skin de deck).
+   L'Ecole classique : SOUS la ligne de type, sur la boite de texte, au-dessus du switch.
+   L'Arcane          : AU-DESSUS de la ligne de type, sur le medaillon.
+   L'Assemblee / Le Dresseur : dans la fenetre d'art, au-dessus de la ligne de type (leur
+   plaque de nom est tout en haut, le ruban passe donc entre les deux).
+   Valeurs verifiees au navigateur (aucun recouvrement, marge >= 14px) sur les tuiles de
+   grille en 1440 et 390, themes clair et sombre. */
+.skin-ecole-classique .ds-ribbon { --ds-ribbon-bottom: 24%; }
+.skin-arcane .ds-ribbon { --ds-ribbon-bottom: 66%; }
+.skin-assemblee .ds-ribbon { --ds-ribbon-bottom: 56%; }
+.skin-dresseur .ds-ribbon { --ds-ribbon-bottom: 56%; }
 .ds-cat-tag {
   font-size: 10px; font-weight: 600; color: var(--amber); line-height: 1.3;
   background: var(--amber-soft); border-radius: 999px; padding: 3px 9px; border: none;
@@ -3018,8 +3059,12 @@ html[data-theme="dark"] .tint-11 .ds-ribbon {
 }
 
 /* En-tete de detail : la pile pleine taille remplace la vignette .deck-thumb-lg. On la
-   borne a une largeur de carte pour ne pas ecraser le titre a cote. */
-.deck-detail-layout .deck-card { width: min(250px, 48vw); flex: 0 0 auto; padding: 10px;}
+   borne a une largeur de carte pour ne pas ecraser le titre a cote. Largeur revue avec le
+   correctif 4b : la carte d'apercu ne fait plus que 80 % de la largeur de la face (la marge
+   laterale est reservee a l'eventail, qui debordait sur la colonne voisine). Sans cette
+   compensation la carte devenait trop etroite ici, son bloc de texte — de hauteur presque
+   fixe — mangeait toute la carte, et il ne restait plus de bande libre pour le ruban. */
+.deck-detail-layout .deck-card { width: min(310px, 88vw); flex: 0 0 auto; padding: 10px;}
 
 /* Detail d'un deck (/mes-decks) : titre .page-title EN PLEINE LARGEUR, puis rangee
    [pile deck-card] | [corps]. Le corps (description, categories, actions, partage)
@@ -3029,7 +3074,6 @@ html[data-theme="dark"] .tint-11 .ds-ribbon {
 /* Mobile-first : sous ~640px, le corps repasse SOUS la pile (colonne unique). */
 @media (max-width: 640px) {
   .deck-detail-layout { flex-direction: column; gap: 14px; }
-  .deck-detail-layout .deck-card { width: min(230px, 60vw); }
   .deck-detail-body { width: 100%; }
 }
 /* Le corps du detail de collection REUTILISE .deck-detail-body : on n'ajoute que
