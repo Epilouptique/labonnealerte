@@ -6,24 +6,10 @@
 <title>Connexion — La Bonne Alerte</title>
 <meta name="robots" content="noindex">
 <meta name="description" content="Recevez un lien d'accès par email pour gérer vos alertes. Sans compte, sans mot de passe.">
-<!-- Partage social + canonical. Ces balises DOIVENT rester dans le HTML SERVI :
-     les crawlers sociaux n'executent pas le JavaScript, une balise ajoutee par
-     script n'est jamais vue. og:image est en URL ABSOLUE pour la meme raison. -->
-<link rel="canonical" href="https://labonnealerte.fr/connexion">
-<meta property="og:type" content="website">
-<meta property="og:site_name" content="La Bonne Alerte">
-<meta property="og:locale" content="fr_FR">
-<meta property="og:title" content="Connexion — La Bonne Alerte">
-<meta property="og:description" content="Recevez un lien d'accès par email pour gérer vos alertes. Sans compte, sans mot de passe.">
-<meta property="og:url" content="https://labonnealerte.fr/connexion">
-<meta property="og:image" content="https://labonnealerte.fr/img/og-default.png">
-<meta property="og:image:width" content="1200">
-<meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="La Bonne Alerte — toutes vos alertes, en un clic.">
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Connexion — La Bonne Alerte">
-<meta name="twitter:description" content="Recevez un lien d'accès par email pour gérer vos alertes. Sans compte, sans mot de passe.">
-<meta name="twitter:image" content="https://labonnealerte.fr/img/og-default.png">
+<!-- PAS DE BLOC SOCIAL ICI, et c'est voulu : ni canonical, ni og:*, ni twitter:*.
+     Page de compte en noindex. Regle du depot, codifiee dans server/routes/forum.js :
+     « rien de tout ca sur une page noindex » (c'est ce qui protege /u/:pseudo).
+     Ne pas recopier ici le bloc des pages publiques. -->
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="stylesheet" href="/css/fonts.css">
 <link rel="stylesheet" href="/css/tokens.css">
