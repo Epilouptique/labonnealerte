@@ -194,11 +194,11 @@ apiRouter.get('/my-alerts', async (req, res) => {
     const auth = await authenticate(req.query.token);
     if (!auth) return res.status(401).json({ error: 'Lien invalide ou expiré' });
 
-    // LES CINQ LECTURES CI-DESSOUS SONT INDEPENDANTES : chacune ne depend que de
+    // LES SIX LECTURES CI-DESSOUS SONT INDEPENDANTES : chacune ne depend que de
     // auth.id, aucune ne consomme le resultat d'une autre. Enchainees, elles coutaient
-    // cinq allers-retours serie a ~145 ms. On les emet ensemble et on attend une fois.
+    // six allers-retours serie a ~145 ms. On les emet ensemble et on attend une fois.
     // L'assemblage plus bas garde son ordre d'origine, lui, il en depend.
-    // Prerequis: max: 10 pose explicitement dans db.js (5 requetes = 5 connexions).
+    // Prerequis : la marge de concurrence du pool (max: 20, voir db.js).
     const pRows = pool.query(
       `SELECT s.id, s.name, s.description, s.description_long, s.badge,
               COALESCE(st.state, 'inactive') AS state,
@@ -253,11 +253,18 @@ apiRouter.get('/my-alerts', async (req, res) => {
     const pSchemaRows = pool.query(
       "SELECT id, params_schema FROM sources WHERE params_schema IS NOT NULL AND enabled = true AND type <> 'linked'"
     );
+    // Favoris (« Ma collection ») de ce compte : ids de source, pour que le cœur soit rempli
+    // sur TOUTE carte du kiosque (home/mine/liste), pas seulement sur /favoris. Inclut les
+    // favoris posés AUTOMATIQUEMENT à l'abonnement (jamais « likés » localement). Une requête
+    // légère plutôt qu'un appel /api/favorites par carte.
+    // SIXIEME lecture independante : elle ne depend que de auth.id. Elle etait restee en fin
+    // de route, en serie, pour un aller-retour de ~145 ms en plus a chaque chargement.
+    const pFavRows = pool.query('SELECT source_id FROM favorites WHERE subscriber_id = $1', [auth.id]);
 
-    // Une seule attente pour les cinq. Promise.all rejette au premier echec, ce qui
+    // Une seule attente pour les six. Promise.all rejette au premier echec, ce qui
     // est le comportement voulu : le catch de la route repond 500 comme avant.
-    const [rows_, paramSubs, taskRows, prefs, schemaRows] = await Promise.all(
-      [pRows, pParamSubs, pTaskRows, pPrefs, pSchemaRows]
+    const [rows_, paramSubs, taskRows, prefs, schemaRows, favRows] = await Promise.all(
+      [pRows, pParamSubs, pTaskRows, pPrefs, pSchemaRows, pFavRows]
     );
     const rows = rows_.rows;
 
@@ -323,11 +330,6 @@ apiRouter.get('/my-alerts', async (req, res) => {
     // le solde). Calcule a la volee ; jamais expose a un tiers (route perso, auth).
     const rank = pr.leaderboard_optout ? null : await getRank(auth.id);
 
-    // Favoris (« Ma collection ») de ce compte : ids de source, pour que le cœur soit rempli
-    // sur TOUTE carte du kiosque (home/mine/liste), pas seulement sur /favoris. Inclut les
-    // favoris posés AUTOMATIQUEMENT à l'abonnement (jamais « likés » localement). Une requête
-    // légère plutôt qu'un appel /api/favorites par carte.
-    const favRows = await pool.query('SELECT source_id FROM favorites WHERE subscriber_id = $1', [auth.id]);
     const favorites = favRows.rows.map((r) => r.source_id);
 
     // On renvoie le token de session (potentiellement issu de l'échange du magic

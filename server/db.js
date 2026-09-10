@@ -32,15 +32,17 @@ const pool = new Pool({
                              // d'inactivité, pendant un cycle de poller).
   max: 20,                   // MARGE DE CONCURRENCE, pas seulement fan-out.
                              // Le Promise.all de GET /api/my-alerts transforme « 1
-                             // connexion pendant 5 × 145 ms » en « 5 connexions pendant
-                             // 145 ms » : même produit, pointe multipliée par cinq.
+                             // connexion pendant 6 × 145 ms » en « 6 connexions pendant
+                             // 145 ms » : même produit, pointe multipliée par six.
                              // Budget à max: 10 : poller (1, en permanence pendant son
-                             // cycle) + UN chargement de /api/my-alerts (5) = 6. Le
-                             // DEUXIÈME chargement simultané en demande 5 de plus, il
-                             // n'en trouve que 4 : la cinquième requête attend qu'une
-                             // autre se libère, soit un aller-retour de ~145 ms perdu.
-                             // À 20 : poller + trois chargements simultanés (16), et
-                             // encore 4 pour le reste du site.
+                             // cycle) + UN chargement de /api/my-alerts (6) = 7. Le
+                             // DEUXIÈME chargement simultané en demande 6 de plus, il
+                             // n'en trouve que 3 : ses trois dernières requêtes
+                             // attendent, soit un aller-retour de ~145 ms perdu.
+                             // À 20 : poller + deux chargements simultanés (13), et
+                             // encore 7 pour le reste du site — ou un troisième
+                             // chargement qui n'attend qu'un aller-retour.
+                             // Si ce fan-out grandit encore, revoir ce budget.
                              // Coût : nul. PostgreSQL accepte 100 connexions par défaut
                              // et cette base ne sert que cette application ; 20 en
                              // occupe un cinquième. Mesurer pool.waitingCount avant de
