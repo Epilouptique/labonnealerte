@@ -30,8 +30,21 @@ const pool = new Pool({
                              // dès qu'une seconde requête arrivait, et repayait
                              // l'établissement (~430 ms mesurés après 30 s
                              // d'inactivité, pendant un cycle de poller).
-  max: 10,                   // explicite (c'était déjà le défaut implicite). Nécessaire
-                             // aux lectures en Promise.all : 5 requêtes = 5 connexions.
+  max: 20,                   // MARGE DE CONCURRENCE, pas seulement fan-out.
+                             // Le Promise.all de GET /api/my-alerts transforme « 1
+                             // connexion pendant 5 × 145 ms » en « 5 connexions pendant
+                             // 145 ms » : même produit, pointe multipliée par cinq.
+                             // Budget à max: 10 : poller (1, en permanence pendant son
+                             // cycle) + UN chargement de /api/my-alerts (5) = 6. Le
+                             // DEUXIÈME chargement simultané en demande 5 de plus, il
+                             // n'en trouve que 4 : la cinquième requête attend qu'une
+                             // autre se libère, soit un aller-retour de ~145 ms perdu.
+                             // À 20 : poller + trois chargements simultanés (16), et
+                             // encore 4 pour le reste du site.
+                             // Coût : nul. PostgreSQL accepte 100 connexions par défaut
+                             // et cette base ne sert que cette application ; 20 en
+                             // occupe un cinquième. Mesurer pool.waitingCount avant de
+                             // décider aurait coûté plus cher que le changement.
   keepAlive: true,           // sans keepalive TCP, une connexion longue distance restée
                              // inactive se fait couper par un équipement intermédiaire,
                              // et min: 4 garderait des connexions mortes.
