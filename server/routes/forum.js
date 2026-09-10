@@ -467,6 +467,14 @@ router.get('/forum/source/:slug', async (req, res) => {
     const meta = await pool.query('SELECT name, forum_slug FROM sources WHERE id = $1', [canonicalId]);
     const name = meta.rows.length ? meta.rows[0].name : sid;
     const slug = (meta.rows.length && meta.rows[0].forum_slug) || sid;
+    // CANONICAL : forme INVERSE du correctif des sujets (/forum/t/:slug). Pour un
+    // sujet, req.params.slug ETAIT la valeur canonique. Ici resolveSourceId() accepte
+    // DEUX entrees (forum_slug OU id) : l'URL demandee n'est donc pas forcement la
+    // canonique, et la reprendre telle quelle donnait deux canonical differents pour
+    // la meme page selon qu'on arrivait par l'id ou par le slug. On pointe vers le
+    // forum_slug de la ligne RESOLUE ; a defaut, vers l'id RESOLU — jamais vers le
+    // parametre recu. Le pager, lui, garde l'URL courante (voir plus haut).
+    const canonSlug = (meta.rows.length && meta.rows[0].forum_slug) || canonicalId;
     const { rows } = await pool.query(
       `${TOPIC_SELECT} WHERE ft.hidden = false AND ft.source_id = $1
         ORDER BY ft.last_reply_at DESC LIMIT $2 OFFSET $3`,
@@ -482,7 +490,7 @@ router.get('/forum/source/:slug', async (req, res) => {
        <p class="forum-intro">Discussions liées à <a class="forum-slug-badge" href="/source/${escHtml(canonicalId)}/statut">@${escHtml(slug)}</a></p>
        ${topicList(rows, 'Aucune discussion sur cette source pour le moment — ouvrez la première.')}
        ${pager}`,
-      { url: SITE_URL + '/forum/source/' + encodeURIComponent(sid),
+      { url: SITE_URL + '/forum/source/' + encodeURIComponent(canonSlug),
         desc: 'Les discussions liees a la source ' + name + ' sur La Bonne Alerte.',
         breadcrumb: breadcrumb([{ label: 'Forum', href: '/forum' }, { label: name }]) }));
   } catch (err) {
@@ -503,6 +511,14 @@ router.get('/forum/deck/:slug', async (req, res) => {
       'SELECT name, forum_slug, owner_subscriber_id, share_token FROM collections WHERE id = $1', [canonicalId]);
     const name = meta.rows.length ? meta.rows[0].name : did;
     const slug = (meta.rows.length && meta.rows[0].forum_slug) || did;
+    // CANONICAL : forme INVERSE du correctif des sujets (/forum/t/:slug). Pour un
+    // sujet, req.params.slug ETAIT la valeur canonique. Ici resolveDeckId() accepte
+    // DEUX entrees (forum_slug OU id) : l'URL demandee n'est donc pas forcement la
+    // canonique, et la reprendre telle quelle donnait deux canonical differents pour
+    // la meme page selon qu'on arrivait par l'id ou par le slug. On pointe vers le
+    // forum_slug de la ligne RESOLUE ; a defaut, vers l'id RESOLU — jamais vers le
+    // parametre recu. Le pager, lui, garde l'URL courante (voir plus haut).
+    const canonSlug = (meta.rows.length && meta.rows[0].forum_slug) || canonicalId;
     const deckHref = (meta.rows.length && meta.rows[0].owner_subscriber_id && meta.rows[0].share_token)
       ? `/deck/${escHtml(meta.rows[0].share_token)}`
       : `/collection/${escHtml(canonicalId)}`;
@@ -519,7 +535,7 @@ router.get('/forum/deck/:slug', async (req, res) => {
        <p class="forum-intro">Discussions liées au deck <a class="forum-slug-badge" href="${deckHref}">@${escHtml(slug)}</a></p>
        ${topicList(rows, 'Aucune discussion sur ce deck pour le moment — ouvrez la première.')}
        ${pager}`,
-      { url: SITE_URL + '/forum/deck/' + encodeURIComponent(did),
+      { url: SITE_URL + '/forum/deck/' + encodeURIComponent(canonSlug),
         desc: 'Les discussions liees au deck ' + name + ' sur La Bonne Alerte.',
         breadcrumb: breadcrumb([{ label: 'Forum', href: '/forum' }, { label: name }]) }));
   } catch (err) {
