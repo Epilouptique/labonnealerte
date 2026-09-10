@@ -9,21 +9,50 @@
 //
 // ORDRE DE LECTURE :
 //   a) en-tete Authorization: Bearer <jeton>   <- la voie normale desormais
-//   b) ?token= / corps JSON                    <- REPLI TEMPORAIRE, voir ci-dessous
+//   b) ?token=                                  <- repli de transition, RETIRABLE
+//   c) corps JSON { token }                     <- CONTRAT COURANT du front
 //
-// ===================== LE REPLI (b) EST TEMPORAIRE =====================
-// Il est la UNIQUEMENT pour la transition. Le service worker sert les assets en
-// stale-while-revalidate : apres le deploiement, des navigateurs continuent d'executer
-// l'ANCIEN session.js, qui envoie le jeton en query string. Couper (b) tout de suite
-// deconnecterait ces gens sans rien leur expliquer.
-// SON RETRAIT FERA L'OBJET D'UN LOT ULTERIEUR, quelques jours plus tard, quand le parc
-// aura tourne. Retirer alors : la lecture query/body dans tokenFrom(), et le miroir
-// pose par authTransport() ci-dessous.
-// ATTENTION en le retirant : les liens d'EMAIL, eux, gardent leur jeton dans l'URL pour
-// toujours — un client mail ne peut pas poser d'en-tete. Ils passent par des PARAMETRES
-// DE CHEMIN (/confirm/:token, /unsubscribe/:token, /tache/:id/confirmer/:token) et par
-// le lien magique qui arrive en /connexion?token=<magic_token>. Ce dernier est la SEULE
-// query string a preserver le jour ou (b) sautera.
+// ============ (b) ET (c) N'ONT PAS DU TOUT LE MEME STATUT ============
+// Ce module annoncait jusqu'au 10/09/2026 retirer « la lecture query/body » d'un
+// seul bloc, au motif que des navigateurs executeraient encore l'ancien session.js.
+// C'etait vrai pour la query, FAUX pour le corps. Retirer les deux ensemble aurait
+// casse le front ACTUEL au deploiement, pas des navigateurs en retard. D'ou la
+// scission en legacyQueryFrom() / legacyBodyFrom().
+//
+// (b) LA QUERY est retirable des maintenant. Plus aucun appel d'API du front ne
+//     l'emploie (verifie par grep le 10/09/2026). Seuls les navigateurs au cache
+//     fige sur l'ancien session.js s'en servent encore, et le service worker v9
+//     les a fait tourner. Retirer : legacyQueryFrom() et son appel dans tokenFrom().
+//
+// (c) LE CORPS est ce que le front envoie AUJOURD'HUI sur ses POST. Il ne se
+//     retire qu'APRES avoir migre chacun de ces fichiers vers authFetch/authHeaders
+//     (public/js/session.js). LISTE DE TRAVAIL, verifiee par grep le 10/09/2026 —
+//     14 fichiers, dont 6 manquaient a la liste de l'audit qualite du 10/09 :
+//       public/js/site.js             <- 12 envois, de loin le plus gros
+//       public/js/profile.js
+//       public/js/push.js
+//       public/js/quiet.js
+//       public/js/forum.js
+//       public/js/collection-page.js
+//       public/js/deck-shared.js
+//       public/js/deck-add.js
+//       public/js/source.js
+//       public/js/user-task-form.js
+//       public/js/boutique.js
+//       public/js/view-mode.js
+//       public/js/session.js          <- oui, lui aussi, sur deux POST
+//       public/js/favoris.js          <- orphelin (la route /favoris redirige),
+//                                        mais encore servi en acces direct a
+//                                        /favoris.html : a migrer ou a supprimer
+//     AVANT de retirer (c), refaire le grep : cette liste date, le front bouge.
+//       grep -nE "JSON.stringify\(.*\btoken\b|\btoken: " public/js/*.js
+//
+// LES LIENS D'EMAIL ne dependent ni de (b) ni de (c) et gardent leur jeton dans
+// l'URL pour toujours — un client mail ne peut pas poser d'en-tete. Ils passent par
+// des PARAMETRES DE CHEMIN (/confirm/:token, /unsubscribe/:token,
+// /tache/:id/confirmer/:token). Le lien magique /connexion?token=<magic_token> est
+// une query de PAGE, lue par le navigateur (public/js/myalerts.js) puis renvoyee en
+// Bearer : il ne passe pas par (b) et ne sera pas touche par son retrait.
 // =======================================================================
 
 // Jeton = 64 hex (crypto.randomBytes(32)). On reste un peu plus permissif que ca pour
@@ -39,14 +68,23 @@ function bearerFrom(req) {
   return m ? m[1] : null;
 }
 
-// (b) — le repli de transition : query puis corps JSON.
+// (b) — la query. Repli de transition, RETIRABLE : voir l'en-tete.
+function legacyQueryFrom(req) {
+  const q = req && req.query && req.query.token;
+  return typeof q === 'string' && q ? q : null;
+}
+
+// (c) — le corps JSON. CONTRAT COURANT du front : ne pas retirer avant d'avoir
+// migre les 14 fichiers listes dans l'en-tete.
+function legacyBodyFrom(req) {
+  const b = req && req.body && typeof req.body === 'object' && req.body.token;
+  return typeof b === 'string' && b ? b : null;
+}
+
+// Les deux replis, dans l'ordre historique (query puis corps). Garde la semantique
+// exacte de l'ancienne fonction unique : rien ne change a l'execution.
 function legacyFrom(req) {
-  if (!req) return null;
-  const q = req.query && req.query.token;
-  if (typeof q === 'string' && q) return q;
-  const b = req.body && typeof req.body === 'object' && req.body.token;
-  if (typeof b === 'string' && b) return b;
-  return null;
+  return legacyQueryFrom(req) || legacyBodyFrom(req);
 }
 
 // Le jeton de la requete, en-tete d'abord, repli ensuite.
