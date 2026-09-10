@@ -21,6 +21,14 @@ RUN npm ci --omit=dev
 COPY . .
 
 ENV NODE_ENV=production
+
+# FUSEAU DU PROCESSUS. Sans cette ligne, l'image (Ubuntu) tourne en UTC et tout
+# getHours/getDate du dépôt raisonne en UTC : les heures composées dans les messages
+# d'alerte (veille-agenda.js formatQuand) sortaient avec 1 à 2 h d'écart pour les
+# flux horodatés en UTC, et les journées basculaient à 01h/02h de Paris au lieu de
+# minuit. C'est aussi ce qui donne sa validité à la convention décrite en tête de
+# server/sources/lib/format-fr.js. Garder aligné avec TZ dans .env.example.
+ENV TZ=Europe/Paris
 # Railway fournit $PORT ; le serveur l'écoute déjà (server/index.js).
 EXPOSE 3000
 

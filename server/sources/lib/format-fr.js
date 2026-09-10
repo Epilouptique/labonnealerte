@@ -1,7 +1,20 @@
 // Formatage de dates en français, mutualisé entre sources.
 //
-// Convention du dépôt : les dates sont manipulées en heure locale (= Europe/Paris
-// en dev comme en prod), comme le fait déjà calendar-factory (getDate/getMonth…).
+// Convention du dépôt : les dates sont manipulées en heure locale, comme le fait
+// déjà calendar-factory (getDate/getMonth…). « Heure locale » veut dire le fuseau
+// du PROCESSUS Node, et rien d'autre.
+//
+// D'OÙ CETTE CONVENTION TIENT SA VALIDITÉ — et elle n'en avait aucune avant le
+// 10/09/2026. Ce commentaire affirmait « Europe/Paris en dev comme en prod » alors
+// que rien ne le faisait tenir en prod : ni variable TZ sur Railway, ni ENV dans le
+// Dockerfile, sur une image de base Ubuntu. Le processus tournait donc en UTC, et
+// tout getHours/getDate de ce dépôt raisonnait en UTC.
+// Elle tient désormais à DEUX endroits, qui doivent rester alignés :
+//   - prod : `ENV TZ=Europe/Paris` dans le Dockerfile ;
+//   - dev  : `TZ=Europe/Paris` dans .env.example (à recopier dans son .env).
+// Vérification au démarrage : Intl.DateTimeFormat().resolvedOptions().timeZone
+// doit valoir Europe/Paris. Si l'un des deux endroits saute, cette convention
+// redevient une affirmation sans fondement.
 //
 // formatDateFr(date, { withTime }) :
 //   « 20 juillet »              (date seule, année courante)
