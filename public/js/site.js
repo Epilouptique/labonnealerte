@@ -105,9 +105,11 @@
     var el = document.createElement('div');
     el.className = 'sub-msg ' + (kind || 'ok');
     el.textContent = text;
-    // Disposition A : le contenu est ancré dans .card-content (au-dessus du voile) ;
-    // on y insère le message pour qu'il reste lisible (repli sur .card-front si absent).
-    (card.querySelector('.card-content') || card.querySelector('.card-front')).appendChild(el);
+    // Format BLOC (fil #9) : le message d'abonnement/erreur vit dans .ab-action, juste
+    // sous le .sub-form (abonnement anonyme) ou le picker paramétré. Replis défensifs
+    // (.ab-body, puis la carte elle-même) → la cible n'est JAMAIS nulle. Corrige le crash
+    // note()→null.appendChild qui existait depuis l'incrément 1 (plus de .card-content/-front).
+    (card.querySelector('.ab-action') || card.querySelector('.ab-body') || card).appendChild(el);
   }
   // Animation signature : ping vert + illumination verte de la carte.
   function celebrate(card) {
@@ -794,12 +796,10 @@
     if (btn.closest('.deck-card')) return; // aperçus de deck : non interactifs
     e.preventDefault(); e.stopPropagation();
     var card = btn.closest('.card'); if (!card) return;
-    // Format BLOC (fil #9, incrément 3) : « + configurer » ouvre la zone dépliable .ab-detail
-    // (où vit la gestion des tâches), pas une 5e face. openBlockDetail est défini plus haut.
-    if (card.classList.contains('alert-block')) { openBlockDetail(card); return; }
-    // (Carte legacy — plus aucune user-task après l'incrément 3 ; conservé jusqu'au nettoyage.)
-    card.classList.remove('face-share', 'face-deck');
-    card.classList.add('flipped', 'face-task');
+    // Format BLOC (fil #9) : « + configurer » ouvre la zone dépliable .ab-detail (où vit la
+    // gestion des tâches), pas une 5e face. Toutes les cartes sont des blocs ; openBlockDetail
+    // (défini plus haut) garde lui-même le cas non-bloc.
+    openBlockDetail(card);
   });
 
   /* ---- V3 · suppression d'une tâche (croix) ----
@@ -2370,8 +2370,10 @@
     var item = document.querySelector('.task-item[data-task-id="' + id + '"]');
     if (!item) return;
     var card = item.closest('.card'); if (!card) return;
-    card.classList.remove('face-share', 'face-deck');
-    card.classList.add('flipped');
+    // Format BLOC (fil #9) : la tâche confirmée vit dans .ab-detail. On déplie le détail
+    // (openBlockDetail) pour qu'elle soit visible — remplace l'ancien flip vers la 5e face.
+    // 100 % front : aucun changement du flux serveur/token/cron de confirmation.
+    openBlockDetail(card);
     card.scrollIntoView({ behavior: 'smooth', block: 'center' });
     markTaskDone(item);
   }
@@ -2499,12 +2501,11 @@
     markLikes();  // A1) marque les cœurs déjà aimés (localStorage)
   }
 
-  // Tags du verso cliquables → re-flip recto + filtre la catégorie.
+  // Tags du détail (.ab-detail) cliquables → filtre la catégorie et remonte à la grille.
   document.addEventListener('click', function (e) {
     var tag = e.target.closest('.back-tag');
     if (!tag) return;
     e.preventDefault(); e.stopPropagation();
-    var card = tag.closest('.card'); if (card) card.classList.remove('flipped');
     selectChip(tag.getAttribute('data-cat'));
     scrollToGrid();
   });
