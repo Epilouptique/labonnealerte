@@ -819,8 +819,85 @@
     return s.replace(/[^a-z0-9]+/g, ' ').replace(/^ | $/g, '');
   }
 
-  // s : source complète ; mode : 'anon' | 'connected'
+  // ── FORMAT BLOC (fil #9, incrément 1) ───────────────────────────────────────
+  // Familles SIMPLES (broadcast, paramétré, linked) : une alerte = un bloc = une ligne,
+  // SANS recto/verso ni flip. Le bloc GARDE la classe .card (appartenance au pipeline
+  // filtre/tri/pagination + hooks délégués de site.js : like, switch, param…) mais N'A PAS
+  // .flip / .card-inner / .card-face → aucun CSS flip ne s'y applique. Le « verso » (desc
+  // longue, tags, auteur, lien forum) vit dans .ab-detail, dépliable par .ab-toggle (site.js).
+  function renderBlock(s, mode) {
+    var isLinked = s.type === 'linked';
+    var cats = Array.isArray(s.categories) ? s.categories : [];
+    var dataCats = cats.map(esc).join(' ');
+    var hasInstances = Array.isArray(s.instances) && s.instances.length > 0;
+    var sub = mode === 'connected' && (!!s.subscribed || hasInstances) ? '1' : '0';
+
+    // État + zone d'action, alignés sur frontFace (linked / paramétré / broadcast simple).
+    var state, action;
+    if (isLinked) {
+      state = '<div class="state partner"><span class="dot-idle"></span> Service partenaire</div>';
+      action = '<a class="link-btn" href="' + esc(s.link_url) + '" target="_blank" rel="noopener">' +
+        'Configurer sur ' + esc(domainOf(s.link_url)) + ' →</a>';
+    } else if (isParam(s)) {
+      state = stateFor(s.state);
+      action = paramFace(s, mode);
+    } else {
+      state = stateFor(s.state);
+      action = switchRow(mode === 'connected' && !!s.subscribed) + (mode === 'connected' ? '' : subForm());
+    }
+
+    var count = (s.subscriber_count >= 10)
+      ? '<div class="sub-count">' + s.subscriber_count + ' abonnés</div>' : '';
+    var subtitle = s.subtitle ? '<div class="card-subtitle">' + esc(s.subtitle) + '</div>' : '';
+    var descShort = '<p class="card-static-desc"><span class="card-desc">' + esc(s.description || '') + '</span></p>';
+
+    // Détail dépliable (ex-verso) : @forum_slug, description longue, tags, auteur, lien forum.
+    // Mêmes classes que backFace → styles existants réutilisés.
+    var tags = cats.length
+      ? '<div class="back-tags">' + cats.map(function (c) {
+          return '<button type="button" class="tag back-tag" data-cat="' + esc(c) + '">' + esc(catLabel(c)) + '</button>';
+        }).join('') + '</div>'
+      : '';
+    var author = s.submitted_by_github
+      ? '<div class="back-author">par <a href="https://github.com/' + esc(s.submitted_by_github) + '" ' +
+        'target="_blank" rel="noopener">@' + esc(s.submitted_by_github) + '</a></div>'
+      : '';
+    var forum = s.forum_slug
+      ? '<a class="back-statut back-forum" href="/forum/source/' + esc(s.forum_slug) + '">' + forumLinkText(s.topic_count) + '</a>'
+      : '';
+    var forumBadge = s.forum_slug
+      ? '<a class="forum-slug-badge card-forum-badge" href="/source/' + esc(s.id) + '/statut">@' + esc(s.forum_slug) + '</a>'
+      : '';
+    var longDesc = '<p class="card-long-desc">' + esc(s.description_long || s.description || '') + '</p>';
+    var detailId = 'abdet-' + esc(String(s.id));
+
+    var abToggle = '<button class="ab-toggle" type="button" aria-expanded="false" aria-controls="' + detailId +
+      '" aria-label="Afficher le détail de ' + esc(s.name) + '" title="En savoir plus">' + INFO_SVG + '</button>';
+    var shareBtn = '<button class="share-btn card-share" type="button" aria-label="Partager" title="Partager">' + SHARE_SVG + '</button>';
+
+    return '' +
+      '<article class="card alert-block" data-cats="' + dataCats + '" data-source-id="' + esc(s.id) + '"' +
+        ' data-subscribed="' + sub + '" data-search="' + esc(searchText(s, cats)) + '">' +
+        '<div class="ab-head">' +
+          state +
+          '<div class="card-icons">' + likeBtn(s, mode) + shareBtn + abToggle + '</div>' +
+        '</div>' +
+        '<div class="ab-body">' + topRow(s) + subtitle + descShort + count + '</div>' +
+        '<div class="ab-action">' + action + '</div>' +
+        '<div class="ab-detail" id="' + detailId + '" hidden>' + forumBadge + longDesc + tags + author + forum + '</div>' +
+      '</article>';
+  }
+
+  // Aiguillage (fil #9) : familles complexes (communautaire, user-task) → rendu carte LEGACY
+  // (recto/verso flip) inchangé, le temps de leur migration (incréments 2 et 3). Les autres
+  // (broadcast, paramétré, linked) → nouveau format bloc.
   function cardHTML(s, mode) {
+    if (isCommunity(s) || isUserTask(s)) return renderLegacyCard(s, mode);
+    return renderBlock(s, mode);
+  }
+
+  // s : source complète ; mode : 'anon' | 'connected'  —  RENDU CARTE LEGACY (recto/verso flip).
+  function renderLegacyCard(s, mode) {
     var cats = Array.isArray(s.categories) ? s.categories : [];
     var dataCats = cats.map(esc).join(' ');
     var isLinked = s.type === 'linked';

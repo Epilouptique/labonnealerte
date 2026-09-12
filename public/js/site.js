@@ -143,6 +143,12 @@
       name = h3 ? h3.textContent : 'La Bonne Alerte';
       url = 'https://labonnealerte.fr/source/' + id + '/statut';
     }
+    // Format BLOC (fil #9) : pas de face « Partager » → modale LBAShare (comme les pages
+    // collection/deck). Les cartes LEGACY (communautaire/user-task) gardent le flip ci-dessous.
+    if (card.classList.contains('alert-block')) {
+      if (window.LBAShare && LBAShare.openModal) LBAShare.openModal(name, url);
+      return;
+    }
     var faceGrid = card.querySelector('.share-face-grid');
     if (faceGrid && window.LBAShare && !faceGrid.dataset.filled) {
       faceGrid.innerHTML = LBAShare.optionsHTML(name, url);
@@ -564,6 +570,21 @@
 
   // Flip recto ⇄ verso-info ⇄ verso-partage. flip-back ramène toujours au recto.
   document.addEventListener('click', function (e) {
+    // Format BLOC (fil #9) : le « détail » (ex-verso) est une zone dépliable inline, pas une
+    // face. .ab-toggle ouvre/ferme .ab-detail EN PLACE (aucun déplacement de nœud, aucun flip).
+    var abt = e.target.closest('.ab-toggle');
+    if (abt) {
+      e.preventDefault(); e.stopPropagation();
+      var blk = abt.closest('.alert-block');
+      var det = blk && blk.querySelector('.ab-detail');
+      if (det) {
+        var willOpen = det.hidden;
+        det.hidden = !willOpen;
+        abt.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+        blk.classList.toggle('ab-open', willOpen);
+      }
+      return;
+    }
     var flip = e.target.closest('.flip-btn');
     if (flip) {
       e.preventDefault(); e.stopPropagation();

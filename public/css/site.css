@@ -404,6 +404,32 @@ main#alertes { scroll-margin-top: 64px; }
   .card.card-leave, .card.card-enter, .card.card-enter.card-enter-active { transition: none; transform: none; opacity: 1; }
 }
 
+/* ============================================================================
+   FORMAT « BLOC » (fil #9, incrément 1) — remplace le recto/verso flip pour les
+   familles simples (broadcast, paramétré, linked). Le bloc garde .card (pipeline
+   filtre/tri/pagination + hooks JS délégués) mais N'A PAS .flip/.card-inner/.card-face,
+   donc le CSS flip ci-dessous NE s'y applique PAS. Une alerte = un bloc = une ligne.
+   ============================================================================ */
+.alert-block { gap: 10px; }
+/* En-tête : état à gauche, contrôles (♥ · partager · détails) à droite. */
+.alert-block .ab-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.alert-block .ab-head .card-icons { position: static; display: inline-flex; align-items: center; gap: 4px; }
+/* Corps : titre + sous-titre + description courte (troncature .card-desc conservée). */
+.alert-block .ab-body { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.alert-block .ab-body .card-top { margin: 0; }
+.alert-block .ab-body .card-static-desc { margin: 0; }
+/* Action : switch d'abonnement / picker paramétré / lien partenaire. */
+.alert-block .ab-action { display: flex; flex-direction: column; gap: 8px; }
+/* Bouton « détails » (remplace le ⓘ du flip) : même icône, inline dans l'en-tête. */
+.alert-block .ab-toggle { background: none; border: none; cursor: pointer; color: var(--muted); padding: 4px; display: inline-flex; align-items: center; }
+.alert-block .ab-toggle:hover, .alert-block.ab-open .ab-toggle { color: var(--amber); }
+/* Zone dépliable (ex-verso) : fermée par défaut via [hidden]. */
+.alert-block .ab-detail { display: flex; flex-direction: column; gap: 10px; padding-top: 10px; margin-top: 2px; border-top: 1px solid var(--line); }
+.alert-block .ab-detail[hidden] { display: none; }
+.alert-block .ab-detail .card-long-desc { margin: 0; }
+/* Le badge @forum_slug était ancré en absolu au verso ; en bloc, il revient dans le flux. */
+.alert-block .ab-detail .card-forum-badge { position: static; align-self: flex-start; }
+
 /* ---------- carte recto/verso (flip 3D) ---------- */
 /* La carte-conteneur devient transparente : l'apparence est portée par les faces.
    Verso en position absolue par-dessus le recto → le recto (donc le « ⓘ ») est
@@ -4730,6 +4756,14 @@ html[data-theme="dark"] .skin-dresseur .card-deck-face::after, html[data-theme="
    source n'a besoin de ce switch pour souscrire : il ferait doublon avec le switch de la
    ligne fermée (seul contrôle visible en liste, reflète l'état via sync()). */
 .lrow-exp .card.in-list-exp .param-follow-row { display: none; }
+/* Format BLOC dans le volet liste (fil #9) : on ne garde que la zone d'action (picker
+   paramétré) ; en-tête/corps/détail du bloc font doublon avec la ligne fermée. Les règles
+   .param-mute-row / .param-follow-row ci-dessus s'appliquent aussi (mêmes classes). */
+.lrow-exp .card.alert-block.in-list-exp { margin: 0; width: 100%; background: none; box-shadow: none; padding: 0; }
+.lrow-exp .card.alert-block.in-list-exp .ab-head,
+.lrow-exp .card.alert-block.in-list-exp .ab-body,
+.lrow-exp .card.alert-block.in-list-exp .ab-detail { display: none; }
+.lrow-exp .card.alert-block.in-list-exp .ab-action { display: flex; }
 
 /* (h) Apparition d'une ligne (filtrage catégorie, adoption, dismiss reco) : même
    durée/easing que l'entrée des cartes (.25s ease). Le réordonnancement complet type
