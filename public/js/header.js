@@ -28,11 +28,10 @@
      Exposé via window.LBAHeader.ICONS pour éviter une 3e copie ailleurs. */
   var BELL_PATHS = '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>';
   var HEART_PATH = '<path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>';
-  // Boutique (sac) : corps du sac + ligne d'ouverture + anse.
-  var BAG_PATHS = '<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/>';
   // `strokeOnly` : le calque révélé au survol reste un TRACÉ (fill="none") au lieu d'un
   // aplat — c'est alors le dessin lui-même qui se colore de bas en haut, sans que
-  // l'intérieur se remplisse. Utilisé par le sac de la boutique.
+  // l'intérieur se remplisse. (Plus aucun consommateur depuis le retrait du sac boutique,
+  // fil #9 — paramètre conservé, générique.)
   function icon2(cls, paths, strokeOnly) {
     var open = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
     return '<span class="hd-ic ' + cls + '" aria-hidden="true">' +
@@ -42,7 +41,6 @@
   }
   var BELL_HTML = icon2('hd-ic-bell', BELL_PATHS);
   var HEART_HTML = icon2('hd-ic-heart', HEART_PATH);
-  var BAG_HTML = icon2('hd-ic-bag', BAG_PATHS, true);
   // « Mes alertes » : cloche seule (plus de libellé texte). Le KPI du header vient s'y
   // superposer en pastille de notification (voir mobile-header.js + site.css).
   var MINE_LINK_HTML = '<a class="mine-link hd-link" href="/connexion" aria-label="Mes alertes" title="Mes alertes">' + BELL_HTML + '</a>';
@@ -282,7 +280,7 @@
   window.LBAHeader = {
     buildMenu: buildMenu,
     ICONS: {
-      bell: BELL_HTML, heart: HEART_HTML, bag: BAG_HTML,
+      bell: BELL_HTML, heart: HEART_HTML,
       mineLink: MINE_LINK_HTML, favLink: FAV_LINK_HTML
     }
   };

@@ -105,11 +105,9 @@
     var el = document.createElement('div');
     el.className = 'sub-msg ' + (kind || 'ok');
     el.textContent = text;
-    // Format BLOC (fil #9) : le message d'abonnement/erreur vit dans .ab-action, juste
-    // sous le .sub-form (abonnement anonyme) ou le picker paramétré. Replis défensifs
-    // (.ab-body, puis la carte elle-même) → la cible n'est JAMAIS nulle. Corrige le crash
-    // note()→null.appendChild qui existait depuis l'incrément 1 (plus de .card-content/-front).
-    (card.querySelector('.ab-action') || card.querySelector('.ab-body') || card).appendChild(el);
+    // Disposition A : le contenu est ancré dans .card-content (au-dessus du voile) ;
+    // on y insère le message pour qu'il reste lisible (repli sur .card-front si absent).
+    (card.querySelector('.card-content') || card.querySelector('.card-front')).appendChild(el);
   }
   // Animation signature : ping vert + illumination verte de la carte.
   function celebrate(card) {
@@ -144,12 +142,6 @@
       var h3 = card.querySelector('h3');
       name = h3 ? h3.textContent : 'La Bonne Alerte';
       url = 'https://labonnealerte.fr/source/' + id + '/statut';
-    }
-    // Format BLOC (fil #9) : pas de face « Partager » → modale LBAShare (comme les pages
-    // collection/deck). Les cartes LEGACY (communautaire/user-task) gardent le flip ci-dessous.
-    if (card.classList.contains('alert-block')) {
-      if (window.LBAShare && LBAShare.openModal) LBAShare.openModal(name, url);
-      return;
     }
     var faceGrid = card.querySelector('.share-face-grid');
     if (faceGrid && window.LBAShare && !faceGrid.dataset.filled) {
@@ -572,26 +564,6 @@
 
   // Flip recto ⇄ verso-info ⇄ verso-partage. flip-back ramène toujours au recto.
   document.addEventListener('click', function (e) {
-    // Format BLOC (fil #9) : le « détail » (ex-verso) est une zone dépliable inline, pas une
-    // face. .ab-toggle ouvre/ferme .ab-detail EN PLACE (aucun déplacement de nœud, aucun flip).
-    var abt = e.target.closest('.ab-toggle');
-    if (abt) {
-      e.preventDefault(); e.stopPropagation();
-      var blk = abt.closest('.alert-block');
-      var det = blk && blk.querySelector('.ab-detail');
-      if (det) {
-        var willOpen = det.hidden;
-        det.hidden = !willOpen;
-        abt.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
-        blk.classList.toggle('ab-open', willOpen);
-        // Communautaire : (re)charge la liste des signalements à l'ouverture (fil #9, incrément 2),
-        // comme le faisait l'ouverture de la 5e face en vue carte.
-        if (willOpen && blk.getAttribute('data-card-type') === 'community' && window.LBACommunity) {
-          window.LBACommunity.load(blk);
-        }
-      }
-      return;
-    }
     var flip = e.target.closest('.flip-btn');
     if (flip) {
       e.preventDefault(); e.stopPropagation();
@@ -796,10 +768,9 @@
     if (btn.closest('.deck-card')) return; // aperçus de deck : non interactifs
     e.preventDefault(); e.stopPropagation();
     var card = btn.closest('.card'); if (!card) return;
-    // Format BLOC (fil #9) : « + configurer » ouvre la zone dépliable .ab-detail (où vit la
-    // gestion des tâches), pas une 5e face. Toutes les cartes sont des blocs ; openBlockDetail
-    // (défini plus haut) garde lui-même le cas non-bloc.
-    openBlockDetail(card);
+    // Même geste que openDeckFace : rotation + désignation de la face arrière visible.
+    card.classList.remove('face-share', 'face-deck');
+    card.classList.add('flipped', 'face-task');
   });
 
   /* ---- V3 · suppression d'une tâche (croix) ----
@@ -833,12 +804,9 @@
         if (card) {
           // Le switch est sur le RECTO (structure identique aux cartes v2), pas sur
           // la face tâches.
-          // Déscopé de .card-front (fil #9, incrément 3) : en format bloc, l'état et la pause
-          // vivent dans .ab-head/.ab-action, plus sur un recto. Une seule .state.task / une seule
-          // .param-mute-row par carte → le sélecteur non scopé les vise sans ambiguïté.
-          var mute = card.querySelector('.param-mute-row');
+          var mute = card.querySelector('.card-front .param-mute-row');
           if (mute) mute.remove();
-          var st = card.querySelector('.state.task');
+          var st = card.querySelector('.card-front .state.task');
           if (st) st.innerHTML = '<span class="dot-idle"></span> Tâche personnelle';
           if (!data || data.subscribed === false) {
             card.dataset.subscribed = '0';
@@ -1073,23 +1041,52 @@
     list.innerHTML = rows.map(function (r) { return LBACards.communityReportItem(r, label); }).join('');
   }
 
-  // APERÇU STATIQUE (fil #9, incrément 2 — Q2) : remplace l'ancien recto DYNAMIQUE à rotation.
-  // Le format bloc n'a plus de contrainte d'espace → plus de carrousel (setInterval 10 s,
-  // animations bd-slide-*). On affiche le DERNIER signalement (le plus récent) en priorité,
-  // avec le nombre total en complément. Cible le slot .community-preview du bloc (.ab-body).
-  // textContent (jamais innerHTML) → aucune injection possible depuis les données serveur.
-  function renderCommunityPreview(card, rows) {
-    var slot = card.querySelector('.community-preview');
+  // Recto DYNAMIQUE : s'il existe ≥1 instance visible, le sous-titre + la description
+  // statiques du recto cèdent la place au contenu d'un item (.task-item.community-item,
+  // markup réutilisé tel quel via LBACards.communityReportItem — aucune duplication).
+  // Rotation auto toutes les 10 s si ≥2 instances, même vocabulaire de transition que
+  // le H1 de /favoris (favoris-title.js : classes bd-slide-out/bd-slide-in).
+  var communityRotationTimers = new WeakMap();
+  function renderCommunityRecto(card, rows) {
+    var slot = card.querySelector('.card-front .community-recto');
     if (!slot) return;
-    if (!rows || !rows.length) { slot.hidden = true; slot.textContent = ''; return; }
-    var last = rows.slice().sort(function (a, b) {
-      return new Date(b.created_at || 0) - new Date(a.created_at || 0);
-    })[0];
-    var line = 'Dernier signalement : ' + (last.commune_nom || '');
-    if (last.description) line += ' — ' + last.description;
-    if (rows.length > 1) line += ' · ' + rows.length + ' au total';
-    slot.textContent = line;
+    var prevTimer = communityRotationTimers.get(card);
+    if (prevTimer) { clearInterval(prevTimer); communityRotationTimers.delete(card); }
+
+    var subtitle = card.querySelector('.card-front .card-subtitle');
+    var desc = card.querySelector('.card-front .card-static-desc');
+    if (!rows || !rows.length) {
+      slot.hidden = true; slot.innerHTML = '';
+      if (subtitle) subtitle.hidden = false;
+      if (desc) desc.hidden = false;
+      return;
+    }
+    if (subtitle) subtitle.hidden = true;
+    if (desc) desc.hidden = true;
     slot.hidden = false;
+
+    var label = communityLabelOf(card);
+    function paint(idx, animate) {
+      var html = LBACards.communityReportItem(rows[idx], label);
+      if (!animate || REDUCE) { slot.innerHTML = html; return; }
+      slot.classList.add('bd-slide-out');
+      setTimeout(function () {
+        slot.innerHTML = html;
+        slot.classList.remove('bd-slide-out');
+        slot.classList.add('bd-slide-in');
+        setTimeout(function () { slot.classList.remove('bd-slide-in'); }, 280);
+      }, 220);
+    }
+    paint(0, false);
+
+    if (rows.length > 1) {
+      var i = 0;
+      var timer = setInterval(function () {
+        i = (i + 1) % rows.length;
+        paint(i, true);
+      }, 10000);
+      communityRotationTimers.set(card, timer);
+    }
   }
 
   // Masque .community-report-toggle si le profil a déjà un signalement actif de ce
@@ -1155,7 +1152,7 @@
     try {
       var rows = await fetchCommunityReports(communityTypeOf(card));
       renderCommunityList(card, rows);
-      renderCommunityPreview(card, rows);
+      renderCommunityRecto(card, rows);
       syncCommunityToggle(card, rows);
       return rows; // consommé par le handler .community-config (ouverture directe du formulaire)
     } catch (e) {
@@ -1269,26 +1266,11 @@
   // de ne PAS ouvrir un formulaire voué à l'échec (409, 1 actif par auteur) ; son
   // signalement reste visible dans la liste avec « Je l'ai retrouvé ». En cas d'échec
   // réseau (rows undefined), on ne change rien à l'état par défaut.
-  // Ouvre la zone dépliable .ab-detail d'un bloc (format bloc, fil #9) — pour « Signaler »,
-  // qui révèle la liste + le formulaire sans flip. No-op sur une carte legacy (pas de .ab-detail).
-  function openBlockDetail(card) {
-    var blk = card && (card.classList.contains('alert-block') ? card
-      : (card.closest ? card.closest('.alert-block') : null));
-    if (!blk) return;
-    var det = blk.querySelector('.ab-detail');
-    if (det && det.hidden) {
-      det.hidden = false;
-      blk.classList.add('ab-open');
-      var t = blk.querySelector('.ab-toggle'); if (t) t.setAttribute('aria-expanded', 'true');
-    }
-  }
-
   document.addEventListener('click', function (e) {
     var btn = e.target.closest('button.community-config');
     if (!btn) return;
     if (btn.closest('.deck-card')) return;
     var card = btn.closest('.card'); if (!card) return;
-    openBlockDetail(card); // format bloc : la liste + le formulaire vivent dans .ab-detail
     loadCommunityReports(card).then(function (rows) {
       if (!rows) return;
       if (!rows.some(function (r) { return r.is_author; })) revealCommunityForm(card);
@@ -2370,10 +2352,8 @@
     var item = document.querySelector('.task-item[data-task-id="' + id + '"]');
     if (!item) return;
     var card = item.closest('.card'); if (!card) return;
-    // Format BLOC (fil #9) : la tâche confirmée vit dans .ab-detail. On déplie le détail
-    // (openBlockDetail) pour qu'elle soit visible — remplace l'ancien flip vers la 5e face.
-    // 100 % front : aucun changement du flux serveur/token/cron de confirmation.
-    openBlockDetail(card);
+    card.classList.remove('face-share', 'face-deck');
+    card.classList.add('flipped');
     card.scrollIntoView({ behavior: 'smooth', block: 'center' });
     markTaskDone(item);
   }
@@ -2501,11 +2481,12 @@
     markLikes();  // A1) marque les cœurs déjà aimés (localStorage)
   }
 
-  // Tags du détail (.ab-detail) cliquables → filtre la catégorie et remonte à la grille.
+  // Tags du verso cliquables → re-flip recto + filtre la catégorie.
   document.addEventListener('click', function (e) {
     var tag = e.target.closest('.back-tag');
     if (!tag) return;
     e.preventDefault(); e.stopPropagation();
+    var card = tag.closest('.card'); if (card) card.classList.remove('flipped');
     selectChip(tag.getAttribute('data-cat'));
     scrollToGrid();
   });

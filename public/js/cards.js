@@ -24,6 +24,13 @@
     '<circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/>' +
     '<path d="M8.4 12.4l2.3 2.3 4.9-4.9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
+  // Classe normalisee du badge (official/verified/community), reutilisee par la
+  // pastille-mana neutre de card-icons (skin L'Assemblee).
+  function badgeClassOf(badge) {
+    var b = (badge || 'community').toLowerCase();
+    return (b === 'official' || b === 'verified') ? b : 'community';
+  }
+
   // Badge = icône compacte (coche cerclée). official/verified → accent ; community → muted.
   function badgeFor(badge) {
     var b = (badge || 'community').toLowerCase();
@@ -44,9 +51,14 @@
     return s.split('/')[0];
   }
 
-  // En-tête commun du bloc : titre + badge.
+  // En-tête commun recto/verso : titre + badge.
   function topRow(s) {
-    return '<div class="card-top"><h3>' + esc(s.name) + '</h3>' + badgeFor(s.badge) + '</div>';
+    // .card-seal x2 : marques generiques (display:none par defaut) reutilisees par les
+    // skins structures (sceaux de cout de l'Assemblee, sceau « ! » de l'Ecole, index
+    // d'angle de l'Arcane). Aucun effet sur le rendu par defaut (hors flux).
+    return '<div class="card-top"><h3>' + esc(s.name) + '</h3>' + badgeFor(s.badge) +
+      '<span class="card-seal" aria-hidden="true"></span>' +
+      '<span class="card-seal" aria-hidden="true"></span></div>';
   }
 
   function switchRow(on) {
@@ -67,13 +79,46 @@
 
   var SHARE_SVG = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>';
 
-  // Icône « i dans un cercle » (bouton « En savoir plus » du bloc) : même style que
-  // SHARE_SVG (trait 2px, linecap round, 18×18, currentColor). Remplace le caractère
-  // « ⓘ » au rendu incohérent selon les OS. Taille pilotée par .ab-toggle svg.
+  // Flèche « retour » (identique au rendu PC de « ↩ ») : rendu cohérent sur tous
+  // les OS/navigateurs (iOS/Firefox tombaient sur un glyphe système, Android/Chrome
+  // l'écrasait). Taille pilotée par le CSS (.flip-back svg / .src-back svg).
+  var BACK_SVG = '<svg class="ic-back" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 5 5v3"/></svg>';
+
+  // Icône « i dans un cercle » (recto, bouton « En savoir plus ») : même style que
+  // SHARE_SVG/BACK_SVG (trait 2px, linecap round, 18×18, currentColor). Remplace le
+  // caractère « ⓘ » au rendu incohérent selon les OS. Taille pilotée par .flip-btn svg.
   var INFO_SVG = '<svg class="ic-info" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 7.6v.01"/></svg>';
+
+  // Icône « + » (recto) : « Ajouter à un deck ». Même famille que INFO_SVG/SHARE_SVG
+  // (trait 2px, linecap round, 18×18, currentColor). Placée juste à gauche du « i ».
+  var PLUS_SVG = '<svg class="ic-plus" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>';
 
   // A1) Cœur « j'aime » : contour (non aimé) ; le CSS le remplit quand .liked.
   var LIKE_SVG = '<svg class="ic-like" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20.3l-1.45-1.32C5.4 14.36 2.5 11.7 2.5 8.5 2.5 6.08 4.42 4.2 6.8 4.2c1.36 0 2.66.63 3.5 1.64l.7.85.7-.85C12.54 4.83 13.84 4.2 15.2 4.2c2.38 0 4.3 1.88 4.3 4.3 0 3.2-2.9 5.86-8.05 10.48z"/></svg>';
+
+  // Motif de fond « full-art » (disposition A). UN SEUL motif générique pour toutes les
+  // cartes pour l'instant (cercles concentriques + point vert + ligne sismique + points
+  // épars), repris du modèle de référence. Couleurs pilotées par le CSS (currentColor +
+  // classes .tc-*) → suivent le thème jour/nuit. Bloc ISOLÉ et facilement remplaçable :
+  // la substitution future par catégorie n'aura qu'à faire varier ce SVG (ou son injection).
+  var FULLART_SVG = '<span class="fullart" aria-hidden="true">' +
+    '<svg viewBox="0 0 280 420" fill="none" stroke="currentColor" stroke-linecap="round" preserveAspectRatio="xMidYMid slice">' +
+      // fa-c1..fa-c4 (cercles) + fa-dot (point) = cibles de l'animation « radar calme »
+      // de l'état actif (voir CSS, bloc disposition A). La ligne sismique et les points
+      // épars ne portent pas ces classes → ils ne bougent jamais.
+      '<g class="tc-rings">' +
+        '<circle class="fa-c1" cx="140" cy="128" r="34" stroke-width="2"/>' +
+        '<circle class="fa-c2" cx="140" cy="128" r="64" stroke-width="1.6" opacity=".6"/>' +
+        '<circle class="fa-c3" cx="140" cy="128" r="98" stroke-width="1.4" opacity=".35"/>' +
+        '<circle class="fa-c4" cx="140" cy="128" r="136" stroke-width="1.2" opacity=".2"/>' +
+      '</g>' +
+      '<circle class="tc-dot fa-dot" cx="140" cy="128" r="8" stroke="none"/>' +
+      '<path class="tc-line" d="M-10 296 L70 232 L120 268 L180 216 L236 264 L300 226" stroke-width="4"/>' +
+      '<g class="tc-stars" stroke="none" fill="currentColor">' +
+        '<circle cx="52" cy="58" r="1.8"/><circle cx="228" cy="42" r="1.5"/>' +
+        '<circle cx="200" cy="90" r="1.3"/><circle cx="60" cy="176" r="1.4"/>' +
+      '</g>' +
+    '</svg></span>';
 
   // Libellé du lien forum du verso, PARTAGÉ cartes + decks (deck-stack.js l'appelle via
   // LBACards) : « On en parle au forum (3) → ». Le compte vient de `topic_count`, porté
@@ -314,6 +359,34 @@
       '</div>';
   }
 
+  // 5e face « Signaler » : LISTE des instances communautaires actives visibles pour ce
+  // profil (chargée à l'ouverture via GET /api/community-reports, site.js) + bouton de
+  // création/adhésion en bas. Structure calquée À L'IDENTIQUE sur la 5e face 'user-task'
+  // (.card-task-face/.tf-title/.task-zone réutilisées telles quelles) : REFONTE demandée
+  // pour remplacer le formulaire en permanence sur le recto par ce patron. Connecté
+  // uniquement, comme taskFace().
+  function communityReportsFace(s, mode) {
+    if (!isCommunity(s) || mode !== 'connected') return '';
+    return '' +
+      // .card-community-face = marqueur ADDITIF (même raisonnement que .card-usertask-face
+      // ci-dessous pour 'user-task') : distingue cette face de celle des tâches, qui
+      // réutilise le même .card-task-face partagé — nécessaire pour que la vue liste
+      // (list-view.js) sache laquelle dévoiler dans son volet.
+      '<div class="card-face card-task-face card-community-face">' +
+        '<button class="flip-back" type="button" aria-label="Retour" title="Retour">' + BACK_SVG + '</button>' +
+        '<div class="tf-title">Signalements en cours</div>' +
+        '<div class="task-zone">' +
+          '<div class="community-list" data-community-list><div class="community-loading">Chargement…</div></div>' +
+          // PAS .task-create (ce nom de classe est câblé dans user-task-form.js à
+          // l'ouverture d'une MODALE de création de tâche — l'emprunter ouvrirait la
+          // mauvaise UI). Classe dédiée .community-report-toggle ; même rendu visuel
+          // que .task-create via un sélecteur groupé (site.css), pas une classe partagée.
+          '<button type="button" class="community-report-toggle secondary">Signaler une disparition</button>' +
+          communityFace(s) +
+        '</div>' +
+      '</div>';
+  }
+
   function paramFace(s, mode) {
     // v2 multi-champs : params_schema est un TABLEAU ; on rend UN contrôle PAR champ.
     // (Rétrocompat : un schéma à 1 champ produit exactement le même rendu qu'avant.)
@@ -421,6 +494,181 @@
     return row + anon + follow + status;
   }
 
+  // Bloc « attaques » du skin structure « Le Dresseur » (display:none par defaut →
+  // aucun effet hors de ce skin). CONTENU REEL de la source (structure unique, pas de
+  // branche de rendu) : une SEULE rangee — nom neutre « Signal », effet = la VRAIE
+  // description de la carte, « degats » = nombre de likes (decoratif mais reel, masque
+  // si 0). Les 3 billes .card-pip portent l'animation « la charge ». Aucune chaine
+  // specifique aux seismes. Le .card-desc reel reste dans le DOM (sr-only en Dresseur,
+  // cf. CSS) pour l'accessibilite ; ce bloc en est l'echo visuel (aria-hidden).
+  function attacksHTML(s) {
+    var eff = esc(s.description || s.subtitle || '');
+    var n = Number(s.likes_count) || 0;
+    var dmg = n > 0 ? '<span class="card-dmg">' + esc(formatCount(n)) + '</span>' : '';
+    return '<div class="card-attacks" aria-hidden="true">' +
+        '<div class="card-atk">' +
+          '<span class="card-en"><span class="card-pip p1"></span>' +
+            '<span class="card-pip p2"></span><span class="card-pip p3"></span></span>' +
+          '<span class="card-atkbody"><span class="card-atkname">Signal</span>' +
+            '<span class="card-atkeff">' + eff + '</span></span>' +
+          dmg +
+        '</div>' +
+      '</div>';
+  }
+  // Pied « faiblesse / resistance » du Dresseur (la retraite accueille le switch, cf. CSS).
+  // display:none par defaut -> inerte hors de ce skin (structure unique, pixel-safe).
+  var FOOT_HTML =
+    '<div class="card-foot" aria-hidden="true">' +
+      '<span>faiblesse<br><b>le silence</b></span>' +
+      '<span>résistance<br><b>le spam ✕2</b></span>' +
+      '<span>retraite<br><b>1 signal</b></span>' +
+    '</div>';
+
+  function frontFace(s, mode, isLinked) {
+    var state, action;
+    if (isLinked) {
+      state = '<div class="state partner"><span class="dot-idle"></span> Service partenaire</div>';
+      action = '<a class="link-btn" href="' + esc(s.link_url) + '" target="_blank" rel="noopener">' +
+        'Configurer sur ' + esc(domainOf(s.link_url)) + ' →</a>';
+    } else if (isUserTask(s)) {
+      // Même patron que les cartes 'linked' : on remplace À LA FOIS l'état et
+      // l'action, et le rendu est IDENTIQUE en anonyme et en connecté.
+      //
+      // État : troisième vocabulaire neutre (.state.task, muted), PAS .state.active
+      // même quand une tâche est suivie. « active » a un sens précis dans ce projet
+      // (une alerte se déclenche en ce moment) : il anime le motif full-art
+      // (.card-front:has(.state.active)) et alimente le KPI « mes alertes actives »
+      // via cardIsActive(). Une échéance suivie n'est pas une alerte en cours.
+      // Les deux libellés sont un indicateur BINAIRE d'adoption (même signal que
+      // hasTask au verso), jamais un résumé d'échéance : ni date, ni compte.
+      //
+      var hasTask = Array.isArray(s.tasks) && s.tasks.length > 0;
+      state = '<div class="state task"><span class="dot-idle"></span> ' +
+        (hasTask ? 'Tâche suivie' : 'Tâche personnelle') + '</div>';
+      // MÊME STRUCTURE DE RECTO que les cartes v2 paramétrées : bloc d'action
+      // (pastille, style de « + ajouter ») PUIS interrupteur pause/reprise, les deux
+      // sur le recto. Rien de spécifique à ce type de carte ne s'en écarte.
+      // Le ⓘ garde son rôle habituel (verso classique) ; « Configurer » ouvre la 5e
+      // face, où vivent la liste des tâches, les croix et les « C'est fait ✓ ».
+      // La classe .task-config n'est PAS .param-add : cette dernière est câblée à un
+      // handler de site.js qui ouvre le picker et masque le bouton (add.hidden = true)
+      // — l'emprunter ferait disparaître « Configurer » au premier clic. Le style est
+      // partagé par un sélecteur groupé côté CSS.
+      // Le bouton vit dans la MÊME .param-row que « + ajouter » des cartes v2 : même
+      // conteneur, même position dans le flux (margin-top:auto), même point d'accroche
+      // pour les futurs skins. Seule la classe du bouton distingue les deux briques.
+      var cfg = '<div class="param-row">' + ((mode === 'connected')
+        ? '<button type="button" class="task-config">+ configurer</button>'
+        : '<a class="task-config-anon" href="/connexion">+ configurer</a>') + '</div>';
+      // Pause globale : seulement s'il y a quelque chose à mettre en pause. Markup
+      // identique aux cartes paramétrées → repris tel quel par toggleMute() (site.js),
+      // qui cible .param-mute-row .switch-label pour repeindre le libellé.
+      var muted = !!s.muted;
+      var mute = hasTask
+        ? '<label class="switch-row param-mute-row">' +
+            '<span class="switch"><input type="checkbox" class="param-mute"' + (muted ? '' : ' checked') +
+              ' aria-label="Activer ou mettre en pause les relances de vos tâches">' +
+              '<span class="track"></span><span class="thumb"></span></span>' +
+            '<span class="switch-label' + (muted ? '' : ' on') + '">' + (muted ? 'En pause' : 'Abonné') + '</span>' +
+          '</label>'
+        : '';
+      action = cfg + mute;
+    } else if (isCommunity(s)) {
+      // REFONTE : cette carte n'a PAS de mécanisme d'abonnement à elle — c'est une
+      // carte broadcast CLASSIQUE (source_id='chat-perdu', sans params), exactement
+      // comme n'importe quelle autre carte simple du catalogue : le switch standard
+      // (switchRow/toggleConnected, POST /api/my-alerts/toggle) EST la matérialisation
+      // de « être alerté ». Vocabulaire neutre .state.task, même raison que 'user-task' :
+      // ce n'est pas une alerte en cours, pas de sens à animer le motif full-art .state.active.
+      state = '<div class="state task"><span class="dot-idle"></span> Rien à signaler</div>';
+      // MÊME STRUCTURE DE RECTO que 'user-task' : bloc d'action (bouton, style
+      // « + configurer ») PUIS switch, tous deux sur le recto. Le bouton « Signaler »
+      // réutilise LA MÊME classe .task-config que 'user-task' (+ .community-config en
+      // second marqueur, pour le fetch dédié de la liste) → même handler générique de
+      // flip déjà câblé dans site.js (aucun câblage spécifique à ajouter pour l'ouverture
+      // de la 5e face), même mécanique visuelle strictement.
+      var reportBtn = (mode === 'connected')
+        ? '<button type="button" class="task-config community-config">Signaler</button>'
+        : '<a class="task-config-anon" href="/connexion">Signaler</a>';
+      action = '<div class="param-row">' + reportBtn + '</div>' +
+        switchRow(mode === 'connected' && !!s.subscribed) + (mode === 'connected' ? '' : subForm());
+    } else if (isParam(s)) {
+      state = stateFor(s.state); // état de la/les instance(s) de l'utilisateur (le pire), sinon neutre
+      action = paramFace(s, mode);
+    } else {
+      state = stateFor(s.state);
+      action = switchRow(mode === 'connected' && !!s.subscribed) + (mode === 'connected' ? '' : subForm());
+    }
+    // Compteur d'abonnés discret (seulement à partir de 10).
+    var count = (s.subscriber_count >= 10)
+      ? '<div class="sub-count">' + s.subscriber_count + ' abonnés</div>' : '';
+    // « Ajouter à un deck » : ARCHIVÉ (fil #9, 12/09/2026) — plus de bouton deck sur le recto.
+    var addBtn = '';
+    // Disposition A : full-art (motif) + voile de lisibilité + double liseré en fond ;
+    // rangée haute (état à gauche, contrôles à droite dans l'ordre ♥·partage·+deck·i) ;
+    // contenu ancré en bas sur le voile. Toutes les classes interactives sont conservées
+    // (card-share, card-like, card-add-deck, flip-btn, state, switch, param-*) → aucun
+    // handler ni comportement modifié, seul le markup/les classes changent.
+    return '' +
+      '<div class="card-face card-front">' +
+        // .card-art enveloppe motif + voile. Defaut : display:contents → fullart/veil
+        // restent positionnes exactement comme avant (containing block = .card-front).
+        // Les skins « en cadre » basculent .card-art en boite (fenetre d'art / medaillon).
+        '<div class="card-art">' + FULLART_SVG +
+          '<span class="card-veil" aria-hidden="true"></span></div>' +
+        '<span class="card-edge" aria-hidden="true"></span>' +
+        // C1) Rangée du haut : état (.state, pastille verre) à gauche, icônes à droite.
+        '<div class="card-toprow">' +
+          state +
+          '<div class="card-icons">' +
+            likeBtn(s, mode) +
+            '<button class="share-btn card-share" type="button" aria-label="Partager" title="Partager">' + SHARE_SVG + '</button>' +
+            addBtn +
+            '<button class="flip-btn" type="button" aria-label="En savoir plus" title="En savoir plus">' + INFO_SVG + '</button>' +
+          '</div>' +
+        '</div>' +
+        // Contenu bas (titre + coche, sous-titre, description, compteur, abonnement).
+        '<div class="card-content">' +
+          topRow(s) +
+          // Recto DYNAMIQUE (chat-perdu uniquement) : conteneur vide, masqué par défaut.
+          // Peuplé par site.js (hydrateCommunityRecto) SEULEMENT s'il existe ≥1 instance
+          // visible pour ce profil — sinon reste vide/hidden et le contenu générique
+          // ci-dessous (sous-titre + description statiques) s'affiche normalement.
+          (isCommunity(s) ? '<div class="community-recto" data-community-recto hidden></div>' : '') +
+          // .card-edition : badge (officiel/verifie/communaute) DUPLIQUE en fin de sous-titre,
+          // display:none par defaut -> seul L'Assemblee l'affiche (symbole d'edition/rarete a
+          // l'extreme droite de la ligne de type). Rendu full-art/teintes INCHANGE (hors flux).
+          (s.subtitle ? '<div class="card-subtitle">' + esc(s.subtitle) +
+            '<span class="card-edition ' + badgeClassOf(s.badge) + '" aria-hidden="true">' + BADGE_ICON + '</span></div>' : '') +
+          // Description encapsulée dans .card-desc pour que la troncature
+          // -webkit-line-clamp s'applique (inerte sur le <p> lui-même). .card-stat :
+          // 2e AFFICHAGE (decoratif) du compteur de likes, display:none par defaut ->
+          // L'Assemblee en fait l'encart force/endurance chevauchant. Hors flux ailleurs.
+          // .card-textbox : conteneur unique « boite de texte » regroupant la description
+          // (.card-desc) ET la zone d'action (.card-action), pour que les skins structures
+          // (ex. L'Assemblee = .frame-text-box) puissent styler cette boite d'un seul bloc.
+          // Defaut : .card-textbox = display:contents -> ses enfants restent des enfants
+          // effectifs de .card-content (rendu full-art/teintes INCHANGE ; en grille de skin,
+          // p/card-action restent des items de la grid via la chaine display:contents).
+          '<div class="card-textbox">' +
+            '<p class="card-static-desc"><span class="card-desc">' + esc(s.description || '') + '</span>' +
+              '<span class="card-stat" aria-hidden="true">' + formatCount(Number(s.likes_count) || 0) + '</span></p>' +
+            attacksHTML(s) +
+            count +
+            // Zone d'action ENVELOPPEE (switch, chips, « + ajouter », select/form des
+            // paramétrées, etc.). Defaut : .card-action = display:contents -> ces elements
+            // restent des enfants effectifs de .card-content (rendu full-art/teintes INCHANGE).
+            // Les skins structures en font UNE grid-area a flux vertical -> plus d'empilement.
+            '<div class="card-action">' + action + '</div>' +
+          '</div>' +
+          FOOT_HTML +
+          // .card-fineprint : fine ligne d'info technique (bas de boite), display:none par
+          // defaut -> seul L'Assemblee l'affiche (mention decorative, univers du site).
+          '<div class="card-fineprint" aria-hidden="true">Vigie citoyenne · LaBonneAlerte</div>' +
+        '</div>' +
+      '</div>';
+  }
+
   // ── V3 · TÂCHE À ÉCHÉANCE GLISSANTE ────────────────────────────────────────
   // Zone PROPRE à ce type de carte, ajoutée en BAS du verso. Ne touche à aucun
   // élément du tronc commun : les 4 boutons ronds du recto (.card-icons) restent
@@ -462,6 +710,98 @@
       '</div>';
   }
 
+  // 5e face « Configurer » : gestion des instances utilisateur de la carte. Ouverte
+  // par le bouton .task-config du RECTO — pas par le ⓘ, qui garde son rôle habituel
+  // (verso classique : description, tags, infos). Même mécanique de flip que les
+  // faces partage/deck : .face-task désigne la face arrière visible.
+  // Nommage volontairement générique (.card-task-face, .task-*) : la structure
+  // « recto minimal + Configurer + face de gestion » est destinée à d'autres cartes
+  // à instances utilisateur. Connecté uniquement : sans compte, rien à gérer.
+  function taskFace(s, mode) {
+    if (s.type !== 'user-task' || mode !== 'connected') return '';
+    var tasks = Array.isArray(s.tasks) ? s.tasks : [];
+    var hasTask = tasks.length > 0;
+    // L'interrupteur de pause vit sur le RECTO (comme les cartes v2 paramétrées),
+    // pas ici : cette face ne porte que la gestion des tâches elles-mêmes.
+    var create = '<button type="button" class="task-create' + (hasTask ? ' secondary' : '') + '">' +
+      (hasTask ? '+ une autre tâche' : 'Créer ma tâche') + '</button>';
+    return '' +
+      // .card-usertask-face = marqueur ADDITIF (la structure et les classes de la 5e
+      // face restent strictement identiques, skins compris). Il sert uniquement à
+      // distinguer CETTE face de celle des cartes 'community', qui réutilise le même
+      // .card-task-face : la vue liste dévoile la face des tâches dans son volet et
+      // ne doit pas dévoiler celle des signalements, dont le parcours liste n'est
+      // pas traité par ce fil.
+      '<div class="card-face card-task-face card-usertask-face">' +
+        '<button class="flip-back" type="button" aria-label="Retour" title="Retour">' + BACK_SVG + '</button>' +
+        '<div class="tf-title">Mes échéances</div>' +
+        '<div class="task-zone">' + tasks.map(taskItem).join('') + create + '</div>' +
+      '</div>';
+  }
+
+  function backFace(s, cats, isLinked, mode) {
+    // Tags cliquables → filtre la catégorie sur la home.
+    var tags = (cats.length)
+      ? '<div class="back-tags">' + cats.map(function (c) {
+          return '<button type="button" class="tag back-tag" data-cat="' + esc(c) + '">' + esc(catLabel(c)) + '</button>';
+        }).join('') + '</div>'
+      : '';
+
+    var author = s.submitted_by_github
+      ? '<div class="back-author">par <a href="https://github.com/' + esc(s.submitted_by_github) + '" ' +
+        'target="_blank" rel="noopener">@' + esc(s.submitted_by_github) + '</a></div>'
+      : '';
+
+    // « Plus d'infos → » (lien statut) retiré : le badge @forum_slug (haut-gauche du verso)
+    // fait désormais office de lien « en savoir plus » vers la source.
+
+    // Lien discret vers les discussions forum de cette source (jamais de contenu
+    // utilisateur dans la carte, juste un lien de sortie). Toujours visible dès qu'un
+    // forum_slug existe (la liste vide invite à créer le 1er sujet). Résolution slug-ou-id
+    // gérée côté serveur (/forum/source/:slug). Même token visuel que .back-statut.
+    var forum = s.forum_slug
+      ? '<a class="back-statut back-forum" href="/forum/source/' + esc(s.forum_slug) + '">'
+        + forumLinkText(s.topic_count) + '</a>'
+      : '';
+
+    // « i » (verso) : description LONGUE si presente, sinon la courte (jamais de vide).
+    // Visible sur toutes tailles d'ecran (le retournement fait office de popup partout).
+    var longDesc = '<p class="card-long-desc">' + esc(s.description_long || s.description || '') + '</p>';
+
+    // Badge @forum_slug ancré en haut-GAUCHE du verso, à la hauteur de flip-back (qui reste
+    // en haut-droite) : les deux se font face sur la même ligne. Réutilise .forum-slug-badge
+    // (identité forum, pastille violette). Mène à la FICHE de la source (page statut), PAS
+    // à la liste des sujets forum : le badge @slug est l'identifiant public de l'objet, il
+    // conduit partout à l'objet lui-même (même règle que le badge posé sur un sujet forum,
+    // cf. slugBadge() dans server/routes/forum.js). Le lien « On en parle au forum → »
+    // ci-dessus reste la seule sortie vers les discussions. Absent sans forum_slug.
+    var forumBadge = s.forum_slug
+      ? '<a class="forum-slug-badge card-forum-badge" href="/source/' + esc(s.id) + '/statut' +
+        '">@' + esc(s.forum_slug) + '</a>'
+      : '';
+
+    return '' +
+      '<div class="card-face card-back">' +
+        '<button class="flip-back" type="button" aria-label="Retour" title="Retour">' + BACK_SVG + '</button>' +
+        forumBadge +
+        topRow(s) +
+        longDesc +
+        tags + author + forum +
+      '</div>';
+  }
+
+  // F3) 4e face « Ajouter à un deck » : ARCHIVÉE (fil #9, 12/09/2026) — supprimée.
+
+  // 3e face : partage (grille remplie à la volée par site.js via LBAShare.optionsHTML).
+  function shareFace() {
+    return '' +
+      '<div class="card-face card-share-face">' +
+        '<button class="flip-back" type="button" aria-label="Retour" title="Retour">' + BACK_SVG + '</button>' +
+        '<div class="share-face-title">Partager</div>' +
+        '<div class="share-grid share-face-grid"></div>' +
+      '</div>';
+  }
+
   // Texte de recherche : nom + sous-titre + description + slugs & labels des catégories.
   function searchText(s, cats) {
     var parts = [s.name || '', s.subtitle || '', s.description || ''];
@@ -479,158 +819,39 @@
     return s.replace(/[^a-z0-9]+/g, ' ').replace(/^ | $/g, '');
   }
 
-  // ── DÉTAIL COMMUNAUTAIRE (fil #9, incrément 2) ──────────────────────────────
-  // Contenu de .ab-detail pour une carte communautaire : liste des signalements actifs +
-  // bouton d'ouverture du formulaire + formulaire de création/adhésion (communityFace).
-  // Réservé au mode connecté (anonyme → le bouton « Signaler » de l'action mène à /connexion).
-  // Mêmes classes que l'ex-5e face (communityReportsFace) → handlers site.js réutilisés tels quels.
-  function communityDetail(s, mode) {
-    if (mode !== 'connected') return '';
-    return '' +
-      '<div class="community-list" data-community-list><div class="community-loading">Chargement…</div></div>' +
-      '<button type="button" class="community-report-toggle secondary">Signaler une disparition</button>' +
-      communityFace(s);
-  }
-
-  // ── FORMAT BLOC (fil #9, incréments 1-2) ────────────────────────────────────
-  // Familles migrées : broadcast, paramétré, linked (incrément 1) + communautaire (incrément 2).
-  // Une alerte = un bloc = une ligne, SANS recto/verso ni flip. Le bloc GARDE la classe .card
-  // (pipeline filtre/tri/pagination + hooks délégués de site.js) mais N'A PAS .flip/.card-inner/
-  // .card-face. Le « verso » (desc longue, tags, forum ; pour le communautaire : liste +
-  // formulaire) vit dans .ab-detail, dépliable par .ab-toggle (ou par « Signaler »).
-  function renderBlock(s, mode) {
-    var isLinked = s.type === 'linked';
-    var isCommunity_ = isCommunity(s);
-    var isUserTask_ = isUserTask(s);
-    var hasTask = Array.isArray(s.tasks) && s.tasks.length > 0;
+  // s : source complète ; mode : 'anon' | 'connected'
+  function cardHTML(s, mode) {
     var cats = Array.isArray(s.categories) ? s.categories : [];
     var dataCats = cats.map(esc).join(' ');
+    var isLinked = s.type === 'linked';
+    // Abonné = broadcast souscrit OU au moins une instance paramétrée.
     var hasInstances = Array.isArray(s.instances) && s.instances.length > 0;
-    // user-task : « l'abonnement EST la création de tâche » → ≥1 tâche vaut data-subscribed=1
-    // (la sémantique du switch de la vue liste en dépend, cf. list-view.js sync()).
-    var sub = mode === 'connected' && (!!s.subscribed || hasInstances || (isUserTask_ && hasTask)) ? '1' : '0';
-
-    // Marqueurs de FAMILLE portés par la RACINE du bloc (jamais par une face) : data-community-type
-    // alimente communityTypeOf() (routage /api/community-reports?type=…), data-card-type est lu par
-    // l'hydratation eager du kiosque (community) et par la vue liste / le CSS (community, user-task).
+    var sub = mode === 'connected' && (!!s.subscribed || hasInstances) ? '1' : '0';
+    // Cartes communautaires : marqueurs de FAMILLE et de TYPE portés par la carte —
+    // site.js sélectionne et interroge par eux, plus par un id en dur (le sélecteur
+    // '.card[data-source-id="chat-perdu"]' n'aurait jamais trouvé chien-perdu).
+    // data-community-label sert aux libellés d'accessibilité rendus PLUS TARD
+    // (communityReportItem, appelé par site.js à l'arrivée de la liste).
     var comAttrs = '';
-    if (isCommunity_) {
+    if (isCommunity(s)) {
       var cc = communityCfg(s);
-      comAttrs = ' data-card-type="community" data-community-type="' + esc(s.id) +
-        '" data-community-label="' + esc(cc.label) + '"';
-    } else if (isUserTask_) {
-      comAttrs = ' data-card-type="user-task"';
+      // Le type communautaire EST l'id de la ligne catalogue (invariant posé dès
+      // chat-perdu et respecté par chien-perdu) : on le lit sur s.id, jamais sur le
+      // repli, qui vaudrait « chat-perdu » à tort pour une carte chien.
+      comAttrs = ' data-card-type="community" data-community-type="' + esc(s.id) + '"' +
+        ' data-community-label="' + esc(cc.label) + '"';
     }
-
-    // État + zone d'action, alignés sur frontFace. ORDRE : communautaire AVANT paramétré (une
-    // carte communautaire a un params_schema pour la commune, mais n'est PAS un picker générique).
-    var state, action;
-    if (isLinked) {
-      state = '<div class="state partner"><span class="dot-idle"></span> Service partenaire</div>';
-      action = '<a class="link-btn" href="' + esc(s.link_url) + '" target="_blank" rel="noopener">' +
-        'Configurer sur ' + esc(domainOf(s.link_url)) + ' →</a>';
-    } else if (isCommunity_) {
-      state = '<div class="state task"><span class="dot-idle"></span> Rien à signaler</div>';
-      // « Signaler » ouvre .ab-detail + révèle le formulaire (handler .community-config, site.js).
-      var reportBtn = (mode === 'connected')
-        ? '<button type="button" class="community-config">Signaler</button>'
-        : '<a class="task-config-anon" href="/connexion">Signaler</a>';
-      action = '<div class="param-row">' + reportBtn + '</div>' +
-        switchRow(mode === 'connected' && !!s.subscribed) + (mode === 'connected' ? '' : subForm());
-    } else if (isUserTask_) {
-      // « L'abonnement EST la création de tâche » : PAS de switch broadcast. État neutre
-      // (.state.task), « + configurer » (.task-config, ouvre .ab-detail où vit la gestion), et
-      // l'interrupteur de PAUSE (.param-mute-row) UNIQUEMENT s'il y a ≥1 tâche. Ce switch porte la
-      // sémantique d'état (pause) lue telle quelle par list-view.js (sync : actif = ≥1 tâche ET non
-      // muted). Il reste dans .ab-action (toujours visible), jamais dans une face cachée.
-      state = '<div class="state task"><span class="dot-idle"></span> ' +
-        (hasTask ? 'Tâche suivie' : 'Tâche personnelle') + '</div>';
-      var cfg = '<div class="param-row">' + ((mode === 'connected')
-        ? '<button type="button" class="task-config">+ configurer</button>'
-        : '<a class="task-config-anon" href="/connexion">+ configurer</a>') + '</div>';
-      var muted = !!s.muted;
-      var mute = hasTask
-        ? '<label class="switch-row param-mute-row">' +
-            '<span class="switch"><input type="checkbox" class="param-mute"' + (muted ? '' : ' checked') +
-              ' aria-label="Activer ou mettre en pause les relances de vos tâches">' +
-              '<span class="track"></span><span class="thumb"></span></span>' +
-            '<span class="switch-label' + (muted ? '' : ' on') + '">' + (muted ? 'En pause' : 'Abonné') + '</span>' +
-          '</label>'
-        : '';
-      action = cfg + mute;
-    } else if (isParam(s)) {
-      state = stateFor(s.state);
-      action = paramFace(s, mode);
-    } else {
-      state = stateFor(s.state);
-      action = switchRow(mode === 'connected' && !!s.subscribed) + (mode === 'connected' ? '' : subForm());
-    }
-
-    var count = (s.subscriber_count >= 10)
-      ? '<div class="sub-count">' + s.subscriber_count + ' abonnés</div>' : '';
-    var subtitle = s.subtitle ? '<div class="card-subtitle">' + esc(s.subtitle) + '</div>' : '';
-    var descShort = '<p class="card-static-desc"><span class="card-desc">' + esc(s.description || '') + '</span></p>';
-    // Aperçu communautaire STATIQUE (Q2) : rempli par site.js (renderCommunityPreview) — dernier
-    // signalement + compteur, SANS rotation ni timer. Vide/masqué s'il n'y a aucun signalement.
-    var preview = isCommunity_ ? '<div class="community-preview" data-community-preview hidden></div>' : '';
-
-    // Détail dépliable (ex-verso / ex-5e face). Mêmes classes que backFace / communityReportsFace.
-    var tags = cats.length
-      ? '<div class="back-tags">' + cats.map(function (c) {
-          return '<button type="button" class="tag back-tag" data-cat="' + esc(c) + '">' + esc(catLabel(c)) + '</button>';
-        }).join('') + '</div>'
-      : '';
-    var author = s.submitted_by_github
-      ? '<div class="back-author">par <a href="https://github.com/' + esc(s.submitted_by_github) + '" ' +
-        'target="_blank" rel="noopener">@' + esc(s.submitted_by_github) + '</a></div>'
-      : '';
-    var forum = s.forum_slug
-      ? '<a class="back-statut back-forum" href="/forum/source/' + esc(s.forum_slug) + '">' + forumLinkText(s.topic_count) + '</a>'
-      : '';
-    var forumBadge = s.forum_slug
-      ? '<a class="forum-slug-badge card-forum-badge" href="/source/' + esc(s.id) + '/statut">@' + esc(s.forum_slug) + '</a>'
-      : '';
-    var longDesc = '<p class="card-long-desc">' + esc(s.description_long || s.description || '') + '</p>';
-    var detailId = 'abdet-' + esc(String(s.id));
-    // user-task : la GESTION DES TÂCHES (liste + création) vit dans .ab-detail (ex-5e face),
-    // ouverte par « + configurer » (.task-config) ou par ⓘ. Connecté uniquement (anonyme →
-    // « + configurer » mène à /connexion). Réutilise .task-zone/.task-item/.task-create → handlers
-    // site.js (task-remove, task-done) et modale user-task-form.js réutilisés tels quels.
-    var tasks = Array.isArray(s.tasks) ? s.tasks : [];
-    var taskZone = (isUserTask_ && mode === 'connected')
-      ? '<div class="task-zone">' + tasks.map(taskItem).join('') +
-        '<button type="button" class="task-create' + (hasTask ? ' secondary' : '') + '">' +
-        (hasTask ? '+ une autre tâche' : 'Créer ma tâche') + '</button></div>'
-      : '';
-    // Communautaire → signalements ; user-task → tâches ; sinon description longue.
-    var detailInner = isCommunity_
-      ? (forumBadge + communityDetail(s, mode) + tags + forum)
-      : isUserTask_
-        ? (taskZone + forumBadge + longDesc + tags + forum)
-        : (forumBadge + longDesc + tags + author + forum);
-
-    var abToggle = '<button class="ab-toggle" type="button" aria-expanded="false" aria-controls="' + detailId +
-      '" aria-label="Afficher le détail de ' + esc(s.name) + '" title="En savoir plus">' + INFO_SVG + '</button>';
-    var shareBtn = '<button class="share-btn card-share" type="button" aria-label="Partager" title="Partager">' + SHARE_SVG + '</button>';
-
     return '' +
-      '<article class="card alert-block" data-cats="' + dataCats + '" data-source-id="' + esc(s.id) + '"' + comAttrs +
+      '<div class="card flip" data-cats="' + dataCats + '" data-source-id="' + esc(s.id) + '"' + comAttrs +
         ' data-subscribed="' + sub + '" data-search="' + esc(searchText(s, cats)) + '">' +
-        '<div class="ab-head">' +
-          state +
-          '<div class="card-icons">' + likeBtn(s, mode) + shareBtn + abToggle + '</div>' +
+        '<div class="card-inner">' +
+          frontFace(s, mode, isLinked) +
+          backFace(s, cats, isLinked, mode) +
+          shareFace() +
+          taskFace(s, mode) + // 5e face : '' pour toute carte non user-task
+          communityReportsFace(s, mode) + // 5e face : '' pour toute carte non 'community'
         '</div>' +
-        '<div class="ab-body">' + topRow(s) + subtitle + preview + descShort + count + '</div>' +
-        '<div class="ab-action">' + action + '</div>' +
-        '<div class="ab-detail" id="' + detailId + '" hidden>' + detailInner + '</div>' +
-      '</article>';
-  }
-
-  // Aiguillage (fil #9) : TOUTES les familles (broadcast, paramétré, linked, communautaire,
-  // user-task) sont rendues en FORMAT BLOC. Le format carte recto/verso (renderLegacyCard) et
-  // les skins ont été retirés à l'incrément 4 — plus aucune face, plus aucun flip.
-  function cardHTML(s, mode) {
-    return renderBlock(s, mode);
+      '</div>';
   }
 
   // E6) Salve de célébration autour d'un bouton (pack/deck entièrement adopté).
@@ -660,7 +881,7 @@
 
   window.LBACards = {
     esc: esc, badgeFor: badgeFor, stateFor: stateFor, domainOf: domainOf, cardHTML: cardHTML, catLabel: catLabel,
-    formatCount: formatCount, celebrateBurst: celebrateBurst,
+    BACK_SVG: BACK_SVG, formatCount: formatCount, celebrateBurst: celebrateBurst,
     normalizeSearch: normalizeSearch,
     // Libellé du lien forum du verso : UNE seule implémentation, consommée aussi par
     // deck-stack.js (même règle « rien à 0 » cartes et decks).

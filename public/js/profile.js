@@ -265,7 +265,7 @@
       '  </div>' +
       '</div>';
 
-    // Phase 2 : nom public (pseudo) — signe les decks partagés, jamais l'email.
+    // Phase 2 : nom public (pseudo) — signe les messages du forum, jamais l'email.
     paint('pseudo-mount',
       '<div class="acct-subhead">Mon pseudo <span id="pref-dn-msg" class="pref-feedback" role="status"></span></div>' +
       // J) Une SEULE notif-row : libellé à gauche, saisie + « Enregistrer » à droite,
@@ -282,7 +282,7 @@
       (state.pseudo
         ? '  <div class="notif-row pref-at-row">' +
           '    <div class="notif-txt"><strong>Mon identifiant public</strong>' +
-          '      <span class="notif-sub">Signe vos messages du forum et vos decks partagés.</span></div>' +
+          '      <span class="notif-sub">Signe vos messages du forum.</span></div>' +
           '    <a class="pref-at" href="/u/' + esc(state.pseudo) + '">@' + esc(state.pseudo) + '</a>' +
           '  </div>'
         : '') +
@@ -294,7 +294,7 @@
       '<div class="acct-subhead">Mes points</div>' +
       '<div class="notif-card">' +
       '  <div class="notif-row">' +
-      '    <div class="notif-txt"><strong>Solde</strong><span class="notif-sub">Points gagnés en créant et adoptant des decks</span></div>' +
+      '    <div class="notif-txt"><strong>Solde</strong><span class="notif-sub">Points gagnés en vous abonnant à des alertes</span></div>' +
       '    <div class="pref-points" aria-label="Solde de points">' + esc(String(state.points || 0)) + '</div>' +
       '  </div>' +
       // Rang privé (phase 2) : visible seulement par vous, jamais exposé à un tiers.

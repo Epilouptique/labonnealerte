@@ -229,19 +229,21 @@
     if (parkObserver) { parkObserver.disconnect(); parkObserver = null; }
     if (!parkedCard) return;
     var p = parkedCard; parkedCard = null;
+    // La carte retourne à la grille sur son RECTO : sans ça, une carte quittée alors
+    // que la 5e face était ouverte réapparaîtrait dans #grid en mode « Mes échéances ».
+    p.card.classList.remove('flipped', 'face-task', 'face-share', 'face-deck');
     p.card.classList.remove('in-list-exp');
-    // Format BLOC (fil #9, incrément 2) : referme la zone dépliable et réinitialise le
-    // sous-formulaire communautaire, sinon .community-report-toggle/.community-form/
-    // .community-list pouvaient rester gravés dans l'état où le volet les a laissés
-    // (formulaire ouvert pendant le parking), surprenant à la prochaine ouverture. Pas de
-    // recalcul is_author ici : la prochaine ouverture le refait via LBACommunity.load.
-    if (p.card.classList.contains('alert-block')) {
-      p.card.classList.remove('ab-open');
-      var abDet = p.card.querySelector('.ab-detail'); if (abDet) abDet.hidden = true;
-      var abTog = p.card.querySelector('.ab-toggle'); if (abTog) abTog.setAttribute('aria-expanded', 'false');
-      var bForm = p.card.querySelector('.community-form'); if (bForm) bForm.hidden = true;
-      var bToggle = p.card.querySelector('.community-report-toggle'); if (bToggle) bToggle.hidden = false;
-      var bList = p.card.querySelector('.community-list'); if (bList) bList.hidden = false;
+    // CORRECTIF 3 : remet à l'état FERMÉ le sous-formulaire communautaire si la carte
+    // en a un — sinon .community-report-toggle/.community-form/.community-list
+    // pouvaient rester gravés dans l'état où le volet les a laissés (formulaire ouvert
+    // suite à un clic sur .community-report-toggle pendant le parking), invisible tant
+    // que la 5e face est masquée mais surprenant à la prochaine ouverture. Pas de
+    // recalcul is_author ici (pas nécessaire) : la prochaine ouverture le refera via
+    // CORRECTIF 2 (vue liste) ou le chargement eager/.community-config (vue carte).
+    if (p.card.querySelector('.card-community-face')) {
+      var cForm = p.card.querySelector('.community-form'); if (cForm) cForm.hidden = true;
+      var cToggle = p.card.querySelector('.community-report-toggle'); if (cToggle) cToggle.hidden = false;
+      var cList = p.card.querySelector('.community-list'); if (cList) cList.hidden = false;
     }
     if (!p.parent) return;
     // Remise EXACTE à sa position d'origine ; si le repère a disparu (grille reconstruite
@@ -351,24 +353,30 @@
           body.innerHTML = '<span class="lrow-muted">Carte indisponible.</span>';
           return;
         }
-        // Communautaire / user-task : ce qui est actionnable vit dans la zone dépliable
-        // .ab-detail du bloc (liste + formulaire, ou gestion des tâches). On l'ouvre d'emblée
-        // pour que le volet le montre directement, comme un volet paramétré montre ses chips.
-        // Le CSS du bloc parqué (site.css) révèle .ab-detail et masque .ab-action (doublon
-        // du switch de la ligne). Garde-fou anonyme : le détail est vide/→ /connexion, sans
-        // masquer quoi que ce soit d'utile. Toutes les cartes sont des blocs (post-incrément 4).
+        // user-task : ce qui est actionnable vit sur la 5e face, pas sur le recto (qui ne
+        // porte que « + configurer »). On l'ouvre d'emblée — même classe .face-task que la
+        // vue cartes, donc même CSS, et le .flip-back de la face ramène au recto — pour
+        // que le volet montre directement les échéances, comme un volet paramétré montre
+        // directement ses chips. Ne concerne QUE user-task : .card-usertask-face est la
+        // seule 5e face dévoilée en vue liste.
+        // Garde-fou : en anonyme taskFace()/communityReportsFace() ne rendent RIEN — sans
+        // ce test, .face-task masquerait le recto pour ne dévoiler aucune face (volet
+        // vide). L'anonyme reste donc sur le recto et son lien « + configurer »/« Signaler »
+        // → /connexion. Même classe .face-task pour les deux familles (même mécanique de
+        // flip côté site.js) ; .card-usertask-face / .card-community-face (marqueurs
+        // additifs posés dans cards.js) disent laquelle des deux est réellement présente.
         var c = gridCard(id);
-        if (c && c.getAttribute('data-card-type') === 'community') {
-          // Communautaire (incrément 2) : (re)charge les signalements à l'ouverture (la vue
-          // cartes refetch aussi à chaque ouverture — cohérence, pas d'instantané figé).
-          var abDet = c.querySelector('.ab-detail'); if (abDet) abDet.hidden = false;
-          c.classList.add('ab-open');
+        if (c && c.querySelector('.card-usertask-face')) {
+          c.classList.add('face-task');
+        } else if (c && c.querySelector('.card-community-face')) {
+          c.classList.add('face-task');
+          // CORRECTIF 2 : la vue cartes refetch à CHAQUE ouverture de la 5e face
+          // (.community-config, site.js) — sans cet appel, le volet affichait
+          // l'instantané figé au chargement initial de la page (eager load de
+          // loadHome()), jamais rafraîchi tant que l'utilisateur ne repassait pas par
+          // la vue cartes. Même fonction, même comportement, juste un second point
+          // d'appel (exposée par site.js via window.LBACommunity.load).
           if (window.LBACommunity && window.LBACommunity.load) window.LBACommunity.load(c);
-        } else if (c && c.getAttribute('data-card-type') === 'user-task') {
-          // user-task (incrément 3) : ouvrir .ab-detail (gestion des tâches). Aucun fetch —
-          // les tâches sont déjà rendues (s.tasks).
-          var abDetT = c.querySelector('.ab-detail'); if (abDetT) abDetT.hidden = false;
-          c.classList.add('ab-open');
         }
       });
     }
