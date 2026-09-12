@@ -610,7 +610,7 @@
     // (card-share, card-like, card-add-deck, flip-btn, state, switch, param-*) → aucun
     // handler ni comportement modifié, seul le markup/les classes changent.
     return '' +
-      '<div class="card-face card-front' + (showAdd ? ' has-add' : '') + '">' +
+      '<div class="card-face card-front">' +
         // .card-art enveloppe motif + voile. Defaut : display:contents → fullart/veil
         // restent positionnes exactement comme avant (containing block = .card-front).
         // Les skins « en cadre » basculent .card-art en boite (fenetre d'art / medaillon).
@@ -827,8 +827,6 @@
     // Abonné = broadcast souscrit OU au moins une instance paramétrée.
     var hasInstances = Array.isArray(s.instances) && s.instances.length > 0;
     var sub = mode === 'connected' && (!!s.subscribed || hasInstances) ? '1' : '0';
-    // F3) La 4e face « deck » n'existe que là où le « + » existe (connecté, non lié).
-    var showAdd = mode === 'connected' && !isLinked;
     // Cartes communautaires : marqueurs de FAMILLE et de TYPE portés par la carte —
     // site.js sélectionne et interroge par eux, plus par un id en dur (le sélecteur
     // '.card[data-source-id="chat-perdu"]' n'aurait jamais trouvé chien-perdu).
