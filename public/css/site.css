@@ -433,6 +433,9 @@ main#alertes { scroll-margin-top: 64px; }
    dans .ab-body. Discret, une ligne, jamais de rotation. */
 .alert-block .community-preview { font-size: 13px; color: var(--muted); line-height: 1.4; }
 .alert-block .community-preview[hidden] { display: none; }
+/* user-task : la zone des tâches (fil #9, incrément 3) vit dans .ab-detail (flux normal),
+   pas en bas d'une face — on neutralise le margin-top:auto hérité de .task-zone. */
+.alert-block .ab-detail .task-zone { margin-top: 0; }
 
 /* ---------- carte recto/verso (flip 3D) ---------- */
 /* La carte-conteneur devient transparente : l'apparence est portée par les faces.
@@ -4771,8 +4774,10 @@ html[data-theme="dark"] .skin-dresseur .card-deck-face::after, html[data-theme="
 /* Communautaire parqué (fil #9, incrément 2) : c'est le DÉTAIL (liste + formulaire) qui doit
    s'afficher dans le volet, pas l'action (le switch de la ligne + le report-toggle du détail
    suffisent). Sélecteur [data-card-type] plus spécifique → écrase les règles ci-dessus. */
-.lrow-exp .card.alert-block[data-card-type="community"].in-list-exp .ab-detail { display: flex; }
-.lrow-exp .card.alert-block[data-card-type="community"].in-list-exp .ab-action { display: none; }
+.lrow-exp .card.alert-block[data-card-type="community"].in-list-exp .ab-detail,
+.lrow-exp .card.alert-block[data-card-type="user-task"].in-list-exp .ab-detail { display: flex; }
+.lrow-exp .card.alert-block[data-card-type="community"].in-list-exp .ab-action,
+.lrow-exp .card.alert-block[data-card-type="user-task"].in-list-exp .ab-action { display: none; }
 
 /* (h) Apparition d'une ligne (filtrage catégorie, adoption, dismiss reco) : même
    durée/easing que l'entrée des cartes (.25s ease). Le réordonnancement complet type

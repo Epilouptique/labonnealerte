@@ -841,19 +841,25 @@
   function renderBlock(s, mode) {
     var isLinked = s.type === 'linked';
     var isCommunity_ = isCommunity(s);
+    var isUserTask_ = isUserTask(s);
+    var hasTask = Array.isArray(s.tasks) && s.tasks.length > 0;
     var cats = Array.isArray(s.categories) ? s.categories : [];
     var dataCats = cats.map(esc).join(' ');
     var hasInstances = Array.isArray(s.instances) && s.instances.length > 0;
-    var sub = mode === 'connected' && (!!s.subscribed || hasInstances) ? '1' : '0';
+    // user-task : « l'abonnement EST la création de tâche » → ≥1 tâche vaut data-subscribed=1
+    // (la sémantique du switch de la vue liste en dépend, cf. list-view.js sync()).
+    var sub = mode === 'connected' && (!!s.subscribed || hasInstances || (isUserTask_ && hasTask)) ? '1' : '0';
 
-    // Marqueurs de FAMILLE communautaire portés par la RACINE du bloc (jamais par une face) :
-    // data-community-type alimente communityTypeOf() (routage /api/community-reports?type=…) et
-    // data-card-type="community" est lu par l'hydratation eager du kiosque (site.js).
+    // Marqueurs de FAMILLE portés par la RACINE du bloc (jamais par une face) : data-community-type
+    // alimente communityTypeOf() (routage /api/community-reports?type=…), data-card-type est lu par
+    // l'hydratation eager du kiosque (community) et par la vue liste / le CSS (community, user-task).
     var comAttrs = '';
     if (isCommunity_) {
       var cc = communityCfg(s);
       comAttrs = ' data-card-type="community" data-community-type="' + esc(s.id) +
         '" data-community-label="' + esc(cc.label) + '"';
+    } else if (isUserTask_) {
+      comAttrs = ' data-card-type="user-task"';
     }
 
     // État + zone d'action, alignés sur frontFace. ORDRE : communautaire AVANT paramétré (une
@@ -871,6 +877,27 @@
         : '<a class="task-config-anon" href="/connexion">Signaler</a>';
       action = '<div class="param-row">' + reportBtn + '</div>' +
         switchRow(mode === 'connected' && !!s.subscribed) + (mode === 'connected' ? '' : subForm());
+    } else if (isUserTask_) {
+      // « L'abonnement EST la création de tâche » : PAS de switch broadcast. État neutre
+      // (.state.task), « + configurer » (.task-config, ouvre .ab-detail où vit la gestion), et
+      // l'interrupteur de PAUSE (.param-mute-row) UNIQUEMENT s'il y a ≥1 tâche. Ce switch porte la
+      // sémantique d'état (pause) lue telle quelle par list-view.js (sync : actif = ≥1 tâche ET non
+      // muted). Il reste dans .ab-action (toujours visible), jamais dans une face cachée.
+      state = '<div class="state task"><span class="dot-idle"></span> ' +
+        (hasTask ? 'Tâche suivie' : 'Tâche personnelle') + '</div>';
+      var cfg = '<div class="param-row">' + ((mode === 'connected')
+        ? '<button type="button" class="task-config">+ configurer</button>'
+        : '<a class="task-config-anon" href="/connexion">+ configurer</a>') + '</div>';
+      var muted = !!s.muted;
+      var mute = hasTask
+        ? '<label class="switch-row param-mute-row">' +
+            '<span class="switch"><input type="checkbox" class="param-mute"' + (muted ? '' : ' checked') +
+              ' aria-label="Activer ou mettre en pause les relances de vos tâches">' +
+              '<span class="track"></span><span class="thumb"></span></span>' +
+            '<span class="switch-label' + (muted ? '' : ' on') + '">' + (muted ? 'En pause' : 'Abonné') + '</span>' +
+          '</label>'
+        : '';
+      action = cfg + mute;
     } else if (isParam(s)) {
       state = stateFor(s.state);
       action = paramFace(s, mode);
@@ -905,10 +932,22 @@
       : '';
     var longDesc = '<p class="card-long-desc">' + esc(s.description_long || s.description || '') + '</p>';
     var detailId = 'abdet-' + esc(String(s.id));
-    // Communautaire : la gestion des signalements PRIME dans le détail ; sinon description longue.
+    // user-task : la GESTION DES TÂCHES (liste + création) vit dans .ab-detail (ex-5e face),
+    // ouverte par « + configurer » (.task-config) ou par ⓘ. Connecté uniquement (anonyme →
+    // « + configurer » mène à /connexion). Réutilise .task-zone/.task-item/.task-create → handlers
+    // site.js (task-remove, task-done) et modale user-task-form.js réutilisés tels quels.
+    var tasks = Array.isArray(s.tasks) ? s.tasks : [];
+    var taskZone = (isUserTask_ && mode === 'connected')
+      ? '<div class="task-zone">' + tasks.map(taskItem).join('') +
+        '<button type="button" class="task-create' + (hasTask ? ' secondary' : '') + '">' +
+        (hasTask ? '+ une autre tâche' : 'Créer ma tâche') + '</button></div>'
+      : '';
+    // Communautaire → signalements ; user-task → tâches ; sinon description longue.
     var detailInner = isCommunity_
       ? (forumBadge + communityDetail(s, mode) + tags + forum)
-      : (forumBadge + longDesc + tags + author + forum);
+      : isUserTask_
+        ? (taskZone + forumBadge + longDesc + tags + forum)
+        : (forumBadge + longDesc + tags + author + forum);
 
     var abToggle = '<button class="ab-toggle" type="button" aria-expanded="false" aria-controls="' + detailId +
       '" aria-label="Afficher le détail de ' + esc(s.name) + '" title="En savoir plus">' + INFO_SVG + '</button>';
@@ -927,11 +966,10 @@
       '</article>';
   }
 
-  // Aiguillage (fil #9) : user-task → rendu carte LEGACY (recto/verso flip) le temps de sa
-  // migration (incrément 3). Toutes les autres familles (broadcast, paramétré, linked,
-  // communautaire depuis l'incrément 2) → nouveau format bloc.
+  // Aiguillage (fil #9) : TOUTES les familles (broadcast, paramétré, linked, communautaire,
+  // user-task) sont désormais rendues en format BLOC. renderLegacyCard (recto/verso flip) n'est
+  // plus appelé — conservé le temps de l'incrément 4 (nettoyage final), puis retiré.
   function cardHTML(s, mode) {
-    if (isUserTask(s)) return renderLegacyCard(s, mode);
     return renderBlock(s, mode);
   }
 

@@ -794,7 +794,10 @@
     if (btn.closest('.deck-card')) return; // aperçus de deck : non interactifs
     e.preventDefault(); e.stopPropagation();
     var card = btn.closest('.card'); if (!card) return;
-    // Même geste que openDeckFace : rotation + désignation de la face arrière visible.
+    // Format BLOC (fil #9, incrément 3) : « + configurer » ouvre la zone dépliable .ab-detail
+    // (où vit la gestion des tâches), pas une 5e face. openBlockDetail est défini plus haut.
+    if (card.classList.contains('alert-block')) { openBlockDetail(card); return; }
+    // (Carte legacy — plus aucune user-task après l'incrément 3 ; conservé jusqu'au nettoyage.)
     card.classList.remove('face-share', 'face-deck');
     card.classList.add('flipped', 'face-task');
   });
@@ -830,9 +833,12 @@
         if (card) {
           // Le switch est sur le RECTO (structure identique aux cartes v2), pas sur
           // la face tâches.
-          var mute = card.querySelector('.card-front .param-mute-row');
+          // Déscopé de .card-front (fil #9, incrément 3) : en format bloc, l'état et la pause
+          // vivent dans .ab-head/.ab-action, plus sur un recto. Une seule .state.task / une seule
+          // .param-mute-row par carte → le sélecteur non scopé les vise sans ambiguïté.
+          var mute = card.querySelector('.param-mute-row');
           if (mute) mute.remove();
-          var st = card.querySelector('.card-front .state.task');
+          var st = card.querySelector('.state.task');
           if (st) st.innerHTML = '<span class="dot-idle"></span> Tâche personnelle';
           if (!data || data.subscribed === false) {
             card.dataset.subscribed = '0';

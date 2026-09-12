@@ -383,6 +383,12 @@
           var abDet = c.querySelector('.ab-detail'); if (abDet) abDet.hidden = false;
           c.classList.add('ab-open');
           if (window.LBACommunity && window.LBACommunity.load) window.LBACommunity.load(c);
+        } else if (c && c.getAttribute('data-card-type') === 'user-task' && c.classList.contains('alert-block')) {
+          // Format BLOC user-task (fil #9, incrément 3) : ouvrir la zone dépliable .ab-detail
+          // (gestion des tâches). Aucun fetch — les tâches sont déjà rendues (s.tasks). Le CSS du
+          // bloc parqué révèle .ab-detail et masque .ab-action (la pause = le switch de la ligne).
+          var abDetT = c.querySelector('.ab-detail'); if (abDetT) abDetT.hidden = false;
+          c.classList.add('ab-open');
         } else if (c && c.querySelector('.card-usertask-face')) {
           c.classList.add('face-task');
         } else if (c && c.querySelector('.card-community-face')) {

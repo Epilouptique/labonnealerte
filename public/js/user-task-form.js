@@ -153,8 +153,9 @@
   // existante, juste avant le bouton de création (qui devient « + une autre »).
   function appendTask(card, task) {
     if (!card || !task) return;
-    // La zone vit désormais sur la 5e face « Configurer », plus sur le verso du ⓘ.
-    var zone = card.querySelector('.card-task-face .task-zone');
+    // Format BLOC (fil #9, incrément 3) : la zone des tâches vit dans .ab-detail (déscopé de
+    // .card-task-face, qui n'existe plus). Une seule .task-zone par carte.
+    var zone = card.querySelector('.task-zone');
     if (!zone) return;
     var due = task.next_due
       ? new Date(task.next_due).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
@@ -173,16 +174,16 @@
     zone.insertBefore(item, create || null);
     if (create) { create.textContent = '+ une autre tâche'; create.classList.add('secondary'); }
     card.dataset.subscribed = '1'; // une tâche vaut adoption (cf. myalerts.js)
-    // Le recto reflète l'adoption sans attendre un rechargement.
-    var st = card.querySelector('.card-front .state.task');
+    // L'état reflète l'adoption sans attendre un rechargement (déscopé de .card-front — format bloc).
+    var st = card.querySelector('.state.task');
     if (st) st.innerHTML = '<span class="dot-idle"></span> Tâche suivie';
     // Première tâche : l'interrupteur de pause apparaît sur le RECTO, juste après
     // la .param-row qui porte « + configurer » (même ordre ET même structure que les
     // cartes v2 : rangée d'action puis switch, en frères). Markup identique →
     // toggleMute() de site.js le prend en charge sans câblage.
-    var cfg = card.querySelector('.card-front .task-config');
+    var cfg = card.querySelector('.task-config');
     var row = cfg && cfg.closest('.param-row');
-    if (row && !card.querySelector('.card-front .param-mute-row')) {
+    if (row && !card.querySelector('.param-mute-row')) {
       row.insertAdjacentHTML('afterend',
         '<label class="switch-row param-mute-row">' +
           '<span class="switch"><input type="checkbox" class="param-mute" checked' +
