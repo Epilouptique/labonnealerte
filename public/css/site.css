@@ -4965,10 +4965,19 @@ a.forum-tag:hover { text-decoration: underline; }
   flex: 0 0 auto; width: 280px; max-width: 42%;
   display: flex; flex-direction: column; gap: 8px; align-items: stretch; margin-top: 0;
 }
-/* Les faces arrière (info/partage/tâche/communauté) : format court → défilement interne
-   si le contenu déborde (le verso info l'avait déjà ; on l'étend aux autres faces). */
-#grid .card-back, #grid .card-share-face, #grid .card-task-face, #grid .card-community-face {
-  overflow-y: auto;
+/* DURCISSEMENT FLIP (fil #9) : on RÉ-AFFIRME explicitement, dans le scope #grid, les
+   propriétés structurelles que le flip EXIGE — pour garantir que ce bloc de gabarit ne
+   puisse jamais les affaiblir (perspective sur .card, preserve-3d + relatif sur .card-inner,
+   faces en absolute/inset:0/backface-hidden). Valeurs identiques au CSS flip d'origine. */
+#grid .card.flip { perspective: 1400px; }
+#grid .card-inner { position: relative; transform-style: preserve-3d; }
+#grid .card-face { -webkit-backface-visibility: hidden; backface-visibility: hidden; }
+/* Toutes les faces ARRIÈRE restent en absolu inset:0 (jamais dans le flux → pas d'empilement,
+   la hauteur du conteneur ne dépend QUE du recto). Défilement interne si le contenu déborde
+   du format court. Le recto (.card-front) reste, lui, en position:relative (dans le flux). */
+#grid .card-back, #grid .card-share-face, #grid .card-task-face, #grid .card-community-face,
+#grid .card-deck-face {
+  position: absolute; inset: 0; overflow-y: auto;
 }
 
 /* Mobile : 1 colonne pleine largeur, recto re-empilé (la rangée desc|action ne tient pas). */
