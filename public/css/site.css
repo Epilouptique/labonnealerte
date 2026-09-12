@@ -270,7 +270,7 @@ h1 .hl { color: var(wheat); }
   border-radius: 999px; padding: 7px 16px;
 }
 .kpi #kpi-num { font-weight: 700; color: var(--ink); }
-.dot-live { position: relative; width: 8px; height: 8px; border-radius: 50%; background: var(--green); display: inline-block; }
+.dot-live { position: relative; width: 11px; height: 11px; border-radius: 50%; background: var(--green); display: inline-block; }
 .dot-live::after { content: ""; position: absolute; inset: -1px; border-radius: 50%; border: 1.5px solid var(--green); animation: ping 2s ease-out infinite; }
 
 /* ---------- barre d'outils kiosque : recherche + catégories ---------- */
@@ -3485,7 +3485,7 @@ overflow: hidden;
 .grid .card-content p, .deck-card .card-content p {
   flex: none; margin-top: 7px; font-size: 12px; color: var(--tc-desc);
 }
-.card-content .card-desc { font-size: 13px; color: var(--tc-desc); }
+.card-content .card-desc { font-size: 16px; color: var(--tc-desc); }
 .card-content .sub-count { color: var(--tc-desc); }
 /* Chips de parametres : pilules verre/blanc (la reference). « + ajouter » reste la
    pilule violette pleine (.param-add) → les deux « + » ne se confondent pas. */
@@ -4944,14 +4944,33 @@ a.forum-tag:hover { text-decoration: underline; }
 /* Recto : on quitte le portrait 2/3 pour un format large et court, contenu horizontal. */
 #grid .card.flip { align-self: start; }
 #grid .card-front { aspect-ratio: auto; min-height: var(--card-min-h); }
-/* .card-content n'est plus ancré en bas : il occupe la hauteur et centre son contenu. */
+/* CORRECTIF CLIC : .card-content passe en flex:1 (remplit la hauteur) et RECOUVRAIT le
+   .card-toprow absolu (état + icônes ♥/partage/ⓘ), au même z-index → les icônes étaient
+   VISIBLES mais leurs clics captés par card-content (« boutons qui ne marchent pas »). On
+   remonte le toprow au-dessus : ses contrôles reçoivent de nouveau les clics. Les éléments
+   interactifs de card-content (switch, action) sont plus bas → non affectés. */
+#grid .card-toprow { z-index: 5; }
+/* .card-content n'est plus ancré en bas : il occupe la hauteur et centre son contenu.
+   .card-toprow (état + icônes) est en position:absolute en haut → on RÉSERVE sa hauteur
+   via padding-top pour que .card-top (le titre) soit TOUJOURS rendu EN DESSOUS du toprow,
+   jamais en chevauchement, quelle que soit la carte. */
 #grid .card-front .card-content {
   margin-top: 0; flex: 1 1 auto;
   display: flex; flex-direction: column; justify-content: center;
-  padding: 14px 22px; gap: 2px;
+  padding: 50px 22px 14px; gap: 2px;
 }
-/* Titre un peu plus grand (la largeur le permet), description sur 2 lignes max. */
-#grid .card-content h3 { font-size: 22px; }
+/* CORRECTION : le titre (.card-top) est rendu DANS le toprow (déplacé en JS), À DROITE de
+   la pastille d'état et avant les icônes. En flex (flex:1) il se cale à droite de l'état
+   quelle que soit la largeur de celui-ci (état-point ou état à libellé). */
+#grid .card-toprow .card-top {
+  flex: 1 1 auto; min-width: 0; margin: 0;
+  display: flex; align-items: center; gap: 6px;
+}
+#grid .card-toprow .card-top h3 {
+  font-family: 'Baloo 2', sans-serif; font-size: 16px; font-weight: 800;
+  line-height: 1.1; letter-spacing: -0.02em; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
+}
 #grid .card-front .card-desc { -webkit-line-clamp: 2; }
 /* La « boîte texte » passe en RANGÉE : description à gauche (extensible), zone d'action
    à droite (largeur fixe) → remplit le format large. (.card-textbox/.card-action étaient

@@ -41,9 +41,9 @@
 
   function stateFor(state) {
     if (state === 'active') {
-      return '<div class="state active"><span class="dot-live"></span> Active</div>';
+      return '<div class="state active" title="Active"><span class="dot-live"></span></div>';
     }
-    return '<div class="state idle"><span class="dot-idle"></span> Rien à signaler</div>';
+    return '<div class="state idle" title="Rien à signaler"><span class="dot-idle"></span></div>';
   }
 
   function domainOf(url) {
@@ -580,7 +580,7 @@
       // (switchRow/toggleConnected, POST /api/my-alerts/toggle) EST la matérialisation
       // de « être alerté ». Vocabulaire neutre .state.task, même raison que 'user-task' :
       // ce n'est pas une alerte en cours, pas de sens à animer le motif full-art .state.active.
-      state = '<div class="state task"><span class="dot-idle"></span> Rien à signaler</div>';
+      state = '<div class="state task" title="Rien à signaler"><span class="dot-idle"></span></div>';
       // MÊME STRUCTURE DE RECTO que 'user-task' : bloc d'action (bouton, style
       // « + configurer ») PUIS switch, tous deux sur le recto. Le bouton « Signaler »
       // réutilise LA MÊME classe .task-config que 'user-task' (+ .community-config en
@@ -614,12 +614,15 @@
         // .card-art enveloppe motif + voile. Defaut : display:contents → fullart/veil
         // restent positionnes exactement comme avant (containing block = .card-front).
         // Les skins « en cadre » basculent .card-art en boite (fenetre d'art / medaillon).
-        '<div class="card-art">' + FULLART_SVG +
+        // Motif de fond (FULLART_SVG) RETIRÉ temporairement (demande Hugo) — remettre
+        // « + FULLART_SVG » ci-dessous pour le réafficher. La constante reste définie.
+        '<div class="card-art">' + /* FULLART_SVG + */ '' +
           '<span class="card-veil" aria-hidden="true"></span></div>' +
         '<span class="card-edge" aria-hidden="true"></span>' +
-        // C1) Rangée du haut : état (.state, pastille verre) à gauche, icônes à droite.
+        // C1) Rangée du haut : état (.state) à gauche, TITRE (.card-top) à sa droite, icônes à droite.
         '<div class="card-toprow">' +
           state +
+          topRow(s) +
           '<div class="card-icons">' +
             likeBtn(s, mode) +
             '<button class="share-btn card-share" type="button" aria-label="Partager" title="Partager">' + SHARE_SVG + '</button>' +
@@ -627,9 +630,9 @@
             '<button class="flip-btn" type="button" aria-label="En savoir plus" title="En savoir plus">' + INFO_SVG + '</button>' +
           '</div>' +
         '</div>' +
-        // Contenu bas (titre + coche, sous-titre, description, compteur, abonnement).
+        // Contenu bas (sous-titre, description, compteur, abonnement). Le titre (.card-top)
+        // est désormais dans .card-toprow (à droite de l'état).
         '<div class="card-content">' +
-          topRow(s) +
           // Recto DYNAMIQUE (chat-perdu uniquement) : conteneur vide, masqué par défaut.
           // Peuplé par site.js (hydrateCommunityRecto) SEULEMENT s'il existe ≥1 instance
           // visible pour ce profil — sinon reste vide/hidden et le contenu générique
