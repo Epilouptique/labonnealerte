@@ -17,6 +17,7 @@ const { authenticate } = require('../sessions');
 const { validateForumTitle, validateForumBody, hashIp } = require('../ugc');
 const { clientIp } = require('../profile-autofill');
 const mailer = require('../mailer');
+const { footerHtml } = require('../pages');
 
 const router = express.Router();
 
@@ -104,18 +105,12 @@ async function resolveMentions(bodies) {
   const slugs = collectMentions(bodies);
   const map = new Map();
   if (!slugs.length) return map;
-  const [u, s, d] = await Promise.all([
+  const [u, s] = await Promise.all([
     pool.query('SELECT pseudo AS slug FROM subscribers WHERE pseudo = ANY($1)', [slugs]),
     pool.query('SELECT forum_slug AS slug, id FROM sources WHERE forum_slug = ANY($1) AND enabled = true', [slugs]),
-    pool.query(`SELECT forum_slug AS slug, id, share_token, owner_subscriber_id FROM collections
-                 WHERE forum_slug = ANY($1)
-                   AND ((visibility = 'official' AND owner_subscriber_id IS NULL)
-                     OR (visibility = 'public' AND owner_subscriber_id IS NOT NULL))`, [slugs]),
   ]);
+  // Decks : ARCHIVÉS (fil #9) — un @slug de deck n'est plus résolu, il reste du texte brut.
   // Le premier posé gagne : on remplit dans l'ordre inverse de priorité puis on écrase.
-  d.rows.forEach((r) => map.set(r.slug, {
-    href: (r.owner_subscriber_id && r.share_token) ? `/deck/${r.share_token}` : `/collection/${r.id}`,
-  }));
   s.rows.forEach((r) => map.set(r.slug, { href: `/source/${r.id}/statut` }));
   u.rows.forEach((r) => map.set(r.slug, { href: `/u/${r.slug}` }));
   return map;
@@ -272,10 +267,7 @@ ${opts.noindex ? '<meta name="robots" content="noindex">' : ''}${social}
 ${bc}
 ${inner}
 </main>
-<footer>
-  La Bonne Alerte — gratuit, open-source (MIT), sans spam, rien de caché.<br>
-  <a href="/">Kiosque</a> · <a href="/a-propos">À propos</a> · <a href="/soutenir">Nous soutenir</a> · <a href="/mentions-legales">Mentions légales</a> · <a href="/confidentialite">Confidentialité</a> · <a href="/proposer">Espace développeur</a>
-</footer>
+${footerHtml()}
 <script src="/js/session.js"></script>
 <script src="/js/categories.js"></script>
 <script src="/js/theme.js"></script>
@@ -320,14 +312,7 @@ function slugBadge(t) {
     const slug = t.source_slug || t.source_id;
     return `<a class="forum-slug-badge" href="/source/${escHtml(t.source_id)}/statut">@${escHtml(slug)}</a>`;
   }
-  if (t.deck_id) {
-    const slug = t.deck_slug || t.deck_id;
-    // Deck perso public (propriétaire + token) → page /deck/:token ; deck officiel → /collection/:id.
-    const href = (t.deck_owner && t.deck_token)
-      ? `/deck/${escHtml(t.deck_token)}`
-      : `/collection/${escHtml(t.deck_id)}`;
-    return `<a class="forum-slug-badge" href="${href}">@${escHtml(slug)}</a>`;
-  }
+  // Decks : ARCHIVÉS (fil #9, 12/09/2026) — un sujet tagué à un deck n'affiche plus de badge.
   return '';
 }
 
@@ -499,50 +484,9 @@ router.get('/forum/source/:slug', async (req, res) => {
   }
 });
 
-// Sujets tagués à un DECK (miroir ; espace de noms séparé).
-router.get('/forum/deck/:slug', async (req, res) => {
-  const did = req.params.slug;
-  const page_ = Math.max(1, parseInt(req.query.page, 10) || 1); // cf. /forum/source/:slug
-  try {
-    const canonicalId = await resolveDeckId(did);
-    // owner_subscriber_id + share_token : même règle de destination que slugBadge()
-    // (deck perso public → /deck/:token, deck officiel → /collection/:id).
-    const meta = await pool.query(
-      'SELECT name, forum_slug, owner_subscriber_id, share_token FROM collections WHERE id = $1', [canonicalId]);
-    const name = meta.rows.length ? meta.rows[0].name : did;
-    const slug = (meta.rows.length && meta.rows[0].forum_slug) || did;
-    // CANONICAL : forme INVERSE du correctif des sujets (/forum/t/:slug). Pour un
-    // sujet, req.params.slug ETAIT la valeur canonique. Ici resolveDeckId() accepte
-    // DEUX entrees (forum_slug OU id) : l'URL demandee n'est donc pas forcement la
-    // canonique, et la reprendre telle quelle donnait deux canonical differents pour
-    // la meme page selon qu'on arrivait par l'id ou par le slug. On pointe vers le
-    // forum_slug de la ligne RESOLUE ; a defaut, vers l'id RESOLU — jamais vers le
-    // parametre recu. Le pager, lui, garde l'URL courante (voir plus haut).
-    const canonSlug = (meta.rows.length && meta.rows[0].forum_slug) || canonicalId;
-    const deckHref = (meta.rows.length && meta.rows[0].owner_subscriber_id && meta.rows[0].share_token)
-      ? `/deck/${escHtml(meta.rows[0].share_token)}`
-      : `/collection/${escHtml(canonicalId)}`;
-    const { rows } = await pool.query(
-      `${TOPIC_SELECT} WHERE ft.hidden = false AND ft.deck_id = $1
-        ORDER BY ft.last_reply_at DESC LIMIT $2 OFFSET $3`,
-      [canonicalId, TOPICS_PER_PAGE, (page_ - 1) * TOPICS_PER_PAGE]);
-    const pager = pagerHTML(`/forum/deck/${encodeURIComponent(did)}`, page_, rows.length);
-    res.type('html').send(forumShell(`Discussions · ${name} · Forum`,
-      `<div class="forum-head">
-         <h1 class="forum-title">${escHtml(name)}</h1>
-         ${createBtn('deck=' + encodeURIComponent(slug))}
-       </div>
-       <p class="forum-intro">Discussions liées au deck <a class="forum-slug-badge" href="${deckHref}">@${escHtml(slug)}</a></p>
-       ${topicList(rows, 'Aucune discussion sur ce deck pour le moment — ouvrez la première.')}
-       ${pager}`,
-      { url: SITE_URL + '/forum/deck/' + encodeURIComponent(canonSlug),
-        desc: 'Les discussions liees au deck ' + name + ' sur La Bonne Alerte.',
-        breadcrumb: breadcrumb([{ label: 'Forum', href: '/forum' }, { label: name }]) }));
-  } catch (err) {
-    console.error('[forum] GET /forum/deck :', err.message);
-    res.status(503).type('html').send('Service momentanément indisponible.');
-  }
-});
+// Route /forum/deck/:slug : ARCHIVÉE (fil #9, 12/09/2026) — affichage deck retiré du forum.
+// La logique interne (forum_topics.deck_id, resolveDeckId, contrainte « une seule cible »)
+// reste en place pour ne pas casser les sujets existants ; seules les SURFACES disparaissent.
 
 // Pagination simple (préc./suiv.) — n = nb de lignes de la page courante.
 function pagerHTML(base, page_, n) {
@@ -714,14 +658,9 @@ router.get('/api/forum/taggables', async (req, res) => {
   try {
     const s = await pool.query(
       `SELECT id, name, forum_slug FROM sources WHERE enabled = true ORDER BY name ASC`);
-    const d = await pool.query(
-      `SELECT id, name, forum_slug FROM collections
-        WHERE (visibility = 'official' AND owner_subscriber_id IS NULL)
-           OR (visibility = 'public'   AND owner_subscriber_id IS NOT NULL)
-        ORDER BY name ASC`);
+    // Decks : ARCHIVÉS (fil #9) — plus proposés comme cible de tag à la création de sujet.
     res.json({
       sources: s.rows.map((r) => ({ id: r.id, name: r.name, forum_slug: r.forum_slug })),
-      decks: d.rows.map((r) => ({ id: r.id, name: r.name, forum_slug: r.forum_slug })),
     });
   } catch (err) {
     console.error('[forum] GET /api/forum/taggables :', err.message);
@@ -741,7 +680,7 @@ router.get('/api/forum/taggables', async (req, res) => {
 // interne, aucun compteur privé ne sort d'ici.
 router.get('/api/forum/mentionables', async (req, res) => {
   try {
-    const [m, s, d] = await Promise.all([
+    const [m, s] = await Promise.all([
       pool.query(
         `SELECT u.pseudo AS slug, COALESCE(u.display_name, u.pseudo) AS name
            FROM subscribers u
@@ -754,14 +693,9 @@ router.get('/api/forum/mentionables', async (req, res) => {
       pool.query(
         `SELECT forum_slug AS slug, name FROM sources
           WHERE enabled = true AND forum_slug IS NOT NULL ORDER BY name ASC`),
-      pool.query(
-        `SELECT forum_slug AS slug, name FROM collections
-          WHERE forum_slug IS NOT NULL
-            AND ((visibility = 'official' AND owner_subscriber_id IS NULL)
-              OR (visibility = 'public'   AND owner_subscriber_id IS NOT NULL))
-          ORDER BY name ASC`),
     ]);
-    res.json({ members: m.rows, sources: s.rows, decks: d.rows });
+    // Decks : ARCHIVÉS (fil #9) — plus mentionnables (@slug deck retiré de l'autocomplétion).
+    res.json({ members: m.rows, sources: s.rows });
   } catch (err) {
     console.error('[forum] GET /api/forum/mentionables :', err.message);
     res.status(503).json({ error: 'Service indisponible' });
@@ -802,11 +736,7 @@ router.get('/u/:pseudo', async (req, res) => {
     // PAGE 1 SEULEMENT : la pagination ?page= ne porte que sur les SUJETS ; les decks ne
     // sont pas paginés (ils ont leur propre « Afficher plus »), les répéter à l'identique
     // en page 2 ferait croire à une seconde collection.
-    const decksSection = page_ === 1 ? `<section id="profile-decks" data-pseudo="${escHtml(member.pseudo)}" hidden>
-        <h2 class="forum-h2">Ses decks</h2>
-        <div class="grid" id="fav-grid"></div>
-        <button type="button" class="more-btn profile-decks-more" style="display:none">Afficher plus de decks</button>
-      </section>` : '';
+    const decksSection = ''; // « Ses decks » : ARCHIVÉ (fil #9, 12/09/2026) — section retirée du profil.
     const topicsSection = hasTopics
       ? `<h2 class="forum-h2">Ses sujets sur le forum</h2>${topicList(topics.rows, '')}` : '';
     // L'état « aucun contenu » ne vaut QUE pour la page 1 : au-delà, une page vide
@@ -824,53 +754,14 @@ router.get('/u/:pseudo', async (req, res) => {
        ${emptyState}
        ${pager}`,
       { noindex: true, desc: `Profil public de @${member.pseudo} sur La Bonne Alerte.`,
-        scripts: ['/js/cards.js', '/js/deck-motifs.js', '/js/deck-stack.js', '/js/profile-decks.js'] }));
+        scripts: [] })); // scripts decks (deck-motifs/deck-stack/profile-decks) : ARCHIVÉS (fil #9)
   } catch (err) {
     console.error('[forum] GET /u/:pseudo :', err.message);
     res.status(503).type('html').send('Service momentanément indisponible.');
   }
 });
 
-// Decks PUBLICS d'un membre (résolu STRICTEMENT par pseudo), même forme que /api/collections
-// pour un rendu client identique au kiosque (LBADeckStack). AUCUN champ privé (pas d'email, de
-// points, de rang, de owner_subscriber_id, ni de badge Top20). Conditions de visibilité
-// alignées sur le kiosque : perso + public + token de partage + au moins une carte activée.
-router.get('/api/forum/u/:pseudo/decks', async (req, res) => {
-  try {
-    const { rows } = await pool.query(
-      `SELECT c.id, c.name, c.description, c.emoji, c.tint, c.categories, c.forum_slug,
-              c.share_token,
-              '/deck/' || c.share_token AS href,
-              subr.display_name AS author, subr.pseudo AS author_pseudo,
-              (SELECT asset_ref FROM skins WHERE id = c.equipped_skin_id) AS deck_skin,
-              COUNT(s.id)::int AS card_count,
-              COALESCE(SUM(s.likes_count), 0)::int AS total_likes,
-              -- Compte de discussions du verso deck : MÊME sous-requête que /api/collections
-              -- (profil public = même tuile, même verso → même chiffre). hidden = false :
-              -- rien de masqué ne fuite, et on reste dans le périmètre déjà public de /u/.
-              (SELECT COUNT(*) FROM forum_topics ft
-                WHERE ft.hidden = false AND ft.deck_id = c.id)::int AS topic_count,
-              (SELECT COALESCE(json_agg(p.id), '[]'::json) FROM (
-                 SELECT s3.id FROM collection_items ci3
-                   JOIN sources s3 ON s3.id = ci3.source_id AND s3.enabled = true
-                  WHERE ci3.collection_id = c.id
-                  ORDER BY ci3.position DESC LIMIT 3) p) AS preview
-         FROM collections c
-         JOIN subscribers subr ON subr.id = c.owner_subscriber_id
-         LEFT JOIN collection_items ci ON ci.collection_id = c.id
-         LEFT JOIN sources s ON s.id = ci.source_id AND s.enabled = true
-        WHERE subr.pseudo = $1 AND c.visibility = 'public'
-          AND c.owner_subscriber_id IS NOT NULL AND c.share_token IS NOT NULL
-        GROUP BY c.id, subr.display_name, subr.pseudo
-        HAVING COUNT(s.id) > 0
-        ORDER BY c.created_at DESC LIMIT 60`,
-      [req.params.pseudo]);
-    res.json({ decks: rows });
-  } catch (err) {
-    console.error('[forum] GET /api/forum/u/:pseudo/decks :', err.message);
-    res.status(503).json({ error: 'Service indisponible' });
-  }
-});
+// Route /api/forum/u/:pseudo/decks : ARCHIVÉE (fil #9, 12/09/2026) — decks retirés du profil public.
 
 // Compteur JSON pour un futur badge « N discussions » (requête légère).
 router.get('/api/forum/source/:slug/count', async (req, res) => {
@@ -886,19 +777,7 @@ router.get('/api/forum/source/:slug/count', async (req, res) => {
   }
 });
 
-// Compteur JSON pour un DECK (miroir de la route source).
-router.get('/api/forum/deck/:slug/count', async (req, res) => {
-  try {
-    const canonicalId = await resolveDeckId(req.params.slug); // forum_slug prioritaire, repli id
-    const { rows } = await pool.query(
-      `SELECT COUNT(*)::int AS count FROM forum_topics WHERE hidden = false AND deck_id = $1`,
-      [canonicalId]);
-    res.json({ count: rows[0].count });
-  } catch (err) {
-    console.error('[forum] GET deck count :', err.message);
-    res.status(503).json({ error: 'Service indisponible' });
-  }
-});
+// Route /api/forum/deck/:slug/count : ARCHIVÉE (fil #9, 12/09/2026) — decks retirés du forum.
 
 /* ================================================================== */
 /* ÉCRITURES (auth + rate-limit + validation)                          */

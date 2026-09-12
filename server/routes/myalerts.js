@@ -18,6 +18,9 @@ const { trackDomain } = require('../doomname');
 const { applyAutofill, deriveDisplayNameFromEmail, clientIp } = require('../profile-autofill');
 const { award, getRank } = require('../points');
 const { publicEventMessage } = require('../public-events');
+const { addFavorite } = require('../favorites');
+const { ensurePseudo } = require('../pseudo');
+const ugc = require('../ugc');
 
 // État « le pire » d'un ensemble d'instances (pour l'affichage de la carte).
 const STATE_RANK = { active: 3, pending: 2, inactive: 1 };
@@ -25,20 +28,6 @@ function worstState(states) {
   let worst = 'inactive';
   for (const s of states) if ((STATE_RANK[s] || 0) > (STATE_RANK[worst] || 0)) worst = s;
   return worst;
-}
-
-// Favori automatique : tout abonnement actif (source simple, instance paramétrée, adoption
-// de deck) ajoute AUSSI la source à `favorites` (idempotent, ON CONFLICT sur la PK
-// (subscriber_id, source_id)). Best-effort : un échec ici ne doit jamais faire échouer
-// l'abonnement. Le DÉSABONNEMENT ne retire JAMAIS le favori — c'est le but : retrouver
-// dans « Ma collection » ce dont on s'est désabonné.
-async function addFavorite(subscriberId, sourceId) {
-  try {
-    await pool.query(
-      `INSERT INTO favorites (subscriber_id, source_id) VALUES ($1, $2)
-       ON CONFLICT (subscriber_id, source_id) DO NOTHING`,
-      [subscriberId, sourceId]);
-  } catch (e) { console.error('[favorites] auto-add :', e.message); }
 }
 
 const apiRouter = express.Router();
@@ -847,6 +836,48 @@ pagesRouter.get('/mes-alertes', (req, res) => {
   const idx = req.originalUrl.indexOf('?');
   const qs = idx >= 0 ? req.originalUrl.slice(idx) : '';
   res.redirect(301, '/connexion' + qs);
+});
+
+// POST /api/my-alerts/display-name — définit/modifie le pseudo public (3 changements / 30 j).
+// DÉPLACÉ depuis routes/decks.js lors de l'archivage decks/skins (fil #9, 12/09/2026) : le
+// pseudo signe les messages du forum et le profil public /u/:pseudo, il DOIT survivre à
+// l'archivage des decks. Aucune logique deck n'accompagne ce déplacement.
+apiRouter.post('/my-alerts/display-name', async (req, res) => {
+  const token = (req.body && req.body.token) || req.query.token;
+  const auth = await authenticate(token);
+  if (!auth) return res.status(401).json({ error: 'Session invalide ou expirée' });
+  const v = ugc.validateDisplayName((req.body || {}).display_name);
+  if (!v.ok) return res.status(400).json({ error: v.error });
+  try {
+    const changes = await pool.query(
+      `SELECT COUNT(*)::int AS n FROM display_name_changes
+        WHERE subscriber_id = $1 AND changed_at > NOW() - INTERVAL '30 days'`,
+      [auth.id]
+    );
+    if (changes.rows[0].n >= 3) {
+      return res.status(429).json({ error: 'Trop de changements de nom ce mois-ci (max 3).' });
+    }
+    // Unicité insensible à la casse (l'index garantit, on capte l'erreur 23505).
+    try {
+      const upd = await pool.query(
+        `UPDATE subscribers SET display_name = $1
+          WHERE id = $2 AND (display_name IS DISTINCT FROM $1) RETURNING display_name`,
+        [v.value, auth.id]
+      );
+      if (upd.rows.length === 0) return res.status(200).json({ display_name: v.value }); // inchangé
+    } catch (e) {
+      if (e.code === '23505') return res.status(409).json({ error: 'Ce nom public est déjà pris.' });
+      throw e;
+    }
+    await pool.query('INSERT INTO display_name_changes (subscriber_id) VALUES ($1)', [auth.id]);
+    // @pseudo généré à la PREMIÈRE pose seulement ; jamais régénéré aux renommages
+    // (stabilité des liens /u/:pseudo). Best-effort.
+    try { await ensurePseudo(pool, auth.id, v.value); } catch (e) { /* secondaire */ }
+    return res.status(200).json({ display_name: v.value });
+  } catch (err) {
+    console.error('[my-alerts] Erreur POST /display-name :', err.message);
+    return res.status(503).json({ error: 'Service indisponible' });
+  }
 });
 
 module.exports = { apiRouter, pagesRouter };

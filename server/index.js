@@ -1,6 +1,5 @@
 require('dotenv').config();
 
-const fs = require('fs');
 const path = require('path');
 const express = require('express');
 const helmet = require('helmet');
@@ -13,9 +12,7 @@ const { apiRouter: subscribeApiRouter, pagesRouter } = require('./routes/subscri
 const { apiRouter: myAlertsApiRouter, pagesRouter: myAlertsPagesRouter } = require('./routes/myalerts');
 const authRouter = require('./routes/auth');
 const pushRouter = require('./routes/push');
-const collectionsRouter = require('./routes/collections');
-const decksRouter = require('./routes/decks');
-const skinsRouter = require('./routes/skins');
+// Routeurs decks / collections / skins : ARCHIVÉS (fil #9, 12/09/2026) — non montés.
 const { apiRouter: lePointApiRouter } = require('./routes/le-point');
 const { pagesRouter: userTasksPagesRouter, apiRouter: userTasksApiRouter } = require('./routes/user-tasks');
 const forumRouter = require('./routes/forum');
@@ -23,6 +20,7 @@ const communityReportsRouter = require('./routes/community-reports');
 const sitemapRouter = require('./routes/sitemap');
 const { cleanupExpired } = require('./sessions');
 const { startPoller } = require('./poller');
+const { sendPage, renderPage, pagesMiddleware } = require('./pages');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -163,6 +161,9 @@ app.use('/', sitemapRouter);
 // navigation, et une peremption bornee a 60 s apres un deploiement.
 // La route /sw.js ci-dessus n'est pas concernee : elle est servie AVANT ce static et
 // garde son propre no-store + cacheControl: false.
+// Pages HTML assemblees (footer commun injecte, cf. server/pages.js) : / et /xxx.html
+// passent ici AVANT le static, qui les servirait sinon avec le marqueur brut.
+app.use(pagesMiddleware);
 app.use(express.static('public', { maxAge: '60s' }));
 
 // C) Limiteur global sur /api : 120 requêtes/minute/IP (la home fait plusieurs appels).
@@ -180,9 +181,7 @@ app.use('/api', apiRouter);
 app.use('/api', subscribeApiRouter);
 app.use('/api', myAlertsApiRouter);
 app.use('/api', pushRouter);
-app.use('/api', collectionsRouter);
-app.use('/api', decksRouter);
-app.use('/api', skinsRouter);
+// (routeurs decks / collections / skins archivés — fil #9)
 app.use('/api', lePointApiRouter);
 app.use('/api', userTasksApiRouter);
 app.use('/api', communityReportsRouter);
@@ -191,24 +190,24 @@ app.use('/api/dev', devRouter);
 app.use('/auth', authRouter);
 // Page développeur « Proposer une source » (palette Veille de nuit).
 app.get('/proposer', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'proposer.html'));
+  sendPage(res, 'proposer.html');
 });
 // Pages statiques simples.
 app.get('/a-propos', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'a-propos.html'));
+  sendPage(res, 'a-propos.html');
 });
 app.get('/soutenir', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'soutenir.html'));
+  sendPage(res, 'soutenir.html');
 });
 app.get('/mentions-legales', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'mentions-legales.html'));
+  sendPage(res, 'mentions-legales.html');
 });
 app.get('/confidentialite', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'confidentialite.html'));
+  sendPage(res, 'confidentialite.html');
 });
 
 app.get('/le-point', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'le-point.html'));
+  sendPage(res, 'le-point.html');
 });
 
 // Fusion v2 (vague 12) : anciens ids broadcast → source paramétrée (qs = query
@@ -222,20 +221,7 @@ const FUSED_REDIRECTS = {
   'indice-uv-gap': { to: 'indice-uv', qs: 'departement=05' },
 };
 
-// Page « Mes decks » (gestion des decks utilisateur) — contenu chargé côté client.
-app.get('/mes-decks', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'mes-decks.html'));
-});
-// Page « Nouveau deck » : meme SPA (mes-decks.html) ; decks.js detecte le chemin et ouvre
-// directement le formulaire de creation (le lien « Ajouter un deck » pointe ici).
-app.get('/mes-decks/nouveau', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'mes-decks.html'));
-});
-
-// Page « Boutique » (skins cosmetiques, phase 3) — contenu chargé côté client.
-app.get('/boutique', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'boutique.html'));
-});
+// Pages /mes-decks, /mes-decks/nouveau, /boutique : ARCHIVÉES (fil #9, 12/09/2026) — routes retirées.
 
 // « Mes favoris » n'est plus une PAGE mais un FILTRE du kiosque (comme « Ma collection ») :
 // transition immédiate entre cartes, sans changement de page. La route est conservée en
@@ -247,86 +233,14 @@ app.get('/favoris', (req, res) => {
   res.redirect(302, '/?mode=favoris');
 });
 
-// Page publique d'un deck partagé : /deck/:token. SEO PRUDENT (anti-spam d'aperçu) :
-// og:title = nom du deck (déjà validé à la saisie) ; og:description = description
-// GÉNÉRIQUE du site (JAMAIS la description libre de l'utilisateur). 404 propre.
-app.get('/deck/:token', async (req, res) => {
-  try {
-    const { rows } = await pool.query(
-      "SELECT name, emoji FROM collections WHERE share_token = $1 AND visibility IN ('public', 'unlisted')",
-      [req.params.token]
-    );
-    if (rows.length === 0) {
-      return res.status(404).type('html').send(
-        '<!doctype html><meta charset="utf-8"><title>Deck introuvable</title>' +
-        '<body style="font-family:system-ui,sans-serif;max-width:520px;margin:80px auto;text-align:center;color:#0f1419">' +
-        '<h1>Deck introuvable</h1><p>Ce lien de partage n\'est plus valable.</p>' +
-        '<p><a href="/" style="color:#a567e3;font-weight:600">← Retour au kiosque</a></p></body>'
-      );
-    }
-    const d = rows[0];
-    const emoji = d.emoji ? d.emoji + ' ' : '';
-    const title = `${emoji}${d.name} — un deck · La Bonne Alerte`;
-    // Description GÉNÉRIQUE (pas la description libre de l'utilisateur).
-    const desc = 'Un deck d\'alertes partagé sur La Bonne Alerte — adoptez-le en un clic (copie privée).';
-    const url = `https://labonnealerte.fr/deck/${encodeURIComponent(req.params.token)}`;
-
-    let html = fs.readFileSync(path.join(__dirname, '..', 'public', 'deck.html'), 'utf8');
-    html = html
-      .replace(/\{\{TITLE\}\}/g, escHtml(title))
-      .replace(/\{\{DESC\}\}/g, escHtml(desc))
-      .replace(/\{\{OG_TITLE\}\}/g, escHtml(`${emoji}${d.name} — La Bonne Alerte`))
-      .replace(/\{\{OG_DESC\}\}/g, escHtml(desc))
-      .replace(/\{\{OG_URL\}\}/g, escHtml(url));
-    res.type('html').send(html);
-  } catch (err) {
-    console.error('[server] Erreur /deck/:token :', err.message);
-    res.status(503).type('html').send('Service momentanément indisponible.');
-  }
-});
+// Page publique /deck/:token : ARCHIVÉE (fil #9, 12/09/2026) — route retirée.
 
 // Page de statut d'une source : SEO injecté côté serveur + 404 propre.
 function escHtml(s) {
   return String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 }
 
-// Page publique d'une collection : /collection/:slug — SEO injecté côté serveur
-// (og:title/description propres, partageable) + 404 propre. Le contenu (cartes,
-// bouton « Adopter ») est chargé côté client via GET /api/collections/:slug.
-app.get('/collection/:slug', async (req, res) => {
-  const slug = req.params.slug;
-  try {
-    const { rows } = await pool.query(
-      "SELECT name, description, emoji FROM collections WHERE id = $1 AND visibility = 'official' AND owner_subscriber_id IS NULL",
-      [slug]
-    );
-    if (rows.length === 0) {
-      return res.status(404).type('html').send(
-        '<!doctype html><meta charset="utf-8"><title>Collection introuvable</title>' +
-        '<body style="font-family:system-ui,sans-serif;max-width:520px;margin:80px auto;text-align:center;color:#0f1419">' +
-        '<h1>Collection introuvable</h1><p>Cette collection n\'existe pas ou n\'est plus disponible.</p>' +
-        '<p><a href="/" style="color:#a567e3;font-weight:600">← Retour au kiosque</a></p></body>'
-      );
-    }
-    const c = rows[0];
-    const emoji = c.emoji ? c.emoji + ' ' : '';
-    const title = `${emoji}${c.name} — une collection · La Bonne Alerte`;
-    const desc = (c.description || `La collection « ${c.name} » : un pack d'alertes prêt à adopter en un clic.`).slice(0, 180);
-    const url = `https://labonnealerte.fr/collection/${encodeURIComponent(slug)}`;
-
-    let html = fs.readFileSync(path.join(__dirname, '..', 'public', 'collection.html'), 'utf8');
-    html = html
-      .replace(/\{\{TITLE\}\}/g, escHtml(title))
-      .replace(/\{\{DESC\}\}/g, escHtml(desc))
-      .replace(/\{\{OG_TITLE\}\}/g, escHtml(`${emoji}${c.name} — La Bonne Alerte`))
-      .replace(/\{\{OG_DESC\}\}/g, escHtml(desc))
-      .replace(/\{\{OG_URL\}\}/g, escHtml(url));
-    res.type('html').send(html);
-  } catch (err) {
-    console.error('[server] Erreur /collection/:slug :', err.message);
-    res.status(503).type('html').send('Service momentanément indisponible.');
-  }
-});
+// Page publique /collection/:slug : ARCHIVÉE (fil #9, 12/09/2026) — route retirée.
 app.get('/source/:id/statut', async (req, res) => {
   const id = req.params.id;
   // Fusion v2 : anciennes vigilances départementales → page paramétrée (SEO 301).
@@ -357,7 +271,7 @@ app.get('/source/:id/statut', async (req, res) => {
     const desc = (s.subtitle || s.description || `Statut de surveillance de « ${s.name} ».`).slice(0, 180);
     const url = `https://labonnealerte.fr/source/${encodeURIComponent(id)}/statut`;
 
-    let html = fs.readFileSync(path.join(__dirname, '..', 'public', 'source.html'), 'utf8');
+    let html = renderPage('source.html');
     html = html
       .replace(/\{\{TITLE\}\}/g, escHtml(title))
       .replace(/\{\{DESC\}\}/g, escHtml(desc))

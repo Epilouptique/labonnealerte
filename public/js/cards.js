@@ -602,14 +602,8 @@
     // Compteur d'abonnés discret (seulement à partir de 10).
     var count = (s.subscriber_count >= 10)
       ? '<div class="sub-count">' + s.subscriber_count + ' abonnés</div>' : '';
-    // « Ajouter à un deck » : icône « + » sur le recto, à gauche du « i », en mode
-    // connecté uniquement (pas de teasing pour les anonymes). Ouvre le menu flottant
-    // deck-add.js. La classe has-add décale partage/❤ pour laisser la place au « + ».
-    var showAdd = mode === 'connected' && !isLinked;
-    var addBtn = showAdd
-      ? '<button class="add-deck-btn card-add-deck" type="button" data-source-id="' + esc(s.id) +
-        '" aria-label="Ajouter à un deck" title="Ajouter à un deck">' + PLUS_SVG + '</button>'
-      : '';
+    // « Ajouter à un deck » : ARCHIVÉ (fil #9, 12/09/2026) — plus de bouton deck sur le recto.
+    var addBtn = '';
     // Disposition A : full-art (motif) + voile de lisibilité + double liseré en fond ;
     // rangée haute (état à gauche, contrôles à droite dans l'ordre ♥·partage·+deck·i) ;
     // contenu ancré en bas sur le voile. Toutes les classes interactives sont conservées
@@ -796,16 +790,7 @@
       '</div>';
   }
 
-  // F3) 4e face : « Ajouter à un deck ». Vide au rendu ; deck-add.js la remplit (liste
-  // des decks / création du premier deck inline) puis retourne la carte au clic sur « + ».
-  function deckFace() {
-    return '' +
-      '<div class="card-face card-deck-face">' +
-        '<button class="flip-back" type="button" aria-label="Retour" title="Retour">' + BACK_SVG + '</button>' +
-        '<div class="cdf-title">Ajouter à un deck</div>' +
-        '<div class="cdf-body"></div>' +
-      '</div>';
-  }
+  // F3) 4e face « Ajouter à un deck » : ARCHIVÉE (fil #9, 12/09/2026) — supprimée.
 
   // 3e face : partage (grille remplie à la volée par site.js via LBAShare.optionsHTML).
   function shareFace() {
@@ -867,7 +852,6 @@
           shareFace() +
           taskFace(s, mode) + // 5e face : '' pour toute carte non user-task
           communityReportsFace(s, mode) + // 5e face : '' pour toute carte non 'community'
-          (showAdd ? deckFace() : '') +
         '</div>' +
       '</div>';
   }

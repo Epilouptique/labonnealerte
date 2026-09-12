@@ -6,7 +6,7 @@ const { sendConfirmation } = require('../mailer');
 const { validateParams } = require('../params');
 const { trackDomain } = require('../doomname');
 const { award } = require('../points');
-const { addFavorite } = require('./collections'); // même helper « abonnement = favori » (best-effort)
+const { addFavorite } = require('../favorites'); // helper « abonnement = favori » (best-effort)
 
 // apiRouter : endpoints JSON destinés aux machines (monté sous /api).
 // pagesRouter : pages HTML destinées aux humains, liens cliqués depuis un email

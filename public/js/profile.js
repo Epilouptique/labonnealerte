@@ -312,12 +312,7 @@
       '      <span class="notif-sub">Vous retire du calcul de rang</span></div>' +
       '    <button type="button" class="notif-toggle" id="pref-optout" role="switch" aria-label="Ne pas participer au classement"></button>' +
       '  </div>' +
-      // Phase 3 : acces a la boutique de skins cosmetiques.
-      '  <a class="notif-row notif-nav" href="/boutique">' +
-      '    <span class="notif-txt"><strong>Boutique</strong>' +
-      '      <span class="notif-sub">Débloquez des skins avec vos points</span></span>' +
-      '    <span class="notif-chevron" aria-hidden="true">→</span>' +
-      '  </a>' +
+      // Boutique de skins : ARCHIVÉE (fil #9) — lien retiré ; le bloc « Mes points » reste.
       '</div>');
 
     renderChips();

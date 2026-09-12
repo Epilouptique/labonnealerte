@@ -2324,8 +2324,12 @@
   function scrollToGrid() {
     var main = document.getElementById('alertes');
     if (!main) return;
+    // On ne deplace la page que si la grille est HORS de l'ecran : filtrer depuis le
+    // haut de l'accueil ne doit rien bouger (le hero et le titre restent en place).
+    // Le scroll ne sert donc plus qu'a remonter quand on filtre depuis le bas.
     var top = main.getBoundingClientRect().top;
-    if (top < 0 || top > window.innerHeight * 0.4) main.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (top >= 0 && top < window.innerHeight) return;
+    main.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   // V3) Retour depuis le lien email de confirmation (?task-confirmed=<id>, posé par
@@ -2688,9 +2692,7 @@
           profile.interests = s.data.interests || [];
           accountDisplayName = s.data.display_name || null;
           accountViewMode = s.data.view_mode || 'cards'; // préférence de compte (sync multi-appareils)
-          // Phase 3 : skin dashboard equipe (prive) -> classe sur la grille, cascade
-          // sur toutes les cartes source. Token CSS placeholder (asset_ref) ou null.
-          if (s.data.dashboard_skin) g.classList.add(s.data.dashboard_skin);
+          // Phase 3 : skin dashboard — ARCHIVÉ (fil #9, 12/09/2026) : plus d'application de classe skin.
         }
       } catch (e) { /* réseau : on reste anonyme */ }
     }
@@ -2812,7 +2814,9 @@
     }
 
     loadStats();
-    loadDecksIntoGrid(); // iteration 2 : tuiles-deck injectees dans la grille (plus d'etagere)
+    // loadDecksIntoGrid() : ARCHIVÉ (fil #9, 12/09/2026) — plus de tuiles-deck dans la grille.
+    // Le corps de loadDecksIntoGrid/bindDeckSwitches reste défini plus bas mais N'EST PLUS
+    // APPELÉ (inerte) ; il sera retiré lors de la réécriture de site.js à l'ÉTAPE 3.
     if (mode === 'connected') loadHistory(token);
   }
 

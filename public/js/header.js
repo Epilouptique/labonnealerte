@@ -46,8 +46,7 @@
   // « Mes alertes » : cloche seule (plus de libellé texte). Le KPI du header vient s'y
   // superposer en pastille de notification (voir mobile-header.js + site.css).
   var MINE_LINK_HTML = '<a class="mine-link hd-link" href="/connexion" aria-label="Mes alertes" title="Mes alertes">' + BELL_HTML + '</a>';
-  // Boutique de skins — placée À GAUCHE de la cloche dans .nav-right.
-  var SHOP_LINK_HTML = '<a class="shop-link hd-link" href="/boutique" aria-label="Boutique" title="Boutique">' + BAG_HTML + '</a>';
+  // Boutique de skins : ARCHIVÉE (fil #9, 12/09/2026) — plus de lien sac/boutique.
   // ❤ : la page /favoris est remplacée par un FILTRE du kiosque (?mode=favoris, intercepté
   // sur place par site.js/bindFavLinks). Seule la destination change, l'apparence est intacte.
   var FAV_LINK_HTML = '<a class="fav-link hd-link" href="/?mode=favoris" aria-label="Mes favoris" title="Mes favoris">' + HEART_HTML + '</a>';
@@ -107,7 +106,6 @@
         '<nav class="m-menu-list" aria-label="Navigation principale">' +
           (logged
             ? '<button type="button" class="m-link m-primary" data-act="mine">Mes alertes</button>' +
-              '<a href="/mes-decks" class="m-link">Mes decks</a>' +
               '<a href="/?mode=favoris" class="m-link" data-act="favoris">Mes favoris</a>'
             : '<a href="/connexion" class="m-primary" data-act="auth">Se connecter</a>' +
               '<a href="/?mode=favoris" class="m-link" data-act="favoris">Mes favoris</a>') +
@@ -285,7 +283,7 @@
     buildMenu: buildMenu,
     ICONS: {
       bell: BELL_HTML, heart: HEART_HTML, bag: BAG_HTML,
-      mineLink: MINE_LINK_HTML, favLink: FAV_LINK_HTML, shopLink: SHOP_LINK_HTML
+      mineLink: MINE_LINK_HTML, favLink: FAV_LINK_HTML
     }
   };
 
@@ -346,7 +344,6 @@
   //    il reste accessible par le footer et le menu mobile. Plus de bouton de thème :
   //    retiré du header (window.toggleTheme reste exposé par theme.js).
   navRight.innerHTML =
-    SHOP_LINK_HTML +
     MINE_LINK_HTML +
     FAV_LINK_HTML +
     '<span class="auth-email" id="auth-email" hidden></span>' +

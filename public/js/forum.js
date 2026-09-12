@@ -103,8 +103,8 @@
       items: function () { return items; },
       match: tagMatch,
       norm: normTag,
-      groups: [{ key: 'source', label: 'Sources' }, { key: 'deck', label: 'Decks' }],
-      emptyMsg: 'Aucune source ni deck ne correspond.',
+      groups: [{ key: 'source', label: 'Sources' }], // Decks : ARCHIVÉS (fil #9)
+      emptyMsg: 'Aucune source ne correspond.',
       onArrowDownClosed: function () { cb.open(input.value); },
       // Commit : le champ visible affiche le libellé, le champ CACHÉ reçoit "type:id"
       // — exactement la valeur que produisait <option value>. Contrat POST intact.
@@ -149,14 +149,13 @@
           });
         }
         add(data.sources, 'source');
-        add(data.decks, 'deck');
+        // Decks : ARCHIVÉS (fil #9) — plus proposés comme cible de tag.
         // Pré-remplissage ?source= / ?deck= : MÊME résolution qu'avant (slug OU id),
         // mais il n'y a plus d'<option selected> → on pose nous-mêmes le libellé dans
         // le champ visible ET la valeur dans le champ caché (sélection réelle, pas une
         // simple amorce de recherche : l'utilisateur arrive depuis la page de l'objet).
         const pre = items.find(function (it) {
           if (it.group === 'source' && preSource) return it.forum_slug === preSource || it.id === preSource;
-          if (it.group === 'deck' && preDeck) return it.forum_slug === preDeck || it.id === preDeck;
           return false;
         });
         if (pre) {
@@ -229,7 +228,7 @@
       groups: [
         { key: 'member', label: 'Membres' },
         { key: 'source', label: 'Sources' },
-        { key: 'deck', label: 'Decks' },
+        // Decks : ARCHIVÉS (fil #9)
       ],
       emptyMsg: 'Aucune mention ne correspond.',
       // Insertion à l'emplacement du caret : on remplace le fragment « @xxx » en cours
@@ -270,7 +269,7 @@
   function loadMentionables() {
     if (mentionLoaded) return mentionLoaded;
     mentionLoaded = fetch('/api/forum/mentionables', { headers: { Accept: 'application/json' } })
-      .then(function (r) { return r.ok ? r.json() : { members: [], sources: [], decks: [] }; })
+      .then(function (r) { return r.ok ? r.json() : { members: [], sources: [] }; })
       .then(function (d) {
         function add(list, group) {
           (list || []).forEach(function (it) {
@@ -283,7 +282,7 @@
         }
         add(d.members, 'member');
         add(d.sources, 'source');
-        add(d.decks, 'deck');
+        // Decks : ARCHIVÉS (fil #9) — plus mentionnables.
         return mentionItems;
       })
       .catch(function () { return mentionItems; });
@@ -311,7 +310,7 @@
     if (combo) {
       try {
         const res = await fetch('/api/forum/taggables', { headers: { Accept: 'application/json' } });
-        const d = res.ok ? await res.json() : { sources: [], decks: [] };
+        const d = res.ok ? await res.json() : { sources: [] };
         combo.fill(d, preSource, preDeck);
       } catch (e) { /* liste indisponible : le tag reste optionnel */ }
     }

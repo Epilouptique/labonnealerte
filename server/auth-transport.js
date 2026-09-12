@@ -33,12 +33,8 @@
 //       public/js/push.js
 //       public/js/quiet.js
 //       public/js/forum.js
-//       public/js/collection-page.js
-//       public/js/deck-shared.js
-//       public/js/deck-add.js
 //       public/js/source.js
 //       public/js/user-task-form.js
-//       public/js/boutique.js
 //       public/js/view-mode.js
 //       public/js/session.js          <- oui, lui aussi, sur deux POST
 //       public/js/favoris.js          <- orphelin (la route /favoris redirige),

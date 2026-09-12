@@ -43,50 +43,44 @@
 <div class="page-loading" role="status" aria-live="polite"><div class="lba-bars" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>Chargement…</div>
 
 <main class="wrap coll-main">
-  <div id="deck-loading" class="src-loading"><div class="lba-bars" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>Chargement…</div>
+  <div id="coll-loading" class="src-loading"><div class="lba-bars" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>Chargement…</div>
 
-  <section id="deck-view" hidden>
+  <section id="coll-view" hidden>
     <div class="coll-head">
-      <a class="src-back" href="/" aria-label="Revenir au kiosque" title="Kiosque">
+      <a class="src-back" href="/#alertes" aria-label="Revenir à ma collection" title="Ma collection">
         <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 5 5v3"/></svg>
       </a>
-      <div class="coll-head-top">
-        <span id="deck-emoji" class="coll-emoji" aria-hidden="true"></span>
-        <h1 id="deck-name"></h1>
-      </div>
-      <p id="deck-desc" class="src-desc"></p>
-      <div class="deck-byline">
-        <span id="deck-author" class="deck-author"></span>
-        <span id="deck-forked" class="deck-forked" hidden></span>
-      </div>
-      <div class="coll-meta">
-        <span id="deck-count"></span>
-      </div>
-      <div class="coll-actions">
-        <button id="deck-adopt" class="coll-adopt" type="button">Adopter ce deck</button>
-        <button id="deck-share" class="share-btn share-btn-lg" type="button">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>
-          <span class="share-label">Partager</span>
-        </button>
-      </div>
-      <div id="deck-adopt-msg" class="coll-adopt-msg" hidden></div>
-      <div id="deck-share-grid" class="share-face-grid coll-share-grid" hidden></div>
-      <div class="deck-report">
-        <button id="deck-report-btn" class="deck-report-link" type="button">Signaler ce deck</button>
-        <button id="deck-report-name" class="deck-report-link deck-report-sm" type="button">Signaler le nom</button>
+      <h1 id="coll-name" class="page-title" data-hero-done="1"></h1>
+      <!-- Meme mise en page que le detail d'un deck (/mes-decks) : titre pleine largeur,
+           puis rangee [pile a gauche | corps a droite]. Classes REUTILISEES telles quelles. -->
+      <div class="deck-detail-layout">
+        <span id="coll-emoji" class="coll-emoji" aria-hidden="true"></span>
+        <div class="deck-detail-body">
+          <p id="coll-desc" class="src-desc"></p>
+          <div class="coll-meta">
+            <span id="coll-count"></span>
+            <span id="coll-likes" class="coll-likes"></span>
+          </div>
+          <div class="coll-actions">
+            <button id="coll-adopt" class="coll-adopt" type="button">Adopter ce deck</button>
+            <button id="coll-share" class="share-btn share-btn-lg" type="button">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>
+              <span class="share-label">Partager</span>
+            </button>
+          </div>
+          <div id="coll-adopt-msg" class="coll-adopt-msg" hidden></div>
+          <div id="coll-share-grid" class="share-face-grid coll-share-grid" hidden></div>
+        </div>
       </div>
     </div>
 
-    <div class="grid" id="deck-grid"></div>
+    <div class="grid" id="coll-grid"></div>
   </section>
 
-  <div id="deck-error" class="src-error" hidden>Deck introuvable ou partage arrêté</div>
+  <div id="coll-error" class="src-error" hidden>Collection introuvable.</div>
 </main>
 
-<footer>
-  La Bonne Alerte — gratuit, open-source (MIT), sans spam, rien de caché.<br>
-  <a href="/">Kiosque</a> · <a href="/a-propos">À propos</a> · <a href="/soutenir">Nous soutenir</a> · <a href="/mentions-legales">Mentions légales</a> · <a href="/confidentialite">Confidentialité</a> · <a href="/proposer">Espace développeur</a>
-</footer>
+<!--FOOTER-->
 
 <script src="/js/page-loading.js"></script>
 <script src="/js/session.js"></script>
@@ -96,7 +90,7 @@
 <script src="/js/site.js"></script>
 <script src="/js/deck-motifs.js"></script>
 <script src="/js/deck-stack.js"></script>
-<script src="/js/deck-shared.js"></script>
+<script src="/js/collection-page.js"></script>
 <script src="/js/deck-add.js"></script>
 <script src="/js/user-task-form.js"></script>
 <script src="/js/theme.js"></script>

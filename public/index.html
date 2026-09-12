@@ -77,20 +77,7 @@
 </section>
 
 <main class="wrap" id="alertes">
-  <!-- ETAGERE CARROUSEL DECK — DESACTIVEE le 2026-07-25 (voir discussion chantier
-       deck-stack, iteration 2 : les decks deviennent des tuiles pleine taille MELANGEES
-       dans la grille du kiosque, plus une etagere separee). Bloc conserve tel quel pour
-       pouvoir le reactiver sans reecrire ; le JS associe (loadCollections /
-       updateShelfVisibility / setupShelfAutoScroll) est de meme commente dans site.js.
-       A re-tester plus tard.
-  <section class="collections-shelf" id="collections-shelf" hidden>
-    <div class="section-label">Les decks <span class="section-hint">— des packs prêts à adopter en un clic</span></div>
-    <div class="shelf-row" id="shelf-row" role="list"></div>
-  </section>
-  -->
-  <!-- Nouveau : les tuiles-deck (LBADeckStack) sont injectees DANS #grid par site.js
-       (loadDecksIntoGrid), melangees aux cartes d'alerte. -->
-  <div id="deck-tiles-src" hidden></div>
+  <!-- Étagère decks / tuiles-deck : ARCHIVÉES (fil #9, 12/09/2026). -->
 
   <!-- B) « Le kiosque » + la barre d'outils groupés : le label de section se pin
        dans la marge à la hauteur de CE bloc (et non du haut du main), pour ne plus
@@ -372,20 +359,14 @@
   </div>
 </section>
 
-<footer>
-  La Bonne Alerte — gratuit, open-source (MIT), sans spam, rien de caché.<br>
-  Un projet <a href="https://dahu-concept.fr" target="_blank" rel="noopener">Dahu-Concept</a> · <a href="/le-point">Le Point</a> · <a href="/a-propos">À propos</a> · <a href="/soutenir">Nous soutenir</a> · <a href="/mentions-legales">Mentions légales</a> · <a href="/confidentialite">Confidentialité</a> · <a href="/proposer">Espace développeur</a> · <a href="https://github.com/Epilouptique/labonnealerte" target="_blank" rel="noopener">Code source</a>
-</footer>
+<!--FOOTER-->
 
 <script src="/js/session.js"></script>
 <script src="/js/page-loading.js"></script>
 <script src="/js/categories.js"></script>
 <script src="/js/cards.js"></script>
-<script src="/js/holo.js" defer></script>
 <script src="/js/timeline.js"></script>
 <script src="/js/share.js"></script>
-<script src="/js/deck-motifs.js"></script>
-<script src="/js/deck-stack.js"></script>
 <script src="/js/view-mode.js"></script>
 <script src="/js/list-view.js"></script>
 <script src="/js/site.js"></script>
@@ -398,7 +379,6 @@
 <script src="/js/profile.js"></script>
 <script src="/js/quiet.js"></script>
 <script src="/js/appearance.js"></script>
-<script src="/js/deck-add.js"></script>
 <script src="/js/user-task-form.js"></script>
 <script src="/js/support.js"></script>
 <script src="/js/pwa.js"></script>

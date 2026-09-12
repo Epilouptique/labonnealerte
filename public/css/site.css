@@ -15,7 +15,7 @@ body {
   display: flex;
   flex-direction: column;
   transition: background .25s, color .25s;
-  background-image: radial-gradient(var(--dot) 1.2px, transparent 1.7px);
+  /*background-image: radial-gradient(var(--dot) 1.2px, transparent 1.7px);*/
   background-size: 30px 30px;
 /* Fond constellations — pleine largeur, hauteur du hero */
  background-image:
@@ -25,9 +25,8 @@ body {
   background-position: bottom center, 0 0;
   background-repeat: no-repeat, repeat;
   background-attachment: fixed, scroll;
-
-
 }
+
 /* Nouvel arrière-plan (public/img/background.png) superposé au fond actuel :
    couche fixe plein écran, au-dessus du fond décoratif mais SOUS le contenu
    (z-index:-1 → derrière les enfants du body, devant le background du body).
@@ -42,7 +41,7 @@ body::before {
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  opacity: 0.4;
+  opacity: 1;
 }
 .mono { font-family: 'JetBrains Mono', monospace; }
 .wrap { max-width: 1240px; margin: 0 auto; padding: 0 24px; }
@@ -250,11 +249,11 @@ html[data-theme="light"] header { background: #ffffff; } /* thème clair : blanc
 @media (prefers-reduced-motion: reduce) { .hero::before { animation: none; } }
 .hero > * { position: relative; }
 /* 1) Titre de page commun (hero + /mes-decks…) : une seule source de vérité. */
-.page-title { font-size: clamp(32px, 5.4vw, 52px); font-weight: 800; letter-spacing: -0.03em; line-height: 1.08; font-family: 'Baloo 2',sans-serif; text-align:center; padding: 40px 0 22px;  text-shadow: 2px 1px 3px var(--muted);}
-.hero h1 .hl { color: var(--amber); }
+.page-title { font-size: clamp(32px, 5.4vw, 5rem); font-weight: 800; letter-spacing: -0.03em; line-height: 1.08; font-family: 'Baloo 2',sans-serif; text-align:center; padding: 80px 0 80px;  /*text-shadow: 2px 1px 3px var(--muted);*/}
+.hero h1 .hl { color: white; }
 /* C) Bicoloration générale des H1 : 1er mot en --ink, le reste en violet (.hl).
    S'applique à toutes les pages (le .hl du hero n'était que local). */
-h1 .hl { color: var(--amber); }
+h1 .hl { color: var(wheat); }
 .hero p { color: var(--muted); font-size: 18px; margin: 18px auto 0; max-width: 520px; }
 /* Point 1) Très petits smartphones (iPhone SE, ~375px et moins) : le .wrap ne laisse
    que 16px de marge — on renforce l'air autour du titre et du paragraphe pour qu'ils
@@ -363,6 +362,10 @@ header .chips-row .chip-f + .chip-f::before {
    etirement correct. 4 colonnes ne tiennent JAMAIS (4x300=1200 > 1192) : le gap n'a donc
    pas a etre gonfle pour bloquer la 4e colonne, il reste a 18px. Meme fix sur .decks-main. */
 main#alertes { width: 100%; }
+/* Quand scrollToGrid() amene la grille a l'ecran (filtre applique depuis le bas de
+   la page), le header sticky (.nav, 64px) recouvrirait la premiere rangee :
+   scroll-margin-top reserve sa hauteur. */
+main#alertes { scroll-margin-top: 64px; }
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); gap: 18px; padding-top: 2rem; padding-bottom: 26px; grid-auto-rows: auto; align-content: start; }
 /* Plafond de largeur des cartes d'alerte : la piste reste en 1fr (ex. 385px desktop large),
    la carte y REMPLIT au plus 300px puis est CENTREE via margin auto (mesure : 300px, marges
@@ -772,16 +775,89 @@ a.endpoint:hover { color: var(--amber); text-decoration: underline; }
 .copy-btn svg { width: 15px; height: 15px; }
 footer {
   margin-top: auto; /* D) pousse le footer en bas quand le contenu est court */
-  padding: 36px 24px; text-align: center; font-size: 13px; color: var(--muted);
-  /* D) Effet verre : fond semi-transparent + flou du fond constellations derrière.
-     Le fond fixe du body reste visible sous le footer → le blur s'applique bien. */
+  padding: 36px 24px; text-align: center; font-size: 16px; color: var(--muted);
+  position: relative; z-index: 0; /* contexte d'empilement pour le verre en ::after */
+  /* Place reservee AU-DESSUS de la surface vitree pour le debord de la mascotte
+     (voir plus bas). Une bordure transparente, et non une marge : elle augmente la
+     hauteur du footer, donc elle repousse reellement le contenu de la page — ce
+     qu'un margin-top ne pouvait pas faire (il est deja a `auto`), ni un padding-top
+     (annule par le margin negatif du ::before). */
+  border-top: 351px solid transparent;
+  box-shadow: none;
+  padding-bottom: 8rem;
+}
+/* D) Effet verre deplace du footer vers ::after : ainsi le fond semi-transparent et
+   le flou ne couvrent QUE la boite de padding (l'absolu se cale sur elle), pas la
+   bordure reservee au-dessus — sinon on flouterait 351px de page.
+   z-index:-1 : derriere les liens du footer et derriere la mascotte (contenu en flux),
+   mais devant le fond du body. */
+footer::after {
+  content: "";
+  position: absolute; inset: 0; z-index: -1;
   background: color-mix(in srgb, var(--surface) 70%, transparent);
   -webkit-backdrop-filter: blur(14px) saturate(1.2);
   backdrop-filter: blur(14px) saturate(1.2);
   box-shadow: 0 -1px 0 rgba(30, 20, 50, .06); /* séparation inversée du header */
 }
-html[data-theme="light"] footer { background: color-mix(in srgb, #ffffff 66%, transparent); } /* thème clair : verre blanc */
+html[data-theme="light"] footer::after { background: color-mix(in srgb, #ffffff 66%, transparent); } /* thème clair : verre blanc */
 footer a { color: var(--muted); }
+
+/* Colonnes du footer. Enveloppees dans .footer-cols (et non footer en grid) : la
+   mascotte est le ::before du footer, elle deviendrait sinon une cellule de la grille.
+   1re colonne (marque) plus large ; les autres = listes de liens empilees. */
+.footer-cols {
+  max-width: 1240px; margin: 0 auto;
+  display: grid; grid-template-columns: 1.6fr 1fr 1fr 1fr; gap: 32px;
+  text-align: left; font-size: 16px; line-height: 1.5;
+}
+.footer-col { display: flex; flex-direction: column; gap: 8px; }
+.footer-col p { margin: 0; }
+.footer-name { font-family: 'Baloo 2', sans-serif; font-weight: 800; font-size: 3rem; color: var(--bg); }
+.footer-col .footer-h {
+  font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--ink); margin-bottom: 4px; padding-top: 20px;
+}
+.footer-col a { text-decoration: none; width: fit-content; }
+.footer-col a:hover { color: var(--amber); text-decoration: underline; }
+/* Tablette : marque sur toute la largeur, 3 colonnes de liens dessous. */
+@media (max-width: 900px) {
+  .footer-cols { grid-template-columns: repeat(3, 1fr); }
+  .footer-brand { grid-column: 1 / -1; }
+}
+/* Mobile : tout empile, centre (la mascotte est centree au-dessus). */
+@media (max-width: 560px) {
+  .footer-cols { grid-template-columns: 1fr; gap: 24px; text-align: center; }
+  .footer-col { align-items: center; }
+}
+
+/* Mascotte « assise » sur le footer (public/img/image_footer.png, taille à déterminer, periode de test), facon
+   Discord : le buste deborde AU-DESSUS de la surface vitree, seul le bas du
+   personnage repose dessus.
+   Rendue en ::before plutot qu'en <img> : decorative, et les 12 pages ont deja un
+   <footer> — aucune retouche HTML page par page.
+   Elle reste DANS LE FLUX : les ~200px du bas poussent le texte du footer sous les
+   jambes, et le margin-top negatif la fait remonter dans la bordure transparente de
+   351px reservee plus haut. Cette bordure faisant partie de la hauteur du footer, le
+   contenu de la page est reellement repousse : plus de superposition avec le dernier
+   bloc, quel qu'il soit et qu'il soit visible ou non.
+   Geometrie : la boite de contenu commence a 351 (bordure) + 36 (padding) = 387px du
+   haut du footer ; margin-top -387px ramene donc l'image pile sur ce haut, et la
+   surface vitree lui coupe les 552 - 351 = 201px du bas. */
+footer::before {
+  content: "";
+  display: block;
+  width: 245px;
+  height: 350px;
+  max-width: 100%;
+  margin: -355px auto 18px;
+  background: url("/img/image_footer.png") center bottom / contain no-repeat;
+  pointer-events: none;
+}
+/* Mobile : 260x287 ; bordure 183px + padding 36 = 219px de remontee, 104px poses. */
+@media (max-width: 640px) {
+  footer { border-top-width: 183px; }
+  footer::before { width: 260px; height: 287px; margin: -219px auto 14px; }
+}
 
 /* ---------- bouton « Se connecter / déconnecter » ---------- */
 .btn-login, .hero-cta {
@@ -3262,7 +3338,7 @@ html[data-theme="dark"] {
   display: flex; flex-direction: column; gap: 0;
   padding: 0; position: relative;
   border-radius: 18px; background: var(--tc-grad); color: var(--ink);
-  box-shadow: 0 2px 6px rgba(30, 20, 50, .10), 0 14px 34px rgba(30, 20, 50, .13);
+  /*box-shadow: 0 2px 6px rgba(30, 20, 50, .10), 0 14px 34px rgba(30, 20, 50, .13);*/
   border: none;
 }
 .grid .card-front{

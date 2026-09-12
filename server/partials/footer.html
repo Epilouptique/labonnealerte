@@ -1,0 +1,32 @@
+<!-- FOOTER COMMUN — source unique du footer de TOUTES les pages.
+     Injecte par le serveur a la place du marqueur FOOTER (commentaire HTML) des pages de public/
+     (server/pages.js) et dans le gabarit du forum (server/routes/forum.js).
+     Style : public/css/site.css (section « footer »).
+     Prise en compte : immediate en dev ; en production, au redemarrage du serveur
+     (le rendu est mis en cache en memoire au premier affichage). -->
+<footer>
+  <div class="footer-cols">
+    <div class="footer-col footer-brand">
+      <p class="footer-name">La Bonne Alerte</p>
+      <p>Gratuit, open-source (MIT), sans spam, rien de caché.</p>
+    </div>
+    <nav class="footer-col" aria-label="Le site">
+      <p class="footer-h">Le site</p>
+      <a href="/">Kiosque</a>
+      <a href="/le-point">Le Point</a>
+      <a href="/soutenir">Nous soutenir</a>
+      <a href="/a-propos">À propos</a>
+    </nav>
+    <nav class="footer-col" aria-label="Développeurs">
+      <p class="footer-h">Développeurs</p>
+      <a href="/proposer">Espace développeur</a>
+      <a href="https://github.com/Epilouptique/labonnealerte" target="_blank" rel="noopener">Code source</a>
+    </nav>
+    <nav class="footer-col" aria-label="Informations légales">
+      <p class="footer-h">Légal</p>
+      <a href="/mentions-legales">Mentions légales</a>
+      <a href="/confidentialite">Confidentialité</a>
+      <a href="https://dahu-concept.fr" target="_blank" rel="noopener">Dahu-Concept</a>
+    </nav>
+  </div>
+</footer>
