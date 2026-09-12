@@ -819,25 +819,58 @@
     return s.replace(/[^a-z0-9]+/g, ' ').replace(/^ | $/g, '');
   }
 
-  // ── FORMAT BLOC (fil #9, incrément 1) ───────────────────────────────────────
-  // Familles SIMPLES (broadcast, paramétré, linked) : une alerte = un bloc = une ligne,
-  // SANS recto/verso ni flip. Le bloc GARDE la classe .card (appartenance au pipeline
-  // filtre/tri/pagination + hooks délégués de site.js : like, switch, param…) mais N'A PAS
-  // .flip / .card-inner / .card-face → aucun CSS flip ne s'y applique. Le « verso » (desc
-  // longue, tags, auteur, lien forum) vit dans .ab-detail, dépliable par .ab-toggle (site.js).
+  // ── DÉTAIL COMMUNAUTAIRE (fil #9, incrément 2) ──────────────────────────────
+  // Contenu de .ab-detail pour une carte communautaire : liste des signalements actifs +
+  // bouton d'ouverture du formulaire + formulaire de création/adhésion (communityFace).
+  // Réservé au mode connecté (anonyme → le bouton « Signaler » de l'action mène à /connexion).
+  // Mêmes classes que l'ex-5e face (communityReportsFace) → handlers site.js réutilisés tels quels.
+  function communityDetail(s, mode) {
+    if (mode !== 'connected') return '';
+    return '' +
+      '<div class="community-list" data-community-list><div class="community-loading">Chargement…</div></div>' +
+      '<button type="button" class="community-report-toggle secondary">Signaler une disparition</button>' +
+      communityFace(s);
+  }
+
+  // ── FORMAT BLOC (fil #9, incréments 1-2) ────────────────────────────────────
+  // Familles migrées : broadcast, paramétré, linked (incrément 1) + communautaire (incrément 2).
+  // Une alerte = un bloc = une ligne, SANS recto/verso ni flip. Le bloc GARDE la classe .card
+  // (pipeline filtre/tri/pagination + hooks délégués de site.js) mais N'A PAS .flip/.card-inner/
+  // .card-face. Le « verso » (desc longue, tags, forum ; pour le communautaire : liste +
+  // formulaire) vit dans .ab-detail, dépliable par .ab-toggle (ou par « Signaler »).
   function renderBlock(s, mode) {
     var isLinked = s.type === 'linked';
+    var isCommunity_ = isCommunity(s);
     var cats = Array.isArray(s.categories) ? s.categories : [];
     var dataCats = cats.map(esc).join(' ');
     var hasInstances = Array.isArray(s.instances) && s.instances.length > 0;
     var sub = mode === 'connected' && (!!s.subscribed || hasInstances) ? '1' : '0';
 
-    // État + zone d'action, alignés sur frontFace (linked / paramétré / broadcast simple).
+    // Marqueurs de FAMILLE communautaire portés par la RACINE du bloc (jamais par une face) :
+    // data-community-type alimente communityTypeOf() (routage /api/community-reports?type=…) et
+    // data-card-type="community" est lu par l'hydratation eager du kiosque (site.js).
+    var comAttrs = '';
+    if (isCommunity_) {
+      var cc = communityCfg(s);
+      comAttrs = ' data-card-type="community" data-community-type="' + esc(s.id) +
+        '" data-community-label="' + esc(cc.label) + '"';
+    }
+
+    // État + zone d'action, alignés sur frontFace. ORDRE : communautaire AVANT paramétré (une
+    // carte communautaire a un params_schema pour la commune, mais n'est PAS un picker générique).
     var state, action;
     if (isLinked) {
       state = '<div class="state partner"><span class="dot-idle"></span> Service partenaire</div>';
       action = '<a class="link-btn" href="' + esc(s.link_url) + '" target="_blank" rel="noopener">' +
         'Configurer sur ' + esc(domainOf(s.link_url)) + ' →</a>';
+    } else if (isCommunity_) {
+      state = '<div class="state task"><span class="dot-idle"></span> Rien à signaler</div>';
+      // « Signaler » ouvre .ab-detail + révèle le formulaire (handler .community-config, site.js).
+      var reportBtn = (mode === 'connected')
+        ? '<button type="button" class="community-config">Signaler</button>'
+        : '<a class="task-config-anon" href="/connexion">Signaler</a>';
+      action = '<div class="param-row">' + reportBtn + '</div>' +
+        switchRow(mode === 'connected' && !!s.subscribed) + (mode === 'connected' ? '' : subForm());
     } else if (isParam(s)) {
       state = stateFor(s.state);
       action = paramFace(s, mode);
@@ -850,9 +883,11 @@
       ? '<div class="sub-count">' + s.subscriber_count + ' abonnés</div>' : '';
     var subtitle = s.subtitle ? '<div class="card-subtitle">' + esc(s.subtitle) + '</div>' : '';
     var descShort = '<p class="card-static-desc"><span class="card-desc">' + esc(s.description || '') + '</span></p>';
+    // Aperçu communautaire STATIQUE (Q2) : rempli par site.js (renderCommunityPreview) — dernier
+    // signalement + compteur, SANS rotation ni timer. Vide/masqué s'il n'y a aucun signalement.
+    var preview = isCommunity_ ? '<div class="community-preview" data-community-preview hidden></div>' : '';
 
-    // Détail dépliable (ex-verso) : @forum_slug, description longue, tags, auteur, lien forum.
-    // Mêmes classes que backFace → styles existants réutilisés.
+    // Détail dépliable (ex-verso / ex-5e face). Mêmes classes que backFace / communityReportsFace.
     var tags = cats.length
       ? '<div class="back-tags">' + cats.map(function (c) {
           return '<button type="button" class="tag back-tag" data-cat="' + esc(c) + '">' + esc(catLabel(c)) + '</button>';
@@ -870,29 +905,33 @@
       : '';
     var longDesc = '<p class="card-long-desc">' + esc(s.description_long || s.description || '') + '</p>';
     var detailId = 'abdet-' + esc(String(s.id));
+    // Communautaire : la gestion des signalements PRIME dans le détail ; sinon description longue.
+    var detailInner = isCommunity_
+      ? (forumBadge + communityDetail(s, mode) + tags + forum)
+      : (forumBadge + longDesc + tags + author + forum);
 
     var abToggle = '<button class="ab-toggle" type="button" aria-expanded="false" aria-controls="' + detailId +
       '" aria-label="Afficher le détail de ' + esc(s.name) + '" title="En savoir plus">' + INFO_SVG + '</button>';
     var shareBtn = '<button class="share-btn card-share" type="button" aria-label="Partager" title="Partager">' + SHARE_SVG + '</button>';
 
     return '' +
-      '<article class="card alert-block" data-cats="' + dataCats + '" data-source-id="' + esc(s.id) + '"' +
+      '<article class="card alert-block" data-cats="' + dataCats + '" data-source-id="' + esc(s.id) + '"' + comAttrs +
         ' data-subscribed="' + sub + '" data-search="' + esc(searchText(s, cats)) + '">' +
         '<div class="ab-head">' +
           state +
           '<div class="card-icons">' + likeBtn(s, mode) + shareBtn + abToggle + '</div>' +
         '</div>' +
-        '<div class="ab-body">' + topRow(s) + subtitle + descShort + count + '</div>' +
+        '<div class="ab-body">' + topRow(s) + subtitle + preview + descShort + count + '</div>' +
         '<div class="ab-action">' + action + '</div>' +
-        '<div class="ab-detail" id="' + detailId + '" hidden>' + forumBadge + longDesc + tags + author + forum + '</div>' +
+        '<div class="ab-detail" id="' + detailId + '" hidden>' + detailInner + '</div>' +
       '</article>';
   }
 
-  // Aiguillage (fil #9) : familles complexes (communautaire, user-task) → rendu carte LEGACY
-  // (recto/verso flip) inchangé, le temps de leur migration (incréments 2 et 3). Les autres
-  // (broadcast, paramétré, linked) → nouveau format bloc.
+  // Aiguillage (fil #9) : user-task → rendu carte LEGACY (recto/verso flip) le temps de sa
+  // migration (incrément 3). Toutes les autres familles (broadcast, paramétré, linked,
+  // communautaire depuis l'incrément 2) → nouveau format bloc.
   function cardHTML(s, mode) {
-    if (isCommunity(s) || isUserTask(s)) return renderLegacyCard(s, mode);
+    if (isUserTask(s)) return renderLegacyCard(s, mode);
     return renderBlock(s, mode);
   }
 

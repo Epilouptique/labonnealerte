@@ -245,6 +245,16 @@
       var cToggle = p.card.querySelector('.community-report-toggle'); if (cToggle) cToggle.hidden = false;
       var cList = p.card.querySelector('.community-list'); if (cList) cList.hidden = false;
     }
+    // Format BLOC (fil #9, incrément 2) : referme la zone dépliable et réinitialise le
+    // sous-formulaire communautaire (symétrique du reset .card-community-face ci-dessus).
+    if (p.card.classList.contains('alert-block')) {
+      p.card.classList.remove('ab-open');
+      var abDet = p.card.querySelector('.ab-detail'); if (abDet) abDet.hidden = true;
+      var abTog = p.card.querySelector('.ab-toggle'); if (abTog) abTog.setAttribute('aria-expanded', 'false');
+      var bForm = p.card.querySelector('.community-form'); if (bForm) bForm.hidden = true;
+      var bToggle = p.card.querySelector('.community-report-toggle'); if (bToggle) bToggle.hidden = false;
+      var bList = p.card.querySelector('.community-list'); if (bList) bList.hidden = false;
+    }
     if (!p.parent) return;
     // Remise EXACTE à sa position d'origine ; si le repère a disparu (grille reconstruite
     // entre-temps), on retombe sur un append sans jamais lever d'exception.
@@ -366,7 +376,14 @@
         // flip côté site.js) ; .card-usertask-face / .card-community-face (marqueurs
         // additifs posés dans cards.js) disent laquelle des deux est réellement présente.
         var c = gridCard(id);
-        if (c && c.querySelector('.card-usertask-face')) {
+        if (c && c.getAttribute('data-card-type') === 'community' && c.classList.contains('alert-block')) {
+          // Format BLOC communautaire (fil #9, incrément 2) : pas de 5e face — on ouvre la zone
+          // dépliable .ab-detail (liste + formulaire) et on (re)charge les signalements. Le CSS
+          // du bloc parqué (site.css) révèle .ab-detail et masque .ab-action (doublon du switch).
+          var abDet = c.querySelector('.ab-detail'); if (abDet) abDet.hidden = false;
+          c.classList.add('ab-open');
+          if (window.LBACommunity && window.LBACommunity.load) window.LBACommunity.load(c);
+        } else if (c && c.querySelector('.card-usertask-face')) {
           c.classList.add('face-task');
         } else if (c && c.querySelector('.card-community-face')) {
           c.classList.add('face-task');

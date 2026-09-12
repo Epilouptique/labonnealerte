@@ -429,6 +429,10 @@ main#alertes { scroll-margin-top: 64px; }
 .alert-block .ab-detail .card-long-desc { margin: 0; }
 /* Le badge @forum_slug était ancré en absolu au verso ; en bloc, il revient dans le flux. */
 .alert-block .ab-detail .card-forum-badge { position: static; align-self: flex-start; }
+/* Aperçu communautaire statique (fil #9, incrément 2 — Q2) : dernier signalement + total,
+   dans .ab-body. Discret, une ligne, jamais de rotation. */
+.alert-block .community-preview { font-size: 13px; color: var(--muted); line-height: 1.4; }
+.alert-block .community-preview[hidden] { display: none; }
 
 /* ---------- carte recto/verso (flip 3D) ---------- */
 /* La carte-conteneur devient transparente : l'apparence est portée par les faces.
@@ -4764,6 +4768,11 @@ html[data-theme="dark"] .skin-dresseur .card-deck-face::after, html[data-theme="
 .lrow-exp .card.alert-block.in-list-exp .ab-body,
 .lrow-exp .card.alert-block.in-list-exp .ab-detail { display: none; }
 .lrow-exp .card.alert-block.in-list-exp .ab-action { display: flex; }
+/* Communautaire parqué (fil #9, incrément 2) : c'est le DÉTAIL (liste + formulaire) qui doit
+   s'afficher dans le volet, pas l'action (le switch de la ligne + le report-toggle du détail
+   suffisent). Sélecteur [data-card-type] plus spécifique → écrase les règles ci-dessus. */
+.lrow-exp .card.alert-block[data-card-type="community"].in-list-exp .ab-detail { display: flex; }
+.lrow-exp .card.alert-block[data-card-type="community"].in-list-exp .ab-action { display: none; }
 
 /* (h) Apparition d'une ligne (filtrage catégorie, adoption, dismiss reco) : même
    durée/easing que l'entrée des cartes (.25s ease). Le réordonnancement complet type

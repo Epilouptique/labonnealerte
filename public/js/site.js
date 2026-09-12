@@ -582,6 +582,11 @@
         det.hidden = !willOpen;
         abt.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
         blk.classList.toggle('ab-open', willOpen);
+        // Communautaire : (re)charge la liste des signalements à l'ouverture (fil #9, incrément 2),
+        // comme le faisait l'ouverture de la 5e face en vue carte.
+        if (willOpen && blk.getAttribute('data-card-type') === 'community' && window.LBACommunity) {
+          window.LBACommunity.load(blk);
+        }
       }
       return;
     }
@@ -1062,52 +1067,23 @@
     list.innerHTML = rows.map(function (r) { return LBACards.communityReportItem(r, label); }).join('');
   }
 
-  // Recto DYNAMIQUE : s'il existe ≥1 instance visible, le sous-titre + la description
-  // statiques du recto cèdent la place au contenu d'un item (.task-item.community-item,
-  // markup réutilisé tel quel via LBACards.communityReportItem — aucune duplication).
-  // Rotation auto toutes les 10 s si ≥2 instances, même vocabulaire de transition que
-  // le H1 de /favoris (favoris-title.js : classes bd-slide-out/bd-slide-in).
-  var communityRotationTimers = new WeakMap();
-  function renderCommunityRecto(card, rows) {
-    var slot = card.querySelector('.card-front .community-recto');
+  // APERÇU STATIQUE (fil #9, incrément 2 — Q2) : remplace l'ancien recto DYNAMIQUE à rotation.
+  // Le format bloc n'a plus de contrainte d'espace → plus de carrousel (setInterval 10 s,
+  // animations bd-slide-*). On affiche le DERNIER signalement (le plus récent) en priorité,
+  // avec le nombre total en complément. Cible le slot .community-preview du bloc (.ab-body).
+  // textContent (jamais innerHTML) → aucune injection possible depuis les données serveur.
+  function renderCommunityPreview(card, rows) {
+    var slot = card.querySelector('.community-preview');
     if (!slot) return;
-    var prevTimer = communityRotationTimers.get(card);
-    if (prevTimer) { clearInterval(prevTimer); communityRotationTimers.delete(card); }
-
-    var subtitle = card.querySelector('.card-front .card-subtitle');
-    var desc = card.querySelector('.card-front .card-static-desc');
-    if (!rows || !rows.length) {
-      slot.hidden = true; slot.innerHTML = '';
-      if (subtitle) subtitle.hidden = false;
-      if (desc) desc.hidden = false;
-      return;
-    }
-    if (subtitle) subtitle.hidden = true;
-    if (desc) desc.hidden = true;
+    if (!rows || !rows.length) { slot.hidden = true; slot.textContent = ''; return; }
+    var last = rows.slice().sort(function (a, b) {
+      return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+    })[0];
+    var line = 'Dernier signalement : ' + (last.commune_nom || '');
+    if (last.description) line += ' — ' + last.description;
+    if (rows.length > 1) line += ' · ' + rows.length + ' au total';
+    slot.textContent = line;
     slot.hidden = false;
-
-    var label = communityLabelOf(card);
-    function paint(idx, animate) {
-      var html = LBACards.communityReportItem(rows[idx], label);
-      if (!animate || REDUCE) { slot.innerHTML = html; return; }
-      slot.classList.add('bd-slide-out');
-      setTimeout(function () {
-        slot.innerHTML = html;
-        slot.classList.remove('bd-slide-out');
-        slot.classList.add('bd-slide-in');
-        setTimeout(function () { slot.classList.remove('bd-slide-in'); }, 280);
-      }, 220);
-    }
-    paint(0, false);
-
-    if (rows.length > 1) {
-      var i = 0;
-      var timer = setInterval(function () {
-        i = (i + 1) % rows.length;
-        paint(i, true);
-      }, 10000);
-      communityRotationTimers.set(card, timer);
-    }
   }
 
   // Masque .community-report-toggle si le profil a déjà un signalement actif de ce
@@ -1173,7 +1149,7 @@
     try {
       var rows = await fetchCommunityReports(communityTypeOf(card));
       renderCommunityList(card, rows);
-      renderCommunityRecto(card, rows);
+      renderCommunityPreview(card, rows);
       syncCommunityToggle(card, rows);
       return rows; // consommé par le handler .community-config (ouverture directe du formulaire)
     } catch (e) {
@@ -1287,11 +1263,26 @@
   // de ne PAS ouvrir un formulaire voué à l'échec (409, 1 actif par auteur) ; son
   // signalement reste visible dans la liste avec « Je l'ai retrouvé ». En cas d'échec
   // réseau (rows undefined), on ne change rien à l'état par défaut.
+  // Ouvre la zone dépliable .ab-detail d'un bloc (format bloc, fil #9) — pour « Signaler »,
+  // qui révèle la liste + le formulaire sans flip. No-op sur une carte legacy (pas de .ab-detail).
+  function openBlockDetail(card) {
+    var blk = card && (card.classList.contains('alert-block') ? card
+      : (card.closest ? card.closest('.alert-block') : null));
+    if (!blk) return;
+    var det = blk.querySelector('.ab-detail');
+    if (det && det.hidden) {
+      det.hidden = false;
+      blk.classList.add('ab-open');
+      var t = blk.querySelector('.ab-toggle'); if (t) t.setAttribute('aria-expanded', 'true');
+    }
+  }
+
   document.addEventListener('click', function (e) {
     var btn = e.target.closest('button.community-config');
     if (!btn) return;
     if (btn.closest('.deck-card')) return;
     var card = btn.closest('.card'); if (!card) return;
+    openBlockDetail(card); // format bloc : la liste + le formulaire vivent dans .ab-detail
     loadCommunityReports(card).then(function (rows) {
       if (!rows) return;
       if (!rows.some(function (r) { return r.is_author; })) revealCommunityForm(card);
