@@ -7,20 +7,23 @@
    l'événement lba-view-change, exactement le pathway qu'utilise la vraie bascule, mais
    sans écriture serveur).
 
-   5 visuels :
+   6 visuels :
      1 large  — gabarit large existant (aucune règle spécifique).
      2 liste  — vue dense list-view.js (root[data-view="list"]).
      3 compact— 350×200, 3 colonnes.
      4 ultra  — 300×150, sans description.
      5 mixte  — colonne principale large + colonne secondaire ultra-compacte.
+     6 clarge — compact épuré (350×200 SANS description) qui S'AGRANDIT au clic vers le
+                format large (visuel 1), en pleine largeur, animé ; se rétracte au clic
+                ailleurs. Une seule carte agrandie à la fois.
 
-   Le FLIP est inchangé dans les 5 : on ne fait varier que dimensions/disposition. */
+   Le FLIP est inchangé dans les 6 : on ne fait varier que dimensions/disposition. */
 
 (function () {
   'use strict';
 
   var KEY = 'lba-view-compare';          // sessionStorage (jamais localStorage/compte)
-  var CARD_MODES = { large: 1, compact: 1, ultra: 1, mixte: 1 };
+  var CARD_MODES = { large: 1, compact: 1, ultra: 1, mixte: 1, clarge: 1 };
   var current = 'large';
   var resizeT = null;
 
@@ -62,34 +65,36 @@
 
   // ── Mode MIXTE : répartition des cartes entre colonne principale (large) et colonne
   //    secondaire (ultra-compacte). RÈGLE (décision technique libre, cf. rapport) :
-  //      · colonne principale = alertes au statut « Active » (.state.active) + la carte
-  //        statique « Proposer une alerte » ;
-  //      · colonne secondaire = toutes les autres ;
-  //      · repli déterministe : si AUCUNE alerte active n'est visible, les 5 premières
-  //        cartes vont en colonne principale pour qu'elle ne soit jamais vide.
+  //    découpage POSITIONNEL déterministe — 1 carte sur MAIN_EVERY va en colonne large,
+  //    les autres en colonne ultra. INDÉPENDANT du statut Active : robuste quel que soit
+  //    le nombre d'alertes actives réel (l'ancienne règle « actives → large » vidait la
+  //    colonne large quand peu d'alertes étaient actives, ex. 14/268). Ratio 1:2 (une
+  //    large toutes les 3 cartes) → les deux colonnes restent peuplées et régulières sur
+  //    toute la hauteur, quel que soit le compte.
+  var MAIN_EVERY = 3;
   function splitMixte() {
     var cards = visibleCards();
-    var anyActive = cards.some(function (c) { return !!c.querySelector('.card-front .state.active'); });
-    var mainCount = 0;
     cards.forEach(function (c, i) {
-      var isAdd = c.classList.contains('add');
-      var toMain;
-      if (isAdd) toMain = true;
-      else if (anyActive) toMain = !!c.querySelector('.card-front .state.active');
-      else toMain = (mainCount < 5);
-      if (toMain) mainCount++;
+      var toMain = (i % MAIN_EVERY === 0);
       c.classList.toggle('vc-side', !toMain);
     });
-    measureMixte();
+    // Mesure APRÈS reflow (les changements de colonne/format viennent de muter les
+    // hauteurs) : sans ce rAF, le span serait calculé sur l'ancienne hauteur → cartes
+    // mal placées dans la grille masonry (symptôme « carte figée / mal positionnée »).
+    requestAnimationFrame(measureMixte);
   }
 
   // Masonry par span de rangées : chaque carte occupe autant de rangées (8px) que sa
-  // hauteur + une marge de 16px, pour que les deux colonnes se tassent indépendamment.
+  // hauteur RÉELLE + une marge de 16px, pour que les deux colonnes se tassent
+  // indépendamment (grid-auto-flow: row dense). On lit la hauteur du RECTO (.card-front,
+  // dans le flux) et non de .card (dont les faces absolues ne comptent pas) pour un span
+  // fidèle même quand la carte est retournée.
   function measureMixte() {
     var g = grid(); if (!g || g.getAttribute('data-view-mode') !== 'mixte') return;
     var ROW = 8, MARGIN = 16;
     visibleCards().forEach(function (c) {
-      var h = c.getBoundingClientRect().height;
+      var front = c.querySelector('.card-front');
+      var h = front ? front.getBoundingClientRect().height : c.getBoundingClientRect().height;
       if (!h) { c.style.gridRowEnd = ''; return; }
       c.style.gridRowEnd = 'span ' + Math.max(1, Math.ceil((h + MARGIN) / ROW));
     });
@@ -102,6 +107,36 @@
       if (!c.classList) continue;
       c.classList.remove('vc-side');
       if (c.style) c.style.gridRowEnd = '';
+    }
+  }
+
+  // ── Mode CLARGE (visuel 6) : expansion/rétraction au clic. Une seule carte agrandie à
+  //    la fois (choix confirmé au rapport : agrandir une nouvelle carte rétracte l'autre).
+  //    Le clic n'agrandit QUE sur une zone non interactive de la carte : les boutons
+  //    d'action (like/partage/flip + toggle d'abonnement) gardent leur comportement propre
+  //    et ne déclenchent jamais l'expansion (mêmes familles de classes que le CSS/site.js).
+  function collapseClarge() {
+    var g = grid(); if (!g) return;
+    var ex = g.querySelectorAll('.card.cl-expanded');
+    for (var i = 0; i < ex.length; i++) ex[i].classList.remove('cl-expanded');
+  }
+  // Cible interactive → on ne touche pas à l'expansion (le handler propre agit).
+  function isInteractive(target) {
+    return !!(target.closest &&
+      target.closest('button, a, input, select, textarea, label, .switch, .switch-row, .card-icons, .card-action'));
+  }
+  function onDocClickClarge(e) {
+    if (current !== 'clarge') return;
+    var g = grid(); if (!g) return;
+    var card = e.target.closest('.card');
+    var inGrid = card && card.parentNode === g;
+    if (!inGrid) { collapseClarge(); return; }           // clic hors carte → rétracte
+    if (isInteractive(e.target)) return;                 // bouton d'action → laisser agir
+    if (card.classList.contains('cl-expanded')) {
+      card.classList.remove('cl-expanded');              // re-clic sur la carte agrandie → rétracte
+    } else {
+      collapseClarge();                                  // une seule agrandie à la fois
+      card.classList.add('cl-expanded');
     }
   }
 
@@ -118,6 +153,7 @@
     if (mode !== 'liste' && !CARD_MODES[mode]) mode = 'large';
     current = mode;
     var g = grid();
+    collapseClarge(); // repart toujours d'un état compact (clarge démarre non agrandi)
 
     if (mode === 'liste') {
       clearMixte();
@@ -142,6 +178,11 @@
         setMode(btn.getAttribute('data-mode'));
       });
     }
+
+    // Visuel 6 : expansion/rétraction au clic (délégué sur le document, actif uniquement
+    // quand current === 'clarge'). Placé APRÈS les handlers de site.js (chargé avant) :
+    // like/partage/flip agissent d'abord, ce handler ignore les cibles interactives.
+    document.addEventListener('click', onDocClickClarge);
 
     // Re-mesure du masonry mixte au redimensionnement (uniquement dans ce mode).
     window.addEventListener('resize', function () {
