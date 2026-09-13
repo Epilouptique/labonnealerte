@@ -57,7 +57,9 @@
   function tagsHTML(cats) {
     if (!cats || !cats.length) return '';
     return '<div class="back-tags">' + cats.map(function (c) {
-      return '<button type="button" class="tag back-tag" data-cat="' + esc(c) + '">' + esc(catLabel(c)) + '</button>';
+      var grp = (window.LBACat && window.LBACat.group) ? window.LBACat.group(c) : '';
+      return '<button type="button" class="tag back-tag" data-cat="' + esc(c) + '"' +
+        (grp ? ' data-group="' + esc(grp) + '"' : '') + '>' + esc(catLabel(c)) + '</button>';
     }).join('') + '</div>';
   }
 
