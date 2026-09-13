@@ -843,6 +843,8 @@
   function cardHTML(s, mode) {
     var cats = Array.isArray(s.categories) ? s.categories : [];
     var dataCats = cats.map(esc).join(' ');
+    // Famille de la 1re catégorie (principale) → couleur du liseré .card-edge (site.css).
+    var grp = (cats.length && window.LBACat && window.LBACat.group) ? window.LBACat.group(cats[0]) : '';
     var isLinked = s.type === 'linked';
     // Abonné = broadcast souscrit OU au moins une instance paramétrée.
     var hasInstances = Array.isArray(s.instances) && s.instances.length > 0;
@@ -862,7 +864,8 @@
         ' data-community-label="' + esc(cc.label) + '"';
     }
     return '' +
-      '<div class="card flip" data-cats="' + dataCats + '" data-source-id="' + esc(s.id) + '"' + comAttrs +
+      '<div class="card flip" data-cats="' + dataCats + '" data-source-id="' + esc(s.id) + '"' +
+        (grp ? ' data-group="' + esc(grp) + '"' : '') + comAttrs +
         ' data-subscribed="' + sub + '" data-search="' + esc(searchText(s, cats)) + '">' +
         '<div class="card-inner">' +
           frontFace(s, mode, isLinked, cats) +
