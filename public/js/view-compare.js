@@ -81,23 +81,34 @@
       var toMain = (i % MAIN_EVERY === 0);
       c.classList.toggle('vc-side', !toMain);
     });
-    // Mesure APRÈS reflow (les changements de colonne/format viennent de muter les
-    // hauteurs) : sans ce rAF, le span serait calculé sur l'ancienne hauteur → cartes
-    // mal placées dans la grille masonry (symptôme « carte figée / mal positionnée »).
+    scheduleMeasure();
+  }
+
+  // Planifie la (re)mesure : une passe immédiate au prochain rAF (après le reflow des
+  // changements de colonne/format), PUIS une 2e passe après ~300 ms — le temps que les
+  // animations d'entrée/sortie des cartes de site.js (.card-enter/.card-leave, ~210-250 ms)
+  // se terminent. Sans cette 2e passe, un span peut être calculé pendant qu'une carte est
+  // encore en cours d'apparition → span légèrement sous-évalué → léger chevauchement.
+  var measureT = null;
+  function scheduleMeasure() {
     requestAnimationFrame(measureMixte);
+    clearTimeout(measureT);
+    measureT = setTimeout(measureMixte, 300);
   }
 
   // Masonry par span de rangées : chaque carte occupe autant de rangées (8px) que sa
   // hauteur RÉELLE + une marge de 16px, pour que les deux colonnes se tassent
   // indépendamment (grid-auto-flow: row dense). On lit la hauteur du RECTO (.card-front,
   // dans le flux) et non de .card (dont les faces absolues ne comptent pas) pour un span
-  // fidèle même quand la carte est retournée.
+  // fidèle même quand la carte est retournée. On utilise offsetHeight (hauteur de LAYOUT)
+  // et non getBoundingClientRect().height : offsetHeight ignore les transform (scale) des
+  // animations d'apparition → jamais de span sous-évalué mesuré pendant une transition.
   function measureMixte() {
     var g = grid(); if (!g || g.getAttribute('data-view-mode') !== 'mixte') return;
     var ROW = 8, MARGIN = 16;
     visibleCards().forEach(function (c) {
       var front = c.querySelector('.card-front');
-      var h = front ? front.getBoundingClientRect().height : c.getBoundingClientRect().height;
+      var h = front ? front.offsetHeight : c.offsetHeight;
       if (!h) { c.style.gridRowEnd = ''; return; }
       c.style.gridRowEnd = 'span ' + Math.max(1, Math.ceil((h + MARGIN) / ROW));
     });
@@ -194,12 +205,12 @@
   function toLargeMixte(card) {
     card.classList.remove('vc-collapsing');
     card.classList.remove('vc-side');
-    requestAnimationFrame(measureMixte); // le nombre de cartes par colonne a changé
+    scheduleMeasure(); // le nombre de cartes par colonne a changé
   }
   // Rétrécir : la carte rejoint la colonne ultra (ajoute .vc-side), retour animé en deux
   // phases (reste en colonne 1 via .vc-collapsing pendant que max-width redescend à 320px).
   function toUltraMixte(card) {
-    if (REDUCE) { card.classList.add('vc-side'); requestAnimationFrame(measureMixte); return; }
+    if (REDUCE) { card.classList.add('vc-side'); scheduleMeasure(); return; }
     card.classList.add('vc-side');       // le recto ultra revient tout de suite…
     card.classList.add('vc-collapsing'); // …mais on reste en colonne 1 pendant l'animation
     var to;
@@ -208,7 +219,7 @@
       card.classList.remove('vc-collapsing');
       card.removeEventListener('transitionend', done);
       clearTimeout(to);
-      requestAnimationFrame(measureMixte);
+      scheduleMeasure();
     };
     card.addEventListener('transitionend', done);
     to = setTimeout(done, 460);

@@ -3460,29 +3460,12 @@ overflow: hidden;
   content: ""; position: absolute; inset: 4px; border-radius: 14px;
   border: 1px solid var(--tc-edge-in);
 }
-/* ESSAI TEMPORAIRE — 3 façons d'adoucir le liseré catégorie, une par famille, à comparer.
-   Garder la retenue (généralisée à .card-edge ci-dessus), supprimer le reste. */
-/* Option 2 (météo/risques) : liseré fin atténué + halo extérieur doux. */
-.grid .card[data-group="meteo-risques"] .card-front .card-edge {
-  border: 1.5px solid color-mix(in srgb, var(--tag-c) 70%, transparent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--tag-c) 14%, transparent);
-}
-/* Option 3 (tech/dev) : liseré atténué + lueur intérieure. */
-.grid .card[data-group="tech-dev"] .card-front .card-edge {
+/* Liseré catégorie ADOUCI (option 3 retenue après essai comparatif du 13/09) : couleur de
+   la famille atténuée à 60 % + lueur intérieure. Seulement sur les cartes qui ont une
+   famille (data-group) ; les autres gardent le liseré --tc-edge ci-dessus. */
+.grid .card[data-group] .card-front .card-edge {
   border: 1.5px solid color-mix(in srgb, var(--tag-c) 60%, transparent);
   box-shadow: inset 0 0 14px color-mix(in srgb, var(--tag-c) 18%, transparent);
-}
-/* Option 4 (bons plans) : dégradé haut → bas. Anneau dessiné par ::before (fond en
-   dégradé + masque qui évide l'intérieur) — pas sur .card-edge lui-même, sinon le masque
-   masquerait aussi le filet interne ::after. */
-.grid .card[data-group="bons-plans-conso"] .card-front .card-edge { border-color: transparent; }
-.grid .card[data-group="bons-plans-conso"] .card-front .card-edge::before {
-  content: ""; position: absolute; inset: -2px; border-radius: inherit; padding: 2px;
-  background: linear-gradient(to bottom, var(--tag-c), color-mix(in srgb, var(--tag-c) 0%, transparent) 85%);
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  mask-composite: exclude;
 }
 
 /* ----- Rangee haute : etat a gauche, controles a droite ----- */
@@ -5203,6 +5186,9 @@ a.forum-tag:hover { text-decoration: underline; }
   transition: max-width .32s ease, min-height .32s ease;
 }
 #grid[data-view-mode="mixte"] > .card.vc-side { grid-column: 2; height: 150px; max-width: 320px; }
+/* Carte statique « Proposer » (.card.add, sans .card-front) : hauteur fixe pour qu'elle ne
+   s'étire pas dans la piste (sinon offsetHeight mesuré ≈ hauteur de colonne → span géant). */
+#grid[data-view-mode="mixte"] > .card.add { height: var(--card-min-h); align-self: start; }
 /* Retour ANIMÉ (large → ultra), symétrique : on GARDE la carte en colonne 1 (piste large)
    pendant que max-width redescend à 320px, puis view-compare.js retire .vc-collapsing
    (→ retour en colonne 2, déjà à 320px, sans saut). */
