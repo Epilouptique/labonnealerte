@@ -5053,12 +5053,12 @@ a.forum-tag:hover { text-decoration: underline; }
   max-width: calc(350px * 3 + 2 * 18px); gap: 18px; margin-inline: auto;
 }
 #grid[data-view-mode="compact"] > .card { width: 100%; max-width: 350px; height: 200px; justify-self: center; }
-/* ---- Visuel 4 : BLOCS ULTRA-COMPACTS (300×150, auto-fill dense) ---- */
+/* ---- Visuel 4 : BLOCS ULTRA-COMPACTS (320×150, auto-fill dense) ---- */
 #grid[data-view-mode="ultra"] {
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   max-width: none; gap: 14px; margin-inline: auto;
 }
-#grid[data-view-mode="ultra"] > .card { width: 100%; max-width: none; height: 150px; justify-self: stretch; }
+#grid[data-view-mode="ultra"] > .card { width: 320px; max-width: 320px; height: 150px; justify-self: center; }
 
 /* Recto compact ET ultra ET colonne secondaire du mixte : hauteur bornée, recto empilé,
    paddings/typo réduits. min-height ANNULE le var(--card-min-h) du gabarit large (sinon la
@@ -5091,7 +5091,7 @@ a.forum-tag:hover { text-decoration: underline; }
   padding: 34px 12px 10px; justify-content: flex-start; gap: 2px;
 }
 #grid[data-view-mode="compact"] .card-toprow .card-top h3,
-#grid[data-view-mode="mixte"] > .card.vc-side .card-toprow .card-top h3 { font-size: 15px; }
+#grid[data-view-mode="mixte"] > .card.vc-side .card-toprow .card-top h3 { font-size: 18px; }
 #grid[data-view-mode="ultra"] .card-toprow .card-top h3 { font-size: 14px; }
 /* Recto empilé (la rangée desc|action large ne tient pas dans ces largeurs). */
 #grid[data-view-mode="compact"] .card-front .card-textbox,
