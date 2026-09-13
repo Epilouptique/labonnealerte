@@ -451,7 +451,8 @@ main#alertes { scroll-margin-top: 64px; }
 @media (prefers-reduced-motion: reduce) { .card-inner { transition: none; } }
 
 /* Sous-titre discret sous le titre (recto). */
-.card-subtitle { font-size: 12px; font-weight: 600; color: var(--muted); margin-top: -6px; }
+.card-subtitle { margin-top: 20px; font-size: 10.5px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .07em; color: var(--amber); }
 
 /* Bouton d'info « ⓘ » (recto) et retour « ↩ » (verso) : même coin, même taille. */
 .flip-btn, .flip-back {
@@ -995,7 +996,7 @@ body.loading > .page-loading {
    « Chargement… » reste present hors de .lba-bars (a11y, masque par font-size:0 de l'hote). */
 .lba-bars { display: flex; align-items: flex-end; justify-content: center; gap: 6px; height: 100px; }
 .lba-bars span {
-  width: 8px; border-radius: 3px; background: var(--amber);
+  width: 8px; border-radius: 3px; background: var(--bg);
   transform-origin: bottom; animation: lba-bars 1s ease-in-out infinite;
 }
 .lba-bars span:nth-child(1) { height: 40%;  animation-delay: 0s; }
@@ -4990,7 +4991,8 @@ a.forum-tag:hover { text-decoration: underline; }
 #grid .card-front .card-static-desc { flex: 1 1 auto; margin: 0; min-width: 0; }
 #grid .card-front .card-action {
   flex: 0 0 auto; width: 280px; max-width: 42%;
-  display: flex; flex-direction: column; gap: 8px; align-items: stretch; margin-top: 0;
+  display: flex; flex-direction: column; gap: 8px; align-items: flex-end; margin-top: 0;
+  margin-left: auto; text-align: right;
 }
 /* DURCISSEMENT FLIP (fil #9) : on RÉ-AFFIRME explicitement, dans le scope #grid, les
    propriétés structurelles que le flip EXIGE — pour garantir que ce bloc de gabarit ne
