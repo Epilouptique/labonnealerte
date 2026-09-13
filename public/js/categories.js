@@ -12,6 +12,11 @@
     var e = bySlug[slug];
     return e ? e.label : slug;
   }
+  // Famille du slug (clé de GROUPS côté serveur) — porte la couleur des tags (site.css).
+  function group(slug) {
+    var e = bySlug[slug];
+    return e ? e.group : '';
+  }
   function all() { return list; }
 
   function load() {
@@ -27,5 +32,5 @@
     return promise;
   }
 
-  window.LBACat = { load: load, label: label, all: all };
+  window.LBACat = { load: load, label: label, group: group, all: all };
 })();

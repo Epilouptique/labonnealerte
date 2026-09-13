@@ -115,10 +115,37 @@
   //    Le clic n'agrandit QUE sur une zone non interactive de la carte : les boutons
   //    d'action (like/partage/flip + toggle d'abonnement) gardent leur comportement propre
   //    et ne déclenchent jamais l'expansion (mêmes familles de classes que le CSS/site.js).
+  var REDUCE = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+  // Retrait INSTANTANÉ (changement de mode) : aucune animation attendue.
+  function stripClarge() {
+    var g = grid(); if (!g) return;
+    g.querySelectorAll('.card.cl-expanded, .card.cl-collapsing').forEach(function (c) {
+      c.classList.remove('cl-expanded', 'cl-collapsing');
+    });
+  }
+  // Rétraction ANIMÉE d'une carte : phase transitoire .cl-collapsing (rangée pleine largeur
+  // conservée le temps que la largeur redescende à 350px), retirée à la fin de la transition
+  // → pas de saut. prefers-reduced-motion : retrait direct, sans phase transitoire.
+  function collapseCard(card) {
+    if (!card.classList.contains('cl-expanded')) { card.classList.remove('cl-collapsing'); return; }
+    card.classList.remove('cl-expanded');
+    if (REDUCE) return;
+    card.classList.add('cl-collapsing');
+    var to;
+    var done = function (e) {
+      if (e && e.propertyName && e.propertyName !== 'width') return;
+      card.classList.remove('cl-collapsing');
+      card.removeEventListener('transitionend', done);
+      clearTimeout(to);
+    };
+    card.addEventListener('transitionend', done);
+    to = setTimeout(done, 420); // filet si transitionend ne se déclenche pas
+  }
+  // Rétracte (animé) toutes les cartes agrandies.
   function collapseClarge() {
     var g = grid(); if (!g) return;
-    var ex = g.querySelectorAll('.card.cl-expanded');
-    for (var i = 0; i < ex.length; i++) ex[i].classList.remove('cl-expanded');
+    g.querySelectorAll('.card.cl-expanded').forEach(collapseCard);
   }
   // Cible interactive → on ne touche pas à l'expansion (le handler propre agit).
   function isInteractive(target) {
@@ -133,9 +160,10 @@
     if (!inGrid) { collapseClarge(); return; }           // clic hors carte → rétracte
     if (isInteractive(e.target)) return;                 // bouton d'action → laisser agir
     if (card.classList.contains('cl-expanded')) {
-      card.classList.remove('cl-expanded');              // re-clic sur la carte agrandie → rétracte
+      collapseCard(card);                                // re-clic sur la carte agrandie → rétracte (animé)
     } else {
-      collapseClarge();                                  // une seule agrandie à la fois
+      collapseClarge();                                  // une seule agrandie à la fois (rétraction animée des autres)
+      card.classList.remove('cl-collapsing');            // si elle était en cours de rétraction, on annule
       card.classList.add('cl-expanded');
     }
   }
@@ -153,7 +181,7 @@
     if (mode !== 'liste' && !CARD_MODES[mode]) mode = 'large';
     current = mode;
     var g = grid();
-    collapseClarge(); // repart toujours d'un état compact (clarge démarre non agrandi)
+    stripClarge(); // repart toujours d'un état compact net (changement de mode = pas d'animation)
 
     if (mode === 'liste') {
       clearMixte();
