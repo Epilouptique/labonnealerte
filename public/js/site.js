@@ -1799,8 +1799,13 @@
   // gardent INITIAL_CONNECTED=8 / INITIAL_ANON=5 inchangés.
   var INITIAL_LIST_ALL_CONNECTED = 16;
   function isListView() { return document.documentElement.getAttribute('data-view') === 'list'; }
+  // TEMPORAIRE — fil #9bis : le comparateur pose data-view-mode="mixte" sur #grid pour le
+  // visuel « Large + colonne ultra ». Ce visuel affiche 2× plus d'alertes par défaut (18)
+  // que les autres, à retirer avec le comparateur.
+  function isMixteView() { var g = document.getElementById('grid'); return !!(g && g.getAttribute('data-view-mode') === 'mixte'); }
   function initialLimit() {
     if (currentMode === 'connected' && cat === 'all' && isListView()) return INITIAL_LIST_ALL_CONNECTED;
+    if (isMixteView()) return 18; // fil #9bis : mixte = 18 par défaut (au lieu de ~9)
     return currentMode === 'connected' ? INITIAL_CONNECTED : INITIAL_ANON;
   }
   var cards = [], moreBtn = null, allBtn = null, qInput = null, grid = null, addCard = null;
@@ -1813,7 +1818,11 @@
   window.LBAKiosk = {
     sources: function () { return sourcesData; },
     mode: function () { return currentMode; },
-    filter: function (slug) { if (slug) selectChip(slug); }
+    filter: function (slug) { if (slug) selectChip(slug); },
+    // TEMPORAIRE — fil #9bis : recalcule la pagination initiale (utilisé par view-compare.js
+    // au changement de visuel, ex. mixte → 18 alertes par défaut). Recompute visibleLimit
+    // via initialLimit() (qui lit data-view-mode) puis réapplique l'affichage.
+    repaginate: function () { visibleLimit = initialLimit(); apply(false); }
   };
   // D) Personnalisation (connecté) : renseignée depuis /api/my-alerts au chargement.
   var profile = { country: null, departement: null, region: null, ville: null, interests: [] };

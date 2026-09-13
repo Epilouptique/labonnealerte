@@ -75,6 +75,9 @@
   function splitMixte() {
     var cards = visibleCards();
     cards.forEach(function (c, i) {
+      // Ne PAS reclasser une carte promue (visuel 5, clic → large) ni en cours de
+      // rétraction : elle est gérée par le mécanisme promote/demote ci-dessous.
+      if (c.classList.contains('vc-promoted') || c.classList.contains('vc-collapsing')) return;
       var toMain = (i % MAIN_EVERY === 0);
       c.classList.toggle('vc-side', !toMain);
     });
@@ -105,8 +108,8 @@
     for (var i = 0; i < g.children.length; i++) {
       var c = g.children[i];
       if (!c.classList) continue;
-      c.classList.remove('vc-side');
-      if (c.style) c.style.gridRowEnd = '';
+      c.classList.remove('vc-side', 'vc-promoted', 'vc-collapsing');
+      if (c.style) { c.style.gridRowEnd = ''; c.style.width = ''; }
     }
   }
 
@@ -168,6 +171,69 @@
     }
   }
 
+  // ── Mode MIXTE (visuel 5) — clic pour AGRANDIR + DÉPLACER une carte de la colonne ultra
+  //    vers la colonne principale (large). Réutilise le même patron d'animation en deux
+  //    phases que le visuel 6 (clarge) : la piste s'élargit d'abord (promote), et à la
+  //    rétraction on garde la carte en colonne 1 le temps que la largeur redescende, avant
+  //    de la renvoyer en colonne 2 (sinon la largeur SAUTE, cf. correctif clarge).
+  //    Une seule carte promue à la fois (cohérent avec le visuel 6). Les cartes DÉJÀ en
+  //    colonne principale (non .vc-side) ne sont pas concernées.
+  //
+  //    États d'une carte de la colonne secondaire :
+  //      .vc-side                 → colonne 2, format ultra (défaut).
+  //      .vc-promoted (sans vc-side) → colonne 1, format large (agrandie + déplacée).
+  //      .vc-side.vc-collapsing   → transitoire : colonne 1 mais largeur ultra (retour animé).
+  function stripMixtePromo() {
+    var g = grid(); if (!g) return;
+    g.querySelectorAll('.card.vc-promoted, .card.vc-collapsing').forEach(function (c) {
+      c.classList.remove('vc-promoted', 'vc-collapsing');
+      c.style.width = '';
+    });
+  }
+  function promoteMixte(card) {
+    demoteAllMixte();                    // une seule promue à la fois
+    card.classList.remove('vc-collapsing');
+    card.style.width = '';               // annule un éventuel épinglage inline d'une rétraction en cours
+    card.classList.remove('vc-side');    // quitte la colonne ultra → devient carte principale large
+    card.classList.add('vc-promoted');
+    requestAnimationFrame(measureMixte); // le nombre de cartes par colonne a changé
+  }
+  function demoteMixte(card) {
+    if (!card.classList.contains('vc-promoted')) return;
+    card.classList.remove('vc-promoted');
+    if (REDUCE) { card.classList.add('vc-side'); requestAnimationFrame(measureMixte); return; }
+    // Retour animé, symétrique de la promotion : on garde la carte en colonne 1 (piste large)
+    // pendant que max-width redescend 820px → 320px, puis on retire .vc-collapsing → retour
+    // en colonne 2 (déjà à 320px, sans saut). L'animation porte sur max-width (px→px, fiable).
+    card.classList.add('vc-side');       // le recto ultra revient tout de suite…
+    card.classList.add('vc-collapsing'); // …mais on reste en colonne 1 (max-width cible 320px)
+    var to;
+    var done = function (e) {
+      if (e && e.propertyName && e.propertyName !== 'max-width') return;
+      card.classList.remove('vc-collapsing');
+      card.removeEventListener('transitionend', done);
+      clearTimeout(to);
+      requestAnimationFrame(measureMixte);
+    };
+    card.addEventListener('transitionend', done);
+    to = setTimeout(done, 460);
+  }
+  function demoteAllMixte() {
+    var g = grid(); if (!g) return;
+    g.querySelectorAll('.card.vc-promoted').forEach(demoteMixte);
+  }
+  function onDocClickMixte(e) {
+    if (current !== 'mixte') return;
+    var g = grid(); if (!g) return;
+    var card = e.target.closest('.card');
+    var inGrid = card && card.parentNode === g;
+    if (!inGrid) { demoteAllMixte(); return; }   // clic hors carte → rétracte la promue
+    if (isInteractive(e.target)) return;         // bouton d'action → laisser agir
+    if (card.classList.contains('vc-promoted')) { demoteMixte(card); return; } // re-clic → rétracte
+    if (card.classList.contains('vc-side')) { promoteMixte(card); return; }    // colonne ultra → promeut
+    // carte déjà en colonne principale (large par défaut) → aucun mécanisme d'expansion.
+  }
+
   function reflectButtons(mode) {
     var bar = document.querySelector('.view-compare');
     if (!bar) return;
@@ -181,7 +247,8 @@
     if (mode !== 'liste' && !CARD_MODES[mode]) mode = 'large';
     current = mode;
     var g = grid();
-    stripClarge(); // repart toujours d'un état compact net (changement de mode = pas d'animation)
+    stripClarge();      // repart toujours d'un état compact net (changement de mode = pas d'animation)
+    stripMixtePromo();  // idem : aucune carte « promue » ne survit à un changement de mode
 
     if (mode === 'liste') {
       clearMixte();
@@ -191,6 +258,10 @@
       listOff();
       if (mode !== 'mixte') clearMixte();
       if (g) g.setAttribute('data-view-mode', mode);
+      // Pagination initiale spécifique au mode (fil #9bis : mixte = 18). On recalcule APRÈS
+      // avoir posé data-view-mode (initialLimit() le lit), puis on (re)répartit les colonnes
+      // sur l'ensemble réellement visible.
+      if (window.LBAKiosk && LBAKiosk.repaginate) LBAKiosk.repaginate();
       if (mode === 'mixte') splitMixte();
     }
     reflectButtons(mode);
@@ -211,6 +282,8 @@
     // quand current === 'clarge'). Placé APRÈS les handlers de site.js (chargé avant) :
     // like/partage/flip agissent d'abord, ce handler ignore les cibles interactives.
     document.addEventListener('click', onDocClickClarge);
+    // Visuel 5 : clic pour promouvoir une carte de la colonne ultra vers la colonne large.
+    document.addEventListener('click', onDocClickMixte);
 
     // Re-mesure du masonry mixte au redimensionnement (uniquement dans ce mode).
     window.addEventListener('resize', function () {
