@@ -4967,11 +4967,16 @@ a.forum-tag:hover { text-decoration: underline; }
   display: flex; align-items: center; gap: 6px;
 }
 #grid .card-toprow .card-top h3 {
-  font-family: 'Baloo 2', sans-serif; font-size: 16px; font-weight: 800;
+  font-family: 'Baloo 2', sans-serif; font-size: 20px; font-weight: 800;
   line-height: 1.1; letter-spacing: -0.02em; color: var(--ink);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
 }
 #grid .card-front .card-desc { -webkit-line-clamp: 2; }
+/* Tags de catégories AU RECTO (déplacés depuis le verso, à la place du sous-titre). */
+#grid .card-front .back-tags { margin-top: 6px; }
+/* Sous-titre AU VERSO (déplacé depuis le recto), en tête sous le badge @forum_slug :
+   on annule la marge négative pensée pour le recto et on l'espace de la description longue. */
+#grid .card-back .card-subtitle { margin-top: 4px; margin-bottom: 6px; }
 /* La « boîte texte » passe en RANGÉE : description à gauche (extensible), zone d'action
    à droite (largeur fixe) → remplit le format large. (.card-textbox/.card-action étaient
    en display:contents ; on les matérialise en flex, sans effet sur le flip.) */

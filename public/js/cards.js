@@ -51,6 +51,25 @@
     return s.split('/')[0];
   }
 
+  // Tags de catégories cliquables (filtre la home). Désormais au RECTO (à la place de
+  // l'ancien sous-titre) ; le sous-titre est passé au verso. Une seule implémentation,
+  // partagée pour éviter toute divergence.
+  function tagsHTML(cats) {
+    if (!cats || !cats.length) return '';
+    return '<div class="back-tags">' + cats.map(function (c) {
+      return '<button type="button" class="tag back-tag" data-cat="' + esc(c) + '">' + esc(catLabel(c)) + '</button>';
+    }).join('') + '</div>';
+  }
+
+  // Sous-titre (avec le badge d'édition dupliqué, hors flux hors skin L'Assemblée).
+  // Rendu au VERSO désormais, en tête (sous le badge @forum_slug, au-dessus de la
+  // description longue). Vide si la source n'a pas de sous-titre.
+  function subtitleHTML(s) {
+    if (!s.subtitle) return '';
+    return '<div class="card-subtitle">' + esc(s.subtitle) +
+      '<span class="card-edition ' + badgeClassOf(s.badge) + '" aria-hidden="true">' + BADGE_ICON + '</span></div>';
+  }
+
   // En-tête commun recto/verso : titre + badge.
   function topRow(s) {
     // .card-seal x2 : marques generiques (display:none par defaut) reutilisees par les
@@ -524,7 +543,7 @@
       '<span>retraite<br><b>1 signal</b></span>' +
     '</div>';
 
-  function frontFace(s, mode, isLinked) {
+  function frontFace(s, mode, isLinked, cats) {
     var state, action;
     if (isLinked) {
       state = '<div class="state partner"><span class="dot-idle"></span> Service partenaire</div>';
@@ -638,11 +657,9 @@
           // visible pour ce profil — sinon reste vide/hidden et le contenu générique
           // ci-dessous (sous-titre + description statiques) s'affiche normalement.
           (isCommunity(s) ? '<div class="community-recto" data-community-recto hidden></div>' : '') +
-          // .card-edition : badge (officiel/verifie/communaute) DUPLIQUE en fin de sous-titre,
-          // display:none par defaut -> seul L'Assemblee l'affiche (symbole d'edition/rarete a
-          // l'extreme droite de la ligne de type). Rendu full-art/teintes INCHANGE (hors flux).
-          (s.subtitle ? '<div class="card-subtitle">' + esc(s.subtitle) +
-            '<span class="card-edition ' + badgeClassOf(s.badge) + '" aria-hidden="true">' + BADGE_ICON + '</span></div>' : '') +
+          // Sous-titre DÉPLACÉ au verso (voir backFace). À sa place sur le recto : les tags
+          // de catégories cliquables (déplacés depuis le verso).
+          tagsHTML(cats) +
           // Description encapsulée dans .card-desc pour que la troncature
           // -webkit-line-clamp s'applique (inerte sur le <p> lui-même). .card-stat :
           // 2e AFFICHAGE (decoratif) du compteur de likes, display:none par defaut ->
@@ -743,12 +760,7 @@
   }
 
   function backFace(s, cats, isLinked, mode) {
-    // Tags cliquables → filtre la catégorie sur la home.
-    var tags = (cats.length)
-      ? '<div class="back-tags">' + cats.map(function (c) {
-          return '<button type="button" class="tag back-tag" data-cat="' + esc(c) + '">' + esc(catLabel(c)) + '</button>';
-        }).join('') + '</div>'
-      : '';
+    // Tags DÉPLACÉS au recto (voir frontFace/tagsHTML) — plus de tags au verso.
 
     var author = s.submitted_by_github
       ? '<div class="back-author">par <a href="https://github.com/' + esc(s.submitted_by_github) + '" ' +
@@ -788,8 +800,11 @@
         '<button class="flip-back" type="button" aria-label="Retour" title="Retour">' + BACK_SVG + '</button>' +
         forumBadge +
         topRow(s) +
+        // Sous-titre DÉPLACÉ ici depuis le recto : en tête du verso, sous le badge
+        // @forum_slug, au-dessus de la description longue.
+        subtitleHTML(s) +
         longDesc +
-        tags + author + forum +
+        author + forum +
       '</div>';
   }
 
@@ -848,7 +863,7 @@
       '<div class="card flip" data-cats="' + dataCats + '" data-source-id="' + esc(s.id) + '"' + comAttrs +
         ' data-subscribed="' + sub + '" data-search="' + esc(searchText(s, cats)) + '">' +
         '<div class="card-inner">' +
-          frontFace(s, mode, isLinked) +
+          frontFace(s, mode, isLinked, cats) +
           backFace(s, cats, isLinked, mode) +
           shareFace() +
           taskFace(s, mode) + // 5e face : '' pour toute carte non user-task
