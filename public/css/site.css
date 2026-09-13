@@ -5122,7 +5122,7 @@ a.forum-tag:hover { text-decoration: underline; }
 }
 #grid[data-view-mode="compact"] .card-toprow .card-top h3,
 #grid[data-view-mode="mixte"] > .card.vc-side .card-toprow .card-top h3 { font-size: 18px; }
-#grid[data-view-mode="ultra"] .card-toprow .card-top h3 { font-size: 14px; }
+#grid[data-view-mode="ultra"] .card-toprow .card-top h3 { font-size: 18px; }
 /* Recto empilé (la rangée desc|action large ne tient pas dans ces largeurs). */
 #grid[data-view-mode="compact"] .card-front .card-textbox,
 #grid[data-view-mode="ultra"] .card-front .card-textbox,
@@ -5182,7 +5182,7 @@ a.forum-tag:hover { text-decoration: underline; }
 #grid[data-view-mode="clarge"] > .card:not(.cl-expanded) .card-front .card-content {
   padding: 30px 12px 10px; justify-content: flex-start; gap: 2px;
 }
-#grid[data-view-mode="clarge"] > .card:not(.cl-expanded) .card-toprow .card-top h3 { font-size: 15px; }
+#grid[data-view-mode="clarge"] > .card:not(.cl-expanded) .card-toprow .card-top h3 { font-size: 18px; }
 #grid[data-view-mode="clarge"] > .card:not(.cl-expanded) .card-front .card-textbox {
   flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 6px; margin-top: 4px;
 }
