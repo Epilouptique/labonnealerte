@@ -5195,15 +5195,14 @@ a.forum-tag:hover { text-decoration: underline; }
    directement ne marchait pas de façon fiable ici — un passage %→px dans une piste inchangée
    n'est pas toujours transitionné par Chromium (la promotion l'était car elle change AUSSI de
    piste, pas la rétraction). max-width contourne le problème dans les deux sens. */
+/* État LARGE (par défaut, sans .vc-side) : colonne 1. max-width EXPLICITE (--card-w) — et
+   NON `none` — pour que le rétrécissement au clic puisse animer max-width 820px → 320px
+   (une transition depuis `none` ne se déclencherait pas). width:100% remplit la piste. */
 #grid[data-view-mode="mixte"] > .card {
-  grid-column: 1; width: 100%; max-width: none; justify-self: stretch;
+  grid-column: 1; width: 100%; max-width: var(--card-w); justify-self: stretch;
   transition: max-width .32s ease, min-height .32s ease;
 }
 #grid[data-view-mode="mixte"] > .card.vc-side { grid-column: 2; height: 150px; max-width: 320px; }
-/* Carte PROMUE (clic sur une carte de la colonne ultra) : colonne 1 + recto large (via le
-   retrait de .vc-side) ; max-width EXPLICITE (--card-w) — et non `none` — pour que la
-   rétraction puisse animer max-width de 820px → 320px. */
-#grid[data-view-mode="mixte"] > .card.vc-promoted { grid-column: 1; max-width: var(--card-w); }
 /* Retour ANIMÉ (large → ultra), symétrique : on GARDE la carte en colonne 1 (piste large)
    pendant que max-width redescend à 320px, puis view-compare.js retire .vc-collapsing
    (→ retour en colonne 2, déjà à 320px, sans saut). */

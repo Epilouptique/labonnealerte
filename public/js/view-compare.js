@@ -171,42 +171,37 @@
     }
   }
 
-  // ── Mode MIXTE (visuel 5) — clic pour AGRANDIR + DÉPLACER une carte de la colonne ultra
-  //    vers la colonne principale (large). Réutilise le même patron d'animation en deux
-  //    phases que le visuel 6 (clarge) : la piste s'élargit d'abord (promote), et à la
-  //    rétraction on garde la carte en colonne 1 le temps que la largeur redescende, avant
-  //    de la renvoyer en colonne 2 (sinon la largeur SAUTE, cf. correctif clarge).
-  //    Une seule carte promue à la fois (cohérent avec le visuel 6). Les cartes DÉJÀ en
-  //    colonne principale (non .vc-side) ne sont pas concernées.
-  //
-  //    États d'une carte de la colonne secondaire :
-  //      .vc-side                 → colonne 2, format ultra (défaut).
-  //      .vc-promoted (sans vc-side) → colonne 1, format large (agrandie + déplacée).
-  //      .vc-side.vc-collapsing   → transitoire : colonne 1 mais largeur ultra (retour animé).
+  // ── Mode MIXTE (visuel 5) — BASCULE BIDIRECTIONNELLE au clic, PAR CARTE.
+  //    L'état de colonne d'une carte = présence de .vc-side :
+  //      .vc-side                → colonne 2, format ultra-compact.
+  //      (sans .vc-side)         → colonne 1, format large.
+  //      .vc-side.vc-collapsing  → phase transitoire du rétrécissement (la carte reste en
+  //                                colonne 1 le temps que max-width redescende, puis rejoint
+  //                                la colonne 2 déjà à 320px, sans saut).
+  //    RÈGLE (décision libre, cf. rapport) : chaque carte garde son PROPRE état,
+  //    indépendamment des autres — plus de limite « une seule à la fois » (naturel une fois
+  //    le mécanisme bidirectionnel). Cliquer une carte LARGE la rétrécit vers l'ultra ;
+  //    cliquer une carte ULTRA l'agrandit vers le large ; le clic est donc réversible sur
+  //    chaque carte. Le nombre total affiché ne change pas, seule la colonne de chaque carte.
+  //    Animation : max-width (px→px, fiable dans les deux sens ; animer width en %→px sans
+  //    changement de piste n'était pas honoré par Chromium — cf. correctif précédent).
   function stripMixtePromo() {
     var g = grid(); if (!g) return;
-    g.querySelectorAll('.card.vc-promoted, .card.vc-collapsing').forEach(function (c) {
-      c.classList.remove('vc-promoted', 'vc-collapsing');
-      c.style.width = '';
-    });
+    g.querySelectorAll('.card.vc-collapsing').forEach(function (c) { c.classList.remove('vc-collapsing'); });
   }
-  function promoteMixte(card) {
-    demoteAllMixte();                    // une seule promue à la fois
+  // Agrandir : la carte quitte la colonne ultra (retire .vc-side) → colonne 1, large.
+  // max-width 320px → var(--card-w) + piste 2→1 : animé.
+  function toLargeMixte(card) {
     card.classList.remove('vc-collapsing');
-    card.style.width = '';               // annule un éventuel épinglage inline d'une rétraction en cours
-    card.classList.remove('vc-side');    // quitte la colonne ultra → devient carte principale large
-    card.classList.add('vc-promoted');
+    card.classList.remove('vc-side');
     requestAnimationFrame(measureMixte); // le nombre de cartes par colonne a changé
   }
-  function demoteMixte(card) {
-    if (!card.classList.contains('vc-promoted')) return;
-    card.classList.remove('vc-promoted');
+  // Rétrécir : la carte rejoint la colonne ultra (ajoute .vc-side), retour animé en deux
+  // phases (reste en colonne 1 via .vc-collapsing pendant que max-width redescend à 320px).
+  function toUltraMixte(card) {
     if (REDUCE) { card.classList.add('vc-side'); requestAnimationFrame(measureMixte); return; }
-    // Retour animé, symétrique de la promotion : on garde la carte en colonne 1 (piste large)
-    // pendant que max-width redescend 820px → 320px, puis on retire .vc-collapsing → retour
-    // en colonne 2 (déjà à 320px, sans saut). L'animation porte sur max-width (px→px, fiable).
     card.classList.add('vc-side');       // le recto ultra revient tout de suite…
-    card.classList.add('vc-collapsing'); // …mais on reste en colonne 1 (max-width cible 320px)
+    card.classList.add('vc-collapsing'); // …mais on reste en colonne 1 pendant l'animation
     var to;
     var done = function (e) {
       if (e && e.propertyName && e.propertyName !== 'max-width') return;
@@ -218,20 +213,16 @@
     card.addEventListener('transitionend', done);
     to = setTimeout(done, 460);
   }
-  function demoteAllMixte() {
-    var g = grid(); if (!g) return;
-    g.querySelectorAll('.card.vc-promoted').forEach(demoteMixte);
-  }
   function onDocClickMixte(e) {
     if (current !== 'mixte') return;
     var g = grid(); if (!g) return;
     var card = e.target.closest('.card');
-    var inGrid = card && card.parentNode === g;
-    if (!inGrid) { demoteAllMixte(); return; }   // clic hors carte → rétracte la promue
-    if (isInteractive(e.target)) return;         // bouton d'action → laisser agir
-    if (card.classList.contains('vc-promoted')) { demoteMixte(card); return; } // re-clic → rétracte
-    if (card.classList.contains('vc-side')) { promoteMixte(card); return; }    // colonne ultra → promeut
-    // carte déjà en colonne principale (large par défaut) → aucun mécanisme d'expansion.
+    if (!card || card.parentNode !== g) return;  // hors carte → rien (états individuels conservés)
+    if (isInteractive(e.target)) return;         // bouton d'action (like/partage/flip/toggle) → laisser agir
+    // Bascule réversible : ultra ↔ large. Une carte en cours de rétrécissement (.vc-side
+    // .vc-collapsing) porte .vc-side → un clic la ré-agrandit (annule la rétraction).
+    if (card.classList.contains('vc-side')) toLargeMixte(card);
+    else toUltraMixte(card);
   }
 
   function reflectButtons(mode) {
