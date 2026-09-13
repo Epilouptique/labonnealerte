@@ -1454,37 +1454,38 @@ body[data-mode="connected"] #stats { display: none; }
 
 /* J) tags : couleur par famille de catégorie (data-group = clé GROUPS de
    server/categories.js). Texte noir en permanence ; --tag-c = bordure gauche,
-   --tag-c2 (variante ~35 % plus claire) = fond au survol. Sans famille connue →
+   --tag-c2 (variante ~35 % plus claire) = fond au survol. Posé aussi sur .card
+   (famille de sa 1re catégorie) → liseré .card-edge. Sans famille connue →
    repli sur l'accent violet. */
 .back-tags .tag { color: #000; cursor: pointer; transition: background .15s ease; }
 .back-tags .tag:hover { background: var(--tag-c2, var(--amber)); color: #000; }
-.back-tags .tag[data-group="alimentation"]               { --tag-c: #e36767; --tag-c2: #ec9c9c; }
-.back-tags .tag[data-group="securite-cyber"]             { --tag-c: #c2456a; --tag-c2: #d7869e; }
-.back-tags .tag[data-group="sante"]                      { --tag-c: #e36fa5; --tag-c2: #eca1c4; }
-.back-tags .tag[data-group="shopping"]                   { --tag-c: #d97fb0; --tag-c2: #e6abcb; }
-.back-tags .tag[data-group="gaming"]                     { --tag-c: #d45fd9; --tag-c2: #e397e6; }
-.back-tags .tag[data-group="billetterie-sorties"]        { --tag-c: #b35fe3; --tag-c2: #cd97ec; }
-.back-tags .tag[data-group="culture-medias"]             { --tag-c: #8a6fe3; --tag-c2: #b2a1ec; }
-.back-tags .tag[data-group="pro-marches"]                { --tag-c: #6c63c9; --tag-c2: #9f99db; }
-.back-tags .tag[data-group="tech-dev"]                   { --tag-c: #5b7de3; --tag-c2: #94aaec; }
-.back-tags .tag[data-group="espace-science"]             { --tag-c: #3f6fb8; --tag-c2: #82a1d0; }
-.back-tags .tag[data-group="transports"]                 { --tag-c: #4f8fd1; --tag-c2: #8cb6e1; }
-.back-tags .tag[data-group="voyages"]                    { --tag-c: #3fb0d9; --tag-c2: #82cbe6; }
-.back-tags .tag[data-group="francophonie-international"] { --tag-c: #4fa3a8; --tag-c2: #8cc3c6; }
-.back-tags .tag[data-group="emploi-formation"]           { --tag-c: #3fb3a3; --tag-c2: #82cdc3; }
-.back-tags .tag[data-group="finance"]                    { --tag-c: #2f9e7a; --tag-c2: #77bfa8; }
-.back-tags .tag[data-group="environnement-nature"]       { --tag-c: #4fae5d; --tag-c2: #8cca95; }
-.back-tags .tag[data-group="agriculture-jardin"]         { --tag-c: #7fae3f; --tag-c2: #abca82; }
-.back-tags .tag[data-group="energie"]                    { --tag-c: #c9b53a; --tag-c2: #dbce7e; }
-.back-tags .tag[data-group="animaux"]                    { --tag-c: #c9973f; --tag-c2: #dbbb82; }
-.back-tags .tag[data-group="bons-plans-conso"]           { --tag-c: #e3a33f; --tag-c2: #ecc382; }
-.back-tags .tag[data-group="meteo-risques"]              { --tag-c: #e3823f; --tag-c2: #ecad82; }
-.back-tags .tag[data-group="vie-locale"]                 { --tag-c: #d97a5f; --tag-c2: #e6a897; }
-.back-tags .tag[data-group="solidarite"]                 { --tag-c: #e38f8f; --tag-c2: #ecb6b6; }
-.back-tags .tag[data-group="immobilier"]                 { --tag-c: #b07a4f; --tag-c2: #cba88c; }
-.back-tags .tag[data-group="auto-moto"]                  { --tag-c: #9a7d6a; --tag-c2: #bdaa9e; }
-.back-tags .tag[data-group="administration"]             { --tag-c: #6f86a8; --tag-c2: #a1b0c6; }
-.back-tags .tag[data-group="autre"]                      { --tag-c: #9a93a8; --tag-c2: #bdb8c6; }
+[data-group="alimentation"]                          { --tag-c: #e36767; --tag-c2: #ec9c9c; }
+[data-group="securite-cyber"]                        { --tag-c: #c2456a; --tag-c2: #d7869e; }
+[data-group="sante"]                                 { --tag-c: #e36fa5; --tag-c2: #eca1c4; }
+[data-group="shopping"]                              { --tag-c: #d97fb0; --tag-c2: #e6abcb; }
+[data-group="gaming"]                                { --tag-c: #d45fd9; --tag-c2: #e397e6; }
+[data-group="billetterie-sorties"]                   { --tag-c: #b35fe3; --tag-c2: #cd97ec; }
+[data-group="culture-medias"]                        { --tag-c: #8a6fe3; --tag-c2: #b2a1ec; }
+[data-group="pro-marches"]                           { --tag-c: #6c63c9; --tag-c2: #9f99db; }
+[data-group="tech-dev"]                              { --tag-c: #5b7de3; --tag-c2: #94aaec; }
+[data-group="espace-science"]                        { --tag-c: #3f6fb8; --tag-c2: #82a1d0; }
+[data-group="transports"]                            { --tag-c: #4f8fd1; --tag-c2: #8cb6e1; }
+[data-group="voyages"]                               { --tag-c: #3fb0d9; --tag-c2: #82cbe6; }
+[data-group="francophonie-international"]            { --tag-c: #4fa3a8; --tag-c2: #8cc3c6; }
+[data-group="emploi-formation"]                      { --tag-c: #3fb3a3; --tag-c2: #82cdc3; }
+[data-group="finance"]                               { --tag-c: #2f9e7a; --tag-c2: #77bfa8; }
+[data-group="environnement-nature"]                  { --tag-c: #4fae5d; --tag-c2: #8cca95; }
+[data-group="agriculture-jardin"]                    { --tag-c: #7fae3f; --tag-c2: #abca82; }
+[data-group="energie"]                               { --tag-c: #c9b53a; --tag-c2: #dbce7e; }
+[data-group="animaux"]                               { --tag-c: #c9973f; --tag-c2: #dbbb82; }
+[data-group="bons-plans-conso"]                      { --tag-c: #e3a33f; --tag-c2: #ecc382; }
+[data-group="meteo-risques"]                         { --tag-c: #e3823f; --tag-c2: #ecad82; }
+[data-group="vie-locale"]                            { --tag-c: #d97a5f; --tag-c2: #e6a897; }
+[data-group="solidarite"]                            { --tag-c: #e38f8f; --tag-c2: #ecb6b6; }
+[data-group="immobilier"]                            { --tag-c: #b07a4f; --tag-c2: #cba88c; }
+[data-group="auto-moto"]                             { --tag-c: #9a7d6a; --tag-c2: #bdaa9e; }
+[data-group="administration"]                        { --tag-c: #6f86a8; --tag-c2: #a1b0c6; }
+[data-group="autre"]                                 { --tag-c: #9a93a8; --tag-c2: #bdb8c6; }
 
 /* I) conteneur de la 2e ligne de chips (hors toolbar) */
 .chips-secondary-wrap .chips-more.open { margin-bottom: 6px; margin-top: 10px; }
@@ -3453,7 +3454,7 @@ overflow: hidden;
 /* Double lisere : bordure externe 1.5px + filet interne 1px (pseudo). */
 .grid .card-front .card-edge, .deck-card .card-front .card-edge {
   position: absolute; inset: 0; z-index: 5; pointer-events: none;
-  border-radius: 18px; border: 1.5px solid var(--tc-edge);
+  border-radius: 18px; border: 1.5px solid var(--tag-c, var(--tc-edge));
 }
 .card-front .card-edge::after {
   content: ""; position: absolute; inset: 4px; border-radius: 14px;
@@ -5143,6 +5144,11 @@ a.forum-tag:hover { text-decoration: underline; }
 #grid[data-view-mode="mixte"] > .card.vc-side .card-static-desc { display: none; }
 #grid[data-view-mode="ultra"] .card-front .card-content,
 #grid[data-view-mode="mixte"] > .card.vc-side .card-front .card-content { padding-top: 30px; }
+/* ULTRA uniquement (pas la colonne mixte) : on retire aussi les tags du recto et les icônes
+   d'action (♥/partage/ⓘ) — rendu épuré demandé par Hugo. Masqué en CSS, jamais retiré du
+   DOM. Sans les icônes, la rangée haute ne porte plus que l'état + le titre. */
+#grid[data-view-mode="ultra"] .back-tags,
+#grid[data-view-mode="ultra"] .card-toprow .card-icons { display: none; }
 
 /* ---- Visuel 5 : MIXTE — 2 colonnes CSS Grid (principale LARGE + secondaire ULTRA) ----
    Astuce « masonry » : lignes implicites fines (8px) + span calculé en JS (view-compare.js
