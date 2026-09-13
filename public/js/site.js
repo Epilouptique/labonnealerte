@@ -2279,6 +2279,10 @@
       if (pinY !== null) holdScroll(pinY); // grow : verrouille la position de scroll
       // Vue liste : recopie visibilité (filtre/recherche/pagination) + état carte→ligne.
       if (window.LBAListView) LBAListView.sync();
+      // TEMPORAIRE — fil #9bis : le comparateur (mode mixte) doit recalculer son masonry
+      // après tout changement de visibilité des cartes (filtre, recherche, pagination),
+      // sinon les cartes redevenues visibles gardent un span par défaut (~8px) → empilement.
+      if (window.LBAViewCompare && LBAViewCompare.onGridChange) LBAViewCompare.onGridChange();
     }
 
     if (doAnim && leaving.length) {

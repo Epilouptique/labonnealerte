@@ -311,5 +311,17 @@
   else bind();
 
   // Exposé pour un éventuel appel externe / debug (temporaire).
-  window.LBAViewCompare = { set: setMode, get: function () { return current; }, remeasure: measureMixte };
+  //  · onGridChange : appelé par site.js (apply → commit) après TOUT changement de
+  //    visibilité des cartes (filtre par recherche, clic catégorie, « afficher plus »).
+  //    En mode mixte, on re-répartit les colonnes ET on re-mesure les spans sur l'ensemble
+  //    RÉELLEMENT visible courant — sinon une carte redevenue visible (ex. sortie de
+  //    .hidden-more par un filtre) garde le span par défaut (~8px) → l'empilement de fines
+  //    lignes signalé. splitMixte() lit visibleCards() (qui exclut .filtered/.hidden-more)
+  //    et mesure via requestAnimationFrame (après que le DOM reflète le nouvel état).
+  window.LBAViewCompare = {
+    set: setMode,
+    get: function () { return current; },
+    remeasure: measureMixte,
+    onGridChange: function () { if (current === 'mixte') splitMixte(); }
+  };
 })();
