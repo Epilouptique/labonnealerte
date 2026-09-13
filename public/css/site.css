@@ -4978,6 +4978,8 @@ a.forum-tag:hover { text-decoration: underline; }
    (.card-subtitle de base : 12px/600/muted). Seule la marge est ajustée pour le verso :
    margin-top d'origine (-6px) augmenté de 10px = 4px ; margin-bottom à 0. */
 #grid .card-back .card-subtitle { margin-top: 4px; margin-bottom: 0; }
+/* Badge d'édition dupliqué (.card-edition) masqué quand le sous-titre est au verso. */
+#grid .card-back .card-subtitle .card-edition { display: none; }
 /* La « boîte texte » passe en RANGÉE : description à gauche (extensible), zone d'action
    à droite (largeur fixe) → remplit le format large. (.card-textbox/.card-action étaient
    en display:contents ; on les matérialise en flex, sans effet sur le flip.) */
