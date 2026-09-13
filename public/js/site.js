@@ -1907,6 +1907,13 @@
     else if (isSpecial(cat)) okCat = !!(specialIds && specialIds[c.getAttribute('data-source-id')]);
     else okCat = catsOf(c).indexOf(cat) !== -1;
     var okQ = !q || (c.dataset.search || '').indexOf(q) !== -1;
+    // Connecté : le kiosque de découverte (Toutes + catégories + nouveautés/populaires) ne
+    // montre PAS les alertes déjà suivies — elles vivent dans « Mes alertes » (cat 'mine').
+    // On les garde toutefois accessibles dans les favoris et via une recherche explicite.
+    if (currentMode === 'connected' && cat !== 'mine' && cat !== 'favoris' && !q &&
+        c.dataset.subscribed === '1') {
+      return false;
+    }
     return okCat && okQ;
   }
 
@@ -1919,7 +1926,12 @@
     // cartes qui matchent la requête (indépendamment de la catégorie active) et catégories
     // sans résultat retirées. Cliquer une puce affine donc toujours vers du non-vide.
     var q = qInput ? normQ(qInput.value) : '';
-    var pool = q ? cards.filter(function (c) { return (c.dataset.search || '').indexOf(q) !== -1; }) : cards;
+    // Le pool des puces reflète ce qu'affiche la grille (cf. matches) : connecté et hors
+    // recherche, les alertes déjà suivies sont retirées du kiosque de découverte, donc
+    // aussi de « Toutes » et des comptes par catégorie.
+    var pool = q
+      ? cards.filter(function (c) { return (c.dataset.search || '').indexOf(q) !== -1; })
+      : cards.filter(function (c) { return !(currentMode === 'connected' && c.dataset.subscribed === '1'); });
     var counts = {};
     pool.forEach(function (c) { catsOf(c).forEach(function (s) { counts[s] = (counts[s] || 0) + 1; }); });
     var slugs = Object.keys(counts).sort(function (a, b) {
