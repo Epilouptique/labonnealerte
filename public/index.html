@@ -102,6 +102,19 @@
           uniquement depuis « Mon compte › Apparence ». La préférence reste persistée
           (compte si connecté, sinon localStorage) par view-mode.js. -->
   </div>
+
+  <!-- TEMPORAIRE — fil #9bis, COMPARATEUR DE VISUELS — À RETIRER une fois le visuel
+       choisi (avec js/view-compare.js, le bloc CSS « TEMPORAIRE — fil #9bis » de site.css
+       et le <script src="/js/view-compare.js"> en bas de page). Prévisualisation NON
+       persistante (sessionStorage) : ne modifie pas la préférence « Vue liste » du compte. -->
+  <div class="view-compare" role="group" aria-label="Comparer les visuels du kiosque (temporaire)">
+    <span class="vc-label">Visuel (test)</span>
+    <button type="button" class="vc-btn" data-mode="large">Blocs larges</button>
+    <button type="button" class="vc-btn" data-mode="liste">Liste</button>
+    <button type="button" class="vc-btn" data-mode="compact">Compacts</button>
+    <button type="button" class="vc-btn" data-mode="ultra">Ultra-compacts</button>
+    <button type="button" class="vc-btn" data-mode="mixte">Large + colonne ultra</button>
+  </div>
   </div><!-- /.kiosk-head -->
 
   <!-- I) 2e ligne de catégories : hors de .toolbar → la barre de recherche ne bouge plus -->
@@ -369,6 +382,8 @@
 <script src="/js/view-mode.js"></script>
 <script src="/js/list-view.js"></script>
 <script src="/js/site.js"></script>
+<!-- TEMPORAIRE — fil #9bis, comparateur de visuels — à retirer avec la barre .view-compare -->
+<script src="/js/view-compare.js"></script>
 <script src="/js/hero-letters.js"></script>
 <script src="/js/nav.js"></script>
 <script src="/js/header.js"></script>

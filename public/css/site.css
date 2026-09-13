@@ -5015,3 +5015,129 @@ a.forum-tag:hover { text-decoration: underline; }
   #grid .card-front .card-textbox { flex-direction: column; align-items: stretch; gap: 10px; }
   #grid .card-front .card-action { width: auto; max-width: none; }
 }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   TEMPORAIRE — fil #9bis, COMPARATEUR DE VISUELS DU KIOSQUE — À RETIRER une fois
+   le visuel choisi (avec la barre .view-compare de index.html et js/view-compare.js
+   et le bump sw.js associé). Rien ici ne touche le flip : .card.flip / .card-inner /
+   rotateY / .card-face restent pilotés par les règles #grid ci-dessus (scope #grid),
+   qui s'appliquent quel que soit data-view-mode. On ne fait varier que les DIMENSIONS
+   du conteneur/des cartes et la DISPOSITION du recto.
+   Modes (attribut data-view-mode sur #grid) :
+     · large  (défaut / absent) → gabarit large existant, aucune règle ici.
+     · liste  → géré hors CSS de ce bloc (root[data-view="list"], view-mode.js/list-view.js).
+     · compact→ 350×200, 3 colonnes.
+     · ultra  → 300×150, sans description, grille auto-fill dense.
+     · mixte  → colonne principale large + colonne secondaire ultra-compacte.
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/* La barre de boutons temporaire (index.html, dans .kiosk-head). */
+.view-compare {
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+  margin: 10px 0 2px; padding: 6px 8px;
+  border: 1px dashed var(--amber); border-radius: 12px;
+  background: color-mix(in srgb, var(--amber) 8%, transparent);
+}
+.view-compare .vc-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-right: 4px; }
+.view-compare .vc-btn {
+  font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer;
+  padding: 6px 11px; border-radius: 999px; border: 1px solid var(--line, #d9d4cc);
+  background: var(--surface); color: var(--ink);
+}
+.view-compare .vc-btn:hover { border-color: var(--amber); }
+.view-compare .vc-btn.on { background: var(--amber); color: #fff; border-color: var(--amber); }
+
+/* ---- Visuel 3 : BLOCS COMPACTS (350×200, 3 colonnes) ---- */
+#grid[data-view-mode="compact"] {
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  max-width: calc(350px * 3 + 2 * 18px); gap: 18px; margin-inline: auto;
+}
+#grid[data-view-mode="compact"] > .card { width: 100%; max-width: 350px; height: 200px; justify-self: center; }
+/* ---- Visuel 4 : BLOCS ULTRA-COMPACTS (300×150, auto-fill dense) ---- */
+#grid[data-view-mode="ultra"] {
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  max-width: none; gap: 14px; margin-inline: auto;
+}
+#grid[data-view-mode="ultra"] > .card { width: 100%; max-width: none; height: 150px; justify-self: stretch; }
+
+/* Recto compact ET ultra ET colonne secondaire du mixte : hauteur bornée, recto empilé,
+   paddings/typo réduits. min-height ANNULE le var(--card-min-h) du gabarit large (sinon la
+   carte ne pourrait pas descendre sous 232px). Le verso conserve son défilement interne
+   (règle #grid .card-back { overflow-y:auto } du gabarit). */
+#grid[data-view-mode="compact"] .card-front,
+#grid[data-view-mode="ultra"] .card-front,
+#grid[data-view-mode="mixte"] > .card.vc-side .card-front { min-height: 0; height: 100%; }
+#grid[data-view-mode="compact"] .card-face,
+#grid[data-view-mode="ultra"] .card-face,
+#grid[data-view-mode="mixte"] > .card.vc-side .card-face { padding: 14px; border-radius: 18px; }
+#grid[data-view-mode="compact"] .card-toprow,
+#grid[data-view-mode="ultra"] .card-toprow,
+#grid[data-view-mode="mixte"] > .card.vc-side .card-toprow { top: 9px; left: 10px; right: 10px; gap: 6px; }
+#grid[data-view-mode="compact"] .card-toprow .card-icons,
+#grid[data-view-mode="ultra"] .card-toprow .card-icons,
+#grid[data-view-mode="mixte"] > .card.vc-side .card-toprow .card-icons { gap: 4px; }
+#grid[data-view-mode="compact"] .card-toprow .card-icons .card-like,
+#grid[data-view-mode="compact"] .card-toprow .card-icons .card-share,
+#grid[data-view-mode="compact"] .card-toprow .card-icons .flip-btn,
+#grid[data-view-mode="ultra"] .card-toprow .card-icons .card-like,
+#grid[data-view-mode="ultra"] .card-toprow .card-icons .card-share,
+#grid[data-view-mode="ultra"] .card-toprow .card-icons .flip-btn,
+#grid[data-view-mode="mixte"] > .card.vc-side .card-toprow .card-icons .card-like,
+#grid[data-view-mode="mixte"] > .card.vc-side .card-toprow .card-icons .card-share,
+#grid[data-view-mode="mixte"] > .card.vc-side .card-toprow .card-icons .flip-btn { width: 30px; height: 30px; }
+#grid[data-view-mode="compact"] .card-front .card-content,
+#grid[data-view-mode="ultra"] .card-front .card-content,
+#grid[data-view-mode="mixte"] > .card.vc-side .card-front .card-content {
+  padding: 34px 12px 10px; justify-content: flex-start; gap: 2px;
+}
+#grid[data-view-mode="compact"] .card-toprow .card-top h3,
+#grid[data-view-mode="mixte"] > .card.vc-side .card-toprow .card-top h3 { font-size: 15px; }
+#grid[data-view-mode="ultra"] .card-toprow .card-top h3 { font-size: 14px; }
+/* Recto empilé (la rangée desc|action large ne tient pas dans ces largeurs). */
+#grid[data-view-mode="compact"] .card-front .card-textbox,
+#grid[data-view-mode="ultra"] .card-front .card-textbox,
+#grid[data-view-mode="mixte"] > .card.vc-side .card-front .card-textbox {
+  flex-direction: column; align-items: stretch; justify-content: flex-start;
+  gap: 6px; margin-top: 4px;
+}
+#grid[data-view-mode="compact"] .card-front .card-action,
+#grid[data-view-mode="ultra"] .card-front .card-action,
+#grid[data-view-mode="mixte"] > .card.vc-side .card-front .card-action {
+  width: auto; max-width: none; align-items: stretch; text-align: left; margin-left: 0;
+}
+#grid[data-view-mode="compact"] .card-front .card-desc { -webkit-line-clamp: 2; font-size: 12px; }
+/* ULTRA (et colonne secondaire du mixte) : PAS de description — masquée en CSS, jamais
+   retirée du DOM (la logique de site.js/recherche reste intacte). */
+#grid[data-view-mode="ultra"] .card-static-desc,
+#grid[data-view-mode="mixte"] > .card.vc-side .card-static-desc { display: none; }
+#grid[data-view-mode="ultra"] .card-front .card-content,
+#grid[data-view-mode="mixte"] > .card.vc-side .card-front .card-content { padding-top: 30px; }
+
+/* ---- Visuel 5 : MIXTE — 2 colonnes CSS Grid (principale LARGE + secondaire ULTRA) ----
+   Astuce « masonry » : lignes implicites fines (8px) + span calculé en JS (view-compare.js
+   measureMixte) → chaque colonne se tasse indépendamment, pas de trous liés au partage de
+   rangée entre une carte large (haute) et une carte ultra (basse). Répartition des cartes
+   entre les deux colonnes : voir view-compare.js (classe .vc-side posée en JS). */
+#grid[data-view-mode="mixte"] {
+  grid-template-columns: minmax(0, var(--card-w)) 320px;
+  grid-auto-rows: 8px; align-items: start; justify-content: center;
+  max-width: calc(var(--card-w) + 320px + 18px); gap: 0 18px; margin-inline: auto;
+}
+#grid[data-view-mode="mixte"] > .card { grid-column: 1; width: 100%; max-width: none; justify-self: stretch; }
+#grid[data-view-mode="mixte"] > .card.vc-side { grid-column: 2; height: 150px; }
+
+/* Mobile : ces modes de test retombent tous en 1 colonne pleine largeur, sans hauteur
+   forcée (le contenu prime sur la maquette de comparaison sur petit écran). */
+@media (max-width: 620px) {
+  #grid[data-view-mode="compact"], #grid[data-view-mode="ultra"], #grid[data-view-mode="mixte"] {
+    grid-template-columns: 1fr; grid-auto-rows: auto; max-width: none; gap: 14px;
+  }
+  #grid[data-view-mode="compact"] > .card,
+  #grid[data-view-mode="ultra"] > .card,
+  #grid[data-view-mode="mixte"] > .card,
+  #grid[data-view-mode="mixte"] > .card.vc-side { width: 100%; max-width: none; height: auto; grid-column: 1; }
+  #grid[data-view-mode="compact"] .card-front,
+  #grid[data-view-mode="ultra"] .card-front,
+  #grid[data-view-mode="mixte"] > .card.vc-side .card-front { height: auto; min-height: 0; }
+}
+/* FIN TEMPORAIRE — fil #9bis */
