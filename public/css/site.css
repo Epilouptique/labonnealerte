@@ -5176,7 +5176,9 @@ a.forum-tag:hover { text-decoration: underline; }
    d'action (♥/partage/ⓘ) — rendu épuré demandé par Hugo. Masqué en CSS, jamais retiré du
    DOM. Sans les icônes, la rangée haute ne porte plus que l'état + le titre. */
 #grid[data-view-mode="ultra"] .back-tags,
-#grid[data-view-mode="ultra"] .card-toprow .card-icons { display: none; }
+#grid[data-view-mode="ultra"] .card-toprow .card-icons,
+#grid[data-view-mode="mixte"] > .card.vc-side .back-tags,
+#grid[data-view-mode="mixte"] > .card.vc-side .card-toprow .card-icons { display: none; }
 
 /* ---- Visuel 5 : MIXTE — 2 colonnes CSS Grid (principale LARGE + secondaire ULTRA) ----
    Astuce « masonry » : lignes implicites fines (8px) + span calculé en JS (view-compare.js
