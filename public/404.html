@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{TITRE}} — La Bonne Alerte</title>
+<meta name="description" content="Cette adresse ne correspond à aucune page de La Bonne Alerte.">
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="/css/fonts.css">
+<link rel="stylesheet" href="/css/tokens.css">
+<link rel="stylesheet" href="/css/site.css">
+<style>
+/* Même gabarit que les autres pages de contenu (mentions-légales, à-propos) :
+   bloc centré sur une surface opaque, lisible sur le dégradé violet du fond. */
+.page-404 { max-width: 620px; padding: 72px 24px 96px; text-align: center; }
+.page-404 .plaque {
+  background: var(--surface); border-radius: 18px; padding: 32px 28px 36px;
+  box-shadow: var(--shadow);
+}
+.page-404 h1 { font-family: 'Baloo 2', sans-serif; font-size: clamp(28px, 5vw, 40px);
+  font-weight: 800; letter-spacing: -0.02em; margin: 0; color: var(--ink); }
+.page-404 .code { display: block; font-size: 13px; font-weight: 700; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--amber-ink); margin-bottom: 10px; }
+.page-404 p { color: var(--ink); line-height: 1.65; margin: 14px 0 0; }
+.page-404 .retour {
+  display: inline-block; margin-top: 24px; background: var(--amber); color: #fff;
+  font-weight: 700; text-decoration: none; border-radius: 999px; padding: 11px 22px;
+}
+.page-404 .retour:hover { background: color-mix(in srgb, var(--amber) 88%, #000); }
+.page-404 .secondaire { margin-top: 18px; font-size: 14px; }
+.page-404 .secondaire a { color: var(--amber-ink); font-weight: 600; text-decoration: underline; }
+</style>
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#fdfaff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1419" media="(prefers-color-scheme: dark)">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+</head>
+<body>
+
+<header>
+  <!-- Header injecte par js/header.js (source unique). Ancre minimale. -->
+  <div class="wrap nav"></div>
+</header>
+
+<main class="wrap page-404">
+  <div class="plaque">
+    <span class="code">{{CODE}}</span>
+    <h1>{{TITRE}}</h1>
+    <p>{{MESSAGE}}</p>
+    <a class="retour" href="/">← Retour au kiosque</a>
+    <p class="secondaire">Besoin d'aide ? <a href="/forum">Passez par le forum</a>.</p>
+  </div>
+</main>
+
+<!--FOOTER-->
+
+<script src="/js/theme.js"></script>
+<script src="/js/session.js"></script>
+<script src="/js/header.js"></script>
+<script src="/js/pwa.js"></script>
+</body>
+</html>

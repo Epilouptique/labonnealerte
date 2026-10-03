@@ -295,6 +295,41 @@ app.use('/', pagesRouter);
 app.use('/', myAlertsPagesRouter);
 app.use('/', userTasksPagesRouter);
 
+// ─────────────────────────────────────────────────────────────────────────────
+// A3) /favicon.ico : le site ne declare qu'un favicon SVG, mais les navigateurs et
+// de nombreux robots demandent /favicon.ico « à l'aveugle » → 404 à répétition dans
+// les journaux. Redirection permanente vers le SVG (aucun fichier .ico à maintenir).
+app.get('/favicon.ico', (req, res) => res.redirect(301, '/favicon.svg'));
+
+// A2) PAGES ARCHIVÉES → 410 Gone. Decks, collections et boutique ont été retirés
+// (fil #9) : ces adresses ont circulé (partages, favoris, moteurs). 410 dit
+// explicitement « supprimé définitivement » (un 404 laisse croire à une erreur
+// temporaire et les moteurs réessaient longtemps).
+const PREFIXES_SUPPRIMES = [/^\/boutique(\/|$)/, /^\/mes-decks(\/|$)/, /^\/deck(\/|$)/, /^\/collection(\/|$)/];
+
+function pageErreur(res, code, titre, message) {
+  let html = renderPage('404.html');
+  html = html
+    .replace(/\{\{CODE\}\}/g, escHtml(String(code)))
+    .replace(/\{\{TITRE\}\}/g, escHtml(titre))
+    .replace(/\{\{MESSAGE\}\}/g, escHtml(message));
+  res.status(code).type('html').send(html);
+}
+
+app.use((req, res) => {
+  // Les clients de /api/* attendent du JSON : leur renvoyer une page HTML casserait
+  // leur parsing (et masquerait l'erreur réelle côté client).
+  if (req.path === '/api' || req.path.startsWith('/api/')) {
+    return res.status(404).json({ error: 'Ressource introuvable' });
+  }
+  if (PREFIXES_SUPPRIMES.some((re) => re.test(req.path))) {
+    return pageErreur(res, 410, "Cette page n'existe plus",
+      "Cette page n'existe plus. Les alertes qu'elle regroupait restent disponibles depuis le kiosque.");
+  }
+  pageErreur(res, 404, 'Page introuvable',
+    "Cette adresse ne correspond à aucune page du site. Elle a peut-être été mal recopiée.");
+});
+
 app.listen(PORT, () => {
   console.log(`[server] Écoute sur http://localhost:${PORT}`);
   cleanupExpired(); // purge des sessions expirées au démarrage

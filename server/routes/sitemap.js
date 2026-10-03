@@ -42,7 +42,6 @@ const STATIC_PATHS = [
   '/mentions-legales',
   '/confidentialite',
   '/proposer',
-  '/boutique',
 ];
 
 function escXml(s) {
@@ -64,11 +63,11 @@ function urlEntry(pathname, lastmod) {
 
 router.get('/sitemap.xml', async (req, res) => {
   try {
-    const [sources, collections, topics] = await Promise.all([
+    // A1) Les collections/decks et /boutique ont ete ARCHIVES (fil #9) : leurs routes
+    // n'existent plus et les 8 URL correspondantes repondaient 404 dans un sitemap
+    // pourtant soumis aux moteurs. On ne les declare plus du tout.
+    const [sources, topics] = await Promise.all([
       pool.query('SELECT id FROM sources WHERE enabled = true ORDER BY id'),
-      pool.query(`SELECT id FROM collections
-                   WHERE visibility = 'official' AND owner_subscriber_id IS NULL
-                   ORDER BY id`),
       pool.query(`SELECT slug, last_reply_at FROM forum_topics
                    WHERE hidden = false ORDER BY last_reply_at DESC`),
     ]);
@@ -76,7 +75,6 @@ router.get('/sitemap.xml', async (req, res) => {
     const urls = [];
     STATIC_PATHS.forEach((p) => urls.push(urlEntry(p)));
     sources.rows.forEach((r) => urls.push(urlEntry(`/source/${r.id}/statut`)));
-    collections.rows.forEach((r) => urls.push(urlEntry(`/collection/${r.id}`)));
     Object.keys(CATEGORIES).forEach((c) => urls.push(urlEntry(`/forum/c/${c}`)));
     topics.rows.forEach((r) => urls.push(urlEntry(`/forum/t/${r.slug}`, r.last_reply_at)));
 
