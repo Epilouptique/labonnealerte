@@ -615,7 +615,7 @@ router.get('/forum/nouveau', (req, res) => {
        <!-- L'attribut for pointe le champ VISIBLE (#new-tag-search) : #new-tag est devenu
             un input caché, qui ne peut pas recevoir le focus d'un clic sur le libellé.
             (Rappel : on est dans un template literal — aucun accent grave ici.) -->
-       <label class="forum-label" for="new-tag-search">Lier à une source ou un deck <span class="forum-optional">(optionnel)</span></label>
+       <label class="forum-label" for="new-tag-search">Lier à une source <span class="forum-optional">(optionnel)</span></label>
        <!-- COMBOBOX FILTRABLE (~300 cibles : un <select> natif était inutilisable au
             clavier). Filtrage 100 % CLIENT sur /api/forum/taggables, chargé une seule
             fois par /js/forum.js — aucune requête par frappe (contrairement au combobox
@@ -632,7 +632,7 @@ router.get('/forum/nouveau', (req, res) => {
                 autocomplete="off" autocapitalize="off" spellcheck="false">
          <input type="hidden" id="new-tag" value="">
          <ul class="tag-listbox" id="new-tag-listbox" role="listbox"
-             aria-label="Sources et decks" hidden></ul>
+             aria-label="Sources" hidden></ul>
          <div class="tag-status" role="status" aria-live="polite"></div>
        </div>
 
