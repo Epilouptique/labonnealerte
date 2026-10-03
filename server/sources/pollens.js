@@ -84,8 +84,12 @@ async function checkWithParams(paramsList) {
   try {
     ({ byDept } = await getByDept('pollens'));
   } catch (err) {
-    console.warn('[pollens] appel Atmo échoué (' + err.message + ') → inactive.');
-    return combos.map(inactive);
+    // Même correction que qualite-air (fil #9bis) : un échec d'appel n'est PAS une fin
+    // d'épisode. Renvoyer « inactive » faisait écrire 'deactivated' puis re-notifier au
+    // retour du service (fausse oscillation alerte/calme). On propage → 'failed'
+    // (« incident de surveillance »), état précédent conservé, aucun mail aux abonnés.
+    console.warn('[pollens] appel Atmo échoué (' + err.message + ') → incident, état précédent conservé.');
+    throw err;
   }
 
   return combos.map((params) => {

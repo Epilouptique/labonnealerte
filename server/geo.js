@@ -103,7 +103,60 @@ function isValidDepartement(code) { return DEPARTEMENT_CODES.has(code); }
 function isValidRegion(name) { return REGION_NAMES.has(name); }
 function regionFromDept(code) { return DEPT_REGION[code] || null; }
 
+// ── LOCATIF D'UN DÉPARTEMENT (« dans les Hautes-Alpes », « dans le Var », « dans la
+//    Drôme », « dans l'Aisne », « en Haute-Corse », « à Paris ») ────────────────────
+//
+// POURQUOI ICI. Les messages d'alerte géolocalisés écrivaient « dans le ${nom} », juste
+// pour la quinzaine de départements masculins et faux partout ailleurs (« dans le
+// Hautes-Alpes », « dans le Moselle »). Deux sources avaient contourné le problème en
+// mettant le nom du département EN TÊTE, sans article (meteo-forets, pollens) ; c'est
+// une solution acceptable mais elle appauvrit la phrase. L'article français n'est pas
+// devinable depuis le nom, mais il est FINI : 101 départements, une forme chacun. On la
+// déclare donc une fois, au même endroit que le référentiel, plutôt que dans chaque source.
+//
+// FORME DÉCLARÉE : un code par département, d'où la locution est dérivée —
+//   'm' → dans le …   'f' → dans la …   'v' → dans l'… (voyelle ou h muet)   'p' → dans les …
+// Les cas qui ne suivent aucune de ces règles (Paris, Corse, DROM) portent directement
+// leur locution complète. Vérifié département par département.
+const DEPT_LOCATIF_FORME = {
+  '01': 'v', '02': 'v', '03': 'v', '04': 'p', '05': 'p', '06': 'p', '07': 'v', '08': 'p',
+  '09': 'v', '10': 'v', '11': 'v', '12': 'v', '13': 'p', '14': 'm', '15': 'm', '16': 'f',
+  '17': 'f', '18': 'm', '19': 'f', '2A': 'en Corse-du-Sud', '2B': 'en Haute-Corse',
+  '21': 'f', '22': 'p', '23': 'f', '24': 'f', '25': 'm', '26': 'f', '27': 'v', '28': 'v',
+  '29': 'm', '30': 'm', '31': 'f', '32': 'm', '33': 'f', '34': 'v', '35': 'v', '36': 'v',
+  '37': 'v', '38': 'v', '39': 'm', '40': 'p', '41': 'm', '42': 'f', '43': 'f', '44': 'f',
+  '45': 'm', '46': 'm', '47': 'm', '48': 'f', '49': 'm', '50': 'f', '51': 'f', '52': 'f',
+  '53': 'f', '54': 'f', '55': 'f', '56': 'm', '57': 'f', '58': 'f', '59': 'm', '60': 'v',
+  '61': 'v', '62': 'm', '63': 'm', '64': 'p', '65': 'p', '66': 'p', '67': 'm', '68': 'm',
+  '69': 'm', '70': 'f', '71': 'f', '72': 'f', '73': 'f', '74': 'f', '75': 'à Paris',
+  '76': 'f', '77': 'f', '78': 'p', '79': 'p', '80': 'f', '81': 'm', '82': 'm', '83': 'm',
+  '84': 'm', '85': 'f', '86': 'f', '87': 'f', '88': 'p', '89': 'v', '90': 'm', '91': 'v',
+  '92': 'p', '93': 'f', '94': 'm', '95': 'm',
+  '971': 'en Guadeloupe', '972': 'en Martinique', '973': 'en Guyane',
+  '974': 'à La Réunion', '976': 'à Mayotte',
+};
+
+/**
+ * Locution de lieu d'un département, article compris : « dans les Hautes-Alpes »,
+ * « dans le Var », « dans la Drôme », « dans l'Aisne », « en Haute-Corse », « à Paris ».
+ * Code inconnu → repli neutre « dans le département <code> » (jamais de phrase fausse).
+ * @param {string} code code département ('05', '2A', '974'…)
+ * @returns {string}
+ */
+function locatifDepartement(code) {
+  const c = String(code == null ? '' : code).trim().toUpperCase();
+  const forme = DEPT_LOCATIF_FORME[c];
+  const nom = (DEPARTEMENTS.find((d) => d.code === c) || {}).name;
+  if (!forme || !nom) return `dans le département ${c || '?'}`;
+  if (forme === 'm') return `dans le ${nom}`;
+  if (forme === 'f') return `dans la ${nom}`;
+  if (forme === 'v') return `dans l'${nom}`;
+  if (forme === 'p') return `dans les ${nom}`;
+  return forme; // locution complète déjà écrite (Paris, Corse, DROM)
+}
+
 module.exports = {
   COUNTRIES, DEPARTEMENTS, DEPARTEMENTS_WITH_REGION, REGIONS, REGION_DEPTS, DEPT_REGION,
   isValidCountry, isValidDepartement, isValidRegion, regionFromDept,
+  locatifDepartement, DEPT_LOCATIF_FORME,
 };

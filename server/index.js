@@ -40,11 +40,20 @@ app.disable('x-powered-by');
 if (process.env.LOG_CLIENT_IP === '1') {
   const https = require('https');
   const { clientIp } = require('./profile-autofill');
+  const { reserve } = require('./iplocate-quota');
 
   // Résolution IPLocate PONCTUELLE (diagnostic seul, jamais branchée sur l'inscription).
   // Non bloquante : lancée après next(), logguée quand elle répond. Aucune écriture DB.
   // Clé optionnelle via IPLOCATE_APIKEY (comme scripts/test-iplocate.js) ; sinon keyless.
-  function iplocateDiag(ip) {
+  // QUOTA (fil #9bis) : ce diagnostic appelle IPLocate UNE FOIS PAR PAGE HTML SERVIE —
+  // c'est le seul chemin capable d'épuiser à lui seul le budget de 1000 appels/jour (le
+  // pré-remplissage de profil, lui, est borné à une tentative par compte depuis v42).
+  // Chaque appel passe désormais par le compteur journalier, qui le refuse au-delà du
+  // budget et avertit à 80 %. Le diagnostic ayant livré sa réponse (Cloudflare transmet
+  // bien l'IPv6 réelle), le mieux reste de RETIRER LOG_CLIENT_IP des variables Railway :
+  // cf. docs/rotation-identifiants.md.
+  async function iplocateDiag(ip) {
+    if (!(await reserve('ip-geo-diag'))) return;
     const key = process.env.IPLOCATE_APIKEY || '';
     const url = 'https://iplocate.io/api/lookup/' + encodeURIComponent(ip) +
       (key ? '?apikey=' + encodeURIComponent(key) : '');
@@ -85,7 +94,7 @@ if (process.env.LOG_CLIENT_IP === '1') {
     } catch (e) { /* non bloquant */ }
     next();
     // Après next() → ne retarde jamais la réponse. Seulement si une IP publique est retenue.
-    if (ip) { try { iplocateDiag(ip); } catch (e) { /* non bloquant */ } }
+    if (ip) { try { iplocateDiag(ip).catch(() => {}); } catch (e) { /* non bloquant */ } }
   });
 }
 

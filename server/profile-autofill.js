@@ -23,6 +23,7 @@ const geoip = require('geoip-lite');
 const { validateDisplayName } = require('./ugc');
 const { isValidCountry, isValidDepartement, isValidRegion, regionFromDept } = require('./geo');
 const { ensurePseudo } = require('./pseudo');
+const { reserve } = require('./iplocate-quota');
 
 // Dérive un code département FR depuis un code postal (IPLocate le fournit exact).
 //  · Métropole : 2 premiers chiffres (75001→75, 05000→05).
@@ -44,9 +45,13 @@ function departementFromPostal(postal) {
 // Lookup IPLocate best-effort, non bloquant, timeout court. Renvoie l'objet JSON ou null
 // (erreur réseau / timeout / parse). Réutilise le même endpoint que scripts/test-iplocate
 // et le middleware [ip-geo-diag] ; clé optionnelle via IPLOCATE_APIKEY.
-function iplocateLookup(ip, timeoutMs = 2500) {
+async function iplocateLookup(ip, timeoutMs = 2500) {
+  if (!ip) return null;
+  // QUOTA (fil #9bis) : 1000 appels/jour sur le plan utilisé. Chaque appel est compté et
+  // refusé au-delà du budget — un quota épuisé laisse simplement le profil non pré-rempli
+  // (garde « vide > faux » déjà en place), jamais d'erreur dans le flux de connexion.
+  if (!(await reserve('autofill'))) return null;
   return new Promise((resolve) => {
-    if (!ip) return resolve(null);
     const key = process.env.IPLOCATE_APIKEY || '';
     const url = 'https://iplocate.io/api/lookup/' + encodeURIComponent(ip) +
       (key ? '?apikey=' + encodeURIComponent(key) : '');

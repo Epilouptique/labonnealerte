@@ -5,10 +5,13 @@
 //   • query `realm=/partenaire` sur l'endpoint token ;
 //   • scope à confirmer côté portail (api_offresdemploiv2 o2dsoffre) → surchargeable par env.
 //
-// Endpoint token vérifié VIVANT le 21/07/2026 (400 invalid_client sur faux creds). Sans
-// identifiants ou en cas de 401/403 → throw (l'appelant dégrade silencieusement en inactive).
+// Endpoint token vérifié VIVANT le 21/07/2026, re-vérifié le 04/10/2026 (HTTP 400
+// invalid_client sur de faux identifiants). Identifiants absents ou rejetés (400/401/403) →
+// erreur marquée `authFailure` (server/auth-failure.js) que l'appelant PROPAGE : la source
+// passe en « incident de surveillance », elle ne se tait plus. Cf. docs/rotation-identifiants.md.
 
 const fetchFn = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
+const { safeErrorCode, markAuthFailure, logAuthRejection, logAuthMissing } = require('./auth-failure');
 
 const TOKEN_URL = 'https://entreprise.francetravail.fr/connexion/oauth2/access_token?realm=%2Fpartenaire';
 const DEFAULT_SCOPE = 'api_offresdemploiv2 o2dsoffre';
@@ -34,7 +37,9 @@ async function getToken() {
   const id = (process.env.FRANCETRAVAIL_CLIENT_ID || '').trim();
   const secret = (process.env.FRANCETRAVAIL_CLIENT_SECRET || '').trim();
   if (!id || !secret) {
-    throw new Error('FRANCETRAVAIL_CLIENT_ID / FRANCETRAVAIL_CLIENT_SECRET absents de l\'environnement');
+    // Variable vidée par une rotation ratée : même traitement qu'un rejet (incident visible).
+    logAuthMissing('france-travail', ['FRANCETRAVAIL_CLIENT_ID', 'FRANCETRAVAIL_CLIENT_SECRET']);
+    throw markAuthFailure(new Error('FRANCETRAVAIL_CLIENT_ID / FRANCETRAVAIL_CLIENT_SECRET absents de l\'environnement'), 'france-travail');
   }
   const scope = (process.env.FRANCETRAVAIL_SCOPE || DEFAULT_SCOPE).trim();
 
@@ -62,8 +67,20 @@ async function getToken() {
     clearTimeout(timer);
   }
 
+  // ROTATION D'IDENTIFIANTS (fil #9bis) : un rejet du endpoint token est journalisé
+  // EXPLICITEMENT (ligne `[auth][france-travail] IDENTIFIANTS REJETÉS`) et l'erreur est marquée
+  // `authFailure` — les sources la PROPAGENT au lieu de dégrader en « inactive », ce qui
+  // fait apparaître un « incident de surveillance » au lieu de « rien à signaler ».
+  // Seul le CODE d'erreur normalisé du fournisseur est journalisé, jamais le corps brut
+  // ni `error_description` (qui peut contenir l'identifiant), jamais une valeur de secret.
   if (res.status === 400 || res.status === 401 || res.status === 403) {
-    throw new Error(`Identifiants France Travail invalides (HTTP ${res.status}) — vérifier FRANCETRAVAIL_CLIENT_ID / SECRET / SCOPE`);
+    let code = null;
+    try { code = safeErrorCode(await res.text()); } catch (err) { /* corps illisible : statut seul */ }
+    logAuthRejection('france-travail', res.status, code, ['FRANCETRAVAIL_CLIENT_ID', 'FRANCETRAVAIL_CLIENT_SECRET']);
+    throw markAuthFailure(
+      new Error(`Identifiants France Travail rejetés (HTTP ${res.status}${code ? `, ${code}` : ''}) — vérifier FRANCETRAVAIL_CLIENT_ID / FRANCETRAVAIL_CLIENT_SECRET`),
+      'france-travail'
+    );
   }
   if (!res.ok) throw new Error(`Réponse auth France Travail inattendue : ${res.status} ${res.statusText}`);
 

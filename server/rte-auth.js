@@ -2,6 +2,7 @@
 // Le token est mis en cache mémoire et régénéré 5 min avant expiration.
 
 const fetchFn = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
+const { safeErrorCode, markAuthFailure, logAuthRejection, logAuthMissing } = require('./auth-failure');
 
 const TOKEN_URL = 'https://digital.iservices.rte-france.com/token/oauth/';
 const TIMEOUT_MS = 10_000;
@@ -21,7 +22,9 @@ async function getToken() {
   const id = (process.env.RTE_CLIENT_ID || '').trim();
   const secret = (process.env.RTE_CLIENT_SECRET || '').trim();
   if (!id || !secret) {
-    throw new Error('RTE_CLIENT_ID / RTE_CLIENT_SECRET absents de l\'environnement');
+    // Variable vidée par une rotation ratée : même traitement qu'un rejet (incident visible).
+    logAuthMissing('rte', ['RTE_CLIENT_ID', 'RTE_CLIENT_SECRET']);
+    throw markAuthFailure(new Error('RTE_CLIENT_ID / RTE_CLIENT_SECRET absents de l\'environnement'), 'rte');
   }
   const basic = Buffer.from(`${id}:${secret}`).toString('base64');
 
@@ -44,8 +47,24 @@ async function getToken() {
     clearTimeout(timer);
   }
 
-  if (res.status === 401 || res.status === 403) {
-    throw new Error(`Identifiants RTE invalides (HTTP ${res.status}) — vérifier RTE_CLIENT_ID / RTE_CLIENT_SECRET`);
+  // ROTATION D'IDENTIFIANTS (fil #9bis) : un rejet du endpoint token est journalisé
+  // EXPLICITEMENT (ligne `[auth][rte] IDENTIFIANTS REJETÉS`) et l'erreur est marquée
+  // `authFailure` — les sources la PROPAGENT au lieu de dégrader en « inactive », ce qui
+  // fait apparaître un « incident de surveillance » au lieu de « rien à signaler ».
+  // Seul le CODE d'erreur normalisé du fournisseur est journalisé, jamais le corps brut
+  // ni `error_description` (qui peut contenir l'identifiant), jamais une valeur de secret.
+  // 400 INCLUS : vérifié en réel le 04/10/2026 avec des identifiants factices, le portail
+  // RTE répond « 400 Bad Request » (et non 401) à un couple client_id/secret invalide. Sans
+  // ce cas, une rotation RTE ratée serait retombée dans « Réponse auth RTE inattendue »,
+  // donc sans marquage `authFailure` ni ligne [auth] explicite.
+  if (res.status === 400 || res.status === 401 || res.status === 403) {
+    let code = null;
+    try { code = safeErrorCode(await res.text()); } catch (err) { /* corps illisible : statut seul */ }
+    logAuthRejection('rte', res.status, code, ['RTE_CLIENT_ID', 'RTE_CLIENT_SECRET']);
+    throw markAuthFailure(
+      new Error(`Identifiants RTE rejetés (HTTP ${res.status}${code ? `, ${code}` : ''}) — vérifier RTE_CLIENT_ID / RTE_CLIENT_SECRET`),
+      'rte'
+    );
   }
   if (!res.ok) {
     throw new Error(`Réponse auth RTE inattendue : ${res.status} ${res.statusText}`);

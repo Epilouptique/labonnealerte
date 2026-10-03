@@ -4,7 +4,8 @@
 //
 // API Helix (api.twitch.tv), OAuth2 App Access Token via twitch-auth.js. ⚠️ Toute requête Helix
 // exige DEUX en-têtes : Bearer token ET Client-Id. Endpoints vérifiés vivants le 21/07/2026.
-// Sans identifiants (TWITCH_CLIENT_ID/SECRET) → no-op silencieux.
+// Identifiants absents ou rejetés → « incident de surveillance » (cf. server/auth-failure.js
+// et docs/rotation-identifiants.md), jamais un silencieux « rien à signaler ».
 //   GET https://api.twitch.tv/helix/streams?user_login=<a>&user_login=<b>…&first=100
 //   → { data:[ {user_login, user_name, title, game_name, started_at}, … ] }.
 //   Une chaîne PRÉSENTE dans data[] = en direct ; ABSENTE = hors ligne.
@@ -21,6 +22,7 @@
 
 const fetchFn = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 const { getToken, clientId, isConfigured } = require('../twitch-auth');
+const { isAuthFailure, markAuthFailure, logAuthMissing } = require('../auth-failure');
 
 const HELIX = 'https://api.twitch.tv/helix/streams';
 const TIMEOUT_MS = 10_000;
@@ -86,12 +88,28 @@ async function checkWithParams(paramsList) {
   const combos = Array.isArray(paramsList) ? paramsList : [];
   if (combos.length === 0) return [];
 
-  // Sans identifiants → no-op silencieux (prête-à-brancher).
-  if (!isConfigured()) return combos.map((params) => Object.assign({ params }, inactive(normLogin(params && params.chaine))));
+  // Identifiants absents alors qu'au moins un abonnement existe (le poller n'appelle pas
+  // checkWithParams sans combo) : incident visible plutôt que source muette — c'est
+  // l'accident de rotation le plus courant (variable vidée). Cf. fil #9bis.
+  if (!isConfigured()) {
+    logAuthMissing('twitch', ['TWITCH_CLIENT_ID', 'TWITCH_CLIENT_SECRET']);
+    throw markAuthFailure(
+      new Error('Identifiants Twitch absents (TWITCH_CLIENT_ID / TWITCH_CLIENT_SECRET)'),
+      'twitch'
+    );
+  }
 
   let token;
   try { token = await getToken(); }
-  catch (err) { console.warn(`[veille-twitch] auth échouée (${err.message}) → inactive.`); return combos.map((params) => Object.assign({ params }, inactive(normLogin(params && params.chaine)))); }
+  catch (err) {
+    // ROTATION D'IDENTIFIANTS (fil #9bis) : identifiants Twitch rejetés (invalid_client /
+    // 401 / 403) ou variable vidée → on PROPAGE (le poller inscrit un 'failed' =
+    // « incident de surveillance », état précédent conservé, aucun mail aux abonnés).
+    // Panne réseau pure (timeout, 5xx) → ancienne dégradation silencieuse, inchangée.
+    if (isAuthFailure(err)) throw err;
+    console.warn(`[veille-twitch] auth échouée (${err.message}) → inactive.`);
+    return combos.map((params) => Object.assign({ params }, inactive(normLogin(params && params.chaine))));
+  }
 
   const now = Date.now();
 

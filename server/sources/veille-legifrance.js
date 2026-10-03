@@ -3,7 +3,8 @@
 // (rediffusion cohérente avec la Licence Ouverte : titre, nature, date, lien officiel).
 //
 // API Légifrance via PISTE (PRODUCTION), OAuth2 client_credentials (legifrance-auth.js).
-// Sans identifiants → no-op silencieux.
+// Identifiants absents ou rejetés → « incident de surveillance » (cf. server/auth-failure.js
+// et docs/rotation-identifiants.md), jamais un silencieux « rien à signaler ».
 //
 // ── STRATÉGIE DE QUOTA : UN SEUL APPEL GLOBAL + FILTRAGE LOCAL ────────────────
 // On ne fait PAS un appel par mot-clé. Une fois par cycle, on récupère le LOT du jour du
@@ -25,6 +26,7 @@
 
 const fetchFn = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 const { getToken, isConfigured } = require('../legifrance-auth');
+const { isAuthFailure, markAuthFailure, logAuthMissing } = require('../auth-failure');
 
 const BASE = 'https://api.piste.gouv.fr/dila/legifrance/lf-engine-app';
 const PUBLIC_URL = 'https://www.legifrance.gouv.fr/jorf/jo';
@@ -143,11 +145,29 @@ async function checkWithParams(paramsList) {
   const combos = Array.isArray(paramsList) ? paramsList : [];
   if (combos.length === 0) return [];
 
-  if (!isConfigured()) return combos.map((params) => Object.assign({ params }, inactive()));
+  // Identifiants absents alors qu'au moins un abonnement existe (le poller n'appelle pas
+  // checkWithParams sans combo) : incident visible plutôt que source muette — c'est
+  // l'accident de rotation le plus courant (variable vidée). Cf. fil #9bis.
+  if (!isConfigured()) {
+    logAuthMissing('piste-legifrance', ['LEGIFRANCE_CLIENT_ID', 'LEGIFRANCE_CLIENT_SECRET']);
+    throw markAuthFailure(
+      new Error('Identifiants PISTE absents (LEGIFRANCE_CLIENT_ID / LEGIFRANCE_CLIENT_SECRET)'),
+      'piste-legifrance'
+    );
+  }
 
   let token;
   try { token = await getToken(); }
-  catch (err) { console.warn(`[veille-legifrance] auth échouée (${err.message}) → inactive.`); return combos.map((params) => Object.assign({ params }, inactive())); }
+  catch (err) {
+    // ROTATION D'IDENTIFIANTS (fil #9bis) : identifiants PISTE rejetés (invalid_client /
+    // 401 / 403) ou variable vidée → on PROPAGE pour que le poller inscrive un 'failed'
+    // (« incident de surveillance »), au lieu d'un « rien à signaler » trompeur. L'état
+    // précédent est conservé et aucun mail ne part aux abonnés. Panne réseau pure
+    // (timeout, 5xx) → ancienne dégradation silencieuse, inchangée.
+    if (isAuthFailure(err)) throw err;
+    console.warn(`[veille-legifrance] auth échouée (${err.message}) → inactive.`);
+    return combos.map((params) => Object.assign({ params }, inactive()));
+  }
 
   // UN SEUL appel global (mutualisé, mis en cache) pour TOUS les combos.
   const now = Date.now();

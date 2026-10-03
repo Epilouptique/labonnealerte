@@ -20,6 +20,7 @@
 // Sans identifiants ou en cas de 400/401/403 → throw (l'appelant dégrade en inactive).
 
 const fetchFn = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
+const { safeErrorCode, markAuthFailure, logAuthRejection, logAuthMissing } = require('./auth-failure');
 
 const TOKEN_URL = 'https://oauth.piste.gouv.fr/api/oauth/token';
 const DEFAULT_SCOPE = 'openid'; // scope Légifrance via PISTE — surchargeable si le portail en exige un autre
@@ -44,7 +45,9 @@ async function getToken() {
   const id = (process.env.LEGIFRANCE_CLIENT_ID || '').trim();
   const secret = (process.env.LEGIFRANCE_CLIENT_SECRET || '').trim();
   if (!id || !secret) {
-    throw new Error('LEGIFRANCE_CLIENT_ID / LEGIFRANCE_CLIENT_SECRET absents de l\'environnement');
+    // Variable vidée par une rotation ratée : même traitement qu'un rejet (incident visible).
+    logAuthMissing('piste-legifrance', ['LEGIFRANCE_CLIENT_ID', 'LEGIFRANCE_CLIENT_SECRET']);
+    throw markAuthFailure(new Error('LEGIFRANCE_CLIENT_ID / LEGIFRANCE_CLIENT_SECRET absents de l\'environnement'), 'piste-legifrance');
   }
   const scope = (process.env.LEGIFRANCE_SCOPE || DEFAULT_SCOPE).trim();
 
@@ -72,8 +75,20 @@ async function getToken() {
     clearTimeout(timer);
   }
 
+  // ROTATION D'IDENTIFIANTS (fil #9bis) : un rejet du endpoint token est journalisé
+  // EXPLICITEMENT (ligne `[auth][piste-legifrance] IDENTIFIANTS REJETÉS`) et l'erreur est marquée
+  // `authFailure` — les sources la PROPAGENT au lieu de dégrader en « inactive », ce qui
+  // fait apparaître un « incident de surveillance » au lieu de « rien à signaler ».
+  // Seul le CODE d'erreur normalisé du fournisseur est journalisé, jamais le corps brut
+  // ni `error_description` (qui peut contenir l'identifiant), jamais une valeur de secret.
   if (res.status === 400 || res.status === 401 || res.status === 403) {
-    throw new Error(`Identifiants PISTE invalides (HTTP ${res.status}) — vérifier LEGIFRANCE_CLIENT_ID / SECRET / SCOPE`);
+    let code = null;
+    try { code = safeErrorCode(await res.text()); } catch (err) { /* corps illisible : statut seul */ }
+    logAuthRejection('piste-legifrance', res.status, code, ['LEGIFRANCE_CLIENT_ID', 'LEGIFRANCE_CLIENT_SECRET']);
+    throw markAuthFailure(
+      new Error(`Identifiants PISTE rejetés (HTTP ${res.status}${code ? `, ${code}` : ''}) — vérifier LEGIFRANCE_CLIENT_ID / LEGIFRANCE_CLIENT_SECRET`),
+      'piste-legifrance'
+    );
   }
   if (!res.ok) throw new Error(`Réponse auth PISTE inattendue : ${res.status} ${res.statusText}`);
 

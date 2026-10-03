@@ -10,14 +10,14 @@
 // 6 extrêmement mauvais. Seuil d'alerte = 4.
 
 const { getByDept } = require('./lib/atmo-connector');
-const { DEPARTEMENTS } = require('../geo');
+const { DEPARTEMENTS, locatifDepartement } = require('../geo');
 
 const PUBLIC_URL = 'https://www.atmo-france.org/';
 const SEUIL = 4;
 const LABEL = { 4: 'mauvaise', 5: 'très mauvaise', 6: 'extrêmement mauvaise' };
 
-const NAME = {};
-DEPARTEMENTS.forEach((d) => { NAME[d.code] = d.name; });
+// (Le nom seul n'est plus utilisé dans le message : locatifDepartement() fournit la
+//  locution complète, article compris. DEPARTEMENTS reste nécessaire pour l'enum.)
 
 const paramsSchema = [
   {
@@ -43,22 +43,34 @@ async function checkWithParams(paramsList) {
   try {
     ({ byDept } = await getByDept('air'));
   } catch (err) {
-    // Échec réseau / structure changée → inactive silencieux (jamais de fausse alerte).
-    console.warn('[qualite-air] appel Atmo échoué (' + err.message + ') → inactive.');
-    return combos.map(inactive);
+    // OSCILLATION ALERTE/CALME (fil #9bis, constat des 24-25/07/2026). Cette branche
+    // renvoyait « inactive » pour TOUS les abonnés dès que l'appel Atmo échouait — or
+    // « inactive » n'est pas « je ne sais pas » : le poller y voit la fin de l'épisode,
+    // écrit l'état, journalise 'deactivated', puis ré-active (et RE-NOTIFIE) au cycle
+    // suivant dès que l'appel repasse. Un incident technique produisait donc une fausse
+    // fin d'alerte. On PROPAGE désormais l'erreur : le poller enregistre un 'failed'
+    // (« incident de surveillance », dédupliqué à 1/h, aucun mail aux abonnés) et LAISSE
+    // l'état précédent intact — c'est la seule hystérésis dont cette source a besoin, et
+    // elle ne touche pas au seuil ATMO (inchangé à 4/6).
+    console.warn('[qualite-air] appel Atmo échoué (' + err.message + ') → incident, état précédent conservé.');
+    throw err;
   }
 
   return combos.map((params) => {
     const dep = String((params && params.departement) || '');
     const q = byDept[dep] || 0;
     if (q < SEUIL) return inactive(params);
-    const nom = NAME[dep] || ('département ' + dep);
+    // Locution de lieu AVEC L'ARTICLE DU DÉPARTEMENT (geo.js) : « dans les Hautes-Alpes »,
+    // « dans le Var », « dans la Drôme », « dans l'Aisne », « en Haute-Corse », « à Paris ».
+    // Le message disait « dans le ${nom} », faux pour la grande majorité des 101
+    // départements (« dans le Hautes-Alpes » — constaté en production le 24/07/2026).
+    const lieu = locatifDepartement(dep);
     return {
       params,
       state: 'active',
       since: new Date(),
       until: null,
-      message: `😷 Qualité de l'air ${LABEL[q] || 'mauvaise'} dans le ${nom} (indice ATMO ${q}/6) — limitez les activités physiques intenses en extérieur, personnes sensibles prudentes. Source : Atmo France / AASQA.`,
+      message: `😷 Qualité de l'air ${LABEL[q] || 'mauvaise'} ${lieu} (indice ATMO ${q}/6) — limitez les activités physiques intenses en extérieur, personnes sensibles prudentes. Source : Atmo France / AASQA.`,
       url: PUBLIC_URL,
     };
   });

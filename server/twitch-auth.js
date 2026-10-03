@@ -8,6 +8,7 @@
 // « invalid client » sur faux creds). Sans identifiants → throw (l'appelant no-op inactive).
 
 const fetchFn = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
+const { safeErrorCode, markAuthFailure, logAuthRejection, logAuthMissing } = require('./auth-failure');
 
 const TOKEN_URL = 'https://id.twitch.tv/oauth2/token';
 const TIMEOUT_MS = 10_000;
@@ -30,7 +31,9 @@ async function getToken() {
   const id = clientId();
   const secret = (process.env.TWITCH_CLIENT_SECRET || '').trim();
   if (!id || !secret) {
-    throw new Error('TWITCH_CLIENT_ID / TWITCH_CLIENT_SECRET absents de l\'environnement');
+    // Variable vidée par une rotation ratée : même traitement qu'un rejet (incident visible).
+    logAuthMissing('twitch', ['TWITCH_CLIENT_ID', 'TWITCH_CLIENT_SECRET']);
+    throw markAuthFailure(new Error('TWITCH_CLIENT_ID / TWITCH_CLIENT_SECRET absents de l\'environnement'), 'twitch');
   }
 
   const body = new URLSearchParams({
@@ -56,8 +59,20 @@ async function getToken() {
     clearTimeout(timer);
   }
 
+  // ROTATION D'IDENTIFIANTS (fil #9bis) : un rejet du endpoint token est journalisé
+  // EXPLICITEMENT (ligne `[auth][twitch] IDENTIFIANTS REJETÉS`) et l'erreur est marquée
+  // `authFailure` — les sources la PROPAGENT au lieu de dégrader en « inactive », ce qui
+  // fait apparaître un « incident de surveillance » au lieu de « rien à signaler ».
+  // Seul le CODE d'erreur normalisé du fournisseur est journalisé, jamais le corps brut
+  // ni `error_description` (qui peut contenir l'identifiant), jamais une valeur de secret.
   if (res.status === 400 || res.status === 401 || res.status === 403) {
-    throw new Error(`Identifiants Twitch invalides (HTTP ${res.status}) — vérifier TWITCH_CLIENT_ID / SECRET`);
+    let code = null;
+    try { code = safeErrorCode(await res.text()); } catch (err) { /* corps illisible : statut seul */ }
+    logAuthRejection('twitch', res.status, code, ['TWITCH_CLIENT_ID', 'TWITCH_CLIENT_SECRET']);
+    throw markAuthFailure(
+      new Error(`Identifiants Twitch rejetés (HTTP ${res.status}${code ? `, ${code}` : ''}) — vérifier TWITCH_CLIENT_ID / TWITCH_CLIENT_SECRET`),
+      'twitch'
+    );
   }
   if (!res.ok) throw new Error(`Réponse auth Twitch inattendue : ${res.status} ${res.statusText}`);
 

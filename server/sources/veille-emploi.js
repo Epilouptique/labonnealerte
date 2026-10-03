@@ -5,7 +5,9 @@
 //
 // API officielle « Offres d'emploi v2 » (api.francetravail.io), OAuth2 client_credentials via
 // francetravail-auth.js (token mutualisé, renouvelé 5 min avant expiration). Endpoints vérifiés
-// vivants le 21/07/2026. Sans identifiants (FRANCETRAVAIL_CLIENT_ID/SECRET) → no-op silencieux.
+// vivants le 21/07/2026. Identifiants absents ou REJETÉS (rotation annuelle France Travail à
+// partir d'octobre 2026) → « incident de surveillance », jamais un silencieux « rien à
+// signaler » (cf. server/auth-failure.js et docs/rotation-identifiants.md).
 //   GET .../partenaire/offresdemploi/v2/offres/search?motsCles=<kw>&departement=<code>&sort=1
 //     → 200 { resultats:[ {id, intitule, dateActualisation, lieuTravail:{libelle}, entreprise:{nom},
 //        typeContratLibelle, origineOffre:{urlOrigine} }, … ] } ; 204 = aucun résultat.
@@ -25,6 +27,7 @@
 
 const fetchFn = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 const { getToken, isConfigured } = require('../francetravail-auth');
+const { isAuthFailure, markAuthFailure, logAuthMissing } = require('../auth-failure');
 const { DEPARTEMENTS } = require('../geo');
 
 const SEARCH = 'https://api.francetravail.io/partenaire/offresdemploi/v2/offres/search';
@@ -148,14 +151,31 @@ async function checkWithParams(paramsList) {
   const combos = Array.isArray(paramsList) ? paramsList : [];
   if (combos.length === 0) return [];
 
-  // Sans identifiants → no-op silencieux (prête-à-brancher, comme meteo-forets).
+  // Sans identifiants : ce n'est plus un no-op silencieux (fil #9bis). On n'arrive ici que
+  // si au moins UN abonnement existe (le poller n'appelle pas checkWithParams sans combo) :
+  // une variable absente ou vidée — l'accident de rotation le plus courant — rendrait donc
+  // la source muette alors que quelqu'un l'attend. On lève une erreur marquée `authFailure`
+  // → événement 'failed' = « incident de surveillance », aucun mail aux abonnés.
   if (!isConfigured()) {
-    return combos.map((params) => Object.assign({ params }, inactive()));
+    logAuthMissing('france-travail', ['FRANCETRAVAIL_CLIENT_ID', 'FRANCETRAVAIL_CLIENT_SECRET']);
+    throw markAuthFailure(
+      new Error('Identifiants France Travail absents (FRANCETRAVAIL_CLIENT_ID / FRANCETRAVAIL_CLIENT_SECRET)'),
+      'france-travail'
+    );
   }
 
   let token;
   try { token = await getToken(); }
   catch (err) {
+    // ROTATION D'IDENTIFIANTS (fil #9bis) : France Travail renouvelle automatiquement
+    // Client ID et Client Secret chaque année (à partir d'octobre 2026). Un rejet du
+    // endpoint token (invalid_client / 401 / 403) ou une variable vidée est PROPAGÉ :
+    // le poller enregistre alors un événement 'failed' → « incident de surveillance »
+    // sur la page statut et dans le tableau de veille, et l'état précédent est conservé
+    // (pas de fausse désactivation). Aucun mail aux abonnés ('failed' ne notifie jamais).
+    // Une panne purement RÉSEAU (timeout, 5xx) garde l'ancienne dégradation silencieuse :
+    // elle n'indique rien sur les identifiants et se résorbe seule au cycle suivant.
+    if (isAuthFailure(err)) throw err;
     console.warn(`[veille-emploi] auth échouée (${err.message}) → inactive.`);
     return combos.map((params) => Object.assign({ params }, inactive()));
   }
