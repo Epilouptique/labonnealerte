@@ -1603,6 +1603,15 @@ html[data-theme="dark"] body::before { filter: brightness(.34) saturate(.9); }
   background: color-mix(in srgb, var(--surface) 94%, var(--amber));
   overflow-y: auto;
 }
+/* K2) La face des échéances est en position absolue : elle ne pouvait pas dépasser la
+   hauteur du recto, si bien qu'à partir de ~5 tâches une seule et demie était visible et
+   le bouton « C'est fait » tombait hors cadre. On autorise la CARTE à grandir quand cette
+   face est ouverte (jusqu'à 460 px), au-delà la liste défile DANS la face. Le masonry est
+   re-mesuré après l'ouverture (site.js appelle LBAViewCompare.remeasure). */
+.card.face-task .card-inner { min-height: min(460px, 78vh); }
+.card.face-task .card-task-face { overflow: hidden; display: flex; flex-direction: column; }
+/* Seule la LISTE défile : le titre et « + une autre tâche » restent visibles sans défiler. */
+.card.face-task .card-task-face .task-zone { overflow-y: auto; min-height: 0; flex: 1 1 auto; }
 .card.face-task .card-back { display: none; }
 .card:not(.face-task) .card-task-face { display: none; }
 .tf-title { font-size: 14px; font-weight: 700; padding-right: 30px; color: var(--ink); }
@@ -1611,13 +1620,35 @@ html[data-theme="dark"] body::before { filter: brightness(.34) saturate(.9); }
    vignettes doivent tenir ENTIÈREMENT dans la hauteur de la carte, large (~232px) comme
    ultra (~150px) : 5 colonnes × 2 rangées, gaps/paddings/icônes/libellés resserrés, et
    overflow HIDDEN sur cette face (plus de barre de défilement). */
+/* K1) La grille s'ÉTALE désormais sur toute la largeur de la face (plus de max-width qui
+   la tassait à gauche), avec des icônes à 22 px et des libellés à 11 px — les 8,5 px
+   précédents n'étaient pas lisibles. Toujours aucun défilement (overflow: hidden).
+   · carte LARGE : une seule rangée de 9 (la largeur le permet largement) ;
+   · carte ULTRA (320 px) : 5 colonnes sur 2 rangées, qui tiennent dans les 150 px. */
 .card-share-face { gap: 6px; overflow: hidden; }
 .card-share-face .share-face-title { font-size: 12.5px; }
-.card-share-face .share-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2px;
-  max-width: 340px; } /* bloc compact : sur la carte LARGE (820px) les 5 colonnes ne s'étalent pas */
-.card-share-face .share-opt { padding: 3px 1px; border-radius: 9px; gap: 2px; }
-.card-share-face .share-ic svg { width: 17px; height: 17px; }
-.card-share-face .share-lbl { font-size: 8.5px; line-height: 1.1; }
+.card-share-face .share-grid {
+  grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 4px;
+  max-width: none; width: 100%;
+}
+.card-share-face .share-opt { padding: 6px 2px; border-radius: 10px; gap: 3px; }
+.card-share-face .share-ic svg { width: 22px; height: 22px; }
+.card-share-face .share-lbl { font-size: 11px; line-height: 1.15; }
+/* K1) Carte ULTRA : 2 rangees d icones 22px + libelles 11px ne tiennent pas dans 150px.
+   Plutot que de re-miniaturiser le texte (le defaut qu on corrige), la carte GRANDIT le
+   temps que la face partage est ouverte - meme principe que la face des echeances. */
+#grid[data-view-mode="mixte"] > .card.vc-side.face-share .card-inner,
+#grid[data-view-mode="ultra"] > .card.face-share .card-inner { min-height: 215px; }
+/* Cartes étroites (colonne ultra du mixte, mode ultra, mobile) : 5 colonnes, 2 rangées. */
+#grid[data-view-mode="mixte"] > .card.vc-side .card-share-face .share-grid,
+#grid[data-view-mode="ultra"] .card-share-face .share-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 3px;
+}
+#grid[data-view-mode="mixte"] > .card.vc-side .card-share-face .share-opt,
+#grid[data-view-mode="ultra"] .card-share-face .share-opt { padding: 4px 1px; }
+@media (max-width: 620px) {
+  .card-share-face .share-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+}
 
 /* Volet B : le badge-icône suit le titre sans jamais le pousser hors flux.
    min-width:0 laisse le titre rétrécir dans sa colonne (garde-fou « vie locale ») ;

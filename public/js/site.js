@@ -150,6 +150,8 @@
       faceGrid.dataset.filled = '1';
     }
     card.classList.add('flipped', 'face-share');
+      // K1) La face partage agrandit la carte ultra : on re-mesure le masonry.
+      if (window.LBAViewCompare && LBAViewCompare.remeasure) requestAnimationFrame(function () { LBAViewCompare.remeasure(); });
   });
 
   /* ---------------- A1) « J'aime » (likes) ---------------- */
@@ -771,6 +773,11 @@
     // Même geste que openDeckFace : rotation + désignation de la face arrière visible.
     card.classList.remove('face-share', 'face-deck');
     card.classList.add('flipped', 'face-task');
+    // K2) Cette face peut faire GRANDIR la carte (jusqu a 460px) : le span masonry
+    //     calcule avant ouverture est perime -> on re-mesure juste apres le reflow.
+    if (window.LBAViewCompare && LBAViewCompare.remeasure) {
+      requestAnimationFrame(function () { LBAViewCompare.remeasure(); });
+    }
   });
 
   /* ---- V3 · suppression d'une tâche (croix) ----

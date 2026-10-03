@@ -239,9 +239,24 @@
     var after = rects(cards);
     card.classList.add('vc-moving');
     var running = 0;
+    // K3) .vc-moving porte z-index:6 : laissée en place, la carte reste au-dessus de ses
+    // voisines et intercepte les clics. Elle n'était retirée que par onfinish/oncancel —
+    // or dans un onglet en ARRIÈRE-PLAN les animations peuvent ne jamais se terminer
+    // (constaté : classe encore présente après 7 s). Filet de sécurité : un minuteur
+    // indépendant nettoie dans tous les cas, et toute sortie passe par finir().
+    var secours = null;
+    var fini = false;
+    var finir = function () {
+      if (fini) return;
+      fini = true;
+      if (secours) { clearTimeout(secours); secours = null; }
+      card.classList.remove('vc-moving');
+      scheduleMeasure();
+    };
+    secours = setTimeout(finir, DUR + 400);
     var endOne = function () {
       running--;
-      if (running <= 0) { card.classList.remove('vc-moving'); scheduleMeasure(); } // (d)
+      if (running <= 0) finir();   // (d)
     };
     cards.forEach(function (c, i) {
       var a = before[i], b = after[i];
@@ -262,7 +277,7 @@
       var fin = function () { endOne(); };
       anim.onfinish = fin; anim.oncancel = fin;
     });
-    if (running === 0) { card.classList.remove('vc-moving'); scheduleMeasure(); }
+    if (running === 0) finir();
   }
 
   function onDocClickMixte(e) {
