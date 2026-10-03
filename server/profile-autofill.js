@@ -21,7 +21,7 @@
 const https = require('https');
 const geoip = require('geoip-lite');
 const { validateDisplayName } = require('./ugc');
-const { isValidCountry, isValidDepartement } = require('./geo');
+const { isValidCountry, isValidDepartement, isValidRegion, regionFromDept } = require('./geo');
 const { ensurePseudo } = require('./pseudo');
 
 // Dérive un code département FR depuis un code postal (IPLocate le fournit exact).
@@ -233,6 +233,22 @@ async function applyAutofill(pool, subscriberId, ctx) {
     const fillVille = row.ville == null && row.ville_source == null;
     if ((fillDept || fillReg || fillVille) && effectiveCountry === 'FR' && ctx && ctx.ip) {
       const geo = await geoFromIp(ctx.ip);
+      // CAUSE RACINE DU BUG « région/département qui changent seuls » (fil #9bis) :
+      // tant qu'un champ restait NULL (typiquement departement, qu'IPLocate ne résout pas
+      // toujours), la condition d'appel de myalerts.js restait vraie et un NOUVEAU
+      // lookup IPLocate partait À CHAQUE chargement du dashboard — depuis des IP
+      // différentes (mobile/VPN/IPv4 vs IPv6). Chaque visite pouvait donc renseigner UN
+      // champ de plus avec une géolocalisation d'une AUTRE session : d'où le profil
+      // incohérent constaté (région Hauts-de-France + ville Gap).
+      // Correctif : la région déduite est contrôlée contre le référentiel ET dérivée du
+      // département quand il est connu (un département n'appartient qu'à une région) ;
+      // et toute tentative infructueuse est MARQUÉE ('auto-none') pour ne jamais être
+      // rejouée. Aucune valeur existante n'est écrasée (garde-fou IS NULL conservé).
+      if (geo.departement && regionFromDept(geo.departement)) {
+        geo.region = regionFromDept(geo.departement);
+      } else if (geo.region && !isValidRegion(geo.region)) {
+        geo.region = null;   // subdivision IPLocate hors référentiel → on préfère NULL
+      }
       if (fillDept && geo.departement) {
         await pool.query(
           "UPDATE subscribers SET departement = $1, departement_source = 'auto' WHERE id = $2 AND departement IS NULL AND departement_source IS NULL",
@@ -249,6 +265,28 @@ async function applyAutofill(pool, subscriberId, ctx) {
         await pool.query(
           "UPDATE subscribers SET ville = $1, ville_source = 'auto' WHERE id = $2 AND ville IS NULL AND ville_source IS NULL",
           [geo.ville, subscriberId]
+        );
+      }
+      // Tentative FAITE mais infructueuse → on l'enregistre ('auto-none', valeur laissée
+      // NULL) : sans cette trace, le champ restait NULL + source NULL et relançait un
+      // lookup à chaque visite. L'utilisateur garde la main (une saisie manuelle écrit
+      // 'manual'), et 'auto-none' n'est jamais affiché nulle part.
+      if (fillDept && !geo.departement) {
+        await pool.query(
+          "UPDATE subscribers SET departement_source = 'auto-none' WHERE id = $1 AND departement IS NULL AND departement_source IS NULL",
+          [subscriberId]
+        );
+      }
+      if (fillReg && !geo.region) {
+        await pool.query(
+          "UPDATE subscribers SET region_source = 'auto-none' WHERE id = $1 AND region IS NULL AND region_source IS NULL",
+          [subscriberId]
+        );
+      }
+      if (fillVille && !geo.ville) {
+        await pool.query(
+          "UPDATE subscribers SET ville_source = 'auto-none' WHERE id = $1 AND ville IS NULL AND ville_source IS NULL",
+          [subscriberId]
         );
       }
     }

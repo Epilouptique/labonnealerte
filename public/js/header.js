@@ -43,7 +43,7 @@
   var HEART_HTML = icon2('hd-ic-heart', HEART_PATH);
   // « Mes alertes » : cloche seule (plus de libellé texte). Le KPI du header vient s'y
   // superposer en pastille de notification (voir mobile-header.js + site.css).
-  var MINE_LINK_HTML = '<a class="mine-link hd-link" href="/connexion" aria-label="Mes alertes" title="Mes alertes">' + BELL_HTML + '</a>';
+  var MINE_LINK_HTML = '<a class="mine-link hd-link" href="/connexion" aria-label="Mes alertes actives" title="Mes alertes actives">' + BELL_HTML + '</a>';
   // Boutique de skins : ARCHIVÉE (fil #9, 12/09/2026) — plus de lien sac/boutique.
   // ❤ : la page /favoris est remplacée par un FILTRE du kiosque (?mode=favoris, intercepté
   // sur place par site.js/bindFavLinks). Seule la destination change, l'apparence est intacte.
@@ -391,6 +391,10 @@
 
   function buildCatRail() {
     if (document.body.classList.contains('dev')) return; // espace développeurs : inchangé
+    // E5) Pages FORUM : le rail de catégories du kiosque n'a aucun rapport avec le forum
+    //     (ses catégories sont les 5 rubriques de discussion) → on ne le construit pas.
+    //     Le retour au kiosque reste assuré par le logo et le fil d'Ariane du forum.
+    if (/^/forum(/|$)/.test(location.pathname)) return;
     if (nav.querySelector('.toolbar')) return;
 
     var toolbar = elFrom('<div class="toolbar"><div class="chips" id="chips" role="group" aria-label="Filtrer par catégorie"></div></div>');

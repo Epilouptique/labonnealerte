@@ -10,7 +10,7 @@ const crypto = require('crypto');
 const { pool } = require('../db');
 const { sendMagicLink } = require('../mailer');
 const { authenticate, deleteSession } = require('../sessions');
-const { isValidCountry, isValidDepartement } = require('../geo');
+const { isValidCountry, isValidDepartement, isValidRegion, regionFromDept } = require('../geo');
 const { VALID_SLUGS } = require('../categories');
 const { validateParams, resolveLabel } = require('../params');
 const { resolveCommuneInsee, isInsee, resolveCommuneCoords, encodeCoords, isEncodedCoords } = require('../sources/lib/commune-insee');
@@ -231,6 +231,7 @@ apiRouter.get('/my-alerts', async (req, res) => {
     // Préférences : email activé, appareils push, et personnalisation d'affichage.
     const pPrefs = pool.query(
       `SELECT s.email_enabled, s.country, s.departement, s.region, s.ville, s.interests, s.display_name, s.pseudo,
+              s.departement_source, s.region_source, s.ville_source, s.country_source,
               s.points_balance, s.leaderboard_optout, s.quiet_start, s.quiet_end, s.quiet_disabled, s.view_mode,
               s.hide_community_reports,
               (SELECT asset_ref FROM skins WHERE id = s.equipped_dashboard_skin_id) AS dashboard_skin,
@@ -301,7 +302,14 @@ apiRouter.get('/my-alerts', async (req, res) => {
     // Élargi aux granularités géo : un champ jamais touché (source NULL) peut être
     // pré-rempli. applyAutofill garde-fou n'écrit QUE les champs NULL & source NULL, donc
     // un champ vidé manuellement n'est pas re-rempli, et cet appel reste idempotent.
-    if (pr.display_name == null || pr.country == null || pr.departement == null || pr.region == null || pr.ville == null) {
+    // G4) Déclencheur : « jamais TENTÉ » et non « encore vide ». Un champ qu'IPLocate ne
+    // sait pas résoudre reste NULL pour toujours ; avec l'ancienne condition (valeur NULL)
+    // un nouveau lookup partait à CHAQUE chargement et remplissait les champs par morceaux,
+    // depuis des IP différentes — c'est l'origine du profil incohérent. Une fois la
+    // tentative marquée ('auto' ou 'auto-none'), elle n'est plus rejouée.
+    const jamaisTente = pr.country_source == null || pr.departement_source == null ||
+      pr.region_source == null || pr.ville_source == null;
+    if (pr.display_name == null || jamaisTente) {
       await applyAutofill(pool, auth.id, { nameHint: deriveDisplayNameFromEmail(auth.email), ip: clientIp(req) });
       // `pseudo` est relu ici aussi : applyAutofill le pose en même temps que le
       // display_name (ensurePseudo), il serait sinon null au tout premier chargement.
@@ -466,6 +474,15 @@ apiRouter.post('/my-alerts/profile', async (req, res) => {
   }
   let region = cleanText(body.region);
   let ville = cleanText(body.ville);
+  // G4) COHÉRENCE : un département n'appartient qu'à une région → quand il est renseigné,
+  // c'est LUI qui fait foi (le front envoyait une région libre issue d'IPLocate, qui
+  // pouvait contredire le département et vider la liste des départements à l'affichage).
+  // Sans département, une région hors référentiel (server/geo.js) est refusée plutôt que
+  // stockée telle quelle : la convention du projet veut une valeur = nom exact de geo.js.
+  if (country === 'FR') {
+    if (departement) region = regionFromDept(departement) || region;
+    else if (region && !isValidRegion(region)) region = null;
+  }
 
   // interests : sous-ensemble des slugs de catégories existants (dédupliqué).
   let interests = Array.isArray(body.interests) ? body.interests : [];

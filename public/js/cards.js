@@ -41,9 +41,9 @@
 
   function stateFor(state) {
     if (state === 'active') {
-      return '<div class="state active" title="Active"><span class="dot-live"></span></div>';
+      return '<div class="state active" role="img" aria-label="Active" title="Active"><span class="dot-live"></span></div>';
     }
-    return '<div class="state idle" title="Rien à signaler"><span class="dot-idle"></span></div>';
+    return '<div class="state idle" role="img" aria-label="Rien à signaler" title="Rien à signaler"><span class="dot-idle"></span></div>';
   }
 
   function domainOf(url) {
@@ -268,7 +268,10 @@
     var pat = schema.pattern ? ' pattern="' + esc(schema.pattern) + '"' : '';
     var val = def != null ? ' value="' + esc(def) + '"' : '';
     var optIn = schema.required === false ? ' data-optional="1"' : '';
-    return '<input class="param-input" type="' + type + '" data-key="' + esc(schema.key) + '"' +
+    var visLabel = schema.label
+      ? '<span class="param-field-label">' + esc(schema.label) + '</span>' : '';
+    return visLabel +
+      '<input class="param-input" type="' + type + '" data-key="' + esc(schema.key) + '"' +
       ph + pat + val + optIn + ' aria-label="' + esc(schema.label) + '">';
   }
 
@@ -601,7 +604,7 @@
       // (switchRow/toggleConnected, POST /api/my-alerts/toggle) EST la matérialisation
       // de « être alerté ». Vocabulaire neutre .state.task, même raison que 'user-task' :
       // ce n'est pas une alerte en cours, pas de sens à animer le motif full-art .state.active.
-      state = '<div class="state task" title="Rien à signaler"><span class="dot-idle"></span></div>';
+      state = '<div class="state task" role="img" aria-label="Tâche suivie, rien à signaler" title="Tâche suivie, rien à signaler"><span class="dot-idle"></span></div>';
       // MÊME STRUCTURE DE RECTO que 'user-task' : bloc d'action (bouton, style
       // « + configurer ») PUIS switch, tous deux sur le recto. Le bouton « Signaler »
       // réutilise LA MÊME classe .task-config que 'user-task' (+ .community-config en

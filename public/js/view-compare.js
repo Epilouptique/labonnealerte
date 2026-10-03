@@ -83,6 +83,13 @@
   // animations d'entrée/sortie des cartes de site.js (.card-enter/.card-leave, ~210-250 ms)
   // se terminent. Sans cette 2e passe, un span peut être calculé pendant qu'une carte est
   // encore en cours d'apparition → span légèrement sous-évalué → léger chevauchement.
+  // B) Mobile : le visuel mixte retombe en FLUX SIMPLE 1 colonne (CSS), donc tout placement
+  //    en rangées de 8px doit DISPARAÎTRE — un span résiduel réserverait de la hauteur et
+  //    recréerait les vides de ~200px constatés à 390px.
+  function isMobile() {
+    return !!(window.matchMedia && window.matchMedia('(max-width: 640px)').matches);
+  }
+
   var measureT = null;
   function scheduleMeasure() {
     requestAnimationFrame(measureMixte);
@@ -100,6 +107,11 @@
   // pendant une transition (correctif v40, conservé).
   function measureMixte() {
     var g = grid(); if (!g || g.getAttribute('data-view-mode') !== 'mixte') return;
+    // B) En mobile, on PURGE les spans (et on ne mesure pas) : le CSS gère un flux flex.
+    if (isMobile()) {
+      visibleCards().forEach(function (c) { if (c.style) c.style.gridRowEnd = ''; });
+      return;
+    }
     visibleCards().forEach(function (c) {
       var front = c.querySelector('.card-front');
       var h = front ? front.offsetHeight : c.offsetHeight;
@@ -259,6 +271,7 @@
     var card = e.target.closest('.card');
     if (!card || card.parentNode !== g) return;  // hors carte → rien (états individuels conservés)
     if (isInteractive(e.target)) return;         // (e) bouton d'action → laisser agir
+    if (isMobile()) return;                      // B) mobile : 1 colonne, pas de bascule
     if (card.classList.contains('add')) return;  // carte statique « Proposer » : pas de bascule
     switchColumn(card, !card.classList.contains('vc-side'));
   }

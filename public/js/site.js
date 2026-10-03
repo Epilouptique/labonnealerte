@@ -1756,7 +1756,7 @@
     if (!el) return;
     var n = cards.filter(cardIsFav).length;
     el.textContent = n > 0
-      ? (n + (n > 1 ? ' cartes dans ma collection' : ' carte dans ma collection'))
+      ? (n + (n > 1 ? ' favoris' : ' favori'))
       : 'Aucune carte dans ma collection pour l\'instant';
     el.hidden = false;
   }
@@ -2316,6 +2316,15 @@
   // Marque la puce active (extrait de selectChip : re-rendre les puces après une
   // recherche perd la classe .on, il faut la reposer sans relancer un apply()).
   function markActiveChip(slug) {
+    // E1) Les deux entrées du header (cloche « Mes alertes actives », cœur « Mes favoris »)
+    //     portent un état ACTIF visible quand le kiosque est filtré sur leur mode : sans lui,
+    //     rien n'indiquait que la cloche est un FILTRE et non un centre de notifications.
+    document.querySelectorAll('.mine-link').forEach(function (a) {
+      a.classList.toggle('is-active', slug === 'mine');
+    });
+    document.querySelectorAll('.fav-link').forEach(function (a) {
+      a.classList.toggle('is-active', slug === 'favoris');
+    });
     document.querySelectorAll('.chip-f').forEach(function (x) {
       if (!x.classList.contains('chip-more-toggle')) x.classList.remove('on');
     });

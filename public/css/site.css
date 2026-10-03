@@ -250,6 +250,10 @@ html[data-theme="light"] header { background: #ffffff; } /* thème clair : blanc
 .hero > * { position: relative; }
 /* 1) Titre de page commun (hero + /mes-decks…) : une seule source de vérité. */
 .page-title { font-size: clamp(32px, 5.4vw, 5rem); font-weight: 800; letter-spacing: -0.03em; line-height: 1.08; font-family: 'Baloo 2',sans-serif; text-align:center; padding: 80px 0 80px;  /*text-shadow: 2px 1px 3px var(--muted);*/}
+/* E3) Desktop : hauteur de la zone titre reduite d'environ 35% (80+80 -> 52+52) pour
+   remonter la ligne de flottaison et montrer plus d'alertes. Typographie INCHANGEE
+   (taille, graisse, famille) ; mobile non touche (media query ci-dessous). */
+@media (min-width: 721px) { .page-title { padding: 52px 0 52px; } }
 .hero h1 .hl { color: white; }
 /* C) Bicoloration générale des H1 : 1er mot en --ink, le reste en violet (.hl).
    S'applique à toutes les pages (le .hl du hero n'était que local). */
@@ -468,6 +472,10 @@ main#alertes { scroll-margin-top: 64px; }
 /* C) Flèche retour ET bouton info en SVG inline (rendu identique tous OS) : même
    dimensionnement/alignement. Le « ⓘ » caractère a été remplacé par INFO_SVG. */
 .flip-back, .flip-btn { display: inline-flex; align-items: center; justify-content: center; }
+/* D) Fleche retour des faces : cible de 36x36 minimum (etait 26x26 = glyphe 18px + 4px de
+   padding). Le glyphe reste a 18px ; top/right ajustes de 5px pour que la cible reste
+   optiquement au meme endroit sans chevaucher le titre. */
+.flip-back { min-width: 36px; min-height: 36px; top: 9px; right: 9px; }
 .flip-back svg, .flip-btn svg { width: 18px; height: 18px; display: block; }
 
 /* Verso : description longue (« i »), puis contenu dev. */
@@ -1504,7 +1512,16 @@ body[data-mode="connected"] #stats { display: none; }
   border-radius: 999px; padding: 3px 6px 3px 12px; font-size: 11px; font-weight: 700;
   box-shadow: 0 1px 3px rgba(30, 20, 50, .14);
 }
-.reco-x { border: none; background: none; color: var(--amber); cursor: pointer; font-size: 15px; line-height: 1; padding: 0 3px; border-radius: 50%; }
+/* H) Libelle visible d'un champ de parametre texte (ex. « Code commune (INSEE) ») : le
+   champ n'affichait qu'un placeholder (« 05061 »), incomprehensible hors contexte. */
+.param-field-label {
+  display: block; font-size: 11px; font-weight: 600; color: var(--muted);
+  margin-bottom: 3px; line-height: 1.2;
+}
+/* D) Croix du badge « Recommandee » : cible 24x24 (glyphe 15px conserve). */
+.reco-x { border: none; background: none; color: var(--amber); cursor: pointer; font-size: 15px;
+  line-height: 1; padding: 0; border-radius: 50%; min-width: 24px; min-height: 24px;
+  display: inline-flex; align-items: center; justify-content: center; flex: none; }
 .reco-x:hover { color: var(--ink); }
 
 /* ---------- Volet C : face « Partager » (3e face de la carte) ---------- */
@@ -2277,15 +2294,18 @@ header .nav-right .mine-link .kpi #kpi-num { color: #fff; font-weight: 700; }
 header .nav-right .mine-link .kpi #kpi-dot,
 header .nav-right .mine-link .kpi #kpi-text { display: none !important; }
 /* Halo qui s'agrandit — même keyframes que .dot-live, à l'échelle de la pastille. */
-header .nav-right .mine-link .kpi::after {
-  content: ""; position: absolute; inset: -1px; border-radius: 999px;
-  border: 1.5px solid var(--green); animation: ping 2s ease-out infinite;
-}
+/* E2) L'anneau vert flottant (ping) passait pour un artefact d'affichage : la pastille
+   est desormais PLEINE et STATIQUE, sans anneau ni animation. */
 /* Aucune alerte active → aucune pastille. */
 header .nav-right .mine-link .kpi:not([data-active="true"]) { display: none; }
-@media (prefers-reduced-motion: reduce) {
-  header .nav-right .mine-link .kpi::after { animation: none; }
+/* E1) Etat ACTIF des deux entrees de filtre du header (cloche = « Mes alertes actives »,
+   coeur = « Mes favoris ») : surlignage quand le kiosque est filtre sur ce mode. La classe
+   .is-active est posee par markActiveChip() (site.js), seule source de verite du filtre. */
+.nav-right .hd-link.is-active {
+  color: var(--amber); background: var(--amber-soft); border-radius: 10px;
 }
+.nav-right .hd-link.is-active .hd-ic-base { opacity: 0; }
+.nav-right .hd-link.is-active .hd-ic-fill { opacity: 1; }
 
 /* Connecté : « Mon compte » n'est plus une pilule accent mais un avatar rond — on
    neutralise le fond/padding de .btn-login (y compris ses variantes mobiles déclarées
@@ -4815,16 +4835,34 @@ html[data-theme="dark"] .skin-dresseur .card-deck-face::after, html[data-theme="
 @media (max-width: 767px) { .forum-main { padding: 20px 16px 64px; } }
 
 .forum-breadcrumb { font-size: 13px; color: var(--muted); margin-bottom: 14px; }
-.forum-breadcrumb a { color: var(--amber); text-decoration: none; font-weight: 600; }
+/* F) Fil d'Ariane : il reste, lui, sur le dégradé violet (hors plaque) où le gris
+   --muted tombait à 2.04:1 et l'accent violet à ~1.3:1. L'encre du thème y mesure
+   6.46:1. Le lien garde son soulignement au survol pour rester identifiable. */
+.forum-breadcrumb, .forum-breadcrumb a { color: var(--ink); }
+.forum-breadcrumb a { text-decoration: none; font-weight: 600; }
 .forum-breadcrumb a:hover { text-decoration: underline; }
 .forum-breadcrumb .bc-sep { color: var(--muted); margin: 0 2px; }
 
-.forum-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 6px; }
+/* F) LISIBILITE DE L'EN-TETE DU FORUM — mesure a l'appui (echantillonnage des pixels du
+   rendu, pas a l'oeil) : le degrade violet de fond passe de #c384dd a #9d5bd6 derriere ce
+   bloc, ou le mot « forum » (--amber) tombait a 1.22:1 et le sous-titre (--muted) a 1.36:1.
+   Aucune couleur de texte ne peut garantir 4.5:1 sur un degrade qui va du rose pale au
+   violet moyen ET qui se deplace avec la largeur du viewport : on pose donc l'en-tete sur
+   la MEME surface que les cartes du forum juste en dessous (--surface, opaque). Mesures
+   obtenues : titre 16.18:1, violet du titre 5.5:1, sous-titre 5.11:1 (clair) ; 10.88:1,
+   4.93:1 et 4.89:1 (sombre). */
+.forum-head, .forum-intro { background: var(--surface); }
+.forum-head { padding: 16px 20px 10px; border-radius: 18px 18px 0 0; margin-bottom: 0; }
+.forum-intro { padding: 0 20px 16px; border-radius: 0 0 18px 18px; }
+/* En-tete SANS sous-titre (categorie, sujet, profil) : le bloc se referme tout seul. */
+.forum-head:not(:has(+ .forum-intro)) { border-radius: 18px; padding-bottom: 16px; }
+.forum-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .forum-title { font-family: 'Baloo 2', sans-serif; font-weight: 800; letter-spacing: -0.02em;
   font-size: clamp(26px, 4.4vw, 40px); line-height: 1.1; margin: 0; }
-.forum-title .hl { color: var(--amber); }
+/* F) violet de TEXTE (5.5:1 sur la surface) et non l'accent d'aplat (2.9:1). */
+.forum-title .hl { color: var(--amber-ink); }
 .forum-title-topic { font-size: clamp(22px, 3.6vw, 30px); }
-.forum-intro { color: var(--muted); font-size: 15px; margin: 4px 0 22px; }
+.forum-intro { color: var(--muted); font-size: 15px; margin: 0 0 22px; }
 .forum-h2 { font-family: 'Baloo 2', sans-serif; font-weight: 800; font-size: 20px; margin: 30px 0 14px; }
 
 /* CTA « Créer un sujet » : réutilise .empty-btn (pilule violette du site) en inline-flex. */
@@ -4855,7 +4893,8 @@ html[data-theme="dark"] .skin-dresseur .card-deck-face::after, html[data-theme="
 .tc-replies svg { opacity: .8; }
 
 /* Badge catégorie (réutilise l'esprit des .tag du site) + badge @forum_slug violet. */
-.forum-tag { display: inline-block; background: var(--amber-soft); color: var(--amber);
+/* F) pastilles de categorie : 2.87:1 avant (accent sur --amber-soft), 4.86:1 desormais. */
+.forum-tag { display: inline-block; background: var(--amber-soft); color: var(--amber-ink);
   border-radius: 999px; padding: 2px 10px; font-size: 12px; font-weight: 700; text-decoration: none; }
 a.forum-tag:hover { text-decoration: underline; }
 .forum-slug-badge { position: relative; z-index: 1; display: inline-block; background: var(--amber);
@@ -5124,15 +5163,17 @@ a.forum-tag:hover { text-decoration: underline; }
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   max-width: none; gap: 14px; margin-inline: auto;
 }
-#grid[data-view-mode="ultra"] > .card { width: 320px; max-width: 320px; height: 150px; justify-self: center; }
+#grid[data-view-mode="ultra"] > .card { width: 320px; max-width: 320px; min-height: 150px; justify-self: center; }
 
 /* Recto compact ET ultra ET colonne secondaire du mixte : hauteur bornée, recto empilé,
    paddings/typo réduits. min-height ANNULE le var(--card-min-h) du gabarit large (sinon la
    carte ne pourrait pas descendre sous 232px). Le verso conserve son défilement interne
    (règle #grid .card-back { overflow-y:auto } du gabarit). */
-#grid[data-view-mode="compact"] .card-front,
+#grid[data-view-mode="compact"] .card-front { min-height: 0; height: 100%; }
+/* A) ultra / colonne ultra du mixte : hauteur AUTO bornee par le bas (150px), jamais 100%
+   d'une boite a hauteur fixe - sinon le contenu debordait au lieu d'agrandir la carte. */
 #grid[data-view-mode="ultra"] .card-front,
-#grid[data-view-mode="mixte"] > .card.vc-side .card-front { min-height: 0; height: 100%; }
+#grid[data-view-mode="mixte"] > .card.vc-side .card-front { min-height: 150px; height: auto; }
 #grid[data-view-mode="compact"] .card-face,
 #grid[data-view-mode="ultra"] .card-face,
 #grid[data-view-mode="mixte"] > .card.vc-side .card-face { padding: 14px; border-radius: 18px; }
@@ -5182,9 +5223,21 @@ a.forum-tag:hover { text-decoration: underline; }
    d'action (♥/partage/ⓘ) — rendu épuré demandé par Hugo. Masqué en CSS, jamais retiré du
    DOM. Sans les icônes, la rangée haute ne porte plus que l'état + le titre. */
 #grid[data-view-mode="ultra"] .back-tags,
+#grid[data-view-mode="mixte"] > .card.vc-side .back-tags { display: none; }
+/* C) Les icones d'action RESTENT sur l'ultra (il fallait agrandir la carte pour y acceder) :
+   rangee compacte 28px a droite du titre. L'ellipsis reste sur le titre (h3), les icones ne
+   se compriment pas (flex: none). Le clic dessus ne bascule PAS la colonne : onDocClickMixte
+   ignore les cibles interactives (isInteractive). */
 #grid[data-view-mode="ultra"] .card-toprow .card-icons,
-#grid[data-view-mode="mixte"] > .card.vc-side .back-tags,
-#grid[data-view-mode="mixte"] > .card.vc-side .card-toprow .card-icons { display: none; }
+#grid[data-view-mode="mixte"] > .card.vc-side .card-toprow .card-icons { flex: none; gap: 2px; }
+#grid[data-view-mode="ultra"] .card-toprow .card-icons .card-like,
+#grid[data-view-mode="ultra"] .card-toprow .card-icons .card-share,
+#grid[data-view-mode="ultra"] .card-toprow .card-icons .flip-btn,
+#grid[data-view-mode="mixte"] > .card.vc-side .card-toprow .card-icons .card-like,
+#grid[data-view-mode="mixte"] > .card.vc-side .card-toprow .card-icons .card-share,
+#grid[data-view-mode="mixte"] > .card.vc-side .card-toprow .card-icons .flip-btn {
+  width: 28px; height: 28px; flex: none;
+}
 
 /* ---- Visuel 5 : MIXTE — 2 colonnes CSS Grid (principale LARGE + secondaire ULTRA) ----
    Astuce « masonry » : lignes implicites fines (8px) + span calculé en JS (view-compare.js
@@ -5209,7 +5262,11 @@ a.forum-tag:hover { text-decoration: underline; }
    traverse la grille). Pas de pointer-events:none : les boutons d'action restent cliquables
    pendant le déplacement (hit-test elementFromPoint vérifié). */
 #grid[data-view-mode="mixte"] > .card.vc-moving { z-index: 6; }
-#grid[data-view-mode="mixte"] > .card.vc-side { grid-column: 2; height: 150px; max-width: 320px; }
+/* A) HAUTEUR AUTO (plus de 150px fixes) : sur les alertes parametrees, chips + « + ajouter »
+   + interrupteur + champ depassaient la hauteur fixe et etaient coupes par le bord bas.
+   min-height garde le gabarit court comme plancher ; measureMixte() lit offsetHeight et
+   calcule le span en consequence, donc la colonne reste tassee. */
+#grid[data-view-mode="mixte"] > .card.vc-side { grid-column: 2; min-height: 150px; height: auto; max-width: 320px; }
 /* Carte statique « Proposer » (.card.add, sans .card-front) : hauteur fixe pour qu'elle ne
    s'étire pas dans la piste (sinon offsetHeight mesuré ≈ hauteur de colonne → span géant). */
 #grid[data-view-mode="mixte"] > .card.add { height: var(--card-min-h); align-self: start; }
@@ -5218,6 +5275,24 @@ a.forum-tag:hover { text-decoration: underline; }
    plus aucune carte ne reçoit .vc-collapsing. Conservée sans effet. */
 #grid[data-view-mode="mixte"] > .card.vc-side.vc-collapsing {
   grid-column: 1; max-width: 320px; min-height: 150px; height: auto; justify-self: center;
+}
+
+/* B) MOBILE (<= 640px) : le masonry 2 colonnes laissait des vides de ~200px (les rangees
+   reservees aux cartes larges subsistaient dans la colonne ultra). On sort donc du grid :
+   flux FLEX vertical, une carte par ligne, pleine largeur, espacement regulier (18px) et
+   AUCUN span de rangee (measureMixte() purge aussi gridRowEnd en mobile, view-compare.js).
+   L'ordre DOM est conserve : .vc-side ne deplace plus rien, il ne reste qu'un format de recto. */
+@media (max-width: 640px) {
+  #grid[data-view-mode="mixte"] {
+    display: flex; flex-direction: column; gap: 18px;
+    grid-template-columns: none; grid-auto-rows: auto; max-width: none;
+  }
+  #grid[data-view-mode="mixte"] > .card,
+  #grid[data-view-mode="mixte"] > .card.vc-side,
+  #grid[data-view-mode="mixte"] > .card.add {
+    grid-column: auto; width: 100%; max-width: none; height: auto; min-height: 0;
+  }
+  #grid[data-view-mode="mixte"] > .card.vc-side .card-front { min-height: 0; }
 }
 
 /* ---- Visuel 6 : COMPACT-LARGE (expansion au clic) ----

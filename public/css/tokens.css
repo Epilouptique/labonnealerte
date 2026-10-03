@@ -11,6 +11,9 @@ html[data-theme="light"] {
   --line: transparent;
   --amber: #a567e3;
   --amber-soft: #eaddf8;
+  /* Violet de TEXTE (contraste >= 4.5:1) : 5.5:1 sur --surface, 4.86:1 sur --amber-soft,
+     6.08:1 sur --bg. --amber lui-meme ne depasse pas 3.6:1 et ne convient qu'aux aplats. */
+  --amber-ink: #7d3fbf;
   --green: #16a34a;
   --green-soft: #e9f7ee;
   --danger: #dc2626;
@@ -28,6 +31,9 @@ html[data-theme="dark"] {
   --line: transparent;
   --amber: #bd8ef0;
   --amber-soft: #332a44;
+  /* En sombre, l'accent est deja un violet clair sur fond sombre : 4.93:1 sur --surface,
+     5.33:1 sur --amber-soft. Le token existe pour que les regles soient communes. */
+  --amber-ink: #bd8ef0;
   --green: #22c55e;
   --green-soft: #12281a;
   --danger: #ef4444;

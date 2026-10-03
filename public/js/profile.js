@@ -155,18 +155,35 @@
     return html;
   }
 
-  // Options de département : filtrées à la région choisie (si présente), sinon tous les
-  // départements FR. Vide hors France.
+  // Options de département : filtrées à la région choisie, MAIS seulement si cette région
+  // existe dans le référentiel. Sinon (région libre héritée d'IPLocate, ou orthographe
+  // différente de server/geo.js), le filtre ne renvoyait AUCUN département : le select
+  // retombait sur « — » alors que la base contenait bien une valeur, et la sauvegarde
+  // automatique suivante persistait ce vide. On garde donc, dans tous les cas, l'option
+  // du département stocké — même règle que regionOptions pour la région.
   function deptOptions() {
-    var list = geo.departements || [];
-    if (state.country !== 'FR') list = [];
-    else if (state.region) list = list.filter(function (d) { return d.region === state.region; });
+    var all = geo.departements || [];
+    if (state.country !== 'FR') return optionList([], null, '—');
+    var connue = state.region && all.some(function (d) { return d.region === state.region; });
+    var list = connue ? all.filter(function (d) { return d.region === state.region; }) : all;
+    if (state.departement && !list.some(function (d) { return d.code === state.departement; })) {
+      var stocke = all.filter(function (d) { return d.code === state.departement; });
+      list = stocke.length ? stocke.concat(list) : list;
+    }
     return optionList(list, state.departement, '—');
   }
 
   // Reconstruit les selects Région/Département depuis l'état courant + gère leur
   // (dés)activation et la visibilité des rangées hors France.
   function refreshGeoSelects() {
+    // Cohérence d'AFFICHAGE : si le département stocké n'appartient pas à la région
+    // stockée (cas typique du profil pré-rempli par IP : région d'un centroïde FAI,
+    // ville/département d'ailleurs), on aligne la région sur le département — sans rien
+    // sauvegarder : aucune écriture n'est déclenchée sans action de l'utilisateur.
+    if (state.country === 'FR' && state.departement) {
+      var d0 = (geo.departements || []).filter(function (d) { return d.code === state.departement; })[0];
+      if (d0 && d0.region && d0.region !== state.region) state.region = d0.region;
+    }
     var reg = document.getElementById('pref-region');
     var dep = document.getElementById('pref-dept');
     if (reg) { reg.innerHTML = regionOptions(); reg.disabled = state.country !== 'FR'; }
@@ -274,7 +291,9 @@
       '  <div class="notif-row pref-dn-row">' +
       '    <div class="notif-txt"><strong>Mon pseudo</strong></div>' +
       '    <div class="pref-dn-input-row">' +
-      '      <input id="pref-dn" class="pref-dn-input" type="text" maxlength="25" placeholder="ex. Hugo des Alpes" value="' + esc(state.displayName || '') + '">' +
+      // G3) aria-label : le champ n'avait aucun nom accessible (le <strong> voisin n'est pas
+      // un <label for>), il était annoncé « zone de texte » sans plus.
+      '      <input id="pref-dn" class="pref-dn-input" type="text" maxlength="25" aria-label="Mon pseudo" placeholder="ex. Hugo des Alpes" value="' + esc(state.displayName || '') + '">' +
       '    </div>' +
       '  </div>' +
       // @pseudo public : identifiant STABLE posé une fois (jamais régénéré au
