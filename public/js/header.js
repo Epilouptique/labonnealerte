@@ -408,9 +408,14 @@
     nav.appendChild(secWrap);
     var chipsEl = toolbar.querySelector('.chips');
 
-    var sourcesP = fetch('/api/sources', { headers: { Accept: 'application/json' } })
-      .then(function (r) { return r.ok ? r.json() : []; })
-      .catch(function () { return []; });
+    // L1) Réutilise la requête déjà lancée par site.js (window.LBASourcesPromise) quand
+    //     elle existe — c'est le cas sur l'accueil, seule page où ce rail est construit.
+    //     Sinon (page sans site.js), on charge nous-mêmes : comportement d'origine.
+    var sourcesP = window.LBASourcesPromise
+      ? Promise.resolve(window.LBASourcesPromise).catch(function () { return []; })
+      : fetch('/api/sources', { headers: { Accept: 'application/json' } })
+          .then(function (r) { return r.ok ? r.json() : []; })
+          .catch(function () { return []; });
 
     Promise.all([sourcesP, loadCatLabels()]).then(function (res) {
       var sources = Array.isArray(res[0]) ? res[0] : [];

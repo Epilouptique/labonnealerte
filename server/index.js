@@ -164,7 +164,23 @@ app.use('/', sitemapRouter);
 // Pages HTML assemblees (footer commun injecte, cf. server/pages.js) : / et /xxx.html
 // passent ici AVANT le static, qui les servirait sinon avec le marqueur brut.
 app.use(pagesMiddleware);
-app.use(express.static('public', { maxAge: '60s' }));
+// L3) Deux régimes de cache :
+//   · polices, icônes et images → noms STABLES (background.png/webp, /fonts/*, /icons/*,
+//     og-default.png…) : 30 jours + stale-while-revalidate. Ces fichiers ne changent
+//     qu'en changeant de nom, on peut donc les garder longtemps sans risque de péremption.
+//   · site.css / site.js → VOLONTAIREMENT laissés à 60 s : leurs URL ne sont pas
+//     versionnées ; avec le service worker et Cloudflare devant, un cache long y
+//     bloquerait les mises à jour pendant des jours. (Proposition de versionnement dans
+//     le rapport, non appliquée ici.)
+const LONG = /\.(?:woff2?|ttf|otf|eot|png|jpe?g|webp|avif|gif|svg|ico)$/i;
+app.use(express.static('public', {
+  maxAge: '60s',
+  setHeaders(res, filePath) {
+    if (LONG.test(filePath)) {
+      res.setHeader('Cache-Control', 'public, max-age=2592000, stale-while-revalidate=86400');
+    }
+  },
+}));
 
 // C) Limiteur global sur /api : 120 requêtes/minute/IP (la home fait plusieurs appels).
 //    Les limiteurs stricts (subscribe, my-alerts, dev) restent actifs en plus.

@@ -2749,7 +2749,10 @@
     // pas les unes des autres → on les lance EN PARALLÈLE au lieu de les enchaîner.
     var token = LBASession.get();
     var catP = LBACat.load();
-    var srcP = fetch('/api/sources', { headers: { Accept: 'application/json' } })
+    // L1) Le catalogue (245 Ko) était téléchargé DEUX fois sur l'accueil : une fois ici,
+    //     une fois par le rail de catégories (header.js, chargé après ce fichier). On
+    //     publie la promesse : header.js la réutilise au lieu de relancer la requête.
+    var srcP = window.LBASourcesPromise = fetch('/api/sources', { headers: { Accept: 'application/json' } })
       .then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.json(); });
     var alertP = token ? LBASession.fetchAlerts(token).catch(function () { return null; }) : Promise.resolve(null);
 

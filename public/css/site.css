@@ -37,7 +37,12 @@ body::before {
   inset: 0;
   z-index: -1;
   pointer-events: none;
+  /* L2) 775 Ko en PNG pour un simple dégradé → 7 Ko en WebP (-99 %). image-set() sert le
+     WebP aux navigateurs qui l'annoncent et retombe sur le PNG pour les autres ; la
+     déclaration url() juste avant est le repli des navigateurs sans image-set(). */
   background-image: url("/img/background.png");
+  background-image: -webkit-image-set(url("/img/background.webp") type("image/webp"), url("/img/background.png") type("image/png"));
+  background-image: image-set(url("/img/background.webp") type("image/webp"), url("/img/background.png") type("image/png"));
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
