@@ -2020,7 +2020,7 @@
   function computeShow() {
     var q = normQ(qInput.value);
     var searching = q.length > 0 || cat !== 'all';
-    var idx = 0, hiddenMore = 0;
+    var idx = 0, hiddenMore = 0, eligibles = 0;   // H3) eligibles = total affichable du filtre courant
     // Vue liste : la pagination suit l'ordre ALPHABÉTIQUE (celui des lignes), pas l'ordre
     // de la grille (popularité/display_order). Sans ça, « les 16 premières cartes » sont
     // les 16 plus populaires, réparties de A à Z — la liste ne commence pas par un A et
@@ -2043,9 +2043,10 @@
       else if (searching) show = true;      // sous filtre/recherche : comme les autres cartes
       else if (isReco) show = true;         // vue par défaut : épinglée, ne consomme pas de créneau
       else { show = idx < visibleLimit; if (!show) hiddenMore++; idx++; }
+      if (elig && !isReco) eligibles++;   // H3) base du compteur « N sur M alertes »
       c._elig = elig; c._show = show;
     });
-    return { searching: searching, hiddenMore: hiddenMore };
+    return { searching: searching, hiddenMore: hiddenMore, eligible: eligibles };
   }
   // Nom affiché d'une carte (titre du recto), mémorisé : sert au tri alphabétique de la
   // pagination en vue liste. Les tuiles-deck n'ont pas de h3 → repli sur data-search.
@@ -2068,11 +2069,40 @@
       c.style.order = (mineView && cardIsActive(c)) ? '-1' : '';
     });
   }
+  // H1) ÉTAT DES FILTRES DANS L'URL — replaceState (jamais pushState : le filtrage n'est
+  // pas une navigation, il ne doit pas empiler des entrées dans l'historique et piéger le
+  // bouton Retour). Un paramètre vide est RETIRÉ de l'URL. La lecture au chargement
+  // existait déjà (?q=eau) et reste inchangée : on rend simplement l'URL partageable.
+  function syncUrl() {
+    if (!window.history || !history.replaceState) return;
+    var params;
+    try { params = new URLSearchParams(window.location.search); } catch (e) { return; }
+    var q = qInput && qInput.value.trim();
+    if (q) params.set('q', q); else params.delete('q');
+    // 'mine' et 'favoris' sont des MODES (entrées du header), les autres des catégories.
+    if (cat === 'mine' || cat === 'favoris') { params.set('mode', cat); params.delete('cat'); }
+    else if (cat && cat !== 'all') { params.set('cat', cat); params.delete('mode'); }
+    else { params.delete('cat'); params.delete('mode'); }
+    var qs = params.toString();
+    try {
+      history.replaceState(null, '', window.location.pathname + (qs ? '?' + qs : '') + window.location.hash);
+    } catch (e) { /* non bloquant */ }
+  }
+
   function updateMore(info) {
     if (!moreBtn) return;
     // A) Plus de compteur « (+X) » : le bouton dit simplement « Afficher plus d'alertes ».
     var hide = (info.searching || info.hiddenMore === 0);
     moreBtn.style.display = hide ? 'none' : '';
+    // H3) « N sur M alertes » : sans repère, on ne sait pas si « Afficher plus » ramène
+    // 3 cartes ou 200. Le pas de pagination est inchangé.
+    var cpt = document.getElementById('grid-count');
+    if (cpt) {
+      var total = (info.eligible != null) ? info.eligible : 0;
+      var vus = Math.max(0, total - (info.hiddenMore || 0));
+      cpt.textContent = total ? (vus + ' sur ' + total + (total > 1 ? ' alertes' : ' alerte')) : '';
+      cpt.hidden = !total;
+    }
     // « Toutes les alertes » : vue liste uniquement, et seulement s'il reste du caché.
     if (allBtn) allBtn.style.display = (hide || !isListView()) ? 'none' : '';
   }
@@ -2315,7 +2345,31 @@
 
   // Marque la puce active (extrait de selectChip : re-rendre les puces après une
   // recherche perd la classe .on, il faut la reposer sans relancer un apply()).
+  // H1) Appelé après chaque changement de filtre (catégorie, recherche, mode).
+  // H3) BOUTON « HAUT DE PAGE » — la grille fait plusieurs ecrans une fois « Afficher
+  //     plus » utilise ; remonter a la main est penible sur mobile. Apparait apres deux
+  //     hauteurs d ecran de defilement. prefers-reduced-motion : remontee instantanee.
+  function initToTop() {
+    if (document.querySelector(".to-top")) return;
+    var b = document.createElement("button");
+    b.type = "button"; b.className = "to-top"; b.setAttribute("aria-label", "Revenir en haut de la page");
+    b.title = "Haut de page"; b.innerHTML = "&uarr;";
+    var doux = !(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+    b.addEventListener("click", function () {
+      window.scrollTo({ top: 0, behavior: doux ? "smooth" : "auto" });
+    });
+    document.body.appendChild(b);
+    var tick = null;
+    window.addEventListener("scroll", function () {
+      if (tick) return;
+      tick = window.requestAnimationFrame(function () {
+        tick = null;
+        b.classList.toggle("on", window.scrollY > window.innerHeight * 2);
+      });
+    }, { passive: true });
+  }
   function markActiveChip(slug) {
+    syncUrl();
     // E1) Les deux entrées du header (cloche « Mes alertes actives », cœur « Mes favoris »)
     //     portent un état ACTIF visible quand le kiosque est filtré sur leur mode : sans lui,
     //     rien n'indiquait que la cloche est un FILTRE et non un centre de notifications.
@@ -2836,6 +2890,7 @@
     applyUrlParams(); // Lot 5) ?q=<terme> et ?mode=nouveautes|selection|mine depuis les autres pages
     applyTaskConfirmed(); // V3) retour depuis le lien email de confirmation d'échéance
     bindMineLinks();
+    initToTop();   // H3) bouton « haut de page »
     bindFavLinks();
     bindBrandTop();
     if (mode === 'connected') bindAccount();

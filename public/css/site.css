@@ -5404,3 +5404,16 @@ a.forum-tag:hover { text-decoration: underline; }
   #grid[data-view-mode="clarge"] > .card:not(.cl-expanded) .card-front { height: auto; min-height: 0; }
 }
 /* FIN TEMPORAIRE — fil #9bis */
+
+/* H3) Compteur de pagination : repere discret au-dessus de « Afficher plus ». */
+.grid-count { text-align: center; color: var(--ink); font-size: 13px; font-weight: 600; margin: 18px 0 0; }
+.grid-count[hidden] { display: none; }
+/* H3) Retour en haut : apparait apres un defilement significatif (bouton pose par site.js). */
+.to-top {
+  position: fixed; right: 18px; bottom: 18px; z-index: 40;
+  width: 44px; height: 44px; border-radius: 50%; border: none; cursor: pointer;
+  background: var(--amber); color: #fff; font-size: 18px; line-height: 1;
+  box-shadow: var(--shadow); display: none; align-items: center; justify-content: center;
+}
+.to-top.on { display: inline-flex; }
+.to-top:hover { background: color-mix(in srgb, var(--amber) 88%, #000); }

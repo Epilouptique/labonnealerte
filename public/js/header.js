@@ -43,7 +43,10 @@
   var HEART_HTML = icon2('hd-ic-heart', HEART_PATH);
   // « Mes alertes » : cloche seule (plus de libellé texte). Le KPI du header vient s'y
   // superposer en pastille de notification (voir mobile-header.js + site.css).
-  var MINE_LINK_HTML = '<a class="mine-link hd-link" href="/connexion" aria-label="Mes alertes actives" title="Mes alertes actives">' + BELL_HTML + '</a>';
+  // H2) href RÉEL (et non /connexion) : clic droit, « ouvrir dans un nouvel onglet » et
+  //     copie du lien fonctionnent. Le clic simple reste intercepté par site.js (filtre
+  //     sur place) ; hors kiosque, le lien navigue normalement vers la home filtrée.
+  var MINE_LINK_HTML = '<a class="mine-link hd-link" href="/?mode=mine" aria-label="Mes alertes actives" title="Mes alertes actives">' + BELL_HTML + '</a>';
   // Boutique de skins : ARCHIVÉE (fil #9, 12/09/2026) — plus de lien sac/boutique.
   // ❤ : la page /favoris est remplacée par un FILTRE du kiosque (?mode=favoris, intercepté
   // sur place par site.js/bindFavLinks). Seule la destination change, l'apparence est intacte.
@@ -391,10 +394,12 @@
 
   function buildCatRail() {
     if (document.body.classList.contains('dev')) return; // espace développeurs : inchangé
-    // E5) Pages FORUM : le rail de catégories du kiosque n'a aucun rapport avec le forum
-    //     (ses catégories sont les 5 rubriques de discussion) → on ne le construit pas.
-    //     Le retour au kiosque reste assuré par le logo et le fil d'Ariane du forum.
-    if (/^\/forum(\/|$)/.test(location.pathname)) return;
+    // H4) Le rail de catégories FILTRE LE KIOSQUE : hors du kiosque (forum, Le Point,
+    //     À propos, Soutenir, Proposer, mentions, confidentialité, compte…) il n'a aucun
+    //     effet et prête à confusion. On ne le construit que sur la page d'accueil.
+    //     (Généralise la règle posée pour /forum au lot précédent.)
+    var p = location.pathname.replace(/\/+$/, '') || '/';
+    if (p !== '/' && p !== '/index.html') return;
     if (nav.querySelector('.toolbar')) return;
 
     var toolbar = elFrom('<div class="toolbar"><div class="chips" id="chips" role="group" aria-label="Filtrer par catégorie"></div></div>');
