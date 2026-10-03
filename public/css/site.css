@@ -320,7 +320,7 @@ html[data-theme="dark"] .search { border: 1px solid color-mix(in srgb, var(--mut
   border-radius: 999px; padding: 0px 16px; cursor: pointer;
 }
 .chip-f:hover { color: var(--ink); }
-.chip-f.on { color: var(--amber); }
+.chip-f.on { color: var(--amber-ink); }
 .chip-f .n { opacity: .6; font-size: 11.5px; margin-left: 4px; }
 .chip-more-toggle { min-width: 38px; text-align: center; font-weight: 700; }
 /* A6) Puces spéciales « Nouveautés » / « La sélection » : accent discret. */
@@ -460,8 +460,10 @@ main#alertes { scroll-margin-top: 64px; }
 @media (prefers-reduced-motion: reduce) { .card-inner { transition: none; } }
 
 /* Sous-titre discret sous le titre (recto). */
-.card-subtitle { margin-top: 20px; font-size: 10.5px; font-weight: 700;
-  text-transform: uppercase; letter-spacing: .07em; color: var(--amber); }
+/* E2) 10,5 px / violet d'aplat mesurait 3,59:1. Corps porté à 11,5 px et violet de
+   TEXTE (5,5:1 sur la surface des cartes). */
+.card-subtitle { margin-top: 20px; font-size: 11.5px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .07em; color: var(--amber-ink); }
 
 /* Bouton d'info « ⓘ » (recto) et retour « ↩ » (verso) : même coin, même taille. */
 .flip-btn, .flip-back {
@@ -1354,7 +1356,28 @@ body[data-mode="connected"] .grid { min-height: 0; }
 /* B) historique connecté + empty states */
 .hist-section { padding: 8px 0 44px; }
 .history-empty { color: var(--muted); background: var(--surface); border-radius: 16px; padding: 22px; font-size: 15px; }
-.grid-empty { text-align: center; padding: 44px 0; color: var(--muted); }
+/* E1) PAGES DE CONTENU : le corps de texte reposait directement sur le dégradé violet,
+   où --muted tombe sous 2:1. Panneau opaque, comme /soutenir et la page de statut. */
+main.wrap.page {
+  background: var(--surface); border-radius: 18px; box-shadow: var(--shadow);
+  padding: 40px 32px 56px; margin-top: 24px; margin-bottom: 48px;
+}
+@media (max-width: 620px) { main.wrap.page { padding: 28px 18px 40px; border-radius: 14px; } }
+
+/* E3) Message d'état vide : il était en --muted sur le dégradé. Plaque opaque + --ink,
+   et une seconde action « Proposer cette alerte » (l'utilisateur qui ne trouve rien est
+   exactement celui qui peut nous signaler le manque). */
+.grid-empty {
+  text-align: center; padding: 28px 24px 32px; color: var(--ink);
+  background: var(--surface); border-radius: 18px; box-shadow: var(--shadow);
+  max-width: 560px; margin: 24px auto;
+}
+.grid-empty .empty-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.empty-btn.secondaire {
+  background: transparent; color: var(--amber-ink); border: 1.5px solid var(--amber-ink);
+  text-decoration: none; display: inline-flex; align-items: center;
+}
+.empty-btn.secondaire:hover { background: var(--amber-soft); }
 /* Piege maison : une regle auteur `display:` l'emporterait sur [hidden] — les deux
    blocs ci-dessous sont masquables par JS, on garde l'override explicite. */
 .grid-empty[hidden] { display: none; }
@@ -1467,6 +1490,19 @@ body[data-mode="connected"] #stats { display: none; }
 
 /* H) carte Proposer : transition de hauteur symétrique */
 .card.add { transition: min-height .3s ease, background .15s ease, border-color .15s ease; }
+
+/* E4) THÈME SOMBRE — deux correctifs mesurés :
+   1. Les tags de catégorie sont en texte noir (choix assumé en thème clair) : sur
+      --amber-soft sombre (#332a44) cela tombait à 1,56:1. En sombre, le texte au repos
+      passe donc en --ink ; au SURVOL le fond devient la variante claire de la couleur de
+      famille, donc le texte y redevient noir.
+   2. Le grand aplat violet clair (body::before, /img/background.png) était peint à
+      l'identique dans les deux thèmes : des cartes sombres flottaient sur un fond
+      lumineux. On l'assombrit pour qu'il suive le thème — même image, donc aucun
+      téléchargement supplémentaire. */
+html[data-theme="dark"] .back-tags .tag { color: var(--ink); }
+html[data-theme="dark"] .back-tags .tag:hover { color: #000; }
+html[data-theme="dark"] body::before { filter: brightness(.34) saturate(.9); }
 
 /* J) tags : couleur par famille de catégorie (data-group = clé GROUPS de
    server/categories.js). Texte noir en permanence ; --tag-c = bordure gauche,
@@ -4880,7 +4916,7 @@ html[data-theme="dark"] .skin-dresseur .card-deck-face::after, html[data-theme="
 .fcc-body { flex: 1 1 auto; min-width: 0; }
 .fcc-name { font-family: 'Baloo 2', sans-serif; font-weight: 800; font-size: 17px; }
 .fcc-desc { color: var(--muted); font-size: 13px; margin-top: 2px; }
-.fcc-count { flex: none; font-size: 12px; font-weight: 700; color: var(--amber); }
+.fcc-count { flex: none; font-size: 12px; font-weight: 700; color: var(--amber-ink); }
 
 /* Liste + carte de sujet. */
 .forum-list { display: flex; flex-direction: column; gap: 12px; }

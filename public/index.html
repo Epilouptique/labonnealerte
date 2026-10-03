@@ -141,7 +141,12 @@
        n'apparait que s'il y a bien une recherche a effacer. -->
   <div class="grid-empty" id="search-empty" hidden>
     <p id="search-empty-msg"></p>
-    <button class="empty-btn" type="button" id="search-empty-btn">Effacer la recherche</button>
+    <!-- E3) Deux actions : effacer la recherche, ou nous signaler l'alerte manquante
+         (celui qui ne trouve rien est précisément celui qui peut combler le manque). -->
+    <div class="empty-actions">
+      <button class="empty-btn" type="button" id="search-empty-btn">Effacer la recherche</button>
+      <a class="empty-btn secondaire" href="/proposer">Proposer cette alerte</a>
+    </div>
   </div>
 
   <div class="more-wrap">
