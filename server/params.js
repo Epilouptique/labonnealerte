@@ -100,6 +100,28 @@ function labelFromDynamicValue(raw) {
 }
 
 // « Hautes-Alpes » à partir de { departement:'05' } et du schéma enum.
+// F3) Les noms de commune arrivent parfois en minuscules (saisie utilisateur, cache
+// INSEE) : « 1 zone concernée : gap ». On applique la casse d'un nom propre français —
+// majuscule en tête de chaque mot, sauf les particules (de, du, la, sur…) qui restent en
+// minuscules à l'intérieur du nom. Aucune donnée inventée : seule la casse change.
+const PARTICULES = new Set(['de', 'du', 'des', 'la', 'le', 'les', 'sur', 'sous', 'en', 'aux', 'au', 'et', 'lès', 'les']);
+function casseCommune(nom) {
+  const s = String(nom == null ? '' : nom).trim();
+  if (!s) return s;
+  // Tout en capitales (« GAP ») : on repasse en minuscules avant de recapitaliser.
+  const base = s === s.toUpperCase() && /[A-ZÀ-Ý]/.test(s) ? s.toLowerCase() : s;
+  // Un nom à majuscules INTERNES (ex. « LaBonneVille ») est laissé tel quel.
+  if (/[A-ZÀ-Ý]/.test(base.slice(1))) return base;
+  return s.split(/(\s+|-)/).map((tok, i) => {
+    if (/^(\s+|-)$/.test(tok)) return tok;
+    const bas = tok.toLowerCase();
+    if (i > 0 && PARTICULES.has(bas)) return bas;
+    // Gère l'apostrophe : « l'argentière » → « L'Argentière ».
+    return bas.replace(/^([a-zà-ÿ])/, (m) => m.toUpperCase())
+              .replace(/(['’])([a-zà-ÿ])/g, (m, q, c) => q + c.toUpperCase());
+  }).join('');
+}
+
 function resolveLabel(schema, params) {
   if (!Array.isArray(schema) || !params) return '';
   const parts = [];
@@ -112,10 +134,10 @@ function resolveLabel(schema, params) {
       if (found) label = found.label;
     } else if (desc.type === 'commune') {
       // Affiche le nom de commune si connu (cache INSEE→nom), sinon le code INSEE.
-      label = nameForInsee(v) || String(v);
+      label = casseCommune(nameForInsee(v) || String(v));
     } else if (desc.type === 'commune-coords') {
       const d = decodeCoords(v);
-      label = d ? d.nom : String(v);
+      label = casseCommune(d ? d.nom : String(v));
     } else if (desc.type === 'dynamic-enum') {
       // Libellé lisible dérivé de l'URL canonique (jamais l'URL brute dans les chips/statut/emails).
       label = labelFromDynamicValue(v);

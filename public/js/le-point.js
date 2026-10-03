@@ -32,7 +32,12 @@
       var n = a.count || 0;
       var zones = (a.labels || []).map(esc).join(', ');
       var suffix = (a.labels && a.labels.length < n) ? '…' : '';
-      var line = esc(a.name) + ' — ' + n + (n > 1 ? ' zones concernées' : ' zone concernée')
+      // F4) L'unité vient du serveur (géographique ou non) ; repli sur « zone » pour
+      // rester compatible avec une réponse mise en cache par l'ancienne version.
+      var unite = a.unit === 'élément' ? 'élément' : 'zone';
+      var mot = n > 1 ? unite + 's concerné' + (unite === 'zone' ? 'es' : 's')
+                      : unite + ' concerné' + (unite === 'zone' ? 'e' : '');
+      var line = esc(a.name) + ' — ' + n + ' ' + mot
         + (zones ? ' : ' + zones + suffix : '');
       return '<a class="lp-card" href="' + esc(a.url) + '"><span class="lp-card-msg">⚠️ ' + line + '</span></a>';
     }

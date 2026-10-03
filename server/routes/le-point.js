@@ -30,6 +30,15 @@ function loadCalendarSources() {
 }
 const CAL_SOURCES = loadCalendarSources();
 
+// F4) Unité de comptage d'une source paramétrée : « zone » si au moins un paramètre est
+// géographique, « élément » sinon. Lecture du schéma seulement, aucune donnée ajoutée.
+const CLES_GEO = new Set(['commune', 'departement', 'region', 'ville', 'pays', 'zone', 'littoral', 'bassin']);
+function uniteDe(schema) {
+  if (!Array.isArray(schema)) return 'zone';
+  const geo = schema.some((d) => d && (d.type === 'commune' || d.type === 'commune-coords' || CLES_GEO.has(d.key)));
+  return geo ? 'zone' : 'élément';
+}
+
 const apiRouter = express.Router();
 const pagesRouter = express.Router();
 
@@ -70,6 +79,10 @@ async function build() {
     ...Object.values(grouped).map((g) => ({
       kind: 'param', id: g.source_id, name: g.name,
       count: g.labels.length, labels: g.labels.slice(0, 8),
+      // F4) « zone concernée » n'a de sens que pour un paramètre GÉOGRAPHIQUE. Pour
+      // « Fin de vie logicielle : Python » ou « Release GitHub », la bonne unité est
+      // « élément ». On la déduit du schéma de la source, sans inventer de donnée.
+      unit: uniteDe(g.schema),
       url: `/source/${g.source_id}/statut`, since: g.since,
     })),
   ];
@@ -86,7 +99,23 @@ async function build() {
       }
     } catch (e) { /* source défaillante : ignorée */ }
   }
-  upcoming.sort((a, b) => a.start - b.start);
+  // F1) Un événement déjà listé dans EN CE MOMENT n'a rien à faire dans À VENIR : il y
+  // apparaissait avec l'étiquette « Aujourd'hui » (Octobre Rose, Cybermois, Fête de la
+  // science…). La section À VENIR ne contient donc plus que des sources qui ne sont pas
+  // actives à l'instant du calcul.
+  const idsActifs = new Set(active.map((a) => a.id));
+  let aVenir = upcoming.filter((e) => !idsActifs.has(e.id));
+
+  // F2) Dédoublonnage par (source, jour) : une même source publiait deux libellés pour
+  // le même événement (Paris Manga). On garde la première occurrence, la plus précoce.
+  aVenir.sort((a, b) => a.start - b.start);
+  const vus = new Set();
+  aVenir = aVenir.filter((e) => {
+    const cle = e.id + '@' + e.start.toISOString().slice(0, 10);
+    if (vus.has(cle)) return false;
+    vus.add(cle); return true;
+  });
+  upcoming.length = 0; upcoming.push(...aVenir);
 
   return {
     generated_at: now.toISOString(),
