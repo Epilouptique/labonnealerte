@@ -244,6 +244,37 @@
         '<div class="dyn-status" role="status" aria-live="polite"></div>' +
       '</div>';
     }
+    // J) PICKER DÉPARTEMENT — un <select> natif de 97 options triées par code INSEE mais
+    //    SANS code affiché : « Hautes-Alpes » tombait entre « Alpes-de-Haute-Provence » et
+    //    « Alpes-Maritimes », ordre incompréhensible à l'écran. On réutilise LBACombo
+    //    (même composant que le forum) : saisie pour filtrer, libellé « 05 — Hautes-Alpes »,
+    //    fermeture à Échap et au clic extérieur. La valeur soumise reste le CODE, dans un
+    //    input caché .param-input → le contrat de readParam() est inchangé.
+    //    Limité au champ 'departement' : les autres enum (courts) gardent le select natif.
+    if (schema.type === 'enum' && schema.key === 'departement' && (schema.values || []).length > 20) {
+      var items = (schema.values || []).map(function (v) {
+        return { value: String(v.value), label: String(v.value) + ' — ' + v.label, plain: String(v.label) };
+      });
+      var selDef = def != null ? items.filter(function (it) { return it.value === String(def); })[0] : null;
+      var cbId = 'dept-' + esc(schema.key) + '-' + (dynSeq++);
+      var optAttrD = schema.required === false ? ' data-optional="1"' : '';
+      return '<div class="dept-combo" data-dept-combo>' +
+        '<input type="text" class="param-input-search dept-search" role="combobox" aria-expanded="false"' +
+          ' aria-controls="' + cbId + '" aria-autocomplete="list" aria-haspopup="listbox"' +
+          ' aria-label="' + esc(schema.label) + '" placeholder="Département : tapez un nom ou un code"' +
+          ' autocomplete="off" autocapitalize="off" spellcheck="false"' +
+          (selDef ? ' value="' + esc(selDef.label) + '"' : '') + '>' +
+        '<input type="hidden" class="param-input dept-value" data-key="' + esc(schema.key) + '"' + optAttrD +
+          (selDef ? ' value="' + esc(selDef.value) + '"' : '') + '>' +
+        '<ul class="tag-listbox dept-listbox" id="' + cbId + '" role="listbox" aria-label="' + esc(schema.label) + '" hidden></ul>' +
+        '<div class="dyn-status" role="status" aria-live="polite"></div>' +
+        // PAS d'échappement HTML ici : dans un <script>, les entités ne sont pas décodées
+        // et JSON.parse échouerait. On neutralise seulement '<', qui pourrait fermer la balise.
+        '<script type="application/json" class="dept-items">' +
+          JSON.stringify(items).replace(/</g, '\\u003c') +
+        '<\/script>' +
+      '</div>';
+    }
     if (schema.type === 'enum') {
       // Pré-remplissage : si le profil fournit une valeur VALIDE du schéma, on la
       // pré-sélectionne. Pré-sélectionner via l'attribut `selected` NE déclenche AUCUN

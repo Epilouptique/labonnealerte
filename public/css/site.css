@@ -5496,3 +5496,14 @@ select:focus-visible,
 }
 .to-top.on { display: inline-flex; }
 .to-top:hover { background: color-mix(in srgb, var(--amber) 88%, #000); }
+
+/* J) Combobox DEPARTEMENT du kiosque : meme coquille que le combobox du forum
+   (.tag-listbox), sur un champ au gabarit des autres controles de parametre. */
+.dept-combo { position: relative; }
+.dept-combo .dept-search {
+  width: 100%; border: 1px solid var(--line); background: var(--bg); color: var(--ink);
+  border-radius: 9px; padding: 10px 12px; font: inherit; font-size: 13.5px;
+}
+.dept-combo .dept-search:focus-visible { outline: 3px solid var(--amber-ink); outline-offset: 1px; }
+.dept-combo .dept-listbox { max-height: 240px; }
+.dept-combo .dyn-status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }

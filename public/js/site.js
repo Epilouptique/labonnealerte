@@ -941,6 +941,62 @@
   // son type/pattern. Retourne { params, label } SEULEMENT si TOUS les champs sont remplis et
   // valides (sinon null → l'auto-abonnement non-géo attend que tout soit saisi).
   // Rétrocompat : un picker à 1 seul contrôle se comporte exactement comme avant.
+  // J) Instancie le combobox DÉPARTEMENT sur les cartes rendues (idempotent : un combo
+  //    déjà monté porte data-dept-ready). Le composant LBACombo gère déjà le filtrage, les
+  //    flèches, Entrée, Échap et le clic extérieur ; on branche ici les items locaux, la
+  //    valeur cachée soumise, et le retour du focus au bouton « + ajouter ».
+  function initDeptCombos(scope) {
+    if (!window.LBACombo) return;
+    var racine = scope || document;
+    racine.querySelectorAll('.dept-combo:not([data-dept-ready])').forEach(function (box) {
+      box.setAttribute('data-dept-ready', '1');
+      var input = box.querySelector('.dept-search');
+      var hidden = box.querySelector('.dept-value');
+      var listbox = box.querySelector('.dept-listbox');
+      var status = box.querySelector('.dyn-status');
+      var brut = box.querySelector('.dept-items');
+      var items = [];
+      try { items = JSON.parse(brut ? brut.textContent : '[]'); } catch (e) { items = []; }
+      if (!input || !hidden || !listbox) return;
+
+      var norm = function (s) {
+        s = String(s || '').toLowerCase();
+        if (s.normalize) s = s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        return s.replace(/[^a-z0-9]+/g, ' ').trim();
+      };
+      var combo = window.LBACombo.create({
+        input: input, listbox: listbox, status: status, scope: box, idPrefix: listbox.id,
+        items: function () { return items; },
+        norm: norm,
+        // Filtre sur le NOM comme sur le CODE : « 05 » et « hautes » trouvent tous deux.
+        match: function (it, q) { return !q || norm(it.label).indexOf(q) >= 0; },
+        emptyMsg: 'Aucun département ne correspond.',
+        onCommit: function (it) {
+          hidden.value = it.value;
+          input.value = it.label;
+          // La saisie d'une valeur déclenche l'abonnement non géo : même événement que
+          // le <select> d'origine, donc aucun câblage supplémentaire ailleurs.
+          hidden.dispatchEvent(new Event('change', { bubbles: true }));
+        },
+        onArrowDownClosed: function () { combo.open(''); },
+      });
+      if (!combo) return;
+
+      input.addEventListener('focus', function () { combo.open(input.value === (hidden._lbl || '') ? '' : input.value); });
+      input.addEventListener('input', function () {
+        hidden.value = '';              // toute re-frappe invalide la sélection
+        combo.open(input.value);
+      });
+      input.addEventListener('keydown', function (e) {
+        // J2) Échap ferme ET rend le focus au bouton « + ajouter » quand il existe.
+        if (e.key === 'Escape') {
+          var add = box.closest('.card') && box.closest('.card').querySelector('.param-add');
+          if (add && add.offsetParent) setTimeout(function () { add.focus(); }, 0);
+        }
+      });
+    });
+  }
+
   function readParam(card) {
     var form = card.querySelector('.param-form') || card;
     var ctrls = form.querySelectorAll('.param-select, .param-input');
@@ -2844,6 +2900,9 @@
     if (extras) extras.insertAdjacentHTML('beforebegin', html);
     // Mémorise l'ordre source de chaque carte (pour restaurer sa position après reco).
     g.querySelectorAll('.card[data-cats]').forEach(function (c, i) { c.dataset.order = i; });
+
+    // J) Monte les combobox « département » des cartes qui viennent d etre rendues.
+    initDeptCombos(g);
 
     // B) Pré-remplissage profil des combobox dynamic-enum : la ville du profil amorce la
     // RECHERCHE (propositions affichées), sans jamais pré-sélectionner d'entité. Déclenché via
