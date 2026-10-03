@@ -24,7 +24,13 @@
 
   // Applique l'attribut le PLUS TÔT possible (avant même le DOM complet) pour éviter
   // tout flash de la mauvaise vue : défaut 'cards' si rien de stocké.
-  var current = stored() || 'cards';
+  // TEMPORAIRE — fil #9bis (visuel retenu : mixte) : la VUE LISTE n'est plus une sortie du
+  // kiosque. Le mode est donc VERROUILLÉ sur 'cards' : la préférence déjà stockée (compte
+  // ou localStorage) n'est plus adoptée (adoptAccount), et set()/toggle() ne basculent plus
+  // (aucune écriture serveur non plus → les données en base sont intactes et retrouvées
+  // telles quelles si la vue liste est rétablie). stored() reste défini pour ce rétablissement.
+  var LOCKED = 'cards';
+  var current = LOCKED;
   root.setAttribute('data-view', current);
 
   function emit() {
@@ -61,6 +67,7 @@
 
   // Changement explicite par l'utilisateur (toggle toolbar OU contrôle compte) : applique + persiste.
   function set(mode) {
+    if (LOCKED) return; // fil #9bis : bascule cartes/liste neutralisée (voir en tête)
     if (!valid(mode) || mode === current) { if (mode === current) emit(); return; }
     persist(mode);
     if (REDUCE) { apply(mode); return; } // fallback instantané (respect prefers-reduced-motion)
@@ -81,6 +88,7 @@
   // sur l'affichage initial (localStorage). N'écrit PAS côté serveur (c'est déjà la
   // valeur serveur) ; met juste à jour l'affichage + le cache local + notifie.
   function adoptAccount(mode) {
+    if (LOCKED) return; // fil #9bis : la préférence de compte ne fait plus basculer le kiosque
     if (!valid(mode)) return;
     try { localStorage.setItem(KEY, mode); } catch (e) {}
     if (mode !== current) apply(mode);

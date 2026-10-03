@@ -798,7 +798,11 @@
       : '';
 
     return '' +
-      '<div class="card-face card-back">' +
+      // Fil #9bis (visuel retenu : mixte) — PARTIE 5 : .has-forum-badge signale au CSS que
+      // le badge @forum_slug occupe sa propre rangée EN TÊTE DU FLUX du verso (il était en
+      // position absolue et chevauchait le bloc titre/sous-titre) : la réserve de 25px en
+      // haut de la description longue n'a alors plus lieu d'être. Lien inchangé.
+      '<div class="card-face card-back' + (s.forum_slug ? ' has-forum-badge' : '') + '">' +
         '<button class="flip-back" type="button" aria-label="Retour" title="Retour">' + BACK_SVG + '</button>' +
         forumBadge +
         topRow(s) +

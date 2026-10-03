@@ -31,16 +31,14 @@
     '      <span class="notif-sub">Améliore la lisibilité (accessibilité).</span></div>' +
     '    <button type="button" class="notif-toggle" id="appear-contrast" role="switch" aria-label="Renforcer les contrastes"></button>' +
     '  </div>' +
-    '  <div class="notif-row">' +
-    '    <div class="notif-txt"><strong>Vue liste</strong>' +
-    '      <span class="notif-sub">Affiche le kiosque en liste dense plutôt qu\'en cartes.</span></div>' +
-    '    <button type="button" class="notif-toggle" id="appear-view" role="switch" aria-label="Vue liste"></button>' +
-    '  </div>' +
+    // TEMPORAIRE — fil #9bis (visuel retenu : mixte) : le réglage « Vue liste » est RETIRÉ
+    // de l'UI (le kiosque est en visuel « Large + colonne ultra » en permanence, la vue
+    // liste n'est plus une sortie proposée). Aucune donnée en base n'est touchée : la
+    // colonne subscribers.view_mode est simplement ignorée (cf. view-mode.js).
     '</div>';
 
   var themeSeg = document.getElementById('appear-theme');
   var contrastTgl = document.getElementById('appear-contrast');
-  var viewTgl = document.getElementById('appear-view');
   function isList() { return !!(window.LBAViewMode && LBAViewMode.get() === 'list'); }
   function themePref() { return (window.getThemePref && window.getThemePref()) || 'auto'; }
 
@@ -61,16 +59,12 @@
       b.setAttribute('aria-checked', on ? 'true' : 'false');
     });
   }
-  function refresh() { paintTheme(); paint(contrastTgl, isHC()); paint(viewTgl, isList()); }
+  function refresh() { paintTheme(); paint(contrastTgl, isHC()); }
   refresh();
 
-  // Vue cartes/liste : même source de vérité que le toggle de la toolbar (LBAViewMode).
-  if (viewTgl) viewTgl.addEventListener('click', function () {
-    if (window.LBAViewMode) LBAViewMode.set(isList() ? 'cards' : 'list');
-    paint(viewTgl, isList());
-  });
-  // Resync si la vue change ailleurs (toolbar) — garde les deux contrôles alignés.
-  document.addEventListener('lba-view-change', function () { paint(viewTgl, isList()); });
+  // (Contrôle « Vue liste » retiré — fil #9bis. isList() est conservé pour un éventuel
+  // rétablissement ultérieur du réglage ; plus aucun contrôle ne l'utilise.)
+  void isList;
 
   if (themeSeg) themeSeg.addEventListener('click', function (e) {
     var b = e.target.closest('[data-theme-pref]');

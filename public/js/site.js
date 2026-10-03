@@ -1799,9 +1799,9 @@
   // gardent INITIAL_CONNECTED=8 / INITIAL_ANON=5 inchangés.
   var INITIAL_LIST_ALL_CONNECTED = 16;
   function isListView() { return document.documentElement.getAttribute('data-view') === 'list'; }
-  // TEMPORAIRE — fil #9bis : le comparateur pose data-view-mode="mixte" sur #grid pour le
-  // visuel « Large + colonne ultra ». Ce visuel affiche 2× plus d'alertes par défaut (18)
-  // que les autres, à retirer avec le comparateur.
+  // TEMPORAIRE — fil #9bis (visuel retenu : mixte) : view-compare.js pose data-view-mode="mixte"
+  // sur #grid EN PERMANENCE (visuel « Large + colonne ultra »). Ce visuel affiche 18 alertes
+  // par défaut au lieu de ~9.
   function isMixteView() { var g = document.getElementById('grid'); return !!(g && g.getAttribute('data-view-mode') === 'mixte'); }
   function initialLimit() {
     if (currentMode === 'connected' && cat === 'all' && isListView()) return INITIAL_LIST_ALL_CONNECTED;
