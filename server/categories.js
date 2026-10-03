@@ -26,7 +26,7 @@ const GROUPS = {
   'culture-medias': ['culture', 'livres', 'sorties-livres', 'bd', 'manga', 'musique', 'sorties-albums', 'vinyles', 'streaming', 'films', 'series', 'podcasts', 'jeux-de-societe', 'patrimoine', 'memoire', 'identite-regionale', 'traditions'],
   'gaming': ['jeux-video', 'sorties-jeux', 'precommandes-jeux', 'dlc', 'patchs-jeux', 'e-sport', 'tournois', 'twitch', 'free-to-play', 'retrogaming'],
   'sport': ['sport', 'football', 'rugby', 'tennis', 'cyclisme', 'ski', 'randonnee', 'trail', 'natation', 'running', 'resultats-sportifs', 'transferts', 'inscriptions-courses'],
-  'vie-locale': ['vie-locale', 'fetes', 'local', 'jeunesse', 'evenements-locaux', 'marches-locaux', 'brocantes', 'vide-greniers', 'travaux-voirie', 'coupures-circulation', 'collecte-dechets', 'dechetteries', 'piscines', 'bibliotheques', 'ecoles', 'education', 'vacances-scolaires', 'cantines', 'mairie'],
+  'vie-locale': ['vie-locale', 'communaute', 'fetes', 'local', 'jeunesse', 'evenements-locaux', 'marches-locaux', 'brocantes', 'vide-greniers', 'travaux-voirie', 'coupures-circulation', 'collecte-dechets', 'dechetteries', 'piscines', 'bibliotheques', 'ecoles', 'education', 'vacances-scolaires', 'cantines', 'mairie'],
   'alimentation': ['alimentation', 'gastronomie', 'restaurants', 'food-trucks', 'produits-locaux', 'vins', 'bieres', 'recoltes'],
   'agriculture-jardin': ['agriculture', 'meteo-agricole', 'gel-cultures', 'vendanges', 'jardinage', 'semis', 'champignons', 'chasse', 'peche', 'apiculture'],
   'auto-moto': ['automobile', 'rappels-vehicules', 'controle-technique', 'prix-occasion', 'nouveautes-auto', 'moto', 'zfe', 'vignette-critair', 'radars', 'permis-points'],
@@ -59,6 +59,7 @@ const SPECIAL = {
   'certificats-ssl': 'Certificats SSL',
   'changements-api': "Changements d'API",
   'qualite-air': "Qualité de l'air",
+  'communaute': 'Communauté',
   'quebec': 'Québec',
   'expatries': 'Expatriés',
   'outre-mer': 'Outre-mer',
@@ -85,6 +86,7 @@ const ACCENTS = {
   croisieres: 'croisières', tempetes: 'tempêtes', foret: 'forêt', metro: 'métro',
   surete: 'sûreté', nucleaire: 'nucléaire', radioactivite: 'radioactivité',
   identite: 'identité', regionale: 'régionale', integrite: 'intégrité',
+  fetes: 'fêtes', reseau: 'réseau',
 };
 
 function toLabel(slug) {
