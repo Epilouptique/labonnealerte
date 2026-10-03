@@ -343,7 +343,8 @@ header .chips-row .chip-f + .chip-f::before {
 .search input:focus, .search input:focus-visible { outline: none; }
 
 /* ---------- grid ---------- */
-.section-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .14em; color: var(--amber); margin-bottom: 14px; }
+/* E1) Violet de TEXTE : l accent d aplat ne passait pas 4.5:1 sur ce petit corps gras. */
+.section-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .14em; color: var(--amber-ink); margin-bottom: 14px; }
 /* G) padding-top ; rangées à hauteur auto alignées en haut (évite l'étirement
    d'une rangée unique en mode connecté). */
 /* Bug « vie locale » : les colonnes DOIVENT rester strictement égales quel que
@@ -769,11 +770,14 @@ a.endpoint:hover { color: var(--amber); text-decoration: underline; }
 .devs h2 { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; }
 .devs p { color: var(--muted); margin-top: 10px; font-size: 15px; }
 .code {
-  background: var(--bg); border: none; border-radius: 24px; padding: 18px;
+  /* D1) Fond sombre PROPRE au bloc de code (--code-bg sur les pages dev), au lieu de
+     var(--bg) qui suivait la palette de page : les exemples JSON restent lisibles en
+     clair comme en sombre. */
+  background: var(--code-bg, var(--bg)); color: var(--code-ink, var(--ink)); border: none; border-radius: 24px; padding: 18px;
   font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.7; overflow-x: auto;
 }
-.code .k { color: var(--amber); }
-.code .s { color: var(--green); }
+.code .k { color: #bd8ef0; }   /* violet clair : lu sur le fond nuit du bloc, pas sur la page */
+.code .s { color: #22c55e; }
 
 /* Bouton de copie sur les blocs de code (icône discrète, coin haut droit). */
 .code-wrap { position: relative; max-width: 600px;}
