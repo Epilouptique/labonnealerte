@@ -37,9 +37,12 @@
 </head>
 <body class="loading">
 
+<!-- I1) Lien d'évitement : premier élément focusable, visible seulement au focus. -->
+<a class="skip-link" href="#alertes">Aller au contenu</a>
+
 <header>
   <div class="wrap nav">
-    <a class="brand brandmark" href="/"><span class="lig"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path d="M 0 20 C -6 93, 66 52, 60 10"/></svg><span class="l">l</span>a</span>bonne<span class="a">alerte</span><span class="bang"><span class="bar"></span><span class="dot"></span></span><span class="fr">fr</span></a>
+    <a class="brand brandmark" href="/" aria-label="La Bonne Alerte — accueil"><span class="lig"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path d="M 0 20 C -6 93, 66 52, 60 10"/></svg><span class="l">l</span>a</span>bonne<span class="a">alerte</span><span class="bang"><span class="bar"></span><span class="dot"></span></span><span class="fr">fr</span></a>
     <a class="btn-deposit" href="/proposer" title="Proposer une source"><span class="plus" aria-hidden="true">+</span> <span class="bd-label">Proposer une source</span></a>
     <button class="nav-toggle" type="button" aria-label="Ouvrir le menu" aria-expanded="false" aria-controls="nav-menu">
       <span></span><span></span><span></span>
@@ -113,7 +116,12 @@
   <!-- I) 2e ligne de catégories : hors de .toolbar → la barre de recherche ne bouge plus -->
   <div class="chips-secondary-wrap" id="chips-secondary-wrap"></div>
 
-  <div class="grid" id="grid">
+  <!-- I3) Un H2 (masqué visuellement) ouvre la section des alertes : sans lui, les titres
+       de cartes (H3) s'enchaînaient directement sous le H1 de la page.
+       I4) role="list" + role="listitem" (posé par cards.js) : la grille est annoncée comme
+       une liste de N éléments. Les classes et sélecteurs JS restent inchangés. -->
+  <h2 class="sr-only">Vos alertes</h2>
+  <div class="grid" id="grid" role="list">
 
     <!-- Carte « Proposer une alerte » — statique, toujours visible.
          Sert aussi d'ancre d'insertion des cartes dynamiques (id static-extras). -->

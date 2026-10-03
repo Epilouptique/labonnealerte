@@ -871,7 +871,7 @@
         ' data-community-label="' + esc(cc.label) + '"';
     }
     return '' +
-      '<div class="card flip" data-cats="' + dataCats + '" data-source-id="' + esc(s.id) + '"' +
+      '<div class="card flip" role="listitem" data-cats="' + dataCats + '" data-source-id="' + esc(s.id) + '"' +
         (grp ? ' data-group="' + esc(grp) + '"' : '') + comAttrs +
         ' data-subscribed="' + sub + '" data-search="' + esc(searchText(s, cats)) + '">' +
         '<div class="card-inner">' +
