@@ -5,13 +5,17 @@
 const crypto = require('crypto');
 const { pool } = require('./db');
 const { tokenFrom } = require('./auth-transport');
+const { fingerprint, lookupCandidates } = require('./token-hash');
 
 async function createSession(subscriberId) {
+  // On génère le jeton BRUT (rendu au client), mais on ne stocke que son EMPREINTE :
+  // la base ne contient jamais le secret de session en clair. Le client continue de
+  // présenter le brut en Bearer ; authenticate() le re-hache pour retrouver la ligne.
   const token = crypto.randomBytes(32).toString('hex');
   await pool.query(
     `INSERT INTO sessions (token, subscriber_id, expires_at)
      VALUES ($1, $2, NOW() + INTERVAL '90 days')`,
-    [token, subscriberId]
+    [fingerprint(token), subscriberId]
   );
   return token;
 }
@@ -36,12 +40,15 @@ async function authenticate(tokenOrReq) {
   // needs_touch est calculé ICI, dans le SELECT qui lit déjà la ligne : il ne coûte pas
   // un aller-retour de plus. Il est évalué côté base pour ne dépendre d'aucune horloge
   // applicative. Voir plus bas pourquoi l'UPDATE n'est plus attendu.
+  // Lecture par empreinte d'abord, repli sur le brut (lignes pas encore converties, phase 2).
+  // On remonte s.token (la valeur STOCKÉE, empreinte ou brut legacy) pour que l'UPDATE de
+  // prolongation cible exactement cette ligne, sans redépendre du contenu du jeton entrant.
   const s = await pool.query(
-    `SELECT s.subscriber_id, subr.email,
+    `SELECT s.subscriber_id, s.token AS stored, subr.email,
             (s.last_seen_at IS NULL OR s.last_seen_at < NOW() - INTERVAL '1 hour') AS needs_touch
        FROM sessions s JOIN subscribers subr ON subr.id = s.subscriber_id
-      WHERE s.token = $1 AND s.expires_at > NOW()`,
-    [token]
+      WHERE s.token = ANY($1::text[]) AND s.expires_at > NOW()`,
+    [lookupCandidates(token)]
   );
   if (s.rows.length) {
     // EXPIRATION GLISSANTE, DÉSORMAIS HORS DU CHEMIN DE RÉPONSE.
@@ -69,7 +76,7 @@ async function authenticate(tokenOrReq) {
                 expires_at = CASE WHEN expires_at < NOW() + INTERVAL '60 days'
                                   THEN NOW() + INTERVAL '90 days' ELSE expires_at END
           WHERE token = $1`,
-        [token]
+        [s.rows[0].stored]
       ).catch((err) => {
         console.error('[sessions] expiration glissante (non bloquant) :', err.message);
       });
@@ -80,8 +87,8 @@ async function authenticate(tokenOrReq) {
   // 2) magic_token valide → crée une session, invalide le magic_token (usage unique).
   const m = await pool.query(
     `SELECT id, email FROM subscribers
-      WHERE magic_token = $1 AND magic_token_expires_at > NOW()`,
-    [token]
+      WHERE magic_token = ANY($1::text[]) AND magic_token_expires_at > NOW()`,
+    [lookupCandidates(token)]
   );
   if (m.rows.length) {
     const sub = m.rows[0];
@@ -98,7 +105,8 @@ async function authenticate(tokenOrReq) {
 
 async function deleteSession(token) {
   if (!token || typeof token !== 'string') return;
-  await pool.query('DELETE FROM sessions WHERE token = $1', [token]);
+  // Empreinte d'abord, repli brut (sessions pas encore converties).
+  await pool.query('DELETE FROM sessions WHERE token = ANY($1::text[])', [lookupCandidates(token)]);
 }
 
 async function cleanupExpired() {

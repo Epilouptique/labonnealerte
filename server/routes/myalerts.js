@@ -15,6 +15,7 @@ const { VALID_SLUGS } = require('../categories');
 const { validateParams, resolveLabel } = require('../params');
 const { resolveCommuneInsee, isInsee, resolveCommuneCoords, encodeCoords, isEncodedCoords } = require('../sources/lib/commune-insee');
 const { trackDomain } = require('../doomname');
+const { fingerprint } = require('../token-hash');
 const { applyAutofill, deriveDisplayNameFromEmail, clientIp } = require('../profile-autofill');
 const { award, getRank } = require('../points');
 const { publicEventMessage } = require('../public-events');
@@ -152,12 +153,14 @@ apiRouter.post('/my-alerts/request', rateLimit, async (req, res) => {
         [normalized]
       );
       if (rows.length > 0) {
+        // On stocke l'EMPREINTE du magic_token (la base n'en garde jamais le clair) et on
+        // e-maile la valeur BRUTE : le lien porte le brut, authenticate() le re-hache.
         const token = crypto.randomBytes(32).toString('hex');
         await pool.query(
           `UPDATE subscribers
               SET magic_token = $1, magic_token_expires_at = NOW() + INTERVAL '30 minutes'
             WHERE id = $2`,
-          [token, rows[0].id]
+          [fingerprint(token), rows[0].id]
         );
         try {
           await sendMagicLink(normalized, token);

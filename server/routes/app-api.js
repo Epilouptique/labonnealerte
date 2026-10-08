@@ -17,6 +17,7 @@ const { sendAppLoginCode } = require('../mailer');
 const { publicKey } = require('../webpush');
 const { resolveLabel } = require('../params');
 const { publicEventMessage } = require('../public-events');
+const { fingerprint } = require('../token-hash');
 
 const router = express.Router();
 
@@ -139,13 +140,14 @@ router.post('/app/login/request', async (req, res) => {
       );
       if (rows.length > 0) {
         push(sendsByEmail, normalized, SEND_WINDOW_MS);
-        // Meme mecanisme que POST /api/my-alerts/request (lien magique 30 min).
+        // Meme mecanisme que POST /api/my-alerts/request (lien magique 30 min). On stocke
+        // l'EMPREINTE du magic_token ; le BRUT reste en memoire (codes) et part par e-mail.
         const token = crypto.randomBytes(32).toString('hex');
         await pool.query(
           `UPDATE subscribers
               SET magic_token = $1, magic_token_expires_at = NOW() + INTERVAL '30 minutes'
             WHERE id = $2`,
-          [token, rows[0].id]
+          [fingerprint(token), rows[0].id]
         );
         const code = String(crypto.randomInt(0, 1_000_000)).padStart(6, '0');
         const prev = codes.get(normalized);
