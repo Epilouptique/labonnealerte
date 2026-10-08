@@ -74,6 +74,42 @@ const MAX_SENDS_PER_EMAIL = 3;
 const SEND_WINDOW_MS = 15 * 60_000;
 const MAP_CAP = 50_000;
 
+// PLAFOND GLOBAL des e-mails de code (connexion + creation, tous destinataires confondus).
+// Borne le cout d'un abus reparti sur beaucoup d'adresses et d'IP, et protege le quota du
+// fournisseur d'e-mails partage avec les alertes. Ne concerne QUE ce flux : les e-mails
+// d'alertes des abonnes ne passent pas par ici et ne sont jamais bloques.
+// Au plafond : meme reponse neutre (deja envoyee), aucun e-mail, aucun code cree, une ligne
+// de journal par fenetre (sans adresse). Compteurs EN MEMOIRE : un redemarrage les remet a
+// zero (les limites par adresse et par IP restent en place).
+// Variables OPTIONNELLES : APP_CODE_MAX_PER_HOUR (defaut 30), APP_CODE_MAX_PER_DAY (defaut 150).
+function capEnv(name, def) {
+  const n = parseInt(process.env[name] || '', 10);
+  return Number.isFinite(n) && n > 0 ? n : def;
+}
+const GLOBAL_MAX_PER_HOUR = capEnv('APP_CODE_MAX_PER_HOUR', 30);
+const GLOBAL_MAX_PER_DAY = capEnv('APP_CODE_MAX_PER_DAY', 150);
+const HOUR_MS = 60 * 60_000;
+const DAY_MS = 24 * HOUR_MS;
+let globalSends = [];             // timestamps des envois (24 h glissantes)
+const capLogged = { hour: 0, day: 0 }; // dernier journal par fenetre (une ligne par fenetre)
+
+function globalSendOk() {
+  const now = Date.now();
+  globalSends = globalSends.filter((t) => now - t < DAY_MS);
+  const lastHour = globalSends.filter((t) => now - t < HOUR_MS).length;
+  const which = globalSends.length >= GLOBAL_MAX_PER_DAY ? 'day' : lastHour >= GLOBAL_MAX_PER_HOUR ? 'hour' : null;
+  if (which) {
+    const win = which === 'day' ? DAY_MS : HOUR_MS;
+    if (now - capLogged[which] >= win) {
+      capLogged[which] = now;
+      console.warn(`[app-api] PLAFOND GLOBAL ATTEINT (${which === 'day' ? `${GLOBAL_MAX_PER_DAY}/24 h` : `${GLOBAL_MAX_PER_HOUR}/h`}) : e-mails de code suspendus, reponse neutre inchangee`);
+    }
+    return false;
+  }
+  globalSends.push(now);
+  return true;
+}
+
 const codes = new Map();      // email -> { hash, token, exp, tries }
 const failsByEmail = new Map(); // email -> [timestamps d'echec]
 const sendsByEmail = new Map(); // email -> [timestamps d'envoi]
@@ -142,7 +178,8 @@ router.post('/app/login/request', async (req, res) => {
   // (anti-enumeration par mesure du temps de reponse, audit APP-02).
   res.status(200).json(NEUTRAL);
   if (normalized && normalized.length <= 254 && EMAIL_RE.test(normalized) &&
-      recent(sendsByEmail, normalized, SEND_WINDOW_MS).length < MAX_SENDS_PER_EMAIL) {
+      recent(sendsByEmail, normalized, SEND_WINDOW_MS).length < MAX_SENDS_PER_EMAIL &&
+      globalSendOk()) {
     try {
       // Memes plafonds dans les deux cas (inscrit ou non) : le compteur d'envois est pousse
       // AVANT de savoir si l'adresse existe.
