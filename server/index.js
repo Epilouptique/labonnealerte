@@ -210,6 +210,7 @@ app.use('/api', pushRouter);
 app.use('/api', lePointApiRouter);
 app.use('/api', userTasksApiRouter);
 app.use('/api', communityReportsRouter);
+app.use('/api', require('./routes/app-api')); // application Android (fil APP-01)
 app.use('/api/dev', devRouter);
 // Connexion OAuth (Google / GitHub) — redirections serveur.
 app.use('/auth', authRouter);

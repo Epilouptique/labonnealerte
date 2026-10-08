@@ -164,6 +164,33 @@ async function sendMagicLink(email, token) {
   });
 }
 
+// Application Android (server/routes/app-api.js) : meme lien magique, plus un code a
+// 6 chiffres a saisir dans l'app (le lien ouvre souvent le navigateur, pas l'app).
+async function sendAppLoginCode(email, token, code) {
+  const magicUrl = `${MYALERTS_URL}?token=${token}`;
+  const safeCode = String(code).replace(/\D/g, '').slice(0, 6);
+  return resend.emails.send({
+    from: FROM,
+    to: email,
+    subject: subject('Ton code de connexion'),
+    text:
+      `Bonjour,\n\n` +
+      `Ton code de connexion pour l'application La Bonne Alerte : ${safeCode}\n\n` +
+      `Tu peux aussi utiliser ce lien :\n${magicUrl}\n\n` +
+      `Le code et le lien sont valables 30 minutes et ne servent qu'une fois.\n` +
+      `Si tu n'es pas à l'origine de cette demande, ignore cet email.`,
+    html: emailShell({
+      heading: 'Ton code de connexion',
+      intro: `Saisis ce code dans l'application La Bonne Alerte :</p>` +
+        `<p style="margin:18px 0;font-size:32px;font-weight:700;letter-spacing:8px;font-family:Arial,Helvetica,sans-serif">${safeCode}</p>` +
+        `<p style="margin:0">Ou touche le bouton depuis ton téléphone.`,
+      button: { url: magicUrl, label: 'Me connecter →' },
+      fallbackUrl: magicUrl,
+      note: 'Le code et le lien sont valables <strong>30 minutes</strong> et ne servent qu\'une fois. Si tu n\'es pas à l\'origine de cette demande, ignore simplement cet email.',
+    }),
+  });
+}
+
 function esc(s) {
   return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
     return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
@@ -497,6 +524,6 @@ async function sendCommunityReportSpotNotification(recipient, info) {
 }
 
 module.exports = {
-  sendConfirmation, sendPromoAlert, sendMagicLink, sendDeferredDigest,
+  sendConfirmation, sendPromoAlert, sendMagicLink, sendAppLoginCode, sendDeferredDigest,
   sendTaskDueReminder, sendForumReplyNotification, sendCommunityReportSpotNotification,
 };
