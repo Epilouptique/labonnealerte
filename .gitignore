@@ -32,3 +32,6 @@ rapports/**/run-*.log
 # les FUTURS brouillons, pour qu'ils ne s'accumulent plus ici.
 /*.png
 
+rapports/veille/
+rapports/veille-sources/
+rapports/audit/securite-*
