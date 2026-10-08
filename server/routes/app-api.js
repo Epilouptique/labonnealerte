@@ -17,7 +17,6 @@ const { sendAppLoginCode } = require('../mailer');
 const { publicKey } = require('../webpush');
 const { resolveLabel } = require('../params');
 const { publicEventMessage } = require('../public-events');
-const { clientIp } = require('../profile-autofill');
 
 const router = express.Router();
 
@@ -55,7 +54,7 @@ router.get('/app/config', (req, res) => {
 //  - 5 essais par code, et le compteur NE repart PAS a zero si on redemande un code ;
 //  - 10 echecs par heure et par email, puis blocage d'une heure (independant de l'IP) ;
 //  - 3 envois par 15 min et par email (au-dela : reponse neutre, pas d'e-mail) ;
-//  - limites par IP reelle du client (clientIp : cf-connecting-ip verifie, sinon XFF).
+//  - limites par IP (rateIp : cf-connecting-ip si secret d'origine verifie, sinon req.ip).
 const CODE_TTL_MS = 30 * 60_000;
 const MAX_TRIES_PER_CODE = 5;
 const MAX_FAILS_PER_EMAIL = 10;
@@ -78,8 +77,14 @@ function recent(map, key, windowMs) {
   return (map.get(key) || []).filter((t) => now - t < windowMs);
 }
 
+// Au-dela du plafond, on retire la cle la plus ancienne (ordre d'insertion de Map) :
+// vider toute la table remettrait a zero les verrous par email (audit APP-02).
+function capMap(map) {
+  while (map.size >= MAP_CAP) map.delete(map.keys().next().value);
+}
+
 function push(map, key, windowMs) {
-  if (map.size > MAP_CAP) map.clear();
+  if (!map.has(key)) capMap(map);
   const arr = recent(map, key, windowMs);
   arr.push(Date.now());
   map.set(key, arr);
@@ -90,6 +95,21 @@ function rateOk(key, max) {
   if (recent(ipHits, key, 60_000).length >= max) return false;
   push(ipHits, key, 60_000);
   return true;
+}
+
+// IP pour les limites de debit. On ne reprend PAS clientIp() (premier X-Forwarded-For
+// public, falsifiable en acces direct a Railway) : cf-connecting-ip seulement si le
+// secret d'origine est verifie, sinon req.ip (trust proxy 1 = adresse vue par Railway).
+function rateIp(req) {
+  const h = req.headers || {};
+  const secret = process.env.ORIGIN_SECRET;
+  if (secret && h['cf-connecting-ip'] && h['x-origin-secret'] === secret) return String(h['cf-connecting-ip']).trim();
+  return req.ip || 'inconnue';
+}
+
+// Journaux sans donnee personnelle : jamais err.message (un refus SMTP peut citer l'adresse).
+function errTag(err) {
+  return (err && (err.code || err.name)) || 'erreur';
 }
 
 function normEmail(email) {
@@ -105,8 +125,11 @@ setInterval(() => {
 }, 5 * 60_000).unref();
 
 router.post('/app/login/request', async (req, res) => {
-  if (!rateOk(`req:${clientIp(req) || req.ip}`, 5)) return res.status(429).json({ error: 'Trop de demandes, réessayez dans une minute.' });
+  if (!rateOk(`req:${rateIp(req)}`, 5)) return res.status(429).json({ error: 'Trop de demandes, réessayez dans une minute.' });
   const normalized = normEmail((req.body || {}).email);
+  // Reponse neutre AVANT tout acces a la base : meme duree pour un email inscrit ou non
+  // (anti-enumeration par mesure du temps de reponse, audit APP-02).
+  res.status(200).json(NEUTRAL);
   if (normalized && normalized.length <= 254 && EMAIL_RE.test(normalized) &&
       recent(sendsByEmail, normalized, SEND_WINDOW_MS).length < MAX_SENDS_PER_EMAIL) {
     try {
@@ -127,23 +150,18 @@ router.post('/app/login/request', async (req, res) => {
         const code = String(crypto.randomInt(0, 1_000_000)).padStart(6, '0');
         const prev = codes.get(normalized);
         const tries = prev && prev.exp > Date.now() ? prev.tries : 0;
-        if (codes.size > MAP_CAP) codes.clear();
+        if (!codes.has(normalized)) capMap(codes);
         codes.set(normalized, { hash: hashCode(normalized, code), token, exp: Date.now() + CODE_TTL_MS, tries });
-        // Envoi non attendu : meme duree de reponse que pour un email inconnu.
-        sendAppLoginCode(normalized, token, code).catch((err) => {
-          console.error('[app-api] Échec envoi code de connexion :', err.message);
-        });
+        await sendAppLoginCode(normalized, token, code);
       }
     } catch (err) {
-      console.error('[app-api] Erreur POST /app/login/request :', err.message);
+      console.error('[app-api] Échec demande de code de connexion :', errTag(err));
     }
   }
-  // Reponse neutre dans tous les cas (anti-enumeration).
-  return res.status(200).json(NEUTRAL);
 });
 
 router.post('/app/login/verify', async (req, res) => {
-  if (!rateOk(`ver:${clientIp(req) || req.ip}`, 10)) return res.status(429).json({ error: 'Trop d\'essais, réessayez dans une minute.' });
+  if (!rateOk(`ver:${rateIp(req)}`, 10)) return res.status(429).json({ error: 'Trop d\'essais, réessayez dans une minute.' });
   const normalized = normEmail((req.body || {}).email);
   const code = (req.body || {}).code;
   const bad = () => res.status(400).json({ error: 'Code incorrect ou expiré' });
@@ -172,7 +190,7 @@ router.post('/app/login/verify', async (req, res) => {
     failsByEmail.delete(normalized);
     return res.status(200).json({ token: auth.sessionToken, email: auth.email });
   } catch (err) {
-    console.error('[app-api] Erreur POST /app/login/verify :', err.message);
+    console.error('[app-api] Erreur POST /app/login/verify :', errTag(err));
     return res.status(503).json({ error: 'Service indisponible' });
   }
 });
@@ -232,7 +250,7 @@ router.get('/app/events', async (req, res) => {
     const lastId = page.length ? Number(page[page.length - 1].id) : since;
     return res.status(200).json({ events, last_id: lastId, has_more: hasMore });
   } catch (err) {
-    console.error('[app-api] Erreur GET /app/events :', err.message);
+    console.error('[app-api] Erreur GET /app/events :', errTag(err));
     return res.status(503).json({ error: 'Service indisponible' });
   }
 });
@@ -283,7 +301,7 @@ router.get('/app/forum', async (req, res) => {
       recent: recent.rows.map(forumTopic),
     });
   } catch (err) {
-    console.error('[app-api] Erreur GET /app/forum :', err.message);
+    console.error('[app-api] Erreur GET /app/forum :', errTag(err));
     return res.status(503).json({ error: 'Service indisponible' });
   }
 });
@@ -309,7 +327,7 @@ router.get('/app/forum/topics', async (req, res) => {
     res.set('Cache-Control', 'public, max-age=30');
     return res.status(200).json({ topics: rows.slice(0, FORUM_TOPICS_PER_PAGE).map(forumTopic), page, has_more: rows.length > FORUM_TOPICS_PER_PAGE });
   } catch (err) {
-    console.error('[app-api] Erreur GET /app/forum/topics :', err.message);
+    console.error('[app-api] Erreur GET /app/forum/topics :', errTag(err));
     return res.status(503).json({ error: 'Service indisponible' });
   }
 });
@@ -346,7 +364,7 @@ router.get('/app/forum/topics/:slug', async (req, res) => {
       has_more: p.rows.length > FORUM_POSTS_PER_PAGE,
     });
   } catch (err) {
-    console.error('[app-api] Erreur GET /app/forum/topics/:slug :', err.message);
+    console.error('[app-api] Erreur GET /app/forum/topics/:slug :', errTag(err));
     return res.status(503).json({ error: 'Service indisponible' });
   }
 });
@@ -358,7 +376,7 @@ router.get('/app/forum/members/:pseudo', async (req, res) => {
     if (!u.rows.length) return res.status(404).json({ error: 'Membre introuvable' });
     return res.status(200).json({ pseudo: u.rows[0].pseudo, display_name: u.rows[0].display_name || 'Membre' });
   } catch (err) {
-    console.error('[app-api] Erreur GET /app/forum/members :', err.message);
+    console.error('[app-api] Erreur GET /app/forum/members :', errTag(err));
     return res.status(503).json({ error: 'Service indisponible' });
   }
 });
