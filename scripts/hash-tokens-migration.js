@@ -36,17 +36,42 @@ function fingerprint(raw) {
   return PREFIX + crypto.createHmac('sha256', SECRET).update(raw).digest('hex');
 }
 
-// Tables/colonnes à convertir. `where` restreint au périmètre « encore en clair ».
+// Tables/colonnes à convertir. UNIQUEMENT les jetons HACHÉS en phase 1 (A sessions.token,
+// B subscribers.magic_token). On NE convertit PAS subscribers.token (C) ni
+// user_tasks.confirm_token (D) : leur valeur brute est relue en base et ré-émise plus tard
+// dans des e-mails (désinscription, rappels d'échéance). Les hacher casserait ces liens — ils
+// relèvent d'une migration vers des jetons signés sans état (cf. rapport securite-*).
 // id = colonne de clé pour l'auto-vérif par échantillon (PK de la table).
 const TARGETS = [
-  { table: 'sessions',   col: 'token',         id: 'token' },
-  { table: 'subscribers', col: 'token',         id: 'id' },
-  { table: 'subscribers', col: 'magic_token',   id: 'id' },
-  { table: 'user_tasks',  col: 'confirm_token', id: 'id' },
+  { table: 'sessions',    col: 'token',       id: 'token' },
+  { table: 'subscribers', col: 'magic_token', id: 'id' },
 ];
+
+// L'empreinte stockée fait 67 caractères (PREFIX + 64 hex). Si la colonne cible est plus
+// étroite, l'UPDATE échouerait avec « value too long for type character varying(N) » — la
+// panne exacte survenue en prod sur sessions.token(64). On REFUSE donc d'écrire tant que la
+// largeur réelle n'est pas suffisante (vérif via information_schema), sans toucher la base.
+async function assertWidthOk(client, t) {
+  const need = fingerprint('0'.repeat(64)).length; // 67
+  const r = await client.query(
+    `SELECT character_maximum_length AS len FROM information_schema.columns
+      WHERE table_name = $1 AND column_name = $2`,
+    [t.table, t.col]
+  );
+  if (!r.rows.length) throw new Error(`[${t.table}.${t.col}] colonne introuvable.`);
+  const len = r.rows[0].len; // NULL = type sans limite (TEXT) → OK
+  if (len != null && len < need) {
+    throw new Error(
+      `[${t.table}.${t.col}] largeur ${len} < ${need} requis pour l'empreinte. ` +
+      `Élargissez d'abord (migrate.js / ALTER … TYPE VARCHAR(128)) avant la conversion.`
+    );
+  }
+  console.log(`[${t.table}.${t.col}] largeur ${len == null ? 'illimitée' : len} ≥ ${need} : OK.`);
+}
 
 async function convertTarget(client, t, counters) {
   const { table, col, id } = t;
+  await assertWidthOk(client, t); // garde-fou largeur AVANT toute écriture
   // Sélection contrôlée : non NULL et pas déjà convertie.
   const sel = await client.query(
     `SELECT ${id} AS k, ${col} AS raw FROM ${table}

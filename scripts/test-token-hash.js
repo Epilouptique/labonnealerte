@@ -11,6 +11,8 @@
 require('dotenv').config(); // charge TOKEN_HASH_SECRET depuis .env (local)
 const assert = require('assert');
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 const { fingerprint, isFingerprint, lookupCandidates, PREFIX, RAW_RE } = require('../server/token-hash');
 const mig = require('./hash-tokens-migration'); // doit exposer la MÊME empreinte
 
@@ -105,5 +107,47 @@ test('APP: le code en mémoire garde le BRUT ; la base garde l\'empreinte ; veri
   // verify : authenticate(entry.token) == authenticate(raw) → retrouve la ligne par empreinte.
   assert.strictEqual(dbMatch(subs, memory.token), 'sub-app');
 });
+
+/* ---- Schéma : la largeur déclarée doit accueillir l'empreinte (détecte l'erreur
+       « value too long for type character varying(64) » AVANT déploiement) ---- */
+const SQL = fs.readFileSync(path.join(__dirname, '..', 'server', 'db', 'init.sql'), 'utf8');
+
+// Largeur effective déclarée pour <table>.<col> dans init.sql = max des VARCHAR(n) trouvés
+// sur la définition de colonne (ancrée en début de ligne, donc `token` ne capte pas
+// `magic_token`) ET sur les ALTER (ADD COLUMN / ALTER COLUMN … TYPE). null si introuvable.
+function declaredWidth(table, col) {
+  const widths = [];
+  // Bloc CREATE TABLE de la table.
+  const create = new RegExp('CREATE TABLE IF NOT EXISTS ' + table + '\\s*\\(([\\s\\S]*?)\\n\\);');
+  const mBlock = create.exec(SQL);
+  if (mBlock) {
+    const colRe = new RegExp('(?:^|\\n)\\s*' + col + '\\s+VARCHAR\\((\\d+)\\)', 'i');
+    const mc = colRe.exec(mBlock[1]);
+    if (mc) widths.push(Number(mc[1]));
+  }
+  // ALTER globaux visant table.col (ADD COLUMN IF NOT EXISTS … / ALTER COLUMN … TYPE …).
+  const alterRe = new RegExp(
+    'ALTER TABLE ' + table + '\\s+(?:ADD COLUMN IF NOT EXISTS|ALTER COLUMN)\\s+' + col +
+    '\\s+(?:TYPE\\s+)?VARCHAR\\((\\d+)\\)', 'gi');
+  let m;
+  while ((m = alterRe.exec(SQL)) !== null) widths.push(Number(m[1]));
+  return widths.length ? Math.max(...widths) : null;
+}
+
+const fpLen = fingerprint('0'.repeat(64)).length; // 67 = PREFIX + 64 hex
+const SCHEMA_TOKENS = [
+  { table: 'sessions',    col: 'token',         hashed: true },
+  { table: 'subscribers', col: 'magic_token',   hashed: true },
+  { table: 'subscribers', col: 'token',         hashed: false }, // C, brut 64 hex
+  { table: 'user_tasks',  col: 'confirm_token', hashed: false }, // D, brut 64 hex
+];
+for (const c of SCHEMA_TOKENS) {
+  test(`schéma ${c.table}.${c.col} : largeur ≥ ${c.hashed ? 'empreinte (' + fpLen + ')' : 'brut (64)'}`, () => {
+    const w = declaredWidth(c.table, c.col);
+    assert.ok(w != null, `largeur introuvable dans init.sql pour ${c.table}.${c.col}`);
+    const need = c.hashed ? fpLen : 64;
+    assert.ok(w >= need, `${c.table}.${c.col} déclaré VARCHAR(${w}) < ${need} requis`);
+  });
+}
 
 console.log(`\n${passed} test(s) réussi(s)` + (process.exitCode ? ' — ÉCHECS présents.' : '.'));

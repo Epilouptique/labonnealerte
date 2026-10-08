@@ -67,15 +67,30 @@ CREATE TABLE IF NOT EXISTS subscribers (
   id SERIAL PRIMARY KEY,
   email VARCHAR(255) UNIQUE NOT NULL,
   confirmed BOOLEAN DEFAULT false,
-  token VARCHAR(64),
-  magic_token VARCHAR(64),               -- lien magique « Mes alertes » (nullable)
+  token VARCHAR(64),                     -- jeton d'abonné (désinscription/confirmation) : NON haché, reste 64
+  magic_token VARCHAR(128),              -- lien magique « Mes alertes » : stocké en EMPREINTE h1:HMAC (67 car.) → 128
   magic_token_expires_at TIMESTAMPTZ,    -- expiration du lien magique (nullable)
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Colonnes du lien magique pour les bases existantes.
-ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS magic_token VARCHAR(64);
+ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS magic_token VARCHAR(128);
 ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS magic_token_expires_at TIMESTAMPTZ;
+
+-- Chantier sécurité « jetons en empreinte » (phase 1) : magic_token stocke désormais une
+-- empreinte « h1: » + HMAC-SHA256 hex = 67 caractères. Les bases existantes étaient en
+-- VARCHAR(64) → l'INSERT échouait (« value too long for type character varying(64) »).
+-- Élargissement IDEMPOTENT, gardé par une vérification de largeur (ne touche la colonne que
+-- si elle est encore plus étroite que 128 ; no-op sinon). Voir aussi sessions.token plus bas.
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns
+              WHERE table_name = 'subscribers' AND column_name = 'magic_token'
+                AND character_maximum_length IS NOT NULL
+                AND character_maximum_length < 128) THEN
+    ALTER TABLE subscribers ALTER COLUMN magic_token TYPE VARCHAR(128);
+  END IF;
+END $$;
 
 -- Identités OAuth (fusion de compte par email vérifié).
 ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS google_id TEXT;
@@ -106,13 +121,28 @@ ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS ville_source TEXT;
 -- Sessions durables (90 jours, expiration glissante). Le lien magique ne sert
 -- qu'à ouvrir une session ; l'authentification des routes se fait via ce token.
 CREATE TABLE IF NOT EXISTS sessions (
-  token VARCHAR(64) PRIMARY KEY,
+  token VARCHAR(128) PRIMARY KEY,        -- stocké en EMPREINTE h1:HMAC (67 car.) depuis le chantier sécurité → 128
   subscriber_id INTEGER REFERENCES subscribers(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   expires_at TIMESTAMPTZ NOT NULL,
   last_seen_at TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions (expires_at);
+
+-- Chantier sécurité « jetons en empreinte » (phase 1) : sessions.token stocke une empreinte
+-- « h1: » + HMAC-SHA256 hex = 67 caractères. Les bases existantes étaient en VARCHAR(64) →
+-- createSession échouait (« value too long for type character varying(64) »), cassant toute
+-- création de session (Google, GitHub, lien magique, code de l'app). Élargissement IDEMPOTENT
+-- gardé par une vérification de largeur (ne touche la colonne que si < 128 ; no-op sinon).
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns
+              WHERE table_name = 'sessions' AND column_name = 'token'
+                AND character_maximum_length IS NOT NULL
+                AND character_maximum_length < 128) THEN
+    ALTER TABLE sessions ALTER COLUMN token TYPE VARCHAR(128);
+  END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS subscriptions (
   subscriber_id INTEGER REFERENCES subscribers(id) ON DELETE CASCADE,
