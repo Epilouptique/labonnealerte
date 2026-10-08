@@ -92,6 +92,11 @@ BEGIN
   END IF;
 END $$;
 
+-- Création de compte depuis l'application (fil APP-04) : date et version du texte accepté
+-- (case à cocher dans l'app). NULL pour les comptes créés autrement (site, OAuth).
+ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS terms_accepted_at TIMESTAMPTZ;
+ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS terms_version VARCHAR(32);
+
 -- Identités OAuth (fusion de compte par email vérifié).
 ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS google_id TEXT;
 ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS github_id TEXT;

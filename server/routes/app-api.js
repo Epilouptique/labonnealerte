@@ -1,9 +1,11 @@
 // Routes de l'application Android LaBonneAlerte (fil APP-01). Fichier ADDITIF :
 // aucune route existante n'est modifiee. Monte sous /api dans server/index.js.
 //
-//   GET  /api/app/config          → version minimale, maintenance, cle VAPID (public)
-//   POST /api/app/login/request   → envoie le lien magique + un code a 6 chiffres
-//   POST /api/app/login/verify    → echange email + code contre une session (Bearer)
+//   GET  /api/app/config          → version minimale, maintenance, cle VAPID, version des conditions (public)
+//   POST /api/app/login/request   → envoie un code a 6 chiffres : connexion (+ lien magique) si
+//                                   l'adresse est inscrite, creation de compte sinon (APP-04)
+//   POST /api/app/login/verify    → echange email + code (+ conditions acceptees pour une
+//                                   creation) contre une session (Bearer)
 //   GET  /api/app/events          → evenements des alertes suivies depuis l'id N (Bearer)
 //
 // Le push de l'app passe par l'existant (/api/push/subscribe : UnifiedPush = Web Push).
@@ -12,8 +14,8 @@
 const express = require('express');
 const crypto = require('crypto');
 const { pool } = require('../db');
-const { authenticate } = require('../sessions');
-const { sendAppLoginCode } = require('../mailer');
+const { authenticate, createSession } = require('../sessions');
+const { sendAppLoginCode, sendAppSignupCode } = require('../mailer');
 const { publicKey } = require('../webpush');
 const { resolveLabel } = require('../params');
 const { publicEventMessage } = require('../public-events');
@@ -22,7 +24,13 @@ const { fingerprint } = require('../token-hash');
 const router = express.Router();
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const NEUTRAL = { message: "Si cet email est inscrit, un lien d'accès et un code viennent de lui être envoyés." };
+// Reponse IDENTIQUE que l'adresse soit inscrite ou non (APP-04 : un code part dans les deux cas).
+const NEUTRAL = { message: 'Un code à 6 chiffres vient d’être envoyé à cette adresse.' };
+
+// Creation de compte (APP-04) : version du texte accepte (politique de confidentialite).
+// A CHANGER a chaque modification du texte ; l'app affiche le lien et renvoie la version.
+const APP_TERMS_VERSION = 'confidentialite-2026-10';
+const APP_TERMS_URL = 'https://labonnealerte.fr/confidentialite';
 
 // Version minimale de l'app (versionCode). Sans variable : 0 = aucune contrainte.
 // Variables Railway OPTIONNELLES (a poser par Hugo seulement s'il le souhaite) :
@@ -40,6 +48,8 @@ router.get('/app/config', (req, res) => {
     maintenance: process.env.APP_MAINTENANCE === '1',
     message: process.env.APP_MESSAGE ? String(process.env.APP_MESSAGE).slice(0, 300) : null,
     vapid_public_key: publicKey() || null,
+    terms_version: APP_TERMS_VERSION,
+    terms_url: APP_TERMS_URL,
   });
 });
 
@@ -134,14 +144,20 @@ router.post('/app/login/request', async (req, res) => {
   if (normalized && normalized.length <= 254 && EMAIL_RE.test(normalized) &&
       recent(sendsByEmail, normalized, SEND_WINDOW_MS).length < MAX_SENDS_PER_EMAIL) {
     try {
+      // Memes plafonds dans les deux cas (inscrit ou non) : le compteur d'envois est pousse
+      // AVANT de savoir si l'adresse existe.
+      push(sendsByEmail, normalized, SEND_WINDOW_MS);
       const { rows } = await pool.query(
         'SELECT id FROM subscribers WHERE email = $1 AND confirmed = true',
         [normalized]
       );
+      const code = String(crypto.randomInt(0, 1_000_000)).padStart(6, '0');
+      const prev = codes.get(normalized);
+      const tries = prev && prev.exp > Date.now() ? prev.tries : 0;
+      if (!codes.has(normalized)) capMap(codes);
       if (rows.length > 0) {
-        push(sendsByEmail, normalized, SEND_WINDOW_MS);
-        // Meme mecanisme que POST /api/my-alerts/request (lien magique 30 min). On stocke
-        // l'EMPREINTE du magic_token ; le BRUT reste en memoire (codes) et part par e-mail.
+        // CONNEXION. Meme mecanisme que POST /api/my-alerts/request (lien magique 30 min). On
+        // stocke l'EMPREINTE du magic_token ; le BRUT reste en memoire (codes) et part par e-mail.
         const token = crypto.randomBytes(32).toString('hex');
         await pool.query(
           `UPDATE subscribers
@@ -149,12 +165,13 @@ router.post('/app/login/request', async (req, res) => {
             WHERE id = $2`,
           [fingerprint(token), rows[0].id]
         );
-        const code = String(crypto.randomInt(0, 1_000_000)).padStart(6, '0');
-        const prev = codes.get(normalized);
-        const tries = prev && prev.exp > Date.now() ? prev.tries : 0;
-        if (!codes.has(normalized)) capMap(codes);
-        codes.set(normalized, { hash: hashCode(normalized, code), token, exp: Date.now() + CODE_TTL_MS, tries });
+        codes.set(normalized, { mode: 'login', hash: hashCode(normalized, code), token, exp: Date.now() + CODE_TTL_MS, tries });
         await sendAppLoginCode(normalized, token, code);
+      } else {
+        // CREATION (APP-04) : adresse inconnue ou jamais confirmee. AUCUNE ecriture en base ici :
+        // le compte n'existe qu'apres le bon code ET l'acceptation des conditions (verify).
+        codes.set(normalized, { mode: 'create', hash: hashCode(normalized, code), token: null, exp: Date.now() + CODE_TTL_MS, tries });
+        await sendAppSignupCode(normalized, code);
       }
     } catch (err) {
       console.error('[app-api] Échec demande de code de connexion :', errTag(err));
@@ -184,6 +201,7 @@ router.post('/app/login/verify', async (req, res) => {
     if (entry.tries >= MAX_TRIES_PER_CODE) codes.delete(normalized);
     return bad();
   }
+  if (entry.mode === 'create') return verifyCreate(req, res, normalized, entry);
   codes.delete(normalized);
   try {
     // authenticate() consomme le magic_token (usage unique) et cree une session.
@@ -196,6 +214,43 @@ router.post('/app/login/verify', async (req, res) => {
     return res.status(503).json({ error: 'Service indisponible' });
   }
 });
+
+// Creation de compte (APP-04), appelee avec un code CORRECT d'une adresse inconnue :
+//  - sans acceptation des conditions : 409 { needs_terms } et le code RESTE valable (l'app
+//    affiche les conditions puis rappelle verify). Seul le detenteur du bon code (donc de la
+//    boite mail) apprend ainsi que l'adresse n'a pas de compte ;
+//  - avec accept_terms === true et la version courante : le code est consomme AVANT tout
+//    await (usage unique, meme sous requetes concurrentes : Node traite ce bloc d'une traite),
+//    puis UN SEUL INSERT ... ON CONFLICT cree le compte (ou confirme une ligne non confirmee
+//    du site) et enregistre la date et la version acceptees. Session : createSession() tel quel.
+async function verifyCreate(req, res, normalized, entry) {
+  const body = req.body || {};
+  if (body.accept_terms !== true) {
+    return res.status(409).json({ needs_terms: true, terms_version: APP_TERMS_VERSION, terms_url: APP_TERMS_URL });
+  }
+  if (body.terms_version !== APP_TERMS_VERSION) {
+    return res.status(409).json({ needs_terms: true, terms_version: APP_TERMS_VERSION, terms_url: APP_TERMS_URL });
+  }
+  if (codes.get(normalized) !== entry) return res.status(400).json({ error: 'Code incorrect ou expiré' });
+  codes.delete(normalized);
+  try {
+    const token = crypto.randomBytes(32).toString('hex'); // jeton d'abonne (desinscription), comme auth.js
+    const { rows } = await pool.query(
+      `INSERT INTO subscribers (email, confirmed, token, terms_accepted_at, terms_version)
+       VALUES ($1, true, $2, NOW(), $3)
+       ON CONFLICT (email) DO UPDATE
+         SET confirmed = true, terms_accepted_at = NOW(), terms_version = EXCLUDED.terms_version
+       RETURNING id, email`,
+      [normalized, token, APP_TERMS_VERSION]
+    );
+    const sessionToken = await createSession(rows[0].id);
+    failsByEmail.delete(normalized);
+    return res.status(200).json({ token: sessionToken, email: rows[0].email, created: true });
+  } catch (err) {
+    console.error('[app-api] Erreur creation de compte :', errTag(err));
+    return res.status(503).json({ error: 'Service indisponible' });
+  }
+}
 
 /* ------------------------------------------------------------------ */
 /* GET /api/app/events?since_id=N&limit=100                            */

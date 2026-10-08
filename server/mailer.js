@@ -191,6 +191,31 @@ async function sendAppLoginCode(email, token, code) {
   });
 }
 
+// Creation de compte depuis l'application (fil APP-04) : adresse encore inconnue (ou jamais
+// confirmee). Aucun lien : le compte n'existe qu'apres saisie du code et acceptation des
+// conditions dans l'application.
+async function sendAppSignupCode(email, code) {
+  const safeCode = String(code).replace(/\D/g, '').slice(0, 6);
+  return resend.emails.send({
+    from: FROM,
+    to: email,
+    subject: subject('Ton code pour créer ton compte'),
+    text:
+      `Bonjour,\n\n` +
+      `Ton code pour créer ton compte dans l'application La Bonne Alerte : ${safeCode}\n\n` +
+      `Le code est valable 30 minutes et ne sert qu'une fois.\n` +
+      `Aucun compte n'est créé tant que tu ne l'as pas saisi dans l'application.\n` +
+      `Si tu n'es pas à l'origine de cette demande, ignore cet email.`,
+    html: emailShell({
+      heading: 'Créer ton compte',
+      intro: `Saisis ce code dans l'application La Bonne Alerte :</p>` +
+        `<p style="margin:18px 0;font-size:32px;font-weight:700;letter-spacing:8px;font-family:Arial,Helvetica,sans-serif">${safeCode}</p>` +
+        `<p style="margin:0">Aucun compte n'est créé tant que tu ne l'as pas saisi dans l'application.`,
+      note: 'Le code est valable <strong>30 minutes</strong> et ne sert qu\'une fois. Si tu n\'es pas à l\'origine de cette demande, ignore simplement cet email.',
+    }),
+  });
+}
+
 function esc(s) {
   return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
     return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
@@ -524,6 +549,6 @@ async function sendCommunityReportSpotNotification(recipient, info) {
 }
 
 module.exports = {
-  sendConfirmation, sendPromoAlert, sendMagicLink, sendAppLoginCode, sendDeferredDigest,
+  sendConfirmation, sendPromoAlert, sendMagicLink, sendAppLoginCode, sendAppSignupCode, sendDeferredDigest,
   sendTaskDueReminder, sendForumReplyNotification, sendCommunityReportSpotNotification,
 };
