@@ -37,6 +37,7 @@
 const crypto = require('crypto');
 const { safeFetchText } = require('../safe-fetch');
 const { parseIcs, occurrencesInWindow } = require('./lib/ics-parser');
+const { recordFailure, recordSuccess, defaultThreshold } = require('./lib/fail-threshold');
 
 const TIMEOUT_MS = 8_000;
 const MAX_BYTES = 2 * 1024 * 1024; // agenda chargé : 539 Ko constatés en réel
@@ -190,6 +191,8 @@ async function checkOne(params, entry) {
   const url = String((params && params.agenda) || '');
   const now = Date.now();
   const jours = preavisDays(params);
+  // Clé stable par combo (jamais journalisée en clair ; les logs n'utilisent que refKey).
+  const key = 'veille-agenda::' + comboKey(params);
 
   let ics;
   try {
@@ -199,10 +202,12 @@ async function checkOne(params, entry) {
       accept: 'text/calendar, application/octet-stream, text/plain',
     });
   } catch (err) {
-    // Réseau / SSRF bloqué / 4xx-5xx / trop volumineux → inactive silencieux.
-    // On conserve la mémoire existante : ne rien perdre, ne rien inventer.
-    // L'adresse n'est JAMAIS journalisée — seulement son empreinte.
-    console.warn(`[veille-agenda] ${refKey(url)} : ${err.message} → inactive.`);
+    // Réseau / SSRF bloqué / 4xx-5xx / trop volumineux → échec de surveillance : toléré
+    // (inactive, mémoire conservée) tant que < N échecs consécutifs, propagé au Nᵉ.
+    // L'adresse n'est JAMAIS journalisée — seulement son empreinte (refKey).
+    const r = recordFailure(key, defaultThreshold());
+    if (r.escalate) throw new Error(`veille-agenda : ${refKey(url)} — ${r.count} échecs consécutifs (seuil ${r.threshold}) → incident : ${err.message}`);
+    console.warn(`[veille-agenda] ${refKey(url)} échec ${r.count}/${r.threshold} (toléré) : ${err.message} → inactive.`);
     return { result: inactive(), seen: entry ? entry.seen : null, primed: entry ? entry.primed : false };
   }
 
@@ -210,9 +215,13 @@ async function checkOne(params, entry) {
   try {
     parsed = parseIcs(ics);
   } catch (err) {
-    console.warn(`[veille-agenda] ${refKey(url)} : agenda illisible → inactive.`);
+    const r = recordFailure(key, defaultThreshold());
+    if (r.escalate) throw new Error(`veille-agenda : ${refKey(url)} — ${r.count} échecs consécutifs (seuil ${r.threshold}) → incident : agenda illisible : ${err.message}`);
+    console.warn(`[veille-agenda] ${refKey(url)} échec ${r.count}/${r.threshold} (toléré) : agenda illisible → inactive.`);
     return { result: inactive(), seen: entry ? entry.seen : null, primed: entry ? entry.primed : false };
   }
+  // Fetch+parse réussi : la série d'échecs est rompue (même si résultat = inactive).
+  recordSuccess(key);
   if (parsed.skipped) {
     console.warn(`[veille-agenda] ${refKey(url)} : ${parsed.skipped} événement(s) à répétition non gérée, ignorés.`);
   }

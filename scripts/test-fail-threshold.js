@@ -3,7 +3,7 @@
 // Lancer : node scripts/test-fail-threshold.js
 'use strict';
 const assert = require('assert');
-const { withFailThreshold, _test } = require('../server/sources/lib/fail-threshold');
+const { withFailThreshold, recordFailure, recordSuccess, _test } = require('../server/sources/lib/fail-threshold');
 
 let passed = 0;
 function test(name, fn) {
@@ -85,6 +85,21 @@ function test(name, fn) {
       { threshold: 5, fallback: () => ({ state: 'inactive', note: 'repli-perso' }) });
     const r = await check();
     test('fallback personnalisé renvoyé tant qu\'on avale', () => assert.strictEqual(r.note, 'repli-perso'));
+  }
+
+  // --- API bas niveau recordFailure/recordSuccess (par combo) ---
+  _test.reset();
+  {
+    // combo A échoue 3 fois de suite (seuil 3) → escalade au 3e ; combo B indépendant.
+    const a1 = recordFailure('src::A', 3); const a2 = recordFailure('src::A', 3);
+    test('recordFailure 1 et 2/3 : pas d\'escalade', () => assert.ok(!a1.escalate && !a2.escalate));
+    const a3 = recordFailure('src::A', 3);
+    test('recordFailure 3/3 : escalade', () => assert.ok(a3.escalate && a3.count === 3));
+    const b1 = recordFailure('src::B', 3);
+    test('clé B indépendante de A', () => assert.ok(!b1.escalate && b1.count === 1));
+    recordSuccess('src::A');
+    const a1b = recordFailure('src::A', 3);
+    test('recordSuccess réinitialise la série de A', () => assert.ok(!a1b.escalate && a1b.count === 1));
   }
 
   setImmediate(() => console.log(`\n${passed} test(s) réussi(s)` + (process.exitCode ? ' — ÉCHECS présents.' : '.')));

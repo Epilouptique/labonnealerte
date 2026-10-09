@@ -21,6 +21,7 @@
 
 const { safeFetchText, BROWSER_UA } = require('../safe-fetch');
 const { hashHtml } = require('./lib/hash-diff-html');
+const { recordFailure, recordSuccess, defaultThreshold } = require('./lib/fail-threshold');
 
 const TIMEOUT_MS = 8_000;
 const MAX_BYTES = 2 * 1024 * 1024; // 2 Mo (une page peut être volumineuse)
@@ -82,9 +83,12 @@ async function checkWithParams(paramsList) {
     if (fetches >= MAX_FETCH) { out.push(Object.assign({ params }, entry ? entry.result : inactive(url))); continue; }
     fetches += 1;
 
+    const key = 'veille-page::' + url;
     let result;
     try {
       const hash = await signatureOf(url);
+      // Fetch+parse réussi : la série d'échecs est rompue (même si résultat = inactive).
+      recordSuccess(key);
       if (!entry || entry.hash == null) {
         result = inactive(url); // 1er cycle : référence mémorisée, AUCUNE alerte
         cache.set(url, { hash, at: now, ttl: WEEK_MS, result });
@@ -96,8 +100,11 @@ async function checkWithParams(paramsList) {
         cache.set(url, { hash: entry.hash, at: now, ttl: WEEK_MS, result });
       }
     } catch (err) {
-      // 403 anti-bot / timeout / SSRF bloqué / réseau → inactive silencieux, réessai rapproché.
-      console.warn(`[veille-page] ${url} : ${err.message} → inactive.`);
+      // 403 anti-bot / timeout / SSRF bloqué / réseau → échec de surveillance :
+      // toléré (inactive, réessai rapproché) tant que < N échecs consécutifs, propagé au Nᵉ.
+      const r = recordFailure(key, defaultThreshold());
+      if (r.escalate) throw new Error(`veille-page : ${url} — ${r.count} échecs consécutifs (seuil ${r.threshold}) → incident : ${err.message}`);
+      console.warn(`[veille-page] ${url} échec ${r.count}/${r.threshold} (toléré) : ${err.message} → inactive.`);
       result = inactive(url);
       cache.set(url, { hash: entry ? entry.hash : null, at: now, ttl: RETRY_MS, result });
     }

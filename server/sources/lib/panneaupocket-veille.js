@@ -18,6 +18,7 @@
 //   alertable). Défaut : tout panneau est alertable.
 
 const { validPanneauUrl, fetchPanneaux } = require('./panneaupocket-parser');
+const { recordFailure, recordSuccess, defaultThreshold } = require('./fail-threshold');
 
 const TTL_MS = 2 * 60 * 60 * 1000;   // 2h (info périssable — ex. arrosage publié pour le soir même)
 const RETRY_MS = 60 * 60 * 1000;     // réessai 1h après un échec
@@ -128,18 +129,24 @@ function createParamSource(opts) {
       if (fetches >= MAX_FETCH) { out.push(Object.assign({ params }, entry ? entry.result : inactive(url))); continue; }
       fetches += 1;
 
+      const key = id + '::' + url;
       let result;
       try {
         const { city, items } = await fetchPanneaux(url);
+        // Fetch+parse réussi : la série d'échecs est rompue (même si résultat = inactive).
+        recordSuccess(key);
         const { events, newRefs } = diffPanneaux(entry && entry.refs, items, alertable);
         result = (entry && entry.refs && events.length)
           ? { state: 'active', since: new Date(), until: null, message: buildMessage(events, city, urlObj), url }
           : inactive(url);
         cache.set(url, { refs: newRefs, at: now, ttl: TTL_MS, result });
       } catch (err) {
-        // Réseau / parsing / SSRF bloqué / 4xx-5xx → inactive silencieux, réessai rapproché.
-        // On conserve la référence existante (ne rien perdre, ne rien inventer).
-        console.warn(`[${id}] ${url} : ${err.message} → inactive.`);
+        // Réseau / parsing / SSRF bloqué / 4xx-5xx → échec de surveillance : toléré
+        // (inactive, réessai rapproché, référence conservée) tant que < N échecs
+        // consécutifs, propagé au Nᵉ.
+        const r = recordFailure(key, defaultThreshold());
+        if (r.escalate) throw new Error(`${id} : ${url} — ${r.count} échecs consécutifs (seuil ${r.threshold}) → incident : ${err.message}`);
+        console.warn(`[${id}] ${url} échec ${r.count}/${r.threshold} (toléré) : ${err.message} → inactive.`);
         result = inactive(url);
         cache.set(url, { refs: entry ? entry.refs : null, at: now, ttl: RETRY_MS, result });
       }
@@ -186,9 +193,12 @@ function createBroadcastSource(opts) {
     const now = Date.now();
     if (state.refs !== null && now - state.at < state.ttl) return state.result;
 
+    const key = id; // broadcast : état global unique, une seule clé
     try {
       if (!urlObj) throw new Error('URL PanneauPocket invalide');
       const { city, items } = await fetchPanneaux(urlObj.href);
+      // Fetch+parse réussi : la série d'échecs est rompue (même si résultat = inactive).
+      recordSuccess(key);
       const { events, newRefs } = diffPanneaux(state.refs, items, alertable);
       const result = (state.refs !== null && events.length)
         ? { state: 'active', since: new Date(), until: null, message: buildMessage(events, city, urlObj), url }
@@ -196,7 +206,11 @@ function createBroadcastSource(opts) {
       state = { refs: newRefs, at: now, ttl: TTL_MS, result };
       return result;
     } catch (err) {
-      console.warn(`[${id}] ${err.message} → inactive.`);
+      // Échec de surveillance : toléré (inactive, réessai rapproché, référence conservée)
+      // tant que < N échecs consécutifs, propagé au Nᵉ.
+      const r = recordFailure(key, defaultThreshold());
+      if (r.escalate) throw new Error(`${id} : ${r.count} échecs consécutifs (seuil ${r.threshold}) → incident : ${err.message}`);
+      console.warn(`[${id}] échec ${r.count}/${r.threshold} (toléré) : ${err.message} → inactive.`);
       const result = inactive();
       state = { refs: state.refs, at: now, ttl: RETRY_MS, result };
       return result;

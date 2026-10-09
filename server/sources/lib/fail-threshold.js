@@ -64,8 +64,29 @@ function withFailThreshold(id, checkFn, opts = {}) {
   };
 }
 
+// API BAS NIVEAU pour les sources PARAMÉTRIQUES qui traitent une LISTE de combos en un
+// seul appel et avalent l'erreur par combo : on compte les échecs PAR COMBO (clé), ce que
+// withFailThreshold (qui enveloppe un appel entier) ne permet pas. Usage dans la boucle :
+//   try { ...; recordSuccess(key); push(ok) }
+//   catch (e) { if (recordFailure(key, N).escalate) throw ...; push(inactive) }
+//
+// `recordFailure` incrémente le compteur de la clé et dit s'il faut escalader (count >= seuil).
+function recordFailure(key, threshold) {
+  const t = threshold || defaultThreshold();
+  const count = (fails.get(key) || 0) + 1;
+  fails.set(key, count);
+  return { count, threshold: t, escalate: count >= t };
+}
+// `recordSuccess` rompt la série d'échecs d'une clé.
+function recordSuccess(key) {
+  if (fails.get(key)) fails.delete(key);
+}
+
 module.exports = {
   withFailThreshold,
+  recordFailure,
+  recordSuccess,
+  defaultThreshold,
   _test: {
     reset: () => fails.clear(),
     peek: (key) => fails.get(key) || 0,

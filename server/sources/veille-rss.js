@@ -12,6 +12,7 @@
 
 const { safeFetchText, pubErr } = require('../safe-fetch');
 const { parseFeed } = require('./lib/feed-parser');
+const { recordFailure, recordSuccess, defaultThreshold } = require('./lib/fail-threshold');
 
 const TIMEOUT_MS = 6_000;
 const MAX_BYTES = 512 * 1024; // 512 Ko (un flux peut être un peu plus gros qu'un JSON d'API)
@@ -43,13 +44,19 @@ function inactive() {
 }
 
 async function fetchFlux(url) {
+  const key = 'veille-rss::' + url;
   let xml;
   try {
     xml = await safeFetchText(url, { timeoutMs: TIMEOUT_MS, maxBytes: MAX_BYTES, accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml' });
   } catch (err) {
-    // Erreur réseau/SSRF/HTTP → inactive silencieux (pas d'alerte d'erreur).
+    // Échec de surveillance : toléré tant que < N échecs consécutifs, propagé au Nᵉ.
+    const r = recordFailure(key, defaultThreshold());
+    if (r.escalate) throw new Error(`veille-rss : ${url} — ${r.count} échecs consécutifs (seuil ${r.threshold}) → incident : ${err.message}`);
+    console.warn(`[veille-rss] ${url} échec ${r.count}/${r.threshold} (toléré) : ${err.message}`);
     return inactive();
   }
+  // Fetch réussi : la série d'échecs est rompue (même si résultat = inactive « rien à signaler »).
+  recordSuccess(key);
   const { items } = parseFeed(xml);
   if (!items.length) return inactive();
 
