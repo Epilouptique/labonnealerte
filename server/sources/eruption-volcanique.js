@@ -58,14 +58,15 @@ async function fetchFeed() {
     if (err.name === 'AbortError') throw new Error('Timeout GVP');
     throw new Error('Appel GVP échoué : ' + err.message);
   } finally { clearTimeout(timer); }
-  if (!res.ok) throw new Error('HTTP ' + res.status);
+  if (!res.ok) throw new Error(`Réponse HTTP inattendue GVP : ${res.status}`);
   return res.text();
 }
 
 async function check() {
-  let xml;
-  try { xml = await fetchFeed(); }
-  catch (err) { console.warn(`[eruption-volcanique] ${err.message} → inactive.`); return inactive(); }
+  // Échec réseau, timeout ou HTTP non-2xx (403 du WAF compris) : on PROPAGE. Le poller journalise
+  // un 'failed' (« incident de surveillance »), conserve l'état précédent et ne notifie personne.
+  // Renvoyer inactive() masquait la panne (403 permanent depuis début octobre 2026).
+  const xml = await fetchFeed();
 
   const items = xml.match(/<item[\s\S]*?<\/item>/gi) || [];
   const news = []; // entrées « New Eruptive Activity »

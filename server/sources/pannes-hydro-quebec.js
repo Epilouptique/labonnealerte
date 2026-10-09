@@ -3,7 +3,8 @@
 // (50 000 — signal type tempête de verglas), pas les pannes ordinaires (anti-spam).
 //
 // API : info-pannes publique Hydro-Québec (sans clé), en 2 temps :
-//   1) .../v3_0/bisversion.json → { content: "YYYYMMDDHHmmss" }
+//   1) .../v3_0/bisversion.json → "YYYYMMDDHHmmss" (chaîne JSON nue depuis début octobre 2026 ;
+//      ancien format { content: "YYYYMMDDHHmmss" } toujours accepté)
 //   2) .../v3_0/bismarkers<VERSION>.json → { pannes: [ [nbClients, debut, ...], ... ] }
 // Il n'existe PAS de total provincial prêt à lire : on SOMME le champ « clients
 // affectés » (1re position de chaque entrée). Schéma positionnel non documenté →
@@ -33,22 +34,26 @@ async function getJson(url) {
 
 function inactive() { return { state: 'inactive', since: null, until: null, message: null, url: PUBLIC_URL }; }
 
+// Numéro de version : chaîne nue (format actuel) ou { content } (ancien format).
+function readVersion(ver) {
+  const raw = typeof ver === 'string' || typeof ver === 'number' ? ver : ver && ver.content;
+  return raw != null ? String(raw).replace(/[^0-9]/g, '') : '';
+}
+
 async function check() {
+  // Toute erreur (réseau, HTTP, format illisible) est PROPAGÉE : le poller journalise un 'failed'
+  // (« incident de surveillance »), garde l'état précédent et ne notifie personne. Renvoyer
+  // inactive() masquait la panne (changement de format de bisversion.json, début octobre 2026).
+  const ver = await getJson(`${BASE}/bisversion.json`);
+  const version = readVersion(ver);
+  if (!version) throw new Error('Hydro-Québec : version bisversion.json illisible');
+  const data = await getJson(`${BASE}/bismarkers${version}.json`);
+  if (!data || !Array.isArray(data.pannes)) throw new Error('Hydro-Québec : liste des pannes illisible');
   let total = 0;
-  try {
-    const ver = await getJson(`${BASE}/bisversion.json`);
-    const version = ver && ver.content ? String(ver.content).replace(/[^0-9]/g, '') : '';
-    if (!version) throw new Error('version bisversion.json illisible');
-    const data = await getJson(`${BASE}/bismarkers${version}.json`);
-    const pannes = data && Array.isArray(data.pannes) ? data.pannes : [];
-    for (const entry of pannes) {
-      // Entrée = tableau positionnel ; position 0 = nb clients affectés (entier).
-      const n = Array.isArray(entry) ? Number(entry[0]) : NaN;
-      if (Number.isFinite(n) && n > 0) total += n;
-    }
-  } catch (err) {
-    console.warn(`[pannes-hydro-quebec] ${err.message}`);
-    return inactive();
+  for (const entry of data.pannes) {
+    // Entrée = tableau positionnel ; position 0 = nb clients affectés (entier).
+    const n = Array.isArray(entry) ? Number(entry[0]) : NaN;
+    if (Number.isFinite(n) && n > 0) total += n;
   }
 
   if (total < SEUIL_CLIENTS) return inactive();
@@ -65,4 +70,4 @@ async function check() {
   };
 }
 
-module.exports = { id: 'pannes-hydro-quebec', check };
+module.exports = { id: 'pannes-hydro-quebec', check, _test: { readVersion } };
