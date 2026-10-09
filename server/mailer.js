@@ -82,7 +82,9 @@ async function sendConfirmation(email, token) {
 
 // Gabarit d'email de marque (compatible clients mail : tables + styles inline).
 // Palette identité : accent violet #a567e3, encre #0f1419, fond doux #fdfaff.
-function emailShell({ heading, intro, button, fallbackUrl, note }) {
+// `withoutSiteLink` : pied de page SANS lien vers le site (e-mails de code de l'application,
+// fil APP-05 : un lien https ouvrirait le navigateur au lieu de l'application).
+function emailShell({ heading, intro, button, fallbackUrl, note, withoutSiteLink = false }) {
   const btn = button
     ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:26px 0">
          <tr><td style="border-radius:12px;background:#a567e3">
@@ -126,8 +128,8 @@ function emailShell({ heading, intro, button, fallbackUrl, note }) {
         <tr><td style="padding:0 32px 26px">
           <hr style="border:none;border-top:1px solid #eaddf8;margin:0 0 14px">
           <p style="margin:0;font-size:12px;color:#8a8a92">
-            La Bonne Alerte — gratuit, open source, sans spam.<br>
-            Gérer ma collection&nbsp;: <a href="${MYALERTS_URL}" style="color:#a567e3">${MYALERTS_URL}</a>
+            La Bonne Alerte — gratuit, open source, sans spam.${withoutSiteLink ? '' : `<br>
+            Gérer ma collection&nbsp;: <a href="${MYALERTS_URL}" style="color:#a567e3">${MYALERTS_URL}</a>`}
           </p>
         </td></tr>
       </table>
@@ -164,10 +166,11 @@ async function sendMagicLink(email, token) {
   });
 }
 
-// Application Android (server/routes/app-api.js) : meme lien magique, plus un code a
-// 6 chiffres a saisir dans l'app (le lien ouvre souvent le navigateur, pas l'app).
+// Application Android (server/routes/app-api.js) : connexion par CODE SEUL (fil APP-05).
+// Aucun lien : les App Links ne sont pas publies, un lien https ouvrirait le navigateur au
+// lieu de l'application. `token` (lien magique) reste genere et stocke par app-api.js, qui
+// l'echange contre une session a la verification du code ; il n'est simplement plus envoye.
 async function sendAppLoginCode(email, token, code) {
-  const magicUrl = `${MYALERTS_URL}?token=${token}`;
   const safeCode = String(code).replace(/\D/g, '').slice(0, 6);
   return resend.emails.send({
     from: FROM,
@@ -176,17 +179,15 @@ async function sendAppLoginCode(email, token, code) {
     text:
       `Bonjour,\n\n` +
       `Ton code de connexion pour l'application La Bonne Alerte : ${safeCode}\n\n` +
-      `Tu peux aussi utiliser ce lien :\n${magicUrl}\n\n` +
-      `Le code et le lien sont valables 30 minutes et ne servent qu'une fois.\n` +
+      `Le code est valable 30 minutes et ne sert qu'une fois.\n` +
       `Si tu n'es pas à l'origine de cette demande, ignore cet email.`,
     html: emailShell({
       heading: 'Ton code de connexion',
       intro: `Saisis ce code dans l'application La Bonne Alerte :</p>` +
         `<p style="margin:18px 0;font-size:32px;font-weight:700;letter-spacing:8px;font-family:Arial,Helvetica,sans-serif">${safeCode}</p>` +
-        `<p style="margin:0">Ou touche le bouton depuis ton téléphone.`,
-      button: { url: magicUrl, label: 'Me connecter →' },
-      fallbackUrl: magicUrl,
-      note: 'Le code et le lien sont valables <strong>30 minutes</strong> et ne servent qu\'une fois. Si tu n\'es pas à l\'origine de cette demande, ignore simplement cet email.',
+        `<p style="margin:0">Il te connecte directement, sans mot de passe.`,
+      note: 'Le code est valable <strong>30 minutes</strong> et ne sert qu\'une fois. Si tu n\'es pas à l\'origine de cette demande, ignore simplement cet email.',
+      withoutSiteLink: true,
     }),
   });
 }
@@ -212,6 +213,7 @@ async function sendAppSignupCode(email, code) {
         `<p style="margin:18px 0;font-size:32px;font-weight:700;letter-spacing:8px;font-family:Arial,Helvetica,sans-serif">${safeCode}</p>` +
         `<p style="margin:0">Aucun compte n'est créé tant que tu ne l'as pas saisi dans l'application.`,
       note: 'Le code est valable <strong>30 minutes</strong> et ne sert qu\'une fois. Si tu n\'es pas à l\'origine de cette demande, ignore simplement cet email.',
+      withoutSiteLink: true,
     }),
   });
 }
