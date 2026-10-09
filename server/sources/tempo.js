@@ -29,19 +29,21 @@ async function check() {
   try {
     res = await fetchFn(API_URL, { headers: { Accept: 'application/json' }, signal: controller.signal });
   } catch (err) {
-    // Indisponible / timeout : on reste silencieux plutôt que de propager une erreur.
-    return inactive();
+    // Réseau / timeout : on PROPAGE (incident de surveillance). Le poller journalise un 'failed',
+    // conserve l'état précédent et ne notifie personne. Renvoyer inactive() masquait la panne.
+    if (err.name === 'AbortError') throw new Error(`Timeout api-couleur-tempo (>${TIMEOUT_MS} ms)`);
+    throw new Error('Appel api-couleur-tempo échoué : ' + err.message);
   } finally {
     clearTimeout(timer);
   }
 
-  if (!res.ok) return inactive();
+  if (!res.ok) throw new Error('tempo : réponse HTTP ' + res.status);
 
   let payload;
   try {
     payload = await res.json();
   } catch (err) {
-    return inactive();
+    throw new Error('tempo : réponse JSON illisible');
   }
 
   // Seul le rouge (codeJour 3) déclenche. 0 (non publié), 1 (bleu), 2 (blanc) → ignorés.

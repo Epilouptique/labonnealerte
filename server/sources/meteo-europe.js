@@ -64,9 +64,10 @@ async function checkWithParams(paramsList) {
   for (const p of combos) {
     const c = BY_VALUE[String((p && p.pays) || '')];
     if (!c) { out.push(inactive(p)); continue; }
-    let alerts;
-    try { alerts = await alertsFor(c.feed); }
-    catch (err) { console.warn(`[meteo-europe] ${c.feed} : ${err.message}`); out.push(inactive(p, c.url)); continue; }
+    // Réseau / HTTP / timeout du flux pays : on PROPAGE (incident de surveillance). Le poller
+    // journalise un 'failed', garde l'état précédent et ne notifie personne. Renvoyer inactive()
+    // masquait la panne.
+    const alerts = await alertsFor(c.feed);
     // Pire alerte orange+ du pays (Severe|Extreme uniquement — la lib ne garde que les severities connues).
     let best = null;
     for (const a of alerts) {

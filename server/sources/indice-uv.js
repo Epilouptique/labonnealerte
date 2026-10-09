@@ -82,8 +82,9 @@ async function checkWithParams(paramsList) {
   if (uniq.length) {
     const batch = uniq.slice(0, MAX_POINTS);
     if (uniq.length > MAX_POINTS) console.warn(`[indice-uv] ${uniq.length} départements — ${MAX_POINTS} traités ce cycle.`);
-    try { uvByDept = await fetchUv(batch); }
-    catch (err) { console.warn(`[indice-uv] ${err.message}`); return combos.map(inactive); }
+    // Réseau / HTTP / timeout : on PROPAGE (incident de surveillance). Le poller journalise un
+    // 'failed', garde l'état précédent et ne notifie personne. Renvoyer inactive() masquait la panne.
+    uvByDept = await fetchUv(batch);
   }
 
   const now = new Date();

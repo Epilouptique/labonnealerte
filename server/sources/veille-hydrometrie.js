@@ -88,9 +88,12 @@ async function fetchHauteur(code) {
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   let res;
   try { res = await fetchFn(url, { headers: { Accept: 'application/json' }, signal: controller.signal }); }
-  finally { clearTimeout(timer); }
-  if (res.status === 404) return null;
-  if (res.status !== 200 && res.status !== 206) throw new Error('HTTP ' + res.status);
+  catch (err) {
+    if (err.name === 'AbortError') throw new Error(`Timeout Hub'Eau (>${TIMEOUT_MS} ms)`);
+    throw new Error(`Appel Hub'Eau échoué : ${err.message}`);
+  } finally { clearTimeout(timer); }
+  if (res.status === 404) return null; // station inconnue → référence inchangée (inactive légitime)
+  if (res.status !== 200 && res.status !== 206) throw new Error(`Réponse HTTP inattendue Hub'Eau : ${res.status}`);
   const body = await res.json();
   const row = Array.isArray(body.data) ? body.data[0] : null;
   return row && typeof row.resultat_obs === 'number' ? row.resultat_obs : null;
@@ -134,9 +137,11 @@ async function checkWithParams(paramsList) {
         }
       }
     } catch (err) {
-      console.warn(`[veille-hydrometrie] ${key} : ${err.message} → inactive.`);
-      result = inactive();
-      cache.set(key, { above: entry ? entry.above : null, at: now, result });
+      // Réseau / HTTP / timeout : on PROPAGE (incident de surveillance). Le poller journalise un
+      // 'failed', garde l'état précédent et ne notifie personne. Renvoyer inactive() masquait la
+      // panne (et, le franchissement se jugeant sur le CÔTÉ mémorisé, risquait une fausse alerte
+      // au retour). Une station inconnue (404) reste un inactive légitime, géré dans fetchHauteur.
+      throw new Error(`veille-hydrometrie : ${key} — ${err.message}`);
     }
     out.push(Object.assign({ params }, result));
   }

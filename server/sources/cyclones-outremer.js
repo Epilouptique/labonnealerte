@@ -34,9 +34,11 @@
 //   Un passage orange (3) ou rouge (4) déclenche « 🌀 <territoire> : vigilance cyclonique … ».
 //
 // ── ROBUSTESSE ───────────────────────────────────────────────────────────────
-//   ZIP corrompu / non-ZIP / fichier manquant / JSON illisible / territoire absent des fichiers
-//   couleurs → inactive silencieux PAR territoire, jamais de fausse alerte. Un territoire présent
-//   uniquement en bulletin texte est tracé (console.warn) pour arbitrage humain.
+//   Réseau / HTTP / timeout / réponse non-ZIP au téléchargement → PROPAGÉ (incident de
+//   surveillance, aucune notification, état précédent conservé). En revanche un JSON illisible dans
+//   un fichier du ZIP ou un territoire absent des fichiers couleurs → inactive silencieux PAR
+//   territoire, jamais de fausse alerte. Un territoire présent uniquement en bulletin texte est
+//   tracé (console.warn) pour arbitrage humain.
 //
 // ── ÉCARTÉS / TODO EXTENSION ─────────────────────────────────────────────────
 //   Nouvelle-Calédonie & Polynésie française : NON couvertes par ce flux vigilanceom.
@@ -154,13 +156,11 @@ async function checkWithParams(paramsList) {
   // No-op tant que l'endpoint OM n'est pas branché (voir en-tête).
   if (!OM_URL) return combos.map(inactive);
 
-  let flux;
-  try {
-    flux = parseFlux(await fetchOM());
-  } catch (err) {
-    console.warn(`[cyclones-outremer] ${err.message} → inactive.`);
-    return combos.map(inactive);
-  }
+  // Réseau / HTTP / timeout / réponse non-ZIP au téléchargement du flux : on PROPAGE (incident de
+  // surveillance). Le poller journalise un 'failed', garde l'état précédent et ne notifie personne.
+  // Renvoyer inactive() masquait la panne. (L'absence d'endpoint OM reste un no-op légitime, géré
+  // plus haut ; un territoire absent des fichiers couleurs reste un inactive légitime plus bas.)
+  const flux = parseFlux(await fetchOM());
 
   return combos.map((p) => {
     const terr = BY_VALUE[String((p && p.territoire) || '')];

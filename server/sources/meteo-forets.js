@@ -149,7 +149,11 @@ async function fetchMdf() {
         accept: 'application/gzip, application/octet-stream, */*',
       });
     } catch (err) {
-      continue; // 404 (année non commencée) ou réseau → on tente l'année d'avant
+      // 404 = fichier de l'année non encore publié (ex. mdf_2027 en juillet 2026) : repli
+      // LÉGITIME sur l'année précédente. Toute autre erreur (réseau, timeout, 5xx) est un
+      // incident de surveillance : on PROPAGE (le filet de load()/checkWithParams la relaie).
+      if (/\b404\b/.test(String(err.message))) continue;
+      throw new Error(`meteo-forets : mdf_${y} — ${err.message}`);
     }
     let text;
     try { text = zlib.gunzipSync(buf).toString('utf8'); }
@@ -189,13 +193,10 @@ async function checkWithParams(paramsList) {
   const combos = Array.isArray(paramsList) ? paramsList : [];
   if (combos.length === 0) return [];
 
-  let data;
-  try { data = await load(); }
-  catch (err) {
-    // Filet : load() avale déjà ses erreurs, mais on ne laisse jamais remonter.
-    console.warn(`[meteo-forets] chargement impossible (${err.message}) → inactive.`);
-    data = null;
-  }
+  // Réseau / timeout / 5xx au chargement : on PROPAGE (incident de surveillance). Le poller
+  // journalise un 'failed', garde l'état précédent et ne notifie personne. Un 404 (année non
+  // commencée) ou un bulletin périmé hors saison restent un inactive LÉGITIME : load() → null.
+  const data = await load();
   if (!data) return combos.map(inactive);
   const { byDept, bulletin } = data;
 

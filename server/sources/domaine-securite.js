@@ -124,9 +124,11 @@ async function checkWithParams(paramsList) {
       const data = await queryHost(domaine);
       result = resultFor(domaine, data);
     } catch (err) {
-      // Timeout / 5xx / 401-403 (clé invalide) / JSON illisible → inactive silencieux + log.
-      console.warn(`[domaine-securite] ${domaine} : appel URLhaus échoué (${err.message}) → inactive.`);
-      result = inactive(domaine);
+      // Timeout / 5xx / 401-403 (clé invalide) / JSON illisible : on PROPAGE (incident de
+      // surveillance). Le poller journalise un 'failed', garde l'état précédent et ne notifie
+      // personne. Renvoyer inactive() masquait la panne. (L'absence de clé reste un no-op
+      // silencieux légitime, géré plus haut ; query_status ≠ "ok" reste un inactive légitime.)
+      throw new Error(`domaine-securite : ${domaine} — appel URLhaus échoué (${err.message})`);
     }
     cache.set(domaine, { at: Date.now(), result });
     out.push(Object.assign({ params }, result));

@@ -107,9 +107,9 @@ async function checkWithParams(paramsList) {
   const combos = Array.isArray(paramsList) ? paramsList : [];
   if (combos.length === 0) return [];
 
-  let alerts;
-  try { alerts = parseAlerts(await fetchFeed()); }
-  catch (err) { console.warn(`[meteo-belgique] ${err.message}`); return combos.map(inactive); }
+  // Réseau / HTTP / timeout : on PROPAGE (incident de surveillance). Le poller journalise un
+  // 'failed', garde l'état précédent et ne notifie personne. Renvoyer inactive() masquait la panne.
+  const alerts = parseAlerts(await fetchFeed());
 
   return combos.map((p) => {
     const prov = BY_VALUE[String((p && p.province) || '')];

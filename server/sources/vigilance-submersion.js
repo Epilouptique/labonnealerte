@@ -112,12 +112,10 @@ async function checkWithParams(paramsList) {
   if (!KEY) return combos.map(inactive); // no-op sans souscription (prête-à-brancher)
 
   if (!cache.byDept || Date.now() - cache.at >= CACHE_TTL_MS) {
-    try {
-      cache = { at: Date.now(), byDept: await fetchVigilance() };
-    } catch (err) {
-      console.warn('[vigilance-submersion] ' + err.message + ' → inactive.');
-      return combos.map(inactive);
-    }
+    // Réseau / HTTP / timeout : on PROPAGE (incident de surveillance). Le poller journalise un
+    // 'failed', garde l'état précédent et ne notifie personne. Renvoyer inactive() masquait la
+    // panne. (L'absence de clé reste un no-op silencieux légitime, géré plus haut.)
+    cache = { at: Date.now(), byDept: await fetchVigilance() };
   }
   const byDept = cache.byDept;
 

@@ -87,9 +87,9 @@ async function checkWithParams(paramsList) {
   const combos = Array.isArray(paramsList) ? paramsList : [];
   if (combos.length === 0) return [];
 
-  let warnings;
-  try { warnings = await fetchWarnings(); }
-  catch (err) { console.warn(`[meteo-quebec] ${err.message}`); return combos.map(inactive); }
+  // Réseau / HTTP / timeout : on PROPAGE (incident de surveillance). Le poller journalise un
+  // 'failed', garde l'état précédent et ne notifie personne. Renvoyer inactive() masquait la panne.
+  const warnings = await fetchWarnings();
 
   return combos.map((p) => {
     const region = BY_VALUE[String((p && p.region) || '')];
