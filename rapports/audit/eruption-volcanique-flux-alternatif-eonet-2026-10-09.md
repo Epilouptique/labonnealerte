@@ -84,11 +84,47 @@ amorçage anti-rétroactif (inactive), passage stable (inactive), nouvel événe
 libellé + URL officielle `volcano.si.edu`, corps vide → inactive (une vraie erreur réseau, elle,
 serait propagée en amont, pas avalée).
 
+## Analyse sur données réelles (lecture seule, 2026-10-09) — délai / fiabilité / faux positifs
+
+Vérification demandée par Hugo avant tout déploiement :
+
+- `…&days=30` (fenêtre glissante) → **0 événement**. Les événements volcaniques EONET sont des
+  **épisodes en cours** dont la date de début peut être ancienne : le filtre par fenêtre ne les voit
+  pas. Le signal « nouvelle éruption » ne peut donc venir que de l'**apparition d'un nouvel `id`**.
+- `…&status=open` → **32 événements ouverts**. Mais :
+  - **le plus récent commence le 2026-06-15** — soit **~4 mois sans nouvelle entrée** (aujourd'hui 2026-10-09) ;
+  - **0** événement débuté dans les **90** derniers jours, seulement **9** dans les 180 derniers ;
+  - des événements restent « ouverts » depuis **2002** (Fuego), 2019, 2020… EONET ferme/ajoute très rarement pour les volcans.
+
+**Verdict :**
+- **Délai** : très grand. La dernière « nouvelle » entrée a 4 mois → EONET n'est **pas** opportun pour une éruption récente.
+- **Faux positifs** : quasi nuls (chaque `id` = un vrai épisode).
+- **Faux négatifs (manques)** : **élevés** — le Weekly GVP liste ~16 volcans/semaine ; EONET n'en reprend qu'une petite part et tardivement.
+- **Fiabilité pour « nouvelle éruption »** : **insuffisante.** EONET convient à une carte/visualisation d'état, pas à une alerte d'éruption en temps utile.
+
+## Description / attribution honnêtes (prêtes si Hugo retient malgré tout EONET)
+
+- Description de source (INSERT `sources` / page de statut) :
+  > « Source : NASA EONET, d'après le Smithsonian Global Volcanism Program. Information, non officielle ;
+  > signal lent (épisodes en cours), pas une alerte temps réel. »
+- Attribution visible sur la page de statut (pied / sous le titre) :
+  > « Données : NASA EONET · origine Smithsonian GVP » + lien `https://eonet.gsfc.nasa.gov/`.
+- Message d'alerte (si un nouvel `id` apparaît) : déjà rédigé « 🌋 Nouvelle activité éruptive signalée : <volcan>
+  (source NASA EONET / Smithsonian GVP — information, pas du temps réel) ».
+
+Ces éléments sont **prêts mais NON appliqués** (pas d'édition d'`init.sql`, pas de module dans `server/sources/`).
+
 ## Recommandation
 
-**Adopter EONET** : seul flux officiel, ouvert, mondial, sans spoof, avec la même origine de donnée
-(Smithsonian GVP). Réserve honnête : NASA qualifie EONET d'informatif, « non officiel » — acceptable
-ici car la source est déjà explicitement informationnelle et hebdomadaire, mais **à valider par Hugo**.
-Si ce caractère non-officiel est rédhibitoire, l'alternative est la **désactivation propre** de la
-source (champ d'activation, jamais de DELETE, message utilisateur honnête) — je fournirai le script
-`--check` à la demande. **Rien n'est déployé avant accord.**
+**Révisée après données réelles (2026-10-09) : NE PAS adopter EONET comme source d'alerte d'éruption.**
+C'est le seul flux officiel/ouvert/sans spoof trouvé, mais sa cadence volcanique est trop lente et
+incomplète (dernière nouvelle entrée il y a ~4 mois, nombreux manques) pour un signal « nouvelle
+éruption » utile. Options, à ton choix :
+1. **Désactiver proprement** `eruption-volcanique` (recommandé si l'on veut éviter une source qui ne
+   déclenchera quasiment jamais) — script `--check` à fournir (champ d'activation, jamais de DELETE) ;
+2. **Garder en incident** (état actuel après `42643a8` : 403 propagé, aucune notification) en attendant
+   un meilleur flux ;
+3. **Brancher EONET quand même** en l'assumant comme signal lent/informatif (description + attribution
+   ci-dessus), en sachant qu'il manquera la plupart des éruptions.
+
+Je n'ai **rien déployé** ni branché. Dis-moi l'option retenue.
