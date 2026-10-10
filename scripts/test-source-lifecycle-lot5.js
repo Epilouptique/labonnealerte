@@ -17,9 +17,13 @@ ok(!lc.validateUrlType({ type: 'page', url: 'http://x' }).ok, 'validateUrlType :
 ok(!lc.validateUrlType({ url: 'https://x' }).ok, 'validateUrlType : type manquant refusé');
 ok(!lc.validateUrlType({ type: 'ftp', url: 'https://x' }).ok, 'validateUrlType : type inconnu refusé');
 
-// 2) Nom provisoire dérivé de l'hôte
+// 2) Nom provisoire dérivé de l'hôte (« Brouillon — <hôte> »)
 var pn = lc.provisionalName('https://www.exemple.fr/une/page');
-ok(/exemple\.fr/.test(pn) && pn.length >= 3 && pn.length <= 60, 'provisionalName : hôte, 3..60');
+ok(/^Brouillon — exemple\.fr/.test(pn) && pn.length >= 3 && pn.length <= 60, 'provisionalName : « Brouillon — hôte », 3..60');
+ok(lc.isProvisionalName(pn) === true, 'isProvisionalName : reconnaît le nom provisoire');
+ok(lc.isProvisionalName('Tarifs Netflix') === false, 'isProvisionalName : nom réel non provisoire');
+// Le verrou refuse le nom provisoire comme nom définitif, MÊME avec une catégorie.
+ok(!lc.validateSubmittable({ name: pn, categories: ['vie'] }).ok, 'submittable : nom provisoire refusé comme nom définitif');
 
 // 3) Verrou de complétude avant soumission
 ok(!lc.validateSubmittable({ name: lc.provisionalName('https://exemple.fr'), categories: [] }).ok, 'submittable : sans catégorie → refusé');

@@ -92,11 +92,16 @@ function validateUrlType(body) {
   return { ok: true, value: { type, engine: E.engine, key: E.key, url } };
 }
 
+// Préfixe du nom provisoire : « Brouillon — » (tiret cadratin + espaces insécables).
+const PROVISIONAL_PREFIX = 'Brouillon — ';
 // Nom provisoire d'un brouillon minimal, dérivé de l'hôte (3..60 car.).
 function provisionalName(url) {
   let host = 'ma veille';
   try { host = new URL(url).hostname.replace(/^www\./, ''); } catch (e) {}
-  return ('Veille — ' + host).slice(0, 60);
+  return (PROVISIONAL_PREFIX + host).slice(0, 60);
+}
+function isProvisionalName(name) {
+  return String(name || '').indexOf(PROVISIONAL_PREFIX) === 0;
 }
 
 // Complétude requise AVANT soumission à la revue : un vrai nom ET au moins une catégorie.
@@ -105,6 +110,7 @@ function validateSubmittable(row) {
   const name = String((row && row.name) || '').trim();
   const cats = (row && row.categories) || [];
   if (name.length < 3 || name.length > 60) return { ok: false, error: 'Donnez un nom (3 à 60 caractères) avant de soumettre.' };
+  if (isProvisionalName(name)) return { ok: false, error: 'Donnez un vrai nom à votre alerte (le nom provisoire ne peut pas être conservé).' };
   if (!Array.isArray(cats) || cats.length < 1) return { ok: false, error: 'Choisissez au moins une catégorie avant de soumettre.' };
   return { ok: true };
 }
@@ -206,7 +212,7 @@ function buildEngineSource(row, requireFn) {
 module.exports = {
   STATUSES, TRANSITIONS, canTransition, isOwner,
   MAX_UNPUBLISHED, MAX_TOTAL, UNPUBLISHED_STATUSES, checkQuota,
-  ENGINES, ENGINE_BY_NAME, validateCreate, validateUrlType, provisionalName, validateSubmittable,
+  ENGINES, ENGINE_BY_NAME, validateCreate, validateUrlType, provisionalName, isProvisionalName, validateSubmittable,
   engineParams, buildEngineSource, HTTPS_RE,
   clampPreavis, validatePersonalization,
   REPORT_REASONS, REPORT_SUSPEND_THRESHOLD, isValidReportReason, shouldAutoSuspend,

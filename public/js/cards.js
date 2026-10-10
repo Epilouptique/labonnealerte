@@ -36,7 +36,10 @@
     var b = (badge || 'community').toLowerCase();
     if (b !== 'official' && b !== 'verified' && b !== 'community') b = 'community';
     var title = (b === 'community') ? 'Source communautaire' : 'Source vérifiée';
-    return '<span class="badge-ic ' + b + '" title="' + title + '" role="img" aria-label="' + title + '">' + BADGE_ICON + '</span>';
+    var ic = '<span class="badge-ic ' + b + '" title="' + title + '" role="img" aria-label="' + title + '">' + BADGE_ICON + '</span>';
+    // Communautaire : libellé en toutes lettres, lisible sans survol.
+    if (b === 'community') ic += '<span class="badge-txt-community" style="font-size:.72em;font-weight:600;margin-left:4px;color:var(--muted,#6b6878);vertical-align:middle">Communautaire</span>';
+    return ic;
   }
 
   function stateFor(state) {
