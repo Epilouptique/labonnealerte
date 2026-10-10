@@ -46,8 +46,9 @@ setInterval(() => {
 }, RATE_WINDOW_MS).unref();
 
 // Récupère le manifeste avec toutes les protections anti-SSRF (module partagé).
+// robots:true → l'URL est fournie par un utilisateur : on respecte son robots.txt.
 function fetchManifest(rawUrl) {
-  return safeFetchJson(rawUrl);
+  return safeFetchJson(rawUrl, { robots: true });
 }
 
 /* ------------------------------------------------------------------ */

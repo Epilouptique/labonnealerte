@@ -106,6 +106,7 @@ async function fetchPanneaux(urlHref, opts = {}) {
   const html = await safeFetchText(urlHref, {
     timeoutMs: opts.timeoutMs || TIMEOUT_MS,
     maxBytes: opts.maxBytes || MAX_BYTES,
+    robots: true,
     accept: 'text/html',
     headers: { 'User-Agent': BROWSER_UA },
   });

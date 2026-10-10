@@ -47,7 +47,7 @@ async function fetchFlux(url) {
   const key = 'veille-rss::' + url;
   let xml;
   try {
-    xml = await safeFetchText(url, { timeoutMs: TIMEOUT_MS, maxBytes: MAX_BYTES, accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml' });
+    xml = await safeFetchText(url, { timeoutMs: TIMEOUT_MS, maxBytes: MAX_BYTES, robots: true, accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml' });
   } catch (err) {
     // Échec de surveillance : toléré tant que < N échecs consécutifs, propagé au Nᵉ.
     const r = recordFailure(key, defaultThreshold());

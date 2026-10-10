@@ -62,7 +62,7 @@ function changement(url) {
 
 async function signatureOf(url) {
   const html = await safeFetchText(url, {
-    timeoutMs: TIMEOUT_MS, maxBytes: MAX_BYTES, accept: 'text/html',
+    timeoutMs: TIMEOUT_MS, maxBytes: MAX_BYTES, robots: true, accept: 'text/html',
     headers: { 'User-Agent': BROWSER_UA },
   });
   return hashHtml(html).hash;

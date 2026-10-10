@@ -199,6 +199,7 @@ async function checkOne(params, entry) {
     ics = await safeFetchText(url, {
       timeoutMs: TIMEOUT_MS,
       maxBytes: MAX_BYTES,
+      robots: true,
       accept: 'text/calendar, application/octet-stream, text/plain',
     });
   } catch (err) {
