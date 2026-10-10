@@ -1,28 +1,30 @@
 // Récupération HTTP sécurisée (anti-SSRF) partagée par le validateur /proposer
 // et le poller des sources externes (external, veille-rss/page/agenda, panneaupocket).
 //
-// GARDE-FOUS (LOT 1 durcissement) :
+// GARDE-FOUS (LOT 1-bis durcissement, transport undici/HTTP-2) :
 //   - http/https uniquement ;
 //   - rejet des IP privées/loopback/lien-local/ULA ET des plages réservées
 //     (0/8, 100.64/10 CGNAT, 192.0.0/24, 198.18/15, TEST-NET, multicast, réservé,
 //      IPv6 : ::1, ::, mapped-v4, 6to4, NAT64, ULA, lien-local, multicast, discard) ;
-//   - ÉPINGLAGE DE L'IP : la validation DNS et la connexion utilisent la MÊME
-//     adresse (option `lookup` custom passée au socket) → pas de fenêtre de
-//     DNS-rebinding entre le contrôle et le connect ;
-//   - redirections JAMAIS suivies (un 3xx = refus) ;
-//   - taille plafonnée À LA LECTURE (flux compressé) ET APRÈS décompression
-//     (gzip/deflate/br via zlib + maxOutputLength → anti-bombe de décompression) ;
-//   - timeout court ; User-Agent identifiable avec URL de contact ;
-//   - respect de robots.txt OPT-IN (opts.robots=true) pour les URLs soumises par
-//     des utilisateurs ; JAMAIS pour les sources officielles (elles n'activent pas
-//     le drapeau).
+//   - ÉPINGLAGE DE L'IP : l'anti-rebinding est assuré par un dispatcher undici dont
+//     `connect.lookup` valide ET fournit l'adresse réellement connectée → l'IP
+//     contrôlée est CELLE utilisée par la connexion (pas de 2ᵉ résolution) ;
+//   - HTTP/2 conservé (Agent allowH2:true) : fetch/undici négocie h1/h2 via ALPN,
+//     ce qui évite la régression du lot 1 (http/https natif = HTTP/1.1 seul) sur
+//     panneaupocket, ma-collectivite, meteo-forets ;
+//   - redirections JAMAIS suivies (redirect:'error') ;
+//   - taille plafonnée PENDANT la lecture du flux ET après décompression (undici
+//     décode content-encoding ; le compteur d'octets lus s'applique au corps décodé) ;
+//   - timeout court (AbortController) ; User-Agent identifiable par défaut
+//     (BROWSER_UA conservé pour les sources qui le fixent explicitement) ;
+//   - robots.txt OPT-IN (opts.robots=true) pour les URLs soumises par des
+//     utilisateurs ; JAMAIS pour les sources officielles (drapeau non posé).
 
 const dns = require('dns');
 const dnsp = dns.promises;
 const net = require('net');
-const http = require('http');
-const https = require('https');
 const zlib = require('zlib');
+const { fetch: uFetch, Agent } = require('undici');
 
 const DEFAULT_TIMEOUT_MS = 5_000;
 const DEFAULT_MAX_BYTES = 100 * 1024; // 100 Ko
@@ -112,6 +114,9 @@ function makeGuardedLookup(resolver) {
   const look = resolver || ((h, cb) => dns.lookup(h, { all: true }, cb));
   return function guardedLookup(hostname, options, callback) {
     const cb = typeof options === 'function' ? options : callback;
+    // undici (connect.lookup) appelle avec { all: true } et attend un TABLEAU
+    // [{ address, family }] ; nos tests appellent sans `all` et attendent (addr, family).
+    const wantAll = options && typeof options === 'object' && options.all;
     look(hostname, (err, addresses) => {
       if (err) return cb(pubErr('Nom de domaine introuvable (DNS)'));
       const list = Array.isArray(addresses) ? addresses
@@ -121,6 +126,9 @@ function makeGuardedLookup(resolver) {
       // (empêche un jeu d'enregistrements mêlant IP publique et IP interne).
       if (list.some((a) => isPrivateIP(a.address))) {
         return cb(pubErr('Cible non autorisée (adresse privée ou réservée)'));
+      }
+      if (wantAll) {
+        return cb(null, list.map((a) => ({ address: a.address, family: net.isIPv6(a.address) ? 6 : 4 })));
       }
       const chosen = list[0];
       cb(null, chosen.address, net.isIPv6(chosen.address) ? 6 : 4);
@@ -156,53 +164,73 @@ function decodeBody(buf, encoding, maxBytes) {
  * ────────────────────────────────────────────────────────────────────────── */
 function isRedirect(code) { return code >= 300 && code < 400; }
 
-function guardedRequest(rawUrl, opts) {
-  const { timeoutMs, maxBytes, accept, headers, method = 'GET', resolver } = opts;
-  return new Promise((resolve, reject) => {
-    let url;
-    try { url = new URL(rawUrl); } catch { return reject(pubErr('URL invalide')); }
-    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-      return reject(pubErr('Seuls les protocoles http et https sont autorisés'));
-    }
-    const mod = url.protocol === 'https:' ? https : http;
-    const reqHeaders = Object.assign(
-      { 'User-Agent': BOT_UA, Accept: accept || 'application/json', 'Accept-Encoding': 'gzip, deflate, br' },
-      headers || {}
-    );
-    const req = mod.request(url, { method, headers: reqHeaders, lookup: makeGuardedLookup(resolver) }, (res) => {
-      // Redirection : JAMAIS suivie (avec l'épinglage d'IP, c'est la seconde ligne
-      // de défense contre une redirection vers une adresse interne).
-      if (isRedirect(res.statusCode)) {
-        res.destroy();
-        return reject(pubErr('Redirection refusée (sécurité)'));
-      }
-      if (res.statusCode < 200 || res.statusCode >= 300) {
-        res.destroy();
-        return reject(pubErr(`Réponse HTTP ${res.statusCode}`));
-      }
-      const declared = Number(res.headers['content-length']);
-      if (declared && declared > maxBytes) { res.destroy(); return reject(pubErr('Réponse trop volumineuse')); }
-      if (method === 'HEAD') { res.resume(); return resolve({ status: res.statusCode, headers: res.headers, buffer: Buffer.alloc(0) }); }
+// Dispatcher undici : HTTP/2 autorisé + lookup épinglé (anti-rebinding). Un agent
+// partagé en prod ; un agent jetable si un resolver de test est injecté.
+let _agent = null;
+function agentFor(resolver) {
+  if (resolver) return new Agent({ allowH2: true, connect: { lookup: makeGuardedLookup(resolver) } });
+  if (!_agent) _agent = new Agent({ allowH2: true, connect: { lookup: makeGuardedLookup() } });
+  return _agent;
+}
 
-      const chunks = [];
-      let size = 0;
-      res.on('data', (c) => {
-        size += c.length;
-        if (size > maxBytes) { res.destroy(); reject(pubErr('Réponse trop volumineuse')); return; }
-        chunks.push(c);
-      });
-      res.on('end', () => {
-        try {
-          const body = decodeBody(Buffer.concat(chunks), res.headers['content-encoding'], maxBytes);
-          resolve({ status: res.statusCode, headers: res.headers, buffer: body });
-        } catch (e) { reject(e); }
-      });
-      res.on('error', () => reject(pubErr('Impossible de lire la réponse')));
+// Fait remonter une erreur « publique » depuis un échec fetch (timeout, redirection,
+// lookup refusé, connexion). Les erreurs du lookup gardé arrivent via err.cause.
+function mapFetchError(err, timeoutMs) {
+  if (err && err.public) return err;
+  if (err && err.name === 'AbortError') return pubErr(`Délai dépassé (>${Math.round(timeoutMs / 1000)}s)`);
+  if (err && err.cause && err.cause.public) return err.cause;
+  const msg = String((err && err.message) || '').toLowerCase();
+  const cmsg = String((err && err.cause && err.cause.message) || '').toLowerCase();
+  if (msg.includes('redirect') || cmsg.includes('redirect')) return pubErr('Redirection refusée (sécurité)');
+  return pubErr('Impossible de joindre l\'URL');
+}
+
+// Requête bas niveau sécurisée. Renvoie { status, headers, buffer }. Mêmes garde-fous
+// que le lot 1, mais via fetch/undici (HTTP/2). Le corps est déjà DÉCODÉ par undici
+// (content-encoding) → le plafond d'octets lus s'applique au contenu décompressé.
+async function guardedRequest(rawUrl, opts) {
+  const { timeoutMs, maxBytes, accept, headers, method = 'GET', resolver } = opts;
+  let url;
+  try { url = new URL(rawUrl); } catch { throw pubErr('URL invalide'); }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    throw pubErr('Seuls les protocoles http et https sont autorisés');
+  }
+  const reqHeaders = Object.assign(
+    { 'User-Agent': BOT_UA, Accept: accept || 'application/json' },
+    headers || {}
+  );
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await uFetch(url.href, {
+      method,
+      redirect: 'error', // 3xx → rejet (anti-SSRF) ; l'IP est déjà épinglée au connect
+      dispatcher: agentFor(resolver),
+      signal: controller.signal,
+      headers: reqHeaders,
     });
-    req.setTimeout(timeoutMs, () => req.destroy(pubErr(`Délai dépassé (>${Math.round(timeoutMs / 1000)}s)`)));
-    req.on('error', (err) => reject(err && err.public ? err : pubErr('Impossible de joindre l\'URL')));
-    req.end();
-  });
+    if (isRedirect(res.status)) throw pubErr('Redirection refusée (sécurité)');
+    if (res.status < 200 || res.status >= 300) throw pubErr(`Réponse HTTP ${res.status}`);
+    const declared = Number(res.headers.get('content-length'));
+    if (declared && declared > maxBytes) throw pubErr('Réponse trop volumineuse');
+    if (method === 'HEAD' || !res.body) return { status: res.status, headers: res.headers, buffer: Buffer.alloc(0) };
+
+    const reader = res.body.getReader();
+    const chunks = [];
+    let size = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.length;
+      if (size > maxBytes) { try { await reader.cancel(); } catch (e) {} throw pubErr('Réponse trop volumineuse'); }
+      chunks.push(Buffer.from(value));
+    }
+    return { status: res.status, headers: res.headers, buffer: Buffer.concat(chunks) };
+  } catch (err) {
+    throw mapFetchError(err, timeoutMs);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
@@ -314,16 +342,18 @@ async function safeProbe(rawUrl, opts = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
+  const dispatcher = agentFor(opts.resolver);
   async function probeOnce(href) {
+    const base = { redirect: 'manual', signal: controller.signal, headers: PROBE_HEADERS, dispatcher };
     try {
-      const res = await fetch(href, { method: 'HEAD', redirect: 'manual', signal: controller.signal, headers: PROBE_HEADERS });
+      const res = await uFetch(href, Object.assign({ method: 'HEAD' }, base));
       if (res.status === 405 || res.status === 501) {
-        return await fetch(href, { method: 'GET', redirect: 'manual', signal: controller.signal, headers: PROBE_HEADERS });
+        return await uFetch(href, Object.assign({ method: 'GET' }, base));
       }
       return res;
     } catch (err) {
       if (err.name === 'AbortError') throw err;
-      return await fetch(href, { method: 'GET', redirect: 'manual', signal: controller.signal, headers: PROBE_HEADERS });
+      return await uFetch(href, Object.assign({ method: 'GET' }, base));
     }
   }
 
