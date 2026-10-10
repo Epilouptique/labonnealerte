@@ -63,8 +63,17 @@ function pagesMiddleware(req, res, next) {
   if (req.path === '/') file = 'index.html';
   else if (/^\/[\w-]+\.html$/.test(req.path)) file = req.path.slice(1);
   else return next();
-  // Parcours fermé : les pages de publication ne sont pas servies (même en .html direct).
-  if (!publishEnabled() && (file === 'publier.html' || file === 'mes-publications.html')) return next();
+  // Parcours fermé : les pages de publication ne sont PAS servies (même en .html direct).
+  // On renvoie le 404 commun ici — un simple next() laisserait express.static servir le fichier.
+  if (!publishEnabled() && (file === 'publier.html' || file === 'mes-publications.html')) {
+    try {
+      const html = renderPage('404.html')
+        .replace(/\{\{CODE\}\}/g, '404')
+        .replace(/\{\{TITRE\}\}/g, 'Page introuvable')
+        .replace(/\{\{MESSAGE\}\}/g, 'Cette page n’est pas disponible.');
+      return res.status(404).type('html').send(html);
+    } catch (e) { return res.status(404).type('html').send('Page introuvable'); }
+  }
   try {
     sendPage(res, file);
   } catch (err) {
