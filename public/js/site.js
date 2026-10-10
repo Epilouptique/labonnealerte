@@ -2043,7 +2043,7 @@
       // décriraient pas les résultats affichés.
       if (!q) {
         prim += '<button class="chip-f chip-special" type="button" data-cat="nouveautes">' + ICON_NOUVEAUTES + ' Nouveautés</button>';
-        prim += '<button class="chip-f chip-special" type="button" data-cat="selection">' + ICON_SELECTION + ' Populaires</button>';
+        prim += '<button class="chip-f chip-special" type="button" data-cat="selection">' + ICON_SELECTION + ' Tendance</button>';
       }
       primary.forEach(function (s) { prim += chip(s, LBACat.label(s), counts[s]); });
       if (secondary.length) prim += '<button class="chip-f chip-more-toggle" type="button" aria-label="Plus de catégories">+</button>';
@@ -2224,7 +2224,7 @@
   // (LBACat.label ne les connait pas).
   function catLabel(slug) {
     if (slug === 'nouveautes') return 'Nouveautés';
-    if (slug === 'selection') return 'Populaires';
+    if (slug === 'selection') return 'Tendance';
     return LBACat.label(slug);
   }
 
@@ -3284,7 +3284,7 @@
   var heroName = null;
   function titleForMode(slug) {
     if (slug === 'nouveautes') return 'Les nouvelles';
-    if (slug === 'selection') return 'Les plus populaires';
+    if (slug === 'selection') return 'Tendance';
     if (slug === 'mine') return 'Mes alertes';
     if (slug === 'favoris') return 'Mes favoris';
     if (slug === 'all' || !slug) return heroName ? ('Bonjour ' + heroName) : 'Bonjour';

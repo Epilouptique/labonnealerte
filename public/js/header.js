@@ -116,7 +116,7 @@
           '<hr class="m-menu-sep">' +
           '<button type="button" class="m-link m-has-ic" data-act="categories">' + IC_CAT + ' Catégories</button>' +
           '<button type="button" class="m-link m-has-ic" data-act="nouveautes">' + IC_NOUV + ' Nouveautées</button>' +
-          '<button type="button" class="m-link m-has-ic" data-act="selection">' + IC_SEL + ' Populaires</button>' +
+          '<button type="button" class="m-link m-has-ic" data-act="selection">' + IC_SEL + ' Tendance</button>' +
           '<hr class="m-menu-sep">' +
           // E) « Mon compte » regroupé juste au-dessus de « Nous soutenir ».
           (logged ? '<button type="button" class="m-link" data-act="account">Mon compte</button>' : '') +
@@ -444,7 +444,7 @@
       }
       var prim = '<button class="chip-f" type="button" data-cat="all">Toutes <span class="n">' + sources.length + '</span></button>' +
         '<button class="chip-f chip-special" type="button" data-cat="nouveautes">' + CHIP_IC_NOUV + ' Nouveautés</button>' +
-        '<button class="chip-f chip-special" type="button" data-cat="selection">' + CHIP_IC_SEL + ' Populaires</button>';
+        '<button class="chip-f chip-special" type="button" data-cat="selection">' + CHIP_IC_SEL + ' Tendance</button>';
       primary.forEach(function (s) { prim += chip(s); });
       if (secondary.length) prim += '<button class="chip-f chip-more-toggle" type="button" aria-label="Plus de catégories">+</button>';
       chipsEl.innerHTML = '<div class="chips-row" id="chips-primary">' + prim + '</div>';
