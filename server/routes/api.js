@@ -380,7 +380,7 @@ router.get('/sources/:id/links', async (req, res) => {
 router.get('/sources/:id/alert.json', async (req, res) => {
   try {
     if (redirectOldVig(req.params.id, 'alert.json', res)) return;
-    const base = await pool.query('SELECT id, name, type, params_schema FROM sources WHERE id = $1', [req.params.id]);
+    const base = await pool.query('SELECT id, name, type, params_schema FROM sources WHERE id = $1 AND enabled = true', [req.params.id]);
     if (base.rows.length === 0) {
       return res.status(404).json({ error: 'Source inconnue' });
     }
@@ -428,7 +428,7 @@ router.get('/sources/:id/history', async (req, res) => {
   const id = req.params.id;
   try {
     if (redirectOldVig(id, 'history', res)) return;
-    const schemaRes = await pool.query('SELECT params_schema FROM sources WHERE id = $1', [id]);
+    const schemaRes = await pool.query('SELECT params_schema FROM sources WHERE id = $1 AND enabled = true', [id]);
     if (schemaRes.rows.length === 0) return res.status(404).json({ error: 'Source inconnue' });
     const schema = schemaRes.rows[0].params_schema || null;
     const params = schema ? paramsFromQuery(schema, req.query) : null;

@@ -8,6 +8,7 @@ const { isQuietNow } = require('./quiet-hours');
 const { cleanupExpired } = require('./sessions');
 const { resolveLabel } = require('./params');
 const { buildExternalSource } = require('./external');
+const { buildEngineSource } = require('./sources/lib/source-lifecycle');
 const { trackDomain } = require('./doomname');
 const { runProbe } = require('./leboncoin-promo-probe'); // Sonde de contrôle leboncoin, TEMPORAIRE (cf. startPoller)
 const { runUserTaskNotify } = require('./user-tasks-notify'); // V3 échéances (cron quotidien, cf. startPoller)
@@ -785,6 +786,32 @@ async function runCycleInner() {
       }
     } catch (err) {
       console.error(`[poller] ${row.id} (externe) : erreur inattendue :`, err.message);
+    }
+  }
+
+  // Sources COMMUNAUTAIRES à moteur (veille-page/rss/agenda) : broadcast, URL fixe
+  // dans endpoint_url. Seules les 'published' sont enabled=true (invariant DB) →
+  // elles sont les seules interrogées. On délègue au module générique (robots:true
+  // inclus) via un { id, check } qui N'ÉCRIT PAS ; processSource applique la transition.
+  let community = [];
+  try {
+    const { rows } = await pool.query(
+      "SELECT id, engine, endpoint_url, requires_confirmation FROM sources " +
+      "WHERE enabled = true AND engine IN ('veille-page','veille-rss','veille-agenda')"
+    );
+    community = rows;
+  } catch (err) {
+    console.error('[poller] lecture des sources communautaires échouée :', err.message);
+  }
+  for (const row of community) {
+    const src = buildEngineSource(row);
+    if (!src) { console.warn(`[poller] ${row.id} (communautaire) : moteur ${row.engine} inexploitable — ignorée.`); continue; }
+    const requires = row.requires_confirmation === false ? false : true;
+    try {
+      await pool.query('INSERT INTO source_states (source_id) VALUES ($1) ON CONFLICT (source_id) DO NOTHING', [row.id]);
+      await processSource(src, requires);
+    } catch (err) {
+      console.error(`[poller] ${row.id} (communautaire) : erreur inattendue :`, err.message);
     }
   }
 

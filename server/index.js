@@ -17,6 +17,7 @@ const { apiRouter: lePointApiRouter } = require('./routes/le-point');
 const { pagesRouter: userTasksPagesRouter, apiRouter: userTasksApiRouter } = require('./routes/user-tasks');
 const forumRouter = require('./routes/forum');
 const communityReportsRouter = require('./routes/community-reports');
+const communitySourcesRouter = require('./routes/community-sources');
 const sitemapRouter = require('./routes/sitemap');
 const { cleanupExpired } = require('./sessions');
 const { startPoller } = require('./poller');
@@ -210,6 +211,7 @@ app.use('/api', pushRouter);
 app.use('/api', lePointApiRouter);
 app.use('/api', userTasksApiRouter);
 app.use('/api', communityReportsRouter);
+app.use('/api', communitySourcesRouter);
 app.use('/api', require('./routes/app-api')); // application Android (fil APP-01)
 app.use('/api/dev', devRouter);
 // Connexion OAuth (Google / GitHub) — redirections serveur.

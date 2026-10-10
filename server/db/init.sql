@@ -194,6 +194,84 @@ CREATE TABLE IF NOT EXISTS counters (
 -- Schéma de paramètres déclaré par la source (interne ou externe). NULL = broadcast.
 ALTER TABLE sources ADD COLUMN IF NOT EXISTS params_schema JSONB NULL;
 
+-- ================================================================
+-- OpenAlert v3 · LOT 2 — cycle de vie d'une source communautaire.
+--   status : draft → testing → review → published | suspended
+--            (refus = retour en 'draft' avec status_reason ; pas de statut dédié).
+--   INVARIANT : enabled = (status = 'published'). Il est MAINTENU PAR UN TRIGGER
+--     (ci-dessous) pour que TOUT le SQL historique « UPDATE … SET enabled=… »
+--     reste valide : poser enabled=false bascule status en 'suspended', enabled=true
+--     bascule en 'published'. Un CHECK le vérifie en plus.
+--   author_subscriber_id : compte auteur (FK abonnés, SET NULL si compte supprimé).
+--   engine : moteur d'exécution d'une source communautaire broadcast
+--            (veille-page | veille-rss | veille-agenda | external) ; endpoint_url
+--            porte alors l'URL/flux/agenda surveillé. NULL pour les sources classiques.
+--   Les sources EXISTANTES : passent 'published' si activées, 'suspended' sinon —
+--   états et visibilité INCHANGÉS. Idempotent (rejouable).
+-- ================================================================
+ALTER TABLE sources ADD COLUMN IF NOT EXISTS status VARCHAR(16) NOT NULL DEFAULT 'published';
+ALTER TABLE sources ADD COLUMN IF NOT EXISTS author_subscriber_id INTEGER REFERENCES subscribers(id) ON DELETE SET NULL;
+ALTER TABLE sources ADD COLUMN IF NOT EXISTS status_reason VARCHAR(280);
+ALTER TABLE sources ADD COLUMN IF NOT EXISTS status_changed_at TIMESTAMPTZ DEFAULT NOW();
+ALTER TABLE sources ADD COLUMN IF NOT EXISTS published_at TIMESTAMPTZ;
+ALTER TABLE sources ADD COLUMN IF NOT EXISTS engine VARCHAR(16);
+
+-- Trigger : garde enabled et status cohérents (status = source de vérité ; une
+-- écriture de enabled seule est traduite en status). Pose aussi les horodatages.
+CREATE OR REPLACE FUNCTION sources_sync_enabled() RETURNS trigger AS $$
+BEGIN
+  IF (TG_OP = 'INSERT') THEN
+    NEW.enabled := (NEW.status = 'published');
+    NEW.status_changed_at := NOW();
+    IF NEW.status = 'published' AND NEW.published_at IS NULL THEN NEW.published_at := NOW(); END IF;
+  ELSE
+    IF (NEW.status IS DISTINCT FROM OLD.status) THEN
+      NEW.enabled := (NEW.status = 'published');
+      NEW.status_changed_at := NOW();
+      IF NEW.status = 'published' AND NEW.published_at IS NULL THEN NEW.published_at := NOW(); END IF;
+    ELSIF (NEW.enabled IS DISTINCT FROM OLD.enabled) THEN
+      IF NEW.enabled THEN
+        NEW.status := 'published';
+        NEW.published_at := COALESCE(NEW.published_at, NOW());
+      ELSIF OLD.status = 'published' THEN
+        NEW.status := 'suspended';
+      END IF;
+      NEW.status_changed_at := NOW();
+    END IF;
+  END IF;
+  RETURN NEW;
+END $$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_sources_sync_enabled ON sources;
+CREATE TRIGGER trg_sources_sync_enabled BEFORE INSERT OR UPDATE ON sources
+  FOR EACH ROW EXECUTE FUNCTION sources_sync_enabled();
+
+-- Backfill cohérent AVANT de poser les CHECK (le trigger ne retouche pas les
+-- lignes déjà en base, on normalise donc explicitement).
+UPDATE sources SET status = 'suspended',
+       status_reason = COALESCE(status_reason, 'Désactivée (administration)')
+ WHERE enabled = false AND status = 'published';
+UPDATE sources SET published_at = COALESCE(published_at, created_at) WHERE status = 'published';
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'sources_status_chk') THEN
+    ALTER TABLE sources ADD CONSTRAINT sources_status_chk
+      CHECK (status IN ('draft','testing','review','published','suspended'));
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'sources_enabled_status_chk') THEN
+    ALTER TABLE sources ADD CONSTRAINT sources_enabled_status_chk
+      CHECK (enabled = (status = 'published'));
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'sources_engine_chk') THEN
+    ALTER TABLE sources ADD CONSTRAINT sources_engine_chk
+      CHECK (engine IS NULL OR engine IN ('veille-page','veille-rss','veille-agenda','external'));
+  END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_sources_author ON sources (author_subscriber_id);
+CREATE INDEX IF NOT EXISTS idx_sources_status ON sources (status);
+
 -- Valeurs de l'abonnement paramétré. NULL = broadcast (v1). Ex : {"departement":"05"}.
 ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS params JSONB NULL;
 -- F2) Mise en pause d'un abonnement SANS le supprimer (conserve les paramètres).

@@ -221,9 +221,9 @@ router.post('/submit-source', rateLimit, async (req, res) => {
 
     await pool.query(
       `INSERT INTO sources
-         (id, name, description, description_long, type, badge, enabled, endpoint_url,
+         (id, name, description, description_long, type, badge, status, engine, endpoint_url,
           submitted_by_github, submitted_by_email, categories, params_schema)
-       VALUES ($1, $2, $3, $4, 'external', 'community', false, $5, $6, $7, $8, $9::jsonb)`,
+       VALUES ($1, $2, $3, $4, 'external', 'community', 'draft', 'external', $5, $6, $7, $8, $9::jsonb)`,
       [
         id,
         name.slice(0, 255),
