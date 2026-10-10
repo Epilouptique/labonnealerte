@@ -8,6 +8,9 @@
     "dev": "nodemon server/index.js"
   },
   "license": "MIT",
+  "engines": {
+    "node": ">=18.17"
+  },
   "dependencies": {
     "adm-zip": "^0.6.0",
     "dotenv": "^17.4.2",
