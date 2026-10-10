@@ -40,8 +40,12 @@
       var label = F.statusLabel(s.status, s.status_reason);
       var div = document.createElement('div'); div.className = 'mp-item';
       var acts = '';
-      if (s.status === 'draft' || s.status === 'testing') acts += '<button data-act="preview" data-id="' + esc(s.id) + '">Lancer un aperçu</button>';
+      if (s.status === 'draft' || s.status === 'testing') {
+        acts += '<a href="/publier?id=' + encodeURIComponent(s.id) + '">Modifier</a>';
+        acts += '<button data-act="preview" data-id="' + esc(s.id) + '">Lancer un aperçu</button>';
+      }
       if (s.status === 'testing') acts += '<button data-act="submit" data-id="' + esc(s.id) + '">Soumettre pour validation</button>';
+      if (s.status === 'draft' || s.status === 'testing') acts += '<button data-act="delete" data-id="' + esc(s.id) + '">Supprimer</button>';
       if (s.status === 'published') acts += '<a href="/source/' + encodeURIComponent(s.id) + '/statut">Voir la fiche publique</a>';
       div.innerHTML = '<h2>' + esc(s.name) + '</h2>' +
         '<span class="mp-status ' + (cls[s.status] || '') + '">' + esc(label) + '</span> ' +
@@ -57,6 +61,15 @@
 
   function action(act, id, btn) {
     var msg = btn.closest('.mp-item').querySelector('[data-msg]');
+    if (act === 'delete') {
+      if (!window.confirm('Supprimer définitivement ce brouillon ?')) return;
+      btn.disabled = true; msg.textContent = 'Suppression…';
+      fetch('/api/community-sources/' + encodeURIComponent(id), { method: 'DELETE', headers: headers() })
+        .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })
+        .then(function (x) { if (!x.ok) { btn.disabled = false; msg.textContent = (x.b && x.b.error) || 'Suppression impossible.'; return; } load(); })
+        .catch(function () { btn.disabled = false; msg.textContent = 'Erreur réseau.'; });
+      return;
+    }
     btn.disabled = true; msg.textContent = 'En cours…';
     fetch('/api/community-sources/' + encodeURIComponent(id) + '/' + act, { method: 'POST', headers: headers(), body: '{}' })
       .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })

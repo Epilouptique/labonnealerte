@@ -80,6 +80,35 @@ function clampPreavis(v) {
   return Math.max(0, Math.min(30, n));
 }
 
+// Création MINIMALE (étape « adresse ») : type + url seulement. Le nom/les catégories
+// sont fournis plus tard (présentation) via PATCH. Renvoie { ok, error?, value:{type,engine,key,url} }.
+function validateUrlType(body) {
+  const b = body || {};
+  const type = String(b.type || '').trim().toLowerCase();
+  if (!ENGINES[type]) return { ok: false, error: 'Type requis : page, rss ou agenda.' };
+  const url = String(b.url || '').trim();
+  if (!HTTPS_RE.test(url)) return { ok: false, error: 'URL https valide requise (max 300 caractères).' };
+  const E = ENGINES[type];
+  return { ok: true, value: { type, engine: E.engine, key: E.key, url } };
+}
+
+// Nom provisoire d'un brouillon minimal, dérivé de l'hôte (3..60 car.).
+function provisionalName(url) {
+  let host = 'ma veille';
+  try { host = new URL(url).hostname.replace(/^www\./, ''); } catch (e) {}
+  return ('Veille — ' + host).slice(0, 60);
+}
+
+// Complétude requise AVANT soumission à la revue : un vrai nom ET au moins une catégorie.
+// Empêche un brouillon minimal de passer en review sans présentation.
+function validateSubmittable(row) {
+  const name = String((row && row.name) || '').trim();
+  const cats = (row && row.categories) || [];
+  if (name.length < 3 || name.length > 60) return { ok: false, error: 'Donnez un nom (3 à 60 caractères) avant de soumettre.' };
+  if (!Array.isArray(cats) || cats.length < 1) return { ok: false, error: 'Choisissez au moins une catégorie avant de soumettre.' };
+  return { ok: true };
+}
+
 // Paramètres d'exécution (broadcast) d'une source communautaire selon son moteur,
 // enrichis par la config optionnelle { zone, preavis } de l'auteur.
 function engineParams(engine, url, config) {
@@ -177,7 +206,8 @@ function buildEngineSource(row, requireFn) {
 module.exports = {
   STATUSES, TRANSITIONS, canTransition, isOwner,
   MAX_UNPUBLISHED, MAX_TOTAL, UNPUBLISHED_STATUSES, checkQuota,
-  ENGINES, ENGINE_BY_NAME, validateCreate, engineParams, buildEngineSource, HTTPS_RE,
+  ENGINES, ENGINE_BY_NAME, validateCreate, validateUrlType, provisionalName, validateSubmittable,
+  engineParams, buildEngineSource, HTTPS_RE,
   clampPreavis, validatePersonalization,
   REPORT_REASONS, REPORT_SUSPEND_THRESHOLD, isValidReportReason, shouldAutoSuspend,
   normalizeUrl,

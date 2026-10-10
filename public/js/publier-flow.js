@@ -8,17 +8,15 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  // Note : « présentation » précède « aperçu » car la création du brouillon
-  // (POST /api/community-sources) exige déjà nom + catégories, et l'aperçu
-  // (POST /:id/preview) exige un brouillon existant. Pour l'ordre exact du cahier
-  // des charges (aperçu avant présentation), il faudrait une route de mise à jour
-  // du brouillon — cf. rapport.
-  var STEPS = ['type', 'adresse', 'presentation', 'apercu', 'recap'];
+  // Ordre cible (LOT 5) : un brouillon MINIMAL (type+url) est créé dès l'étape
+  // « adresse », ce qui permet l'aperçu avant la présentation. La présentation
+  // (nom, catégories, perso) est ensuite envoyée par PATCH.
+  var STEPS = ['type', 'adresse', 'apercu', 'presentation', 'recap'];
   var STEP_TITLES = {
     type: 'Que voulez-vous surveiller ?',
     adresse: 'L’adresse à surveiller',
-    presentation: 'Présentez votre alerte',
     apercu: 'Aperçu',
+    presentation: 'Présentez votre alerte',
     recap: 'Récapitulatif',
   };
   var TYPES = {
@@ -98,14 +96,26 @@
     return { message: body.error || 'Une erreur est survenue, réessayez.' };
   }
 
-  // Corps à envoyer à POST /api/community-sources depuis le brouillon.
+  // Corps MINIMAL pour POST /api/community-sources (étape adresse) : type + url (+ zone page).
   function createBody(d) {
-    var b = { type: d.type, url: String(d.url || '').trim(), name: String(d.name || '').trim(),
-      description: String(d.name || '').trim(), categories: (d.categories || []).slice() };
+    var b = { type: d.type, url: String(d.url || '').trim() };
     if (d.type === 'page' && d.zone && String(d.zone).trim()) b.zone = String(d.zone).trim();
-    if (d.alert_message && String(d.alert_message).trim()) b.alert_message = String(d.alert_message).trim();
-    if (d.alert_url && String(d.alert_url).trim()) b.alert_url = String(d.alert_url).trim();
+    return b;
+  }
+
+  // Corps PATCH pour l'étape « présentation » (nom, catégories, perso, préavis).
+  function presentationBody(d) {
+    var b = { name: String(d.name || '').trim(), categories: (d.categories || []).slice(),
+      alert_message: d.alert_message ? String(d.alert_message).trim() : '',
+      alert_url: d.alert_url ? String(d.alert_url).trim() : '' };
     if (d.type === 'agenda') b.preavis = parseInt(d.preavis, 10) || 1;
+    return b;
+  }
+
+  // Corps PATCH quand l'adresse/zone change après création (étape adresse, brouillon existant).
+  function addressBody(d) {
+    var b = { url: String(d.url || '').trim() };
+    if (d.type === 'page') b.zone = d.zone ? String(d.zone).trim() : '';
     return b;
   }
 
@@ -125,5 +135,6 @@
     isValidSelector: isValidSelector, emptyDraft: emptyDraft, validateStep: validateStep,
     canContinue: canContinue, indexOf: indexOf, nextStep: nextStep, prevStep: prevStep,
     progress: progress, invalidatesPreview: invalidatesPreview, mapCreateError: mapCreateError,
-    createBody: createBody, statusLabel: statusLabel };
+    createBody: createBody, presentationBody: presentationBody, addressBody: addressBody,
+    statusLabel: statusLabel };
 });

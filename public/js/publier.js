@@ -37,7 +37,8 @@
     if (!token()) { renderGate(); return; }
     var step = d.step;
     var html = '<div class="pub-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + F.progress(step) + '"><i style="width:' + F.progress(step) + '%"></i></div>';
-    html += '<p class="pub-stepinfo">Étape ' + (F.indexOf(step) + 1) + ' sur ' + F.STEPS.length + '</p>';
+    html += '<p class="pub-stepinfo">Étape ' + (F.indexOf(step) + 1) + ' sur ' + F.STEPS.length +
+      (d.id ? ' · <button type="button" class="link-btn" id="pub-delete">Supprimer ce brouillon</button>' : '') + '</p>';
     html += '<section class="pub-step"><h1>' + esc(nbsp(F.STEP_TITLES[step])) + '</h1>';
     html += BODY[step] ? BODY[step]() : '';
     if (err) html += '<p class="pub-err" role="alert">' + err + '</p>';
@@ -126,6 +127,8 @@
     if (back) back.onclick = function () { err = ''; d.step = F.prevStep(step); saveDraft(d); render(); };
     var next = document.getElementById('pub-next');
     if (next) next.onclick = onNext;
+    var del = document.getElementById('pub-delete');
+    if (del) del.onclick = deleteDraft;
 
     if (step === 'type') {
       [].forEach.call(root.querySelectorAll('.pub-card'), function (b) {
@@ -168,10 +171,24 @@
     var v = F.validateStep(step, d);
     if (!v.ok) { err = esc(v.error); render(); return; }
     if (step === 'recap') { submit(); return; }
+    if (step === 'presentation') { savePresentation(); return; }
     d.step = F.nextStep(step); saveDraft(d); render();
   }
 
-  // Création du brouillon (si besoin) puis aperçu. Étape « apercu ».
+  // Étape « présentation » : PATCH nom/catégories/perso puis passage au récap.
+  async function savePresentation() {
+    if (!d.id) { err = 'Lancez d’abord un aperçu.'; d.step = 'apercu'; render(); return; }
+    busy = true; render();
+    try {
+      var r = await fetch('/api/community-sources/' + encodeURIComponent(d.id), { method: 'PATCH', headers: authHeaders(), body: JSON.stringify(F.presentationBody(d)) });
+      var b = await r.json().catch(function () { return {}; });
+      if (!r.ok) { err = esc(b.error || 'Enregistrement impossible.'); busy = false; render(); return; }
+      busy = false; d.step = 'recap'; saveDraft(d); render();
+    } catch (e) { err = 'Erreur réseau, réessayez.'; busy = false; render(); }
+  }
+
+  // Création du brouillon minimal (si besoin), ou MAJ de l'adresse si elle a changé,
+  // puis aperçu. Étape « apercu ».
   async function runPreview() {
     err = ''; busy = true; render();
     try {
@@ -179,7 +196,13 @@
         var cr = await fetch('/api/community-sources', { method: 'POST', headers: authHeaders(), body: JSON.stringify(F.createBody(d)) });
         var cb = await cr.json().catch(function () { return {}; });
         if (!cr.ok) { var m = F.mapCreateError(cr.status, cb); err = esc(m.message) + (m.link ? ' <a href="' + esc(m.link) + '">' + esc(m.linkLabel) + '</a>' : ''); busy = false; render(); return; }
-        d.id = cb.id; d.status = cb.status || 'draft'; saveDraft(d);
+        d.id = cb.id; d.status = cb.status || 'draft'; d.syncedUrl = d.url; d.syncedZone = d.zone || ''; saveDraft(d);
+      } else if (d.url !== d.syncedUrl || (d.zone || '') !== (d.syncedZone || '')) {
+        // L'adresse/zone a changé après création → PATCH (repasse en draft côté serveur).
+        var ar = await fetch('/api/community-sources/' + encodeURIComponent(d.id), { method: 'PATCH', headers: authHeaders(), body: JSON.stringify(F.addressBody(d)) });
+        var ab = await ar.json().catch(function () { return {}; });
+        if (!ar.ok) { var m2 = F.mapCreateError(ar.status, ab); err = esc(m2.message) + (m2.link ? ' <a href="' + esc(m2.link) + '">' + esc(m2.linkLabel) + '</a>' : ''); busy = false; render(); return; }
+        d.status = ab.status || 'draft'; d.syncedUrl = d.url; d.syncedZone = d.zone || ''; saveDraft(d);
       }
       var pr = await fetch('/api/community-sources/' + encodeURIComponent(d.id) + '/preview', { method: 'POST', headers: authHeaders(), body: '{}' });
       var pb = await pr.json().catch(function () { return {}; });
@@ -211,11 +234,48 @@
     } catch (e) { err = 'Erreur réseau, réessayez.'; busy = false; render(); }
   }
 
+  async function deleteDraft() {
+    if (!d.id) { clearDraft(); d = F.emptyDraft(); render(); return; }
+    if (!window.confirm('Supprimer définitivement ce brouillon ?')) return;
+    busy = true; render();
+    try {
+      var r = await fetch('/api/community-sources/' + encodeURIComponent(d.id), { method: 'DELETE', headers: authHeaders() });
+      var b = await r.json().catch(function () { return {}; });
+      if (!r.ok) { err = esc(b.error || 'Suppression impossible.'); busy = false; render(); return; }
+    } catch (e) { /* on efface quand même localement */ }
+    clearDraft(); d = F.emptyDraft(); busy = false; err = ''; render();
+  }
+
+  // Hydrate le brouillon depuis ?id= (édition depuis « Mes publications »).
+  async function hydrateFromId(id) {
+    try {
+      var r = await fetch('/api/community-sources', { headers: authHeaders() });
+      var b = await r.json().catch(function () { return {}; });
+      var s = (b.sources || []).filter(function (x) { return x.id === id; })[0];
+      if (!s) return false;
+      var typeByEngine = { 'veille-page': 'page', 'veille-rss': 'rss', 'veille-agenda': 'agenda' };
+      var cfg = s.engine_config || {};
+      d = Object.assign(F.emptyDraft(), {
+        id: s.id, status: s.status, type: typeByEngine[s.engine] || null,
+        url: s.endpoint_url || '', zone: cfg.zone || '', name: s.name || '',
+        categories: Array.isArray(s.categories) ? s.categories : [],
+        alert_message: cfg.message || '', alert_url: cfg.url || '', preavis: cfg.preavis != null ? cfg.preavis : 1,
+        syncedUrl: s.endpoint_url || '', syncedZone: cfg.zone || '', step: 'adresse',
+      });
+      saveDraft(d);
+      return true;
+    } catch (e) { return false; }
+  }
+
   // ---- Démarrage --------------------------------------------------------------
   document.body.classList.remove('loading');
-  render();
+  var editId = new URLSearchParams(window.location.search).get('id');
   fetch('/api/categories', { headers: { Accept: 'application/json' } })
     .then(function (r) { return r.json(); })
-    .then(function (list) { CATS = Array.isArray(list) ? list : []; if (d.step === 'presentation' && token()) render(); })
-    .catch(function () {});
+    .then(function (list) { CATS = Array.isArray(list) ? list : []; })
+    .catch(function () {})
+    .then(function () {
+      if (editId && token()) return hydrateFromId(editId);
+    })
+    .then(function () { render(); });
 })();

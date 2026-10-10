@@ -53,41 +53,35 @@ function slugify(name) {
     .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'veille';
 }
 
-// POST /community-sources — crée une source communautaire (status draft).
+// Doublon : URL normalisée déjà surveillée (option : exclure une source donnée).
+async function findDuplicate(url, excludeId) {
+  const norm = lc.normalizeUrl(url);
+  if (!norm) return null;
+  const cand = await pool.query('SELECT id, name, endpoint_url FROM sources WHERE endpoint_url IS NOT NULL');
+  const dup = cand.rows.find((r) => r.id !== excludeId && lc.normalizeUrl(r.endpoint_url) === norm);
+  return dup ? { id: dup.id, name: dup.name, url: `/source/${encodeURIComponent(dup.id)}/statut` } : null;
+}
+
+// POST /community-sources — crée un brouillon MINIMAL (type + url) dès l'étape adresse.
+// Nom provisoire (hôte), aucune catégorie : la présentation (PATCH) les complète. Un tel
+// brouillon ne peut pas passer en review (cf. validateSubmittable dans /submit).
 router.post('/community-sources', async (req, res) => {
   const auth = await requireAuthor(req, res); if (!auth) return;
-  const v = lc.validateCreate(req.body);
+  const v = lc.validateUrlType(req.body);
   if (!v.ok) return res.status(400).json({ error: v.error });
-  const cat = sanitizeCategories(req.body && req.body.categories);
-  if (!cat.ok) return res.status(400).json({ error: cat.error });
-  // Liste FERMÉE : chaque catégorie doit exister dans le référentiel.
-  const unknown = cat.categories.filter((c) => !VALID_SLUGS.includes(c));
-  if (unknown.length) return res.status(400).json({ error: `Catégorie inconnue : ${unknown.join(', ')}.` });
 
-  // Personnalisation + zone (page) + préavis (agenda).
-  const perso = lc.validatePersonalization(req.body);
-  if (!perso.ok) return res.status(400).json({ error: perso.error });
-  const config = Object.assign({}, perso.value);
+  const config = {};
   const zone = req.body && typeof req.body.zone === 'string' ? req.body.zone.trim() : '';
   if (zone) {
     if (v.engine !== 'veille-page') return res.status(400).json({ error: 'Le sélecteur de zone ne s\'applique qu\'à une veille de page.' });
     if (!isValidSelector(zone)) return res.status(400).json({ error: 'Sélecteur invalide (balise, #id ou .classe simples).' });
     config.zone = zone;
   }
-  if (v.engine === 'veille-agenda' && req.body && req.body.preavis != null) config.preavis = lc.clampPreavis(req.body.preavis);
 
   try {
-    // Doublon : URL normalisée déjà surveillée par une source existante.
-    const norm = lc.normalizeUrl(v.url);
-    if (norm) {
-      const cand = await pool.query("SELECT id, name, endpoint_url FROM sources WHERE endpoint_url IS NOT NULL");
-      const dup = cand.rows.find((r) => lc.normalizeUrl(r.endpoint_url) === norm);
-      if (dup) {
-        return res.status(409).json({ error: 'Une source surveille déjà cette URL.', existing: { id: dup.id, name: dup.name, url: `/source/${encodeURIComponent(dup.id)}/statut` } });
-      }
-    }
+    const dup = await findDuplicate(v.url, null);
+    if (dup) return res.status(409).json({ error: 'Une source surveille déjà cette URL.', existing: dup });
 
-    // Quota (COUNT, pas de table).
     const q = await pool.query(
       `SELECT COUNT(*)::int AS total,
               COUNT(*) FILTER (WHERE status = ANY($2))::int AS unpublished
@@ -96,8 +90,8 @@ router.post('/community-sources', async (req, res) => {
     const qc = lc.checkQuota(q.rows[0]);
     if (!qc.ok) return res.status(409).json({ error: qc.error });
 
-    // id unique : slug + suffixe aléatoire en cas de collision.
-    const base = slugify(v.name);
+    const name = lc.provisionalName(v.url);
+    const base = slugify(name);
     let id = base, attempts = 0;
     while ((await pool.query('SELECT 1 FROM sources WHERE id = $1', [id])).rows.length) {
       id = `${base}-${crypto.randomBytes(2).toString('hex')}`;
@@ -109,11 +103,11 @@ router.post('/community-sources', async (req, res) => {
       `INSERT INTO sources
          (id, name, description, type, badge, status, engine, endpoint_url,
           author_subscriber_id, categories, requires_confirmation, engine_config)
-       VALUES ($1, $2, $3, 'internal', 'community', 'draft', $4, $5, $6, $7, true, $8::jsonb)`,
-      [id, v.name.slice(0, 255), v.description, v.engine, v.url, auth.id, cat.categories, cfg]);
+       VALUES ($1, $2, $3, 'internal', 'community', 'draft', $4, $5, $6, '{}', true, $7::jsonb)`,
+      [id, name, name, v.engine, v.url, auth.id, cfg]);
 
     return res.status(201).json({ id, status: 'draft', engine: v.engine,
-      message: 'Brouillon créé. Lancez un aperçu pour vérifier qu\'il détecte bien, puis soumettez-le.' });
+      message: 'Brouillon créé. Lancez un aperçu, puis présentez votre alerte.' });
   } catch (err) {
     console.error('[community] POST /community-sources :', err.message);
     return res.status(503).json({ error: 'Service indisponible, réessayez plus tard.' });
@@ -126,7 +120,7 @@ router.get('/community-sources', async (req, res) => {
   try {
     const { rows } = await pool.query(
       `SELECT id, name, status, engine, endpoint_url, badge, status_reason,
-              status_changed_at, published_at
+              categories, engine_config, status_changed_at, published_at
          FROM sources WHERE author_subscriber_id = $1 ORDER BY status_changed_at DESC`,
       [auth.id]);
     return res.json({ sources: rows });
@@ -139,7 +133,7 @@ router.get('/community-sources', async (req, res) => {
 // Charge une source de l'auteur (sinon 404, jamais la source d'un autre).
 async function loadOwned(id, authorId) {
   const { rows } = await pool.query(
-    'SELECT id, name, status, engine, endpoint_url, engine_config, author_subscriber_id FROM sources WHERE id = $1', [id]);
+    'SELECT id, name, description, status, engine, endpoint_url, engine_config, categories, author_subscriber_id FROM sources WHERE id = $1', [id]);
   const s = rows[0];
   if (!lc.isOwner(s, authorId)) return null;
   return s;
@@ -227,10 +221,107 @@ router.post('/community-sources/:id/submit', async (req, res) => {
     if (!lc.canTransition(s.status, 'review', 'author')) {
       return res.status(409).json({ error: `Soumission impossible depuis « ${s.status} » : lancez d'abord un aperçu réussi (passage en test).` });
     }
+    // Verrou de complétude : un brouillon minimal (sans nom réel ni catégorie) ne passe pas.
+    const comp = lc.validateSubmittable(s);
+    if (!comp.ok) return res.status(409).json({ error: comp.error });
     await pool.query("UPDATE sources SET status = 'review', status_reason = NULL WHERE id = $1 AND author_subscriber_id = $2 AND status = 'testing'", [s.id, auth.id]);
     return res.json({ id: s.id, status: 'review', message: 'Envoyée en revue. Vous serez informé après examen.' });
   } catch (err) {
     console.error('[community] submit :', err.message);
+    return res.status(503).json({ error: 'Service indisponible.' });
+  }
+});
+
+// PATCH /community-sources/:id — modifie un brouillon ou une source « testing ».
+// Mêmes validations qu'à la création. Changer l'URL ou la zone repasse en 'draft'
+// et invalide l'aperçu (nouvel aperçu requis). Refusé en review/published/suspended.
+router.patch('/community-sources/:id', async (req, res) => {
+  const auth = await requireAuthor(req, res); if (!auth) return;
+  const b = req.body || {};
+  const has = (k) => Object.prototype.hasOwnProperty.call(b, k);
+  try {
+    const s = await loadOwned(req.params.id, auth.id);
+    if (!s) return res.status(404).json({ error: 'Source introuvable.' });
+    if (!['draft', 'testing'].includes(s.status)) {
+      return res.status(409).json({ error: `Modification impossible : cette source est « ${s.status} » (seuls les brouillons et sources en test sont modifiables).` });
+    }
+    const isPage = s.engine === 'veille-page';
+
+    let name = s.name, description = s.description, categories = s.categories, endpoint = s.endpoint_url;
+    const config = (() => { try { return typeof s.engine_config === 'string' ? JSON.parse(s.engine_config) : (s.engine_config || {}); } catch (e) { return {}; } })();
+    let urlChanged = false, zoneChanged = false;
+
+    if (has('name')) {
+      const n = String(b.name || '').trim();
+      if (n.length < 3 || n.length > 60) return res.status(400).json({ error: 'Le nom doit faire de 3 à 60 caractères.' });
+      name = n; description = n;
+    }
+    if (has('categories')) {
+      const cat = sanitizeCategories(b.categories);
+      if (!cat.ok) return res.status(400).json({ error: cat.error });
+      const unknown = cat.categories.filter((c) => !VALID_SLUGS.includes(c));
+      if (unknown.length) return res.status(400).json({ error: `Catégorie inconnue : ${unknown.join(', ')}.` });
+      categories = cat.categories;
+    }
+    if (has('alert_message') || has('alert_url')) {
+      const perso = lc.validatePersonalization(b);
+      if (!perso.ok) return res.status(400).json({ error: perso.error });
+      if (has('alert_message')) { if (perso.value.message) config.message = perso.value.message; else delete config.message; }
+      if (has('alert_url')) { if (perso.value.url) config.url = perso.value.url; else delete config.url; }
+    }
+    if (has('preavis') && s.engine === 'veille-agenda') config.preavis = lc.clampPreavis(b.preavis);
+    if (has('zone')) {
+      const z = String(b.zone || '').trim();
+      if (z) {
+        if (!isPage) return res.status(400).json({ error: 'Le sélecteur de zone ne s\'applique qu\'à une veille de page.' });
+        if (!isValidSelector(z)) return res.status(400).json({ error: 'Sélecteur invalide (balise, #id ou .classe simples).' });
+      }
+      if ((config.zone || '') !== z) zoneChanged = true;
+      if (z) config.zone = z; else delete config.zone;
+    }
+    if (has('url')) {
+      const u = String(b.url || '').trim();
+      if (!lc.HTTPS_RE.test(u)) return res.status(400).json({ error: 'URL https valide requise (max 300 caractères).' });
+      const dup = await findDuplicate(u, s.id);
+      if (dup) return res.status(409).json({ error: 'Une source surveille déjà cette URL.', existing: dup });
+      if (lc.normalizeUrl(u) !== lc.normalizeUrl(endpoint)) urlChanged = true;
+      endpoint = u;
+    }
+
+    // Changement d'URL/zone → retour en brouillon + aperçu invalidé.
+    if (urlChanged || zoneChanged) { delete config.last_extract; delete config.last_extract_at; }
+    const newStatus = (urlChanged || zoneChanged) ? 'draft' : s.status;
+    const cfg = Object.keys(config).length ? JSON.stringify(config) : null;
+
+    await pool.query(
+      `UPDATE sources SET name = $2, description = $3, categories = $4, endpoint_url = $5,
+              engine_config = $6::jsonb, status = $7
+         WHERE id = $1 AND author_subscriber_id = $8 AND status IN ('draft','testing')`,
+      [s.id, name, description, categories, endpoint, cfg, newStatus, auth.id]);
+
+    return res.json({ id: s.id, status: newStatus,
+      previewInvalidated: urlChanged || zoneChanged,
+      message: (urlChanged || zoneChanged) ? 'Modifié. L\'adresse ayant changé, relancez un aperçu avant de soumettre.' : 'Modifié.' });
+  } catch (err) {
+    console.error('[community] PATCH :', err.message);
+    return res.status(503).json({ error: 'Service indisponible.' });
+  }
+});
+
+// DELETE /community-sources/:id — supprime un brouillon ou une source « testing »
+// (ou refusée = redevenue draft). Interdit en review/published/suspended. Libère quota+URL.
+router.delete('/community-sources/:id', async (req, res) => {
+  const auth = await requireAuthor(req, res); if (!auth) return;
+  try {
+    const s = await loadOwned(req.params.id, auth.id);
+    if (!s) return res.status(404).json({ error: 'Source introuvable.' });
+    if (!['draft', 'testing'].includes(s.status)) {
+      return res.status(409).json({ error: `Suppression impossible : cette source est « ${s.status} ».` });
+    }
+    await pool.query("DELETE FROM sources WHERE id = $1 AND author_subscriber_id = $2 AND status IN ('draft','testing')", [s.id, auth.id]);
+    return res.json({ ok: true, deleted: s.id, message: 'Brouillon supprimé.' });
+  } catch (err) {
+    console.error('[community] DELETE :', err.message);
     return res.status(503).json({ error: 'Service indisponible.' });
   }
 });

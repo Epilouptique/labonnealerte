@@ -10,8 +10,9 @@ const ok = (c, m) => { if (c) { passed++; console.log('  ✓ ' + m); } else { fa
 
 console.log('TEST parcours « Publier une alerte »');
 
-// 1) Ordre des étapes (présentation avant aperçu — cf. route de MAJ manquante)
-ok(F.STEPS.join(',') === 'type,adresse,presentation,apercu,recap', 'ordre des étapes correct');
+// 1) Ordre des étapes (adresse → aperçu → présentation, grâce au brouillon minimal)
+ok(F.STEPS.join(',') === 'type,adresse,apercu,presentation,recap', 'ordre des étapes correct');
+ok(F.nextStep('adresse') === 'apercu' && F.nextStep('apercu') === 'presentation', 'adresse → aperçu → présentation');
 ok(F.nextStep('type') === 'adresse' && F.prevStep('adresse') === 'type', 'navigation avant/arrière');
 ok(F.prevStep('type') === 'type' && F.nextStep('recap') === 'recap', 'bornes d\'étapes');
 ok(F.progress('type') === 20 && F.progress('recap') === 100, 'barre de progression');
@@ -53,12 +54,16 @@ ok(/atteinte/i.test(F.mapCreateError(409, { error: 'Limite atteinte : 5…' }).m
 ok(F.mapCreateError(400, { error: 'URL refusée' }).message === 'URL refusée', 'URL refusée → message serveur');
 ok(/[Cc]onnexion/.test(F.mapCreateError(401, {}).message), '401 → connexion requise');
 
-// 8) Corps de création
-const body = F.createBody({ type: 'page', url: ' https://x.fr/p ', zone: '#prix', name: 'Nom', categories: ['a'], alert_message: 'Hop', alert_url: 'https://y.fr' });
-ok(body.type === 'page' && body.url === 'https://x.fr/p' && body.zone === '#prix', 'createBody : url nettoyée + zone');
-ok(body.name === 'Nom' && body.description === 'Nom' && body.alert_message === 'Hop' && body.alert_url === 'https://y.fr', 'createBody : champs présentation');
-ok(F.createBody({ type: 'agenda', url: 'https://x', name: 'N', categories: ['a'], preavis: 4 }).preavis === 4, 'createBody : préavis agenda');
-ok(F.createBody({ type: 'rss', url: 'https://x', name: 'N', categories: ['a'] }).zone === undefined, 'createBody : pas de zone hors page');
+// 8) Corps de création MINIMAL (étape adresse) + PATCH présentation/adresse
+const body = F.createBody({ type: 'page', url: ' https://x.fr/p ', zone: '#prix', name: 'Nom', categories: ['a'] });
+ok(body.type === 'page' && body.url === 'https://x.fr/p' && body.zone === '#prix', 'createBody minimal : type+url+zone');
+ok(body.name === undefined && body.categories === undefined, 'createBody minimal : pas de nom/catégories');
+ok(F.createBody({ type: 'rss', url: 'https://x', zone: '#x' }).zone === undefined, 'createBody : pas de zone hors page');
+const pb = F.presentationBody({ type: 'agenda', name: ' Nom ', categories: ['a', 'b'], alert_message: 'Hop', alert_url: 'https://y.fr', preavis: 4 });
+ok(pb.name === 'Nom' && pb.categories.length === 2 && pb.alert_message === 'Hop' && pb.alert_url === 'https://y.fr' && pb.preavis === 4, 'presentationBody : champs présentation + préavis');
+const abp = F.addressBody({ type: 'page', url: ' https://z.fr ', zone: '.t' });
+ok(abp.url === 'https://z.fr' && abp.zone === '.t', 'addressBody : url + zone (page)');
+ok(F.addressBody({ type: 'rss', url: 'https://z.fr' }).zone === undefined, 'addressBody : pas de zone hors page');
 
 // 9) Libellés de statut (Mes publications)
 ok(F.statusLabel('draft') === 'Brouillon' && F.statusLabel('testing') === 'À tester', 'libellés draft/testing');
