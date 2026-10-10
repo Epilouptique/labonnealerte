@@ -5509,5 +5509,6 @@ select:focus-visible,
 .dept-combo .dyn-status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 
 /* Interrupteur « Publier une alerte » (LOT 5 interim) : les CTA .publish-cta sont
-   masqués tant que window.__LBA_PUBLISH__ n'a pas posé .lba-publish-on sur <html>. */
-html:not(.lba-publish-on) .publish-cta { display: none !important; }
+   masqués tant que <html> ne porte pas data-lba-publish="true" (attribut posé côté
+   serveur par pages.js — pas de script inline, pour respecter la CSP script-src 'self'). */
+html:not([data-lba-publish="true"]) .publish-cta { display: none !important; }

@@ -19,11 +19,13 @@ const { publishEnabled } = require('./publish-flag');
 
 const publicDir = path.join(__dirname, '..', 'public');
 
-// Drapeau client « Publier une alerte » : injecté dans chaque page pour masquer les CTA
-// et activer/désactiver le parcours sans toucher aux fichiers statiques.
-function publishFlagScript() {
-  const b = publishEnabled() ? 'true' : 'false';
-  return '<script>window.__LBA_PUBLISH__=' + b + ';try{document.documentElement.classList.toggle(\'lba-publish-on\',' + b + ')}catch(e){}</script>';
+// Drapeau client « Publier une alerte » : exposé en ATTRIBUT sur <html>
+// (data-lba-publish="true|false") plutôt qu'en script inline — la CSP du site impose
+// script-src 'self' (aucun inline), donc un <script> injecté serait bloqué et les CTA
+// resteraient masqués. La CSS masque les .publish-cta tant que l'attribut ne vaut pas
+// "true". Aucun JS ne lit ce drapeau : seule la feuille de style s'en sert.
+function publishFlagAttr() {
+  return ' data-lba-publish="' + (publishEnabled() ? 'true' : 'false') + '"';
 }
 const footerFile = path.join(__dirname, 'partials', 'footer.html');
 const CACHE = process.env.NODE_ENV === 'production';
@@ -44,8 +46,8 @@ function renderPage(file) {
   if (CACHE && pageCache.has(file)) return pageCache.get(file);
   let html = fs.readFileSync(path.join(publicDir, file), 'utf8')
     .replace('<!--FOOTER-->', () => footerHtml());
-  // Injecte le drapeau de publication juste avant </head> (une fois par page).
-  html = html.replace('</head>', () => publishFlagScript() + '</head>');
+  // Pose le drapeau de publication en attribut sur la balise <html> (une fois par page).
+  html = html.replace(/<html(\s|>)/i, (m, p1) => '<html' + publishFlagAttr() + p1);
   if (CACHE) pageCache.set(file, html);
   return html;
 }
