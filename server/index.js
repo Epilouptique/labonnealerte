@@ -220,6 +220,13 @@ app.use('/auth', authRouter);
 app.get('/proposer', (req, res) => {
   sendPage(res, 'proposer.html');
 });
+// Parcours grand public « Publier une alerte » (assistant) + ses publications.
+app.get('/publier', (req, res) => {
+  sendPage(res, 'publier.html');
+});
+app.get('/mes-publications', (req, res) => {
+  sendPage(res, 'mes-publications.html');
+});
 // Pages statiques simples.
 app.get('/a-propos', (req, res) => {
   sendPage(res, 'a-propos.html');

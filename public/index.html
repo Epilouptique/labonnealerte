@@ -43,7 +43,7 @@
 <header>
   <div class="wrap nav">
     <a class="brand brandmark" href="/" aria-label="La Bonne Alerte — accueil"><span class="lig"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path d="M 0 20 C -6 93, 66 52, 60 10"/></svg><span class="l">l</span>a</span>bonne<span class="a">alerte</span><span class="bang"><span class="bar"></span><span class="dot"></span></span><span class="fr">fr</span></a>
-    <a class="btn-deposit" href="/proposer" title="Proposer une source"><span class="plus" aria-hidden="true">+</span> <span class="bd-label">Proposer une source</span></a>
+    <a class="btn-deposit" href="/publier" title="Publier une alerte"><span class="plus" aria-hidden="true">+</span> <span class="bd-label">Publier une alerte</span></a>
     <button class="nav-toggle" type="button" aria-label="Ouvrir le menu" aria-expanded="false" aria-controls="nav-menu">
       <span></span><span></span><span></span>
     </button>
@@ -123,12 +123,12 @@
   <h2 class="sr-only">Vos alertes</h2>
   <div class="grid" id="grid" role="list">
 
-    <!-- Carte « Proposer une alerte » — statique, toujours visible.
+    <!-- Carte « Publier une alerte » — statique, toujours visible.
          Sert aussi d'ancre d'insertion des cartes dynamiques (id static-extras). -->
-    <a class="card add" href="/proposer" id="static-extras">
+    <a class="card add" href="/publier" id="static-extras">
       <span class="plus">+</span>
-      <strong>Proposer une alerte</strong>
-      <span style="font-size:13px">Vous avez construit un détecteur ?<br>Exposez un JSON, on fait le reste.</span>
+      <strong>Publier une alerte</strong>
+      <span style="font-size:13px">Surveillez une page web, un flux RSS<br>ou un agenda. On vous prévient.</span>
     </a>
 
   </div>
@@ -153,7 +153,7 @@
          (celui qui ne trouve rien est précisément celui qui peut combler le manque). -->
     <div class="empty-actions">
       <button class="empty-btn" type="button" id="search-empty-btn">Effacer la recherche</button>
-      <a class="empty-btn secondaire" href="/proposer">Proposer cette alerte</a>
+      <a class="empty-btn secondaire" href="/publier">Publier cette alerte</a>
     </div>
   </div>
 
@@ -320,9 +320,9 @@
               <span class="notif-sub">Le plus efficace, et totalement gratuit.</span></span>
             <span class="notif-chevron" aria-hidden="true">→</span>
           </a>
-          <a class="notif-row notif-nav" href="/proposer">
-            <span class="notif-txt"><strong>Proposer une source</strong>
-              <span class="notif-sub">Enrichissez le kiosque avec votre détecteur.</span></span>
+          <a class="notif-row notif-nav" href="/publier">
+            <span class="notif-txt"><strong>Publier une alerte</strong>
+              <span class="notif-sub">Surveillez une page, un flux RSS ou un agenda.</span></span>
             <span class="notif-chevron" aria-hidden="true">→</span>
           </a>
         </div>

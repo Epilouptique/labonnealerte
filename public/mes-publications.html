@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mes publications — La Bonne Alerte</title>
+<meta name="description" content="Suivez le statut des alertes que vous avez publiées.">
+<meta name="robots" content="noindex">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/css/fonts.css">
+<link rel="stylesheet" href="/css/tokens.css">
+<link rel="stylesheet" href="/css/site.css">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#fdfaff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1419" media="(prefers-color-scheme: dark)">
+<style>
+  .mp-wrap{max-width:720px;margin:0 auto;padding:16px 16px 60px}
+  .mp-item{border:1px solid var(--line,#e7e2ef);border-radius:14px;padding:14px 16px;margin:0 0 12px;background:var(--card,#fff)}
+  .mp-item h2{font-size:1.05rem;margin:0 0 4px}
+  .mp-status{display:inline-block;font-size:.8rem;font-weight:700;padding:2px 10px;border-radius:999px;background:var(--bg-soft,#f6f3fb)}
+  .mp-status.published{background:#e3f6e8;color:#1b6b34}
+  .mp-status.suspended{background:#fdeaea;color:#a0202a}
+  .mp-status.review{background:#fff6e6;color:#8a5a00}
+  .mp-actions{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}
+  .mp-actions button,.mp-actions a{font:inherit;padding:8px 14px;border-radius:10px;border:2px solid var(--line,#e7e2ef);background:transparent;cursor:pointer;text-decoration:none;color:inherit}
+  .mp-msg{color:var(--muted,#6b6878);font-size:.85rem;margin-top:6px}
+</style>
+</head>
+<body class="loading">
+<header><div class="wrap nav"></div></header>
+<main class="mp-wrap" id="mp-root" aria-live="polite">
+  <h1>Mes publications</h1>
+  <p id="mp-status-line">Chargement…</p>
+</main>
+<!--FOOTER-->
+<script src="/js/header.js"></script>
+<script src="/js/publier-flow.js"></script>
+<script src="/js/mes-publications.js"></script>
+</body>
+</html>

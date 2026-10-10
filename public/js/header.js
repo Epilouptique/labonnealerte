@@ -111,7 +111,7 @@
             : '<a href="/connexion" class="m-primary" data-act="auth">Se connecter</a>' +
               '<a href="/?mode=favoris" class="m-link" data-act="favoris">Mes favoris</a>') +
           '<a href="/le-point" class="m-link">Le Point</a>' +
-          '<a href="/proposer">Proposer une source</a>' +
+          '<a href="/publier">Publier une alerte</a>' +
           '<button type="button" class="m-link" data-act="search">Rechercher</button>' +
           '<hr class="m-menu-sep">' +
           '<button type="button" class="m-link m-has-ic" data-act="categories">' + IC_CAT + ' Catégories</button>' +
@@ -319,8 +319,8 @@
   // 1) Bouton « Déposer une alerte » juste après le logo.
   if (!nav.querySelector('.btn-deposit')) {
     brand.insertAdjacentHTML('afterend',
-      '<a class="btn-deposit" href="/proposer" title="Proposer une source">' +
-      '<span class="plus" aria-hidden="true">+</span> <span class="bd-label">Proposer une source</span></a>');
+      '<a class="btn-deposit" href="/publier" title="Publier une alerte">' +
+      '<span class="plus" aria-hidden="true">+</span> <span class="bd-label">Publier une alerte</span></a>');
   }
   // 2) Hamburger (masqué en desktop par le CSS, visible en mobile via m-kiosk).
   if (!nav.querySelector('.nav-toggle')) {

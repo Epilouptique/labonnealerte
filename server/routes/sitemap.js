@@ -42,6 +42,7 @@ const STATIC_PATHS = [
   '/mentions-legales',
   '/confidentialite',
   '/proposer',
+  '/publier',
 ];
 
 function escXml(s) {

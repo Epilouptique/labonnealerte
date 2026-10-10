@@ -68,6 +68,61 @@
     return '<span class="badge-ic ' + b + '" title="' + title + '" role="img" aria-label="' + title + '">' + BADGE_ICON + '</span>';
   }
 
+  // Motifs de signalement (liste fermée, miroir du serveur source-lifecycle.js).
+  var REPORT_REASONS = [
+    { v: 'contenu-errone', l: 'Contenu erroné' },
+    { v: 'spam-bruit', l: 'Spam / trop de bruit' },
+    { v: 'doublon', l: 'Doublon d’une autre source' },
+    { v: 'inapproprie', l: 'Contenu inapproprié' },
+    { v: 'droits-donnees', l: 'Droits / données personnelles' },
+  ];
+  function tok() { try { return localStorage.getItem('lba-token') || ''; } catch (e) { return ''; } }
+
+  // Insère la mention « communautaire, non vérifiée » et le widget « Signaler ».
+  function renderCommunity(source) {
+    var view = document.getElementById('src-view');
+    var anchor = document.getElementById('src-action');
+    if (!view || !anchor || document.getElementById('src-community')) return;
+    var box = document.createElement('div');
+    box.id = 'src-community';
+    box.className = 'src-community';
+    box.innerHTML =
+      '<p class="src-community-note">Source <strong>communautaire</strong> — proposée par un utilisateur, <em>non vérifiée par l’équipe</em>.</p>' +
+      '<button type="button" class="link-btn" id="src-report-toggle">Signaler cette source</button>' +
+      '<form id="src-report-form" hidden style="margin-top:10px">' +
+      '<label style="display:block;margin-bottom:8px">Motif' +
+      '<select id="src-report-reason" style="display:block;width:100%;margin-top:4px">' +
+      REPORT_REASONS.map(function (r) { return '<option value="' + r.v + '">' + esc(r.l) + '</option>'; }).join('') +
+      '</select></label>' +
+      '<label style="display:block;margin-bottom:8px">Commentaire (facultatif)' +
+      '<textarea id="src-report-comment" maxlength="280" rows="2" style="display:block;width:100%;margin-top:4px"></textarea></label>' +
+      '<button type="submit" class="share-btn">Envoyer le signalement</button>' +
+      '<p id="src-report-msg" class="src-community-note" role="status"></p>' +
+      '</form>';
+    anchor.parentNode.insertBefore(box, anchor.nextSibling);
+
+    var toggle = document.getElementById('src-report-toggle');
+    var form = document.getElementById('src-report-form');
+    toggle.onclick = function () {
+      if (!tok()) { window.location.href = '/connexion?next=' + encodeURIComponent(window.location.pathname); return; }
+      form.hidden = !form.hidden;
+    };
+    form.onsubmit = function (e) {
+      e.preventDefault();
+      var msg = document.getElementById('src-report-msg');
+      msg.textContent = 'Envoi…';
+      fetch('/api/community-sources/' + encodeURIComponent(ID) + '/report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok() },
+        body: JSON.stringify({ reason: document.getElementById('src-report-reason').value, comment: document.getElementById('src-report-comment').value }),
+      }).then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })
+        .then(function (x) {
+          if (!x.ok) { msg.textContent = (x.b && x.b.error) || 'Signalement impossible.'; return; }
+          form.innerHTML = '<p class="src-community-note">' + esc(x.b.message || 'Merci, c’est enregistré.') + '</p>';
+        }).catch(function () { msg.textContent = 'Erreur réseau.'; });
+    };
+  }
+
   // Barres d'uptime : rendu partagé (LBATimeline.uptimeBars) avec la vue liste.
   // Date locale en AAAA-MM-JJ : toISOString() repasserait en UTC et decalerait d'un
   // jour les libelles de la frise (infobulles) en heure d'ete.
@@ -305,6 +360,9 @@
       document.getElementById('src-badge').innerHTML = badgeFor(source.badge);
       var subEl = document.getElementById('src-subtitle');
       if (source.subtitle) subEl.textContent = source.subtitle; else subEl.hidden = true;
+
+      // Source communautaire : mention « non vérifiée » + bouton « Signaler ».
+      if ((source.badge || '').toLowerCase() === 'community') renderCommunity(source);
 
       // Auteur (proposée par @pseudo GitHub).
       if (source.submitted_by_github) {

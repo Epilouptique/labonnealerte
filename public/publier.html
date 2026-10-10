@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Publier une alerte — La Bonne Alerte</title>
+<meta name="description" content="Créez votre propre alerte en quelques étapes : surveillez une page web, un flux RSS ou un agenda, et soyez prévenu quand ça change.">
+<link rel="canonical" href="https://labonnealerte.fr/publier">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="La Bonne Alerte">
+<meta property="og:locale" content="fr_FR">
+<meta property="og:title" content="Publier une alerte — La Bonne Alerte">
+<meta property="og:description" content="Créez votre propre alerte en quelques étapes.">
+<meta property="og:url" content="https://labonnealerte.fr/publier">
+<meta property="og:image" content="https://labonnealerte.fr/img/og-default.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/css/fonts.css">
+<link rel="stylesheet" href="/css/tokens.css">
+<link rel="stylesheet" href="/css/site.css">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#fdfaff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1419" media="(prefers-color-scheme: dark)">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<style>
+  .pub-wrap{max-width:640px;margin:0 auto;padding:16px 16px 120px}
+  .pub-progress{height:8px;border-radius:999px;background:var(--line,#e7e2ef);overflow:hidden;margin:8px 0 4px}
+  .pub-progress > i{display:block;height:100%;background:var(--amber,#f2a900);transition:width .25s ease}
+  .pub-stepinfo{font-size:.85rem;color:var(--muted,#6b6878);margin-bottom:18px}
+  .pub-step h1{font-size:1.5rem;line-height:1.2;margin:.2em 0 .6em}
+  .pub-cards{display:grid;gap:12px}
+  .pub-card{display:flex;flex-direction:column;gap:4px;text-align:left;border:2px solid var(--line,#e7e2ef);border-radius:14px;padding:16px;background:var(--card,#fff);cursor:pointer;font:inherit}
+  .pub-card[aria-pressed="true"]{border-color:var(--amber,#f2a900);box-shadow:0 0 0 3px color-mix(in srgb,var(--amber,#f2a900) 25%,transparent)}
+  .pub-card b{font-size:1.05rem}
+  .pub-card span{color:var(--muted,#6b6878);font-size:.9rem}
+  .pub-field{display:block;margin:0 0 14px}
+  .pub-field > span{display:block;font-weight:600;margin-bottom:6px}
+  .pub-field input,.pub-field textarea,.pub-field select{width:100%;padding:12px;border:2px solid var(--line,#e7e2ef);border-radius:12px;font:inherit;background:var(--card,#fff);color:inherit}
+  .pub-field input:focus,.pub-field textarea:focus,.pub-field select:focus,.pub-card:focus-visible,.pub-btn:focus-visible{outline:3px solid var(--amber,#f2a900);outline-offset:2px}
+  .pub-hint{font-size:.85rem;color:var(--muted,#6b6878);margin:4px 0 0}
+  .pub-err{color:#b00020;font-weight:600;margin:10px 0 0}
+  .pub-err a{color:inherit;text-decoration:underline}
+  .pub-extract{white-space:pre-wrap;background:var(--bg-soft,#f6f3fb);border:1px solid var(--line,#e7e2ef);border-radius:12px;padding:12px;max-height:220px;overflow:auto;font-size:.9rem}
+  .pub-warn{background:#fff6e6;border:1px solid #f2a900;border-radius:12px;padding:10px 12px;margin-top:10px}
+  .pub-cats{display:flex;flex-wrap:wrap;gap:8px}
+  .pub-cats label{display:inline-flex;align-items:center;gap:6px;border:2px solid var(--line,#e7e2ef);border-radius:999px;padding:6px 12px;cursor:pointer}
+  .pub-cats input{width:auto}
+  .pub-recap{list-style:none;padding:0}
+  .pub-recap li{padding:8px 0;border-bottom:1px solid var(--line,#e7e2ef)}
+  .pub-bar{position:fixed;left:0;right:0;bottom:0;background:var(--card,#fff);border-top:1px solid var(--line,#e7e2ef);padding:12px 16px;display:flex;gap:10px;justify-content:space-between;max-width:640px;margin:0 auto}
+  .pub-btn{flex:1;padding:14px;border-radius:12px;border:0;font:inherit;font-weight:700;cursor:pointer;background:var(--amber,#f2a900);color:#1a1300}
+  .pub-btn.ghost{flex:0 0 auto;background:transparent;border:2px solid var(--line,#e7e2ef);color:inherit}
+  .pub-btn[disabled]{opacity:.5;cursor:not-allowed}
+  .pub-dev{margin-top:20px;font-size:.85rem}
+</style>
+</head>
+<body class="loading">
+<header><div class="wrap nav"></div></header>
+
+<main class="pub-wrap" id="pub-root" aria-live="polite">
+  <noscript><p>Cette page nécessite JavaScript.</p></noscript>
+</main>
+
+<!--FOOTER-->
+<script src="/js/header.js"></script>
+<script src="/js/publier-flow.js"></script>
+<script src="/js/publier.js"></script>
+</body>
+</html>
