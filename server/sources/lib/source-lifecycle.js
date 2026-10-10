@@ -73,19 +73,83 @@ function validateCreate(body) {
   return { ok: true, value: { type, engine: E.engine, key: E.key, url, name, description } };
 }
 
-// Paramètres d'exécution (broadcast) d'une source communautaire selon son moteur.
-// Pour l'agenda, préavis par défaut = 1 jour (non configurable à la création — cf. rapport).
-function engineParams(engine, url) {
+// Préavis agenda : entier borné (jours). Défaut 1, bornes 0..30.
+function clampPreavis(v) {
+  const n = parseInt(String(v == null ? '' : v), 10);
+  if (Number.isNaN(n)) return 1;
+  return Math.max(0, Math.min(30, n));
+}
+
+// Paramètres d'exécution (broadcast) d'une source communautaire selon son moteur,
+// enrichis par la config optionnelle { zone, preavis } de l'auteur.
+function engineParams(engine, url, config) {
   const E = ENGINE_BY_NAME[engine];
   if (!E) return null;
+  const c = config || {};
   const p = { [E.key]: url };
-  if (engine === 'veille-agenda') p.preavis = '1';
+  if (engine === 'veille-page' && c.zone) p.zone = String(c.zone);
+  if (engine === 'veille-agenda') p.preavis = String(clampPreavis(c.preavis));
   return p;
+}
+
+// Personnalisation à la création : message (texte brut, ≤280) et lien (http/https, ≤500)
+// d'alerte, tous deux optionnels. Renvoie { ok, error?, value:{ message, url } }.
+const ALERT_URL_RE = /^https?:\/\/[^\s]{1,500}$/i;
+function validatePersonalization(body) {
+  const b = body || {};
+  const out = {};
+  if (b.alert_message != null && String(b.alert_message).trim() !== '') {
+    const m = String(b.alert_message).replace(/[\u0000-\u001f\u007f]/g, ' ').trim();
+    if (m.length > 280) return { ok: false, error: 'Message d\'alerte trop long (280 caractères max).' };
+    out.message = m;
+  }
+  if (b.alert_url != null && String(b.alert_url).trim() !== '') {
+    const u = String(b.alert_url).trim();
+    if (!ALERT_URL_RE.test(u)) return { ok: false, error: 'Lien d\'alerte invalide (http/https, 500 caractères max).' };
+    out.url = u;
+  }
+  return { ok: true, value: out };
+}
+
+// ── Signalements ─────────────────────────────────────────────────────────────
+const REPORT_REASONS = ['contenu-errone', 'spam-bruit', 'doublon', 'inapproprie', 'droits-donnees'];
+const REPORT_SUSPEND_THRESHOLD = Math.max(1, parseInt(process.env.SOURCE_REPORT_SUSPEND_THRESHOLD || '3', 10) || 3);
+function isValidReportReason(r) { return REPORT_REASONS.includes(String(r || '')); }
+// Décide si un signalement doit déclencher la suspension automatique.
+// Seules les sources 'community' PUBLISHED, au seuil de comptes distincts, basculent.
+function shouldAutoSuspend({ badge, status, distinctReports }) {
+  return badge === 'community' && status === 'published' && distinctReports >= REPORT_SUSPEND_THRESHOLD;
+}
+
+// ── Détection de doublons : normalisation d'URL ──────────────────────────────
+const TRACKING_RE = /^(utm_|mc_|ga_|_hs|fb_)/i;
+const TRACKING_EXACT = new Set(['fbclid', 'gclid', 'gclsrc', 'dclid', 'msclkid', 'igshid', 'ref', 'ref_src', 'yclid', 'mkt_tok', 'vero_id']);
+function normalizeUrl(raw) {
+  let u;
+  try { u = new URL(String(raw).trim()); } catch { return null; }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
+  const host = u.hostname.toLowerCase().replace(/^www\./, '');
+  const params = [];
+  for (const [k, v] of u.searchParams) {
+    if (TRACKING_RE.test(k) || TRACKING_EXACT.has(k.toLowerCase())) continue;
+    params.push([k, v]);
+  }
+  params.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
+  const qs = params.map(([k, v]) => `${k}=${v}`).join('&');
+  let path = u.pathname.replace(/\/+$/, ''); // retire les slashs finaux
+  if (path === '') path = '/';
+  return `${host}${path}${qs ? '?' + qs : ''}`;
 }
 
 // Construit, pour le poller, une source broadcast { id, check } qui délègue au
 // module générique SANS écrire en base (l'écriture se fait dans processSource).
 // requireFn injectable pour les tests. Renvoie null si moteur inconnu / URL absente.
+function parseConfig(c) {
+  if (!c) return {};
+  if (typeof c === 'string') { try { return JSON.parse(c) || {}; } catch { return {}; } }
+  return c;
+}
+
 function buildEngineSource(row, requireFn) {
   const E = ENGINE_BY_NAME[row && row.engine];
   if (!E || !row.endpoint_url) return null;
@@ -93,12 +157,19 @@ function buildEngineSource(row, requireFn) {
   let mod;
   try { mod = req(E.modulePath); } catch { return null; }
   if (!mod || typeof mod.checkWithParams !== 'function') return null;
+  const config = parseConfig(row.engine_config);
   return {
     id: row.id,
     check: async () => {
-      const out = await mod.checkWithParams([engineParams(row.engine, row.endpoint_url)]);
-      const r = Array.isArray(out) ? out[0] : null;
-      return r || { state: 'inactive', since: null, until: null, message: null, url: row.endpoint_url };
+      const out = await mod.checkWithParams([engineParams(row.engine, row.endpoint_url, config)]);
+      const r = (Array.isArray(out) ? out[0] : null)
+        || { state: 'inactive', since: null, until: null, message: null, url: row.endpoint_url };
+      // Personnalisation de l'auteur (appliquée seulement si l'alerte est active).
+      if (r.state === 'active') {
+        if (config.message) r.message = config.message;
+        if (config.url) r.url = config.url;
+      }
+      return r;
     },
   };
 }
@@ -107,4 +178,7 @@ module.exports = {
   STATUSES, TRANSITIONS, canTransition, isOwner,
   MAX_UNPUBLISHED, MAX_TOTAL, UNPUBLISHED_STATUSES, checkQuota,
   ENGINES, ENGINE_BY_NAME, validateCreate, engineParams, buildEngineSource, HTTPS_RE,
+  clampPreavis, validatePersonalization,
+  REPORT_REASONS, REPORT_SUSPEND_THRESHOLD, isValidReportReason, shouldAutoSuspend,
+  normalizeUrl,
 };

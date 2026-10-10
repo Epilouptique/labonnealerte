@@ -22,9 +22,44 @@ const reason = typeof args.reason === 'string' ? args.reason.slice(0, 280) : nul
 const target = to === 'refused' ? 'draft' : to;
 
 (async () => {
-  if (!id || !to) { console.error('Usage : --id=<source> --to=published|refused|suspended [--reason="…"] [--write]'); process.exit(2); }
   const { pool } = require('../server/db');
   try {
+    // --- Modes LISTE (lecture seule) -----------------------------------------
+    if (args['list-review']) {
+      const { rows } = await pool.query(
+        `SELECT id, name, engine, endpoint_url, status_changed_at,
+                engine_config->>'last_extract' AS last_extract,
+                engine_config->>'last_extract_at' AS last_extract_at
+           FROM sources WHERE status = 'review' ORDER BY status_changed_at ASC`);
+      console.log(`Sources en REVUE (${rows.length}) :`);
+      rows.forEach((r) => {
+        console.log(`\n• ${r.id} — « ${r.name} » [${r.engine}] ${r.endpoint_url || ''}`);
+        console.log(`  dernier extrait (${r.last_extract_at || 'jamais'}) : ${r.last_extract ? '«' + r.last_extract + '»' : '(aucun aperçu lancé)'}`);
+      });
+      return;
+    }
+    if (args['list-reports']) {
+      const where = id ? 'WHERE sr.source_id = $1' : '';
+      const { rows } = await pool.query(
+        `SELECT s.id, s.name, s.badge, s.status,
+                COUNT(DISTINCT sr.reporter_subscriber_id)::int AS distinct_reports,
+                array_agg(DISTINCT sr.reason) AS reasons
+           FROM source_reports sr JOIN sources s ON s.id = sr.source_id
+           ${where}
+          GROUP BY s.id, s.name, s.badge, s.status
+          ORDER BY distinct_reports DESC`, id ? [id] : []);
+      console.log(`Signalements par source (${rows.length}) — seuil auto-suspension = ${lc.REPORT_SUSPEND_THRESHOLD} :`);
+      rows.forEach((r) => {
+        const tag = (r.distinct_reports >= lc.REPORT_SUSPEND_THRESHOLD && r.badge === 'community') ? ' ⚠️ SEUIL ATTEINT' : '';
+        console.log(`  ${r.id} [${r.badge}/${r.status}] : ${r.distinct_reports} compte(s) — ${(r.reasons || []).join(', ')}${tag}`);
+      });
+      return;
+    }
+
+    if (!id || !to) {
+      console.error('Usage :\n  --id=<source> --to=published|refused|suspended [--reason="…"] [--write]   (refused/suspended : --reason obligatoire)\n  --list-review\n  --list-reports [--id=<source>]');
+      process.exit(2);
+    }
     const { rows } = await pool.query('SELECT id, name, status, badge, author_subscriber_id FROM sources WHERE id = $1', [id]);
     if (!rows.length) { console.error(`Source introuvable : ${id}`); process.exit(2); }
     const s = rows[0];

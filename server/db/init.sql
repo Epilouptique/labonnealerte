@@ -272,6 +272,25 @@ END $$;
 CREATE INDEX IF NOT EXISTS idx_sources_author ON sources (author_subscriber_id);
 CREATE INDEX IF NOT EXISTS idx_sources_status ON sources (status);
 
+-- LOT 3 — configuration d'exécution d'une source communautaire (zone CSS, préavis,
+-- message/lien d'alerte personnalisés). NULL pour les sources classiques.
+ALTER TABLE sources ADD COLUMN IF NOT EXISTS engine_config JSONB;
+
+-- LOT 3 — signalements de sources (calqué sur deck_reports). Un signalement par
+-- compte et par source (UNIQUE), motif dans une liste fermée, commentaire borné,
+-- IP hachée. Au seuil de comptes distincts : suspension automatique (hors officiel).
+CREATE TABLE IF NOT EXISTS source_reports (
+  id SERIAL PRIMARY KEY,
+  source_id VARCHAR(64) REFERENCES sources(id) ON DELETE CASCADE,
+  reporter_subscriber_id INTEGER REFERENCES subscribers(id) ON DELETE SET NULL,
+  reason VARCHAR(32) NOT NULL,
+  comment VARCHAR(280),
+  ip_hash TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (source_id, reporter_subscriber_id)
+);
+CREATE INDEX IF NOT EXISTS idx_source_reports_src ON source_reports (source_id);
+
 -- Valeurs de l'abonnement paramétré. NULL = broadcast (v1). Ex : {"departement":"05"}.
 ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS params JSONB NULL;
 -- F2) Mise en pause d'un abonnement SANS le supprimer (conserve les paramètres).

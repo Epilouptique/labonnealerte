@@ -65,6 +65,24 @@ END $DO$;
 
 CREATE INDEX IF NOT EXISTS idx_sources_author ON sources (author_subscriber_id);
 CREATE INDEX IF NOT EXISTS idx_sources_status ON sources (status);
+
+-- LOT 3 : config d'exécution + signalements.
+ALTER TABLE sources ADD COLUMN IF NOT EXISTS engine_config JSONB;
+CREATE TABLE IF NOT EXISTS source_reports (
+  id SERIAL PRIMARY KEY,
+  source_id VARCHAR(64) REFERENCES sources(id) ON DELETE CASCADE,
+  reporter_subscriber_id INTEGER REFERENCES subscribers(id) ON DELETE SET NULL,
+  reason VARCHAR(32) NOT NULL,
+  comment VARCHAR(280),
+  ip_hash TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (source_id, reporter_subscriber_id)
+);
+CREATE INDEX IF NOT EXISTS idx_source_reports_src ON source_reports (source_id);
+
+-- Motif explicite pour les deux sources tierces désactivées par l'administrateur.
+UPDATE sources SET status_reason = 'Désactivée par l''administrateur, source tierce indisponible'
+ WHERE id IN ('sncf-perturbations','eruption-volcanique') AND status = 'suspended';
 `;
 
 (async () => {

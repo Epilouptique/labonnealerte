@@ -21,6 +21,7 @@
 
 const { safeFetchText, BROWSER_UA } = require('../safe-fetch');
 const { hashHtml } = require('./lib/hash-diff-html');
+const { extractZone, isValidSelector } = require('./lib/page-zone');
 const { recordFailure, recordSuccess, defaultThreshold } = require('./lib/fail-threshold');
 
 const TIMEOUT_MS = 8_000;
@@ -60,11 +61,19 @@ function changement(url) {
   };
 }
 
-async function signatureOf(url) {
+// Récupère la page et calcule le hash de la ZONE (si sélecteur valide) ou de la page
+// entière (comportement historique). Renvoie null si une zone valide est demandée mais
+// absente du HTML → l'appelant ne met PAS à jour la référence (jamais de fausse alerte).
+async function signatureOf(url, zone) {
   const html = await safeFetchText(url, {
     timeoutMs: TIMEOUT_MS, maxBytes: MAX_BYTES, robots: true, accept: 'text/html',
     headers: { 'User-Agent': BROWSER_UA },
   });
+  if (zone && isValidSelector(zone)) {
+    const z = extractZone(html, zone);
+    if (z == null) return null; // zone introuvable : on ne hashe pas
+    return hashHtml(z).hash;
+  }
   return hashHtml(html).hash;
 }
 
@@ -76,28 +85,35 @@ async function checkWithParams(paramsList) {
 
   for (const params of combos) {
     const url = String((params && params.url) || '');
+    const zone = params && typeof params.zone === 'string' ? params.zone : null;
     if (!URL_RE.test(url)) { out.push(Object.assign({ params }, inactive(url))); continue; }
 
-    const entry = cache.get(url);
+    // Zones distinctes d'une même URL = entrées de cache distinctes.
+    const cacheKey = zone ? `${url}\u0000${zone}` : url;
+    const entry = cache.get(cacheKey);
     if (entry && now - entry.at < entry.ttl) { out.push(Object.assign({ params }, entry.result)); continue; }
     if (fetches >= MAX_FETCH) { out.push(Object.assign({ params }, entry ? entry.result : inactive(url))); continue; }
     fetches += 1;
 
-    const key = 'veille-page::' + url;
+    const key = 'veille-page::' + cacheKey;
     let result;
     try {
-      const hash = await signatureOf(url);
+      const hash = await signatureOf(url, zone);
       // Fetch+parse réussi : la série d'échecs est rompue (même si résultat = inactive).
       recordSuccess(key);
-      if (!entry || entry.hash == null) {
+      if (hash == null) {
+        // Zone valide mais introuvable : on conserve la référence, aucune alerte.
+        result = inactive(url);
+        cache.set(cacheKey, { hash: entry ? entry.hash : null, at: now, ttl: WEEK_MS, result });
+      } else if (!entry || entry.hash == null) {
         result = inactive(url); // 1er cycle : référence mémorisée, AUCUNE alerte
-        cache.set(url, { hash, at: now, ttl: WEEK_MS, result });
+        cache.set(cacheKey, { hash, at: now, ttl: WEEK_MS, result });
       } else if (hash !== entry.hash) {
         result = changement(url); // changement détecté (one-shot : réf. mise à jour)
-        cache.set(url, { hash, at: now, ttl: WEEK_MS, result });
+        cache.set(cacheKey, { hash, at: now, ttl: WEEK_MS, result });
       } else {
         result = inactive(url);
-        cache.set(url, { hash: entry.hash, at: now, ttl: WEEK_MS, result });
+        cache.set(cacheKey, { hash: entry.hash, at: now, ttl: WEEK_MS, result });
       }
     } catch (err) {
       // 403 anti-bot / timeout / SSRF bloqué / réseau → échec de surveillance :
@@ -106,7 +122,7 @@ async function checkWithParams(paramsList) {
       if (r.escalate) throw new Error(`veille-page : ${url} — ${r.count} échecs consécutifs (seuil ${r.threshold}) → incident : ${err.message}`);
       console.warn(`[veille-page] ${url} échec ${r.count}/${r.threshold} (toléré) : ${err.message} → inactive.`);
       result = inactive(url);
-      cache.set(url, { hash: entry ? entry.hash : null, at: now, ttl: RETRY_MS, result });
+      cache.set(cacheKey, { hash: entry ? entry.hash : null, at: now, ttl: RETRY_MS, result });
     }
     out.push(Object.assign({ params }, result));
   }

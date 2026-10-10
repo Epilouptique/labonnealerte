@@ -796,7 +796,7 @@ async function runCycleInner() {
   let community = [];
   try {
     const { rows } = await pool.query(
-      "SELECT id, engine, endpoint_url, requires_confirmation FROM sources " +
+      "SELECT id, engine, endpoint_url, engine_config, requires_confirmation FROM sources " +
       "WHERE enabled = true AND engine IN ('veille-page','veille-rss','veille-agenda')"
     );
     community = rows;
