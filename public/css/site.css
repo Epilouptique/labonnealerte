@@ -5507,3 +5507,7 @@ select:focus-visible,
 .dept-combo .dept-search:focus-visible { outline: 3px solid var(--amber-ink); outline-offset: 1px; }
 .dept-combo .dept-listbox { max-height: 240px; }
 .dept-combo .dyn-status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+/* Interrupteur « Publier une alerte » (LOT 5 interim) : les CTA .publish-cta sont
+   masqués tant que window.__LBA_PUBLISH__ n'a pas posé .lba-publish-on sur <html>. */
+html:not(.lba-publish-on) .publish-cta { display: none !important; }

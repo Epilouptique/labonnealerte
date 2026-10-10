@@ -22,6 +22,7 @@ const sitemapRouter = require('./routes/sitemap');
 const { cleanupExpired } = require('./sessions');
 const { startPoller } = require('./poller');
 const { sendPage, renderPage, pagesMiddleware } = require('./pages');
+const { publishEnabled } = require('./publish-flag');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -221,10 +222,13 @@ app.get('/proposer', (req, res) => {
   sendPage(res, 'proposer.html');
 });
 // Parcours grand public « Publier une alerte » (assistant) + ses publications.
-app.get('/publier', (req, res) => {
+// Fermé tant que PUBLISH_ENABLED !== 'true' : on laisse filer vers le 404 commun.
+app.get('/publier', (req, res, next) => {
+  if (!publishEnabled()) return next();
   sendPage(res, 'publier.html');
 });
-app.get('/mes-publications', (req, res) => {
+app.get('/mes-publications', (req, res, next) => {
+  if (!publishEnabled()) return next();
   sendPage(res, 'mes-publications.html');
 });
 // Pages statiques simples.

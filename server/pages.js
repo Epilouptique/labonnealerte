@@ -15,8 +15,16 @@
 
 const fs = require('fs');
 const path = require('path');
+const { publishEnabled } = require('./publish-flag');
 
 const publicDir = path.join(__dirname, '..', 'public');
+
+// Drapeau client « Publier une alerte » : injecté dans chaque page pour masquer les CTA
+// et activer/désactiver le parcours sans toucher aux fichiers statiques.
+function publishFlagScript() {
+  const b = publishEnabled() ? 'true' : 'false';
+  return '<script>window.__LBA_PUBLISH__=' + b + ';try{document.documentElement.classList.toggle(\'lba-publish-on\',' + b + ')}catch(e){}</script>';
+}
 const footerFile = path.join(__dirname, 'partials', 'footer.html');
 const CACHE = process.env.NODE_ENV === 'production';
 const pageCache = new Map();
@@ -34,8 +42,10 @@ function footerHtml() {
 // Page de public/ assemblee (chaine). Leve ENOENT si le fichier n'existe pas.
 function renderPage(file) {
   if (CACHE && pageCache.has(file)) return pageCache.get(file);
-  const html = fs.readFileSync(path.join(publicDir, file), 'utf8')
+  let html = fs.readFileSync(path.join(publicDir, file), 'utf8')
     .replace('<!--FOOTER-->', () => footerHtml());
+  // Injecte le drapeau de publication juste avant </head> (une fois par page).
+  html = html.replace('</head>', () => publishFlagScript() + '</head>');
   if (CACHE) pageCache.set(file, html);
   return html;
 }
@@ -53,6 +63,8 @@ function pagesMiddleware(req, res, next) {
   if (req.path === '/') file = 'index.html';
   else if (/^\/[\w-]+\.html$/.test(req.path)) file = req.path.slice(1);
   else return next();
+  // Parcours fermé : les pages de publication ne sont pas servies (même en .html direct).
+  if (!publishEnabled() && (file === 'publier.html' || file === 'mes-publications.html')) return next();
   try {
     sendPage(res, file);
   } catch (err) {

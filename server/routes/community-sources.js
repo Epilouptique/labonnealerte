@@ -17,8 +17,17 @@ const { isValidSelector, zoneVisibleText } = require('../sources/lib/page-zone')
 const { hashHtml } = require('../sources/lib/hash-diff-html');
 const { safeFetchText, BROWSER_UA } = require('../safe-fetch');
 const lc = require('../sources/lib/source-lifecycle');
+const { publishEnabled } = require('../publish-flag');
 
 const router = express.Router();
+
+// Parcours de publication fermé (PUBLISH_ENABLED !== 'true') → tout l'API répond 404 :
+// création, aperçu, soumission, édition, suppression, liste et signalement. Lecture
+// publique et poller inchangés (ils ne passent pas par ce routeur).
+router.use('/community-sources', (req, res, next) => {
+  if (!publishEnabled()) return res.status(404).json({ error: 'Ressource introuvable' });
+  next();
+});
 
 /* Limite de fréquence par COMPTE pour l'aperçu (réseau sortant). 10 / 10 min. */
 const PREVIEW_MAX = 10;
