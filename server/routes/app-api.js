@@ -475,4 +475,100 @@ router.get('/app/forum/members/:pseudo', async (req, res) => {
   }
 });
 
+/* ------------------------------------------------------------------ */
+/* LOT D — Préférence de canal de notification (push | email | both)   */
+/* ------------------------------------------------------------------ */
+// Lecture/écriture authentifiées (Bearer → abonné). Défaut = 'both' (comportement
+// historique exact). La valeur est validée ici ; aucune contrainte CHECK en base.
+const NOTIFY_CHANNELS = ['push', 'email', 'both'];
+router.get('/app/notify-channel', async (req, res) => {
+  try {
+    const auth = await authenticate(req);
+    if (!auth) return res.status(401).json({ error: 'Session invalide ou expirée' });
+    const { rows } = await pool.query("SELECT COALESCE(notify_channel, 'both') AS notify_channel FROM subscribers WHERE id = $1", [auth.id]);
+    const ch = rows.length ? rows[0].notify_channel : 'both';
+    return res.status(200).json({ notify_channel: NOTIFY_CHANNELS.indexOf(ch) !== -1 ? ch : 'both' });
+  } catch (err) {
+    console.error('[app-api] Erreur GET /app/notify-channel :', errTag(err));
+    return res.status(503).json({ error: 'Service indisponible' });
+  }
+});
+router.put('/app/notify-channel', async (req, res) => {
+  try {
+    const auth = await authenticate(req);
+    if (!auth) return res.status(401).json({ error: 'Session invalide ou expirée' });
+    const ch = (req.body || {}).notify_channel;
+    if (NOTIFY_CHANNELS.indexOf(ch) === -1) {
+      return res.status(400).json({ error: "Valeur attendue : 'push', 'email' ou 'both'." });
+    }
+    await pool.query('UPDATE subscribers SET notify_channel = $1 WHERE id = $2', [ch, auth.id]);
+    return res.status(200).json({ notify_channel: ch });
+  } catch (err) {
+    console.error('[app-api] Erreur PUT /app/notify-channel :', errTag(err));
+    return res.status(503).json({ error: 'Service indisponible' });
+  }
+});
+
+/* ------------------------------------------------------------------ */
+/* LOT D — Connexion Google (POST /api/app/login/google)               */
+/* ------------------------------------------------------------------ */
+// Le client Android obtient un ID token Google (Sign-In) et le POST ici. Le serveur le
+// VÉRIFIE auprès de Google (endpoint tokeninfo, aucune dépendance ajoutée), contrôle que
+// l'audience = GOOGLE_CLIENT_ID (variable d'environnement), que l'émetteur est Google, que
+// le jeton n'est pas expiré et que l'adresse est vérifiée. Rattachement à un compte existant
+// UNIQUEMENT si email_verified = true ; sinon création (avec acceptation des conditions, comme
+// le flux par e-mail). Mêmes limites de débit (rateOk/rateIp) et mêmes jetons de session.
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
+router.post('/app/login/google', async (req, res) => {
+  if (!rateOk(`goog:${rateIp(req)}`, 10)) return res.status(429).json({ error: 'Trop d\'essais, réessayez dans une minute.' });
+  if (!GOOGLE_CLIENT_ID) return res.status(503).json({ error: 'Connexion Google indisponible' });
+  const idToken = (req.body || {}).id_token;
+  if (typeof idToken !== 'string' || idToken.length < 20 || idToken.length > 5000) {
+    return res.status(400).json({ error: 'Jeton Google manquant' });
+  }
+  try {
+    const r = await fetch('https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(idToken));
+    if (!r.ok) return res.status(401).json({ error: 'Jeton Google invalide' });
+    const p = await r.json();
+    const iss = p.iss;
+    const exp = parseInt(p.exp || '0', 10);
+    const emailVerified = p.email_verified === true || p.email_verified === 'true';
+    const email = normEmail(p.email);
+    const sub = p.sub ? String(p.sub) : null;
+    if (p.aud !== GOOGLE_CLIENT_ID) return res.status(401).json({ error: 'Jeton Google invalide' });
+    if (iss !== 'accounts.google.com' && iss !== 'https://accounts.google.com') return res.status(401).json({ error: 'Jeton Google invalide' });
+    if (!Number.isFinite(exp) || exp * 1000 < Date.now()) return res.status(401).json({ error: 'Jeton Google expiré' });
+    if (!emailVerified || !email || !EMAIL_RE.test(email)) return res.status(401).json({ error: 'Adresse Google non vérifiée' });
+
+    // Compte existant → rattachement (email vérifié requis, satisfait ci-dessus).
+    const ex = await pool.query('SELECT id FROM subscribers WHERE email = $1', [email]);
+    if (ex.rows.length) {
+      const id = ex.rows[0].id;
+      await pool.query('UPDATE subscribers SET confirmed = true, google_id = COALESCE(google_id, $2) WHERE id = $1', [id, sub]);
+      const sessionToken = await createSession(id);
+      return res.status(200).json({ token: sessionToken, email });
+    }
+    // Création : acceptation des conditions exigée (comme le flux e-mail).
+    const body = req.body || {};
+    if (body.accept_terms !== true || body.terms_version !== APP_TERMS_VERSION) {
+      return res.status(409).json({ needs_terms: true, terms_version: APP_TERMS_VERSION, terms_url: APP_TERMS_URL });
+    }
+    const token = crypto.randomBytes(32).toString('hex');
+    const { rows } = await pool.query(
+      `INSERT INTO subscribers (email, confirmed, token, google_id, terms_accepted_at, terms_version)
+       VALUES ($1, true, $2, $3, NOW(), $4)
+       ON CONFLICT (email) DO UPDATE
+         SET confirmed = true, google_id = COALESCE(subscribers.google_id, EXCLUDED.google_id),
+             terms_accepted_at = NOW(), terms_version = EXCLUDED.terms_version
+       RETURNING id, email`,
+      [email, token, sub, APP_TERMS_VERSION]
+    );
+    const sessionToken = await createSession(rows[0].id);
+    return res.status(200).json({ token: sessionToken, email: rows[0].email, created: true });
+  } catch (err) {
+    console.error('[app-api] Erreur POST /app/login/google :', errTag(err));
+    return res.status(503).json({ error: 'Service indisponible' });
+  }
+});
+
 module.exports = router;

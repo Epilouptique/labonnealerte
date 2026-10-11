@@ -97,6 +97,11 @@ END $$;
 ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS terms_accepted_at TIMESTAMPTZ;
 ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS terms_version VARCHAR(32);
 
+-- LOT D : préférence de canal de notification ('push' | 'email' | 'both'). DEFAULT 'both' =
+-- comportement historique exact (opt-in email + push). NULL traité comme 'both' côté envoi.
+-- Valeur contrôlée côté route (pas de contrainte CHECK en base).
+ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS notify_channel TEXT DEFAULT 'both';
+
 -- Identités OAuth (fusion de compte par email vérifié).
 ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS google_id TEXT;
 ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS github_id TEXT;

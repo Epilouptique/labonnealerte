@@ -98,6 +98,23 @@ const REF = { sourceId: null, params: null };
   const r = await deliverToSubscribers([SUBS[0]], INFO, REF, C.deps);
   ok(r.email.sent === 0 && r.pushSent === 1, 'échec email avalé, push poursuivi (inchangé)');
 
+  // ── LOT D : préférence de canal (notify_channel) ───────────────────────────────
+  // both/null = comportement historique (email + push) ; email = email seul ; push = push seul.
+  const D = makeSpies();
+  const CH = [
+    { id: 10, email: 'ch-both@x.fr',  token: 'tb', email_enabled: true, push_count: 1, notify_channel: 'both',  __quiet: false },
+    { id: 11, email: 'ch-null@x.fr',  token: 'tn', email_enabled: true, push_count: 1, notify_channel: null,    __quiet: false },
+    { id: 12, email: 'ch-email@x.fr', token: 'te', email_enabled: true, push_count: 1, notify_channel: 'email', __quiet: false },
+    { id: 13, email: 'ch-push@x.fr',  token: 'tp', email_enabled: true, push_count: 1, notify_channel: 'push',  __quiet: false },
+  ];
+  await deliverToSubscribers(CH, INFO, REF, D.deps);
+  const emailedTokens = D.calls.emails.length ? D.calls.emails[0].map((r) => r.token) : [];
+  ok(emailedTokens.indexOf('tb') !== -1 && emailedTokens.indexOf('tn') !== -1, 'canal both/null : email envoyé (défaut historique)');
+  ok(emailedTokens.indexOf('te') !== -1, 'canal email : email envoyé');
+  ok(emailedTokens.indexOf('tp') === -1, 'canal push : PAS d’email');
+  ok(D.calls.push.indexOf(10) !== -1 && D.calls.push.indexOf(11) !== -1 && D.calls.push.indexOf(13) !== -1, 'canal both/null/push : push envoyé');
+  ok(D.calls.push.indexOf(12) === -1, 'canal email : PAS de push');
+
   console.log(`\n${passed} OK, ${fails} échec(s).`);
   process.exit(fails ? 1 : 0);
 })();

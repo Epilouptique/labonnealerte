@@ -25,8 +25,11 @@ async function deliverToSubscribers(subs, info, ref = {}, deps = {}) {
   const toDefer = [];
 
   for (const s of subs) {
-    const wantsEmail = s.email_enabled !== false;
-    const wantsPush = (s.push_count || 0) > 0;
+    // Préférence de canal (LOT D) : 'both' (défaut = comportement historique), 'email' ou
+    // 'push'. null/absent ⇒ 'both' ⇒ exactement l'ancien comportement (opt-in email + push).
+    const channel = s.notify_channel || 'both';
+    const wantsEmail = channel !== 'push' && s.email_enabled !== false;
+    const wantsPush = channel !== 'email' && (s.push_count || 0) > 0;
     if (!wantsEmail && !wantsPush) continue;
     if (isQuietNow(s)) {
       if (wantsEmail) toDefer.push([s.id, sourceId, paramsJson, 'email', JSON.stringify(payload)]);
