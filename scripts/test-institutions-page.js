@@ -47,7 +47,7 @@ ok(/<title>[^<]*Institutions[^<]*<\/title>/.test(vitrine) && /<meta name="descri
 ok(/rel="canonical"\s+href="https:\/\/labonnealerte\.fr\/institutions"/.test(vitrine), 'vitrine : canonical /institutions');
 ok(/['"]\/institutions['"]/.test(sitemap), 'vitrine : /institutions ajouté au sitemap');
 ok(/Comment ça marche/i.test(vitrine) && /garanti/i.test(vitrine) && /ne fait pas/i.test(vitrine) && /Demander l[’']accès/i.test(vitrine), 'vitrine : sections (ça marche, garanties, ne fait pas, CTA)');
-ok(/href="\/institutions\/publier"/.test(vitrine) && /mailto:contact@labonnealerte\.fr/.test(vitrine), 'vitrine : bouton Demander l’accès + contact');
+ok(/href="\/institutions\/publier"/.test(vitrine) && /href="mailto:/.test(vitrine), 'vitrine : bouton Demander l’accès + contact');
 ok(/<!--FOOTER-->/.test(vitrine) && /\/js\/header\.js/.test(vitrine), 'vitrine : même gabarit (footer + header)');
 ok(noMojibake(vitrine) && noMojibake(html), 'accents corrects (aucun mojibake)');
 
@@ -70,12 +70,15 @@ ok(leaks.length === 0, 'CSS : toutes les règles sont préfixées body.inst (pas
 
 // 6) Honnêteté éditoriale : jamais de concurrent cité, emplacement hébergement balisé.
 ok(!/panneaupocket/i.test(vitrine), 'vitrine : aucune mention de concurrent');
-ok(/A CONFIRMER HUGO\s*:\s*hebergement/i.test(vitrine), 'vitrine : emplacement hébergement balisé « A CONFIRMER HUGO »');
+ok(/Données hébergées dans l'Union européenne \(Irlande\)/.test(vitrine) && /Nom de domaine enregistré en France/.test(vitrine), 'vitrine : mention édition/hébergement UE confirmée');
+ok(!/héberg[ée]*\s+en\s+France/i.test(vitrine), 'vitrine : pas de promesse « hébergé en France »');
+ok(!/souverain/i.test(vitrine), 'vitrine : pas de « souverain »');
+ok(/mailto:&lt;ADRESSE&gt;/.test(vitrine) && !/contact@labonnealerte\.fr/.test(vitrine), 'vitrine : adresse de contact en placeholder <ADRESSE>');
 
 // 7) Illustrations originales : SVG inline avec alternative accessible, image OG dédiée.
 ok(/<svg[^>]*role="img"[^>]*aria-label=/.test(vitrine), 'vitrine : illustrations SVG avec aria-label');
-ok(/og:image"\s+content="https:\/\/labonnealerte\.fr\/img\/og-institutions\.svg"/.test(vitrine), 'vitrine : image OG dédiée');
-ok(fs.existsSync(path.join(ROOT, 'public/img/og-institutions.svg')), 'fichier image OG présent');
+ok(/og:image"\s+content="https:\/\/labonnealerte\.fr\/img\/og-institutions\.png"/.test(vitrine), 'vitrine : image OG dédiée (PNG 1200x630)');
+ok(fs.existsSync(path.join(ROOT, 'public/img/og-institutions.png')), 'fichier image OG PNG présent');
 
 // 8) FAQ sans script (details/summary natifs) — compatible CSP.
 ok(/<details>[\s\S]*<summary>/.test(vitrine), 'vitrine : FAQ en <details>/<summary> (sans JS)');
