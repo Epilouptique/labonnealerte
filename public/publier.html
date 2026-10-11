@@ -66,9 +66,10 @@
   .pub-ok{color:var(--green,#1a7f37);font-weight:600;margin:10px 0 0}
   .pub-confirm p{font-size:1.05rem;line-height:1.5}
   /* Boutons intégrés au flux de la page (pas de barre fixe) : pleins, couleurs du site. */
-  .pub-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:22px;padding-bottom:env(safe-area-inset-bottom)}
-  .pub-btn{flex:1;min-width:160px;padding:14px;border-radius:12px;border:0;font:inherit;font-weight:700;cursor:pointer;background:var(--amber,#f2a900);color:#1a1300}
-  .pub-btn.ghost{flex:0 0 auto;background:transparent;border:2px solid var(--line,#e7e2ef);color:inherit}
+  /* Actions : « Continuer/Valider » à droite ; « Retour » poussé à gauche. */
+  .pub-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end;margin-top:22px;padding-bottom:env(safe-area-inset-bottom)}
+  .pub-btn{min-width:160px;max-width:100%;padding:14px;border-radius:12px;border:0;font:inherit;font-weight:700;cursor:pointer;background:var(--amber,#f2a900);color:#1a1300}
+  .pub-btn.ghost{margin-right:auto;background:transparent;border:2px solid var(--line,#e7e2ef);color:inherit}
   .pub-btn[disabled]{opacity:.5;cursor:not-allowed}
   .pub-dev{margin-top:20px;font-size:.85rem}
 </style>
