@@ -1,6 +1,7 @@
-/* publier.js — UI de l'assistant « Publier une alerte ». S'appuie sur publier-flow.js
- * (logique pure) et sur les routes des lots 2-3 : POST /api/community-sources, /:id/preview,
- * /:id/submit. Brouillon conservé en localStorage ; compte requis. Aucune logique métier ici. */
+/* publier.js — UI de l'assistant « Publier une alerte » (LOT 9, style Leboncoin, 2 écrans).
+ * S'appuie sur publier-flow.js (logique pure) et les routes existantes : POST
+ * /api/community-sources (titre + catégorie + type + url dès la création), /:id/preview,
+ * /:id/submit, /:id (PATCH). Brouillon conservé en localStorage ; compte requis. */
 (function () {
   'use strict';
   var F = window.PublierFlow;
@@ -20,6 +21,8 @@
   var busy = false;
 
   function authHeaders() { return { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token() }; }
+  function familyLabel(g) { return String(g || 'autre').split('-').map(function (w) { return w ? w.charAt(0).toUpperCase() + w.slice(1) : w; }).join(' '); }
+  function catLabel(slug) { for (var i = 0; i < CATS.length; i++) if (CATS[i].slug === slug) return CATS[i].label; return slug; }
 
   // ---- Gate compte requis -----------------------------------------------------
   function renderGate() {
@@ -29,63 +32,92 @@
       devLink() + '</section>';
   }
   function devLink() {
-    return '<p class="pub-dev">Vous êtes développeur ? <a class="inline-link" href="/proposer">Pour les développeurs : manifeste alert.json →</a></p>';
+    return '<p class="pub-dev">Vous êtes développeur ? <a class="inline-link" href="/proposer">Pour les développeurs : manifeste alert.json →</a></p>';
   }
 
-  // ---- Rendu d'une étape ------------------------------------------------------
+  // ---- Rendu ------------------------------------------------------------------
   function render() {
     if (!token()) { renderGate(); return; }
-    var step = d.step;
+    if (d.step === 'confirme') { renderConfirm(); return; }
+    var step = d.step === 'details' ? 'details' : 'essentiel';
     var html = '<div class="pub-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + F.progress(step) + '"><i style="width:' + F.progress(step) + '%"></i></div>';
-    html += '<p class="pub-stepinfo">Étape ' + (F.indexOf(step) + 1) + ' sur ' + F.STEPS.length +
-      (d.id ? ' · <button type="button" class="link-btn" id="pub-delete">Supprimer ce brouillon</button>' : '') + '</p>';
+    html += '<p class="pub-stepinfo">Étape ' + (F.indexOf(step) + 1) + ' sur ' + F.STEPS.length + '</p>';
     html += '<section class="pub-step"><h1>' + esc(nbsp(F.STEP_TITLES[step])) + '</h1>';
-    html += BODY[step] ? BODY[step]() : '';
+    html += step === 'essentiel' ? bodyEssentiel() : bodyDetails();
     if (err) html += '<p class="pub-err" role="alert">' + err + '</p>';
     html += '</section>';
-    html += '<div class="pub-bar">';
-    if (F.indexOf(step) > 0) html += '<button type="button" class="pub-btn ghost" id="pub-back">Retour</button>';
-    html += '<button type="button" class="pub-btn" id="pub-next"' + (busy ? ' disabled' : '') + '>' + nextLabel(step) + '</button>';
-    html += '</div>';
-    if (step === 'type') html += devLink();
+    html += actions(step);
+    if (step === 'essentiel') html += devLink();
     root.innerHTML = html;
     bind(step);
   }
 
-  function nextLabel(step) {
-    if (busy) return 'Veuillez patienter…';
-    if (step === 'apercu') return 'Continuer';
-    if (step === 'recap') return 'Soumettre pour validation';
-    return 'Continuer';
+  function actions(step) {
+    var h = '<div class="pub-actions">';
+    if (step === 'details') h += '<button type="button" class="pub-btn ghost" id="pub-back">Retour</button>';
+    if (step === 'essentiel') {
+      h += '<button type="button" class="pub-btn" id="pub-next"' + (busy ? ' disabled' : '') + '>Continuer</button>';
+    } else {
+      // Écran 2 : « Continuer » lance l'aperçu ; « Valider » n'apparaît qu'après un aperçu réussi.
+      if (!d.previewOk) h += '<button type="button" class="pub-btn" id="pub-preview"' + (busy ? ' disabled' : '') + '>' + (busy ? 'Vérification…' : 'Continuer') + '</button>';
+      else h += '<button type="button" class="pub-btn" id="pub-submit"' + (busy ? ' disabled' : '') + '>' + (busy ? 'Envoi…' : 'Valider') + '</button>';
+    }
+    return h + '</div>';
   }
 
-  var BODY = {
-    type: function () {
-      return '<div class="pub-cards" role="group" aria-label="Type de surveillance">' +
-        Object.keys(F.TYPES).map(function (k) {
-          var t = F.TYPES[k];
-          return '<button type="button" class="pub-card" data-type="' + k + '" aria-pressed="' + (d.type === k) + '">' +
-            '<b>' + esc(t.label) + '</b><span>' + esc(nbsp(t.example)) + '</span></button>';
+  // ---- Écran 1 : l'essentiel --------------------------------------------------
+  function bodyEssentiel() {
+    var title = d.title || '';
+    var sugg = F.suggestCategories(title, CATS, 3);
+    var h = '<label class="pub-field"><span>Quel est le titre de l’alerte ?</span>' +
+      '<input type="text" id="f-title" maxlength="' + F.TITLE_MAX + '" placeholder="Ex. : Baisse de prix carte graphique RTX" value="' + esc(title) + '">' +
+      '<span class="pub-hint"><span id="title-count">' + title.length + '</span>/' + F.TITLE_MAX + '</span></label>';
+
+    h += '<div class="pub-field"><span id="sugg-lab">Catégories suggérées</span>';
+    if (sugg.length) {
+      h += '<div class="pub-cards pub-cats-sugg" role="group" aria-labelledby="sugg-lab">' +
+        sugg.map(function (c) {
+          return '<button type="button" class="pub-card pub-card-sm" data-cat="' + esc(c.slug) + '" aria-pressed="' + (d.category === c.slug) + '">' +
+            '<b>' + esc(c.label) + '</b><span>' + esc(familyLabel(c.group)) + '</span></button>';
         }).join('') + '</div>';
-    },
-    adresse: function () {
-      var h = '<label class="pub-field"><span>Adresse à surveiller (https)</span>' +
+    } else {
+      h += '<p class="pub-hint">Saisissez un titre pour voir des suggestions, ou choisissez ci-dessous.</p>';
+    }
+    h += '</div>';
+
+    h += '<details class="pub-help"><summary>Comment naviguer dans les catégories ?</summary>' +
+      '<p class="pub-hint">Choisissez la catégorie la plus proche de votre sujet. Les suggestions viennent des mots de votre titre. Sinon, parcourez la liste complète, regroupée par thème, et sélectionnez-en une seule.</p></details>';
+
+    var groups = F.groupedCategories(CATS);
+    h += '<label class="pub-field"><span>Ou choisissez une autre catégorie</span>' +
+      '<select id="f-cat"><option value="">— Sélectionnez une catégorie —</option>' +
+      groups.map(function (g) {
+        return '<optgroup label="' + esc(familyLabel(g.group)) + '">' +
+          g.items.map(function (it) { return '<option value="' + esc(it.slug) + '"' + (d.category === it.slug ? ' selected' : '') + '>' + esc(it.label) + '</option>'; }).join('') +
+          '</optgroup>';
+      }).join('') + '</select>' +
+      (d.category ? '<span class="pub-hint">Catégorie choisie : <strong>' + esc(catLabel(d.category)) + '</strong></span>' : '') + '</label>';
+    return h;
+  }
+
+  // ---- Écran 2 : détails ------------------------------------------------------
+  function bodyDetails() {
+    var h = '<div class="pub-cards" role="group" aria-label="Type de surveillance">' +
+      Object.keys(F.TYPES).map(function (k) {
+        var t = F.TYPES[k];
+        return '<button type="button" class="pub-card" data-type="' + k + '" aria-pressed="' + (d.type === k) + '">' +
+          '<b>' + esc(t.label) + '</b><span>' + esc(nbsp(t.example)) + '</span></button>';
+      }).join('') + '</div>';
+
+    if (d.type) {
+      h += '<div class="pub-detailblock">';
+      h += '<label class="pub-field"><span>L’adresse à surveiller (https)</span>' +
         '<input type="url" id="f-url" inputmode="url" placeholder="https://exemple.fr/page" value="' + esc(d.url) + '"></label>';
       if (d.type === 'page') {
         h += '<label class="pub-field"><span>Zone à surveiller (facultatif)</span>' +
           '<input type="text" id="f-zone" placeholder="#prix ou .tarifs" value="' + esc(d.zone) + '">' +
-          '<span class="pub-hint">Pour ne suivre qu’une partie de la page : une balise (ex. <code>article</code>), un identifiant (<code>#prix</code>) ou une classe (<code>.tarifs</code>). Laissez vide pour toute la page.</span></label>';
+          '<span class="pub-hint">Pour ne suivre qu’une partie de la page : une balise (ex. <code>article</code>), un identifiant (<code>#prix</code>) ou une classe (<code>.tarifs</code>). Laissez vide pour toute la page.</span></label>';
       }
-      return h;
-    },
-    presentation: function () {
-      var h = '<label class="pub-field"><span>Nom de l’alerte</span>' +
-        '<input type="text" id="f-name" maxlength="60" placeholder="Ex. : Tarifs Netflix" value="' + esc(d.name) + '"><span class="pub-hint">De 3 à 60 caractères. Sert aussi de description courte.</span></label>';
-      h += '<div class="pub-field"><span id="cats-lab">Catégories (au moins une)</span><div class="pub-cats" role="group" aria-labelledby="cats-lab">' +
-        CATS.map(function (c) {
-          var on = d.categories.indexOf(c.slug) >= 0;
-          return '<label><input type="checkbox" value="' + esc(c.slug) + '"' + (on ? ' checked' : '') + '> ' + esc(c.label) + '</label>';
-        }).join('') + '</div></div>';
       h += '<label class="pub-field"><span>Message d’alerte (facultatif)</span>' +
         '<input type="text" id="f-msg" maxlength="280" placeholder="Ce qui sera affiché quand ça change" value="' + esc(d.alert_message) + '"></label>';
       h += '<label class="pub-field"><span>Lien d’alerte (facultatif)</span>' +
@@ -94,66 +126,88 @@
         h += '<label class="pub-field"><span>Préavis (jours avant l’évènement)</span>' +
           '<input type="number" id="f-preavis" min="0" max="30" value="' + esc(d.preavis) + '"></label>';
       }
-      return h;
-    },
-    apercu: function () {
-      var h = '<p>Nous allons lire l’adresse et vous montrer ce qui sera surveillé. Rien n’est enregistré ni envoyé.</p>';
-      if (!d.previewExtract && !d.previewOk) {
-        h += '<p><button type="button" class="pub-btn" id="pub-preview" style="max-width:260px"' + (busy ? ' disabled' : '') + '>Lancer l’aperçu</button></p>';
-      }
+      // Résultat d'aperçu sur la même page.
       if (d.previewExtract != null) {
-        h += '<p><strong>Texte extrait :</strong></p><div class="pub-extract">' + (d.previewExtract ? esc(d.previewExtract) : '<em>(aucun texte)</em>') + '</div>';
-        h += '<p><button type="button" class="link-btn" id="pub-preview">Relancer l’aperçu</button></p>';
+        h += '<p><strong>Texte extrait :</strong></p><div class="pub-extract">' + (d.previewExtract ? esc(d.previewExtract) : '<em>(aucun texte)</em>') + '</div>';
       }
-      if (d.previewUnstable) h += '<div class="pub-warn" role="alert">⚠️ Cette page change à chaque lecture (contenu dynamique). Risque de fausses alertes : ciblez une zone plus stable à l’étape précédente.</div>';
-      if (d.previewOk) h += '<p class="pub-hint">Aperçu réussi. Vous pouvez continuer.</p>';
-      return h;
-    },
-    recap: function () {
-      var t = F.TYPES[d.type] || {};
-      return '<ul class="pub-recap">' +
-        li('Type', t.label) + li('Adresse', d.url) + (d.zone ? li('Zone', d.zone) : '') +
-        li('Nom', d.name) + li('Catégories', (d.categories || []).join(', ')) +
-        (d.alert_message ? li('Message', d.alert_message) : '') + (d.alert_url ? li('Lien', d.alert_url) : '') +
-        (d.type === 'agenda' ? li('Préavis', d.preavis + ' j') : '') + '</ul>' +
-        '<p class="pub-hint">En soumettant, votre alerte part en revue. Elle sera visible publiquement une fois validée, avec le badge « Communautaire ».</p>';
-    },
-  };
-  function li(k, v) { return '<li><strong>' + esc(k) + ' :</strong> ' + esc(v || '—') + '</li>'; }
+      if (d.previewUnstable) h += '<div class="pub-warn" role="alert">⚠️ Cette page change à chaque lecture (contenu dynamique). Risque de fausses alertes : ciblez une zone plus stable.</div>';
+      if (d.previewOk) h += '<p class="pub-ok">✓ Aperçu réussi. Vous pouvez valider votre alerte.</p>';
+      h += '</div>';
+    }
+    return h;
+  }
+
+  // ---- Confirmation -----------------------------------------------------------
+  function renderConfirm() {
+    root.innerHTML = '<section class="pub-step pub-confirm"><h1>Merci !</h1>' +
+      '<p>Votre alerte « ' + esc(d.confirmName || 'votre alerte') + ' » est en cours de vérification. ' +
+      'Nous vous préviendrons dès qu’elle sera publiée.</p>' +
+      '<div class="pub-actions">' +
+      '<a class="pub-btn" style="text-decoration:none;text-align:center" href="/mes-publications">Mes publications</a>' +
+      '<button type="button" class="pub-btn ghost" id="pub-again">Publier une autre alerte</button>' +
+      '</div></section>';
+    var again = document.getElementById('pub-again');
+    if (again) again.onclick = function () { clearDraft(); d = F.emptyDraft(); err = ''; render(); };
+  }
 
   // ---- Interactions -----------------------------------------------------------
   function bind(step) {
     var back = document.getElementById('pub-back');
-    if (back) back.onclick = function () { err = ''; d.step = F.prevStep(step); saveDraft(d); render(); };
+    if (back) back.onclick = function () { err = ''; d.step = 'essentiel'; saveDraft(d); render(); };
     var next = document.getElementById('pub-next');
     if (next) next.onclick = onNext;
-    var del = document.getElementById('pub-delete');
-    if (del) del.onclick = deleteDraft;
+    var pv = document.getElementById('pub-preview');
+    if (pv) pv.onclick = onPreview;
+    var sub = document.getElementById('pub-submit');
+    if (sub) sub.onclick = submit;
 
-    if (step === 'type') {
-      [].forEach.call(root.querySelectorAll('.pub-card'), function (b) {
+    if (step === 'essentiel') {
+      var ti = document.getElementById('f-title');
+      if (ti) ti.oninput = function () {
+        d.title = ti.value; err = ''; saveDraft(d);
+        var cnt = document.getElementById('title-count'); if (cnt) cnt.textContent = String((d.title || '').length);
+        renderSuggestions();
+      };
+      bindSuggestions();
+      var sel = document.getElementById('f-cat');
+      if (sel) sel.onchange = function () { d.category = sel.value || null; err = ''; saveDraft(d); render(); };
+    }
+    if (step === 'details') {
+      [].forEach.call(root.querySelectorAll('.pub-card[data-type]'), function (b) {
         b.onclick = function () { setField('type', b.getAttribute('data-type')); render(); };
       });
+      wire('f-url', 'url'); wire('f-zone', 'zone'); wire('f-msg', 'alert_message'); wire('f-link', 'alert_url'); wire('f-preavis', 'preavis');
     }
-    if (step === 'adresse') {
-      wire('f-url', 'url'); wire('f-zone', 'zone');
+  }
+  function bindSuggestions() {
+    [].forEach.call(root.querySelectorAll('.pub-cats-sugg .pub-card'), function (b) {
+      b.onclick = function () {
+        d.category = b.getAttribute('data-cat'); err = ''; saveDraft(d);
+        var sel = document.getElementById('f-cat'); if (sel) sel.value = d.category;
+        [].forEach.call(root.querySelectorAll('.pub-cats-sugg .pub-card'), function (x) { x.setAttribute('aria-pressed', String(x === b)); });
+        var lab = document.querySelector('#f-cat + .pub-hint'); // (re)rendu léger du libellé choisi
+        render();
+      };
+    });
+  }
+  // Re-rendu ciblé des suggestions pendant la frappe (sans reconstruire tout l'écran).
+  function renderSuggestions() {
+    var host = document.querySelector('.pub-cats-sugg');
+    var labHost = host ? host.parentNode : document.querySelector('[aria-labelledby="sugg-lab"], #sugg-lab');
+    var sugg = F.suggestCategories(d.title || '', CATS, 3);
+    var wrap = document.getElementById('sugg-lab') ? document.getElementById('sugg-lab').parentNode : null;
+    if (!wrap) return;
+    var html = '<span id="sugg-lab">Catégories suggérées</span>';
+    if (sugg.length) {
+      html += '<div class="pub-cards pub-cats-sugg" role="group" aria-labelledby="sugg-lab">' +
+        sugg.map(function (c) {
+          return '<button type="button" class="pub-card pub-card-sm" data-cat="' + esc(c.slug) + '" aria-pressed="' + (d.category === c.slug) + '"><b>' + esc(c.label) + '</b><span>' + esc(familyLabel(c.group)) + '</span></button>';
+        }).join('') + '</div>';
+    } else {
+      html += '<p class="pub-hint">Saisissez un titre pour voir des suggestions, ou choisissez ci-dessous.</p>';
     }
-    if (step === 'presentation') {
-      wire('f-name', 'name'); wire('f-msg', 'alert_message'); wire('f-link', 'alert_url'); wire('f-preavis', 'preavis');
-      [].forEach.call(root.querySelectorAll('.pub-cats input'), function (cb) {
-        cb.onchange = function () {
-          var set = d.categories.slice();
-          if (cb.checked) { if (set.indexOf(cb.value) < 0) set.push(cb.value); }
-          else set = set.filter(function (x) { return x !== cb.value; });
-          if (set.length > 3) { cb.checked = false; return; }
-          d.categories = set; saveDraft(d);
-        };
-      });
-    }
-    if (step === 'apercu') {
-      var pv = document.getElementById('pub-preview');
-      if (pv) pv.onclick = runPreview;
-    }
+    wrap.innerHTML = html;
+    bindSuggestions();
   }
   function wire(id, field) {
     var el = document.getElementById(id); if (!el) return;
@@ -167,30 +221,17 @@
 
   function onNext() {
     err = '';
-    var step = d.step;
-    var v = F.validateStep(step, d);
+    var v = F.validateStep('essentiel', d);
     if (!v.ok) { err = esc(v.error); render(); return; }
-    if (step === 'recap') { submit(); return; }
-    if (step === 'presentation') { savePresentation(); return; }
-    d.step = F.nextStep(step); saveDraft(d); render();
+    d.step = 'details'; saveDraft(d); render();
   }
 
-  // Étape « présentation » : PATCH nom/catégories/perso puis passage au récap.
-  async function savePresentation() {
-    if (!d.id) { err = 'Lancez d’abord un aperçu.'; d.step = 'apercu'; render(); return; }
+  // Écran 2 « Continuer » → création (si besoin) + aperçu sur la même page.
+  async function onPreview() {
+    err = '';
+    var v = F.validateStep('details', d);
+    if (!v.ok) { err = esc(v.error); render(); return; }
     busy = true; render();
-    try {
-      var r = await fetch('/api/community-sources/' + encodeURIComponent(d.id), { method: 'PATCH', headers: authHeaders(), body: JSON.stringify(F.presentationBody(d)) });
-      var b = await r.json().catch(function () { return {}; });
-      if (!r.ok) { err = esc(b.error || 'Enregistrement impossible.'); busy = false; render(); return; }
-      busy = false; d.step = 'recap'; saveDraft(d); render();
-    } catch (e) { err = 'Erreur réseau, réessayez.'; busy = false; render(); }
-  }
-
-  // Création du brouillon minimal (si besoin), ou MAJ de l'adresse si elle a changé,
-  // puis aperçu. Étape « apercu ».
-  async function runPreview() {
-    err = ''; busy = true; render();
     try {
       if (!d.id) {
         var cr = await fetch('/api/community-sources', { method: 'POST', headers: authHeaders(), body: JSON.stringify(F.createBody(d)) });
@@ -198,7 +239,6 @@
         if (!cr.ok) { var m = F.mapCreateError(cr.status, cb); err = esc(m.message) + (m.link ? ' <a href="' + esc(m.link) + '">' + esc(m.linkLabel) + '</a>' : ''); busy = false; render(); return; }
         d.id = cb.id; d.status = cb.status || 'draft'; d.syncedUrl = d.url; d.syncedZone = d.zone || ''; saveDraft(d);
       } else if (d.url !== d.syncedUrl || (d.zone || '') !== (d.syncedZone || '')) {
-        // L'adresse/zone a changé après création → PATCH (repasse en draft côté serveur).
         var ar = await fetch('/api/community-sources/' + encodeURIComponent(d.id), { method: 'PATCH', headers: authHeaders(), body: JSON.stringify(F.addressBody(d)) });
         var ab = await ar.json().catch(function () { return {}; });
         if (!ar.ok) { var m2 = F.mapCreateError(ar.status, ab); err = esc(m2.message) + (m2.link ? ' <a href="' + esc(m2.link) + '">' + esc(m2.linkLabel) + '</a>' : ''); busy = false; render(); return; }
@@ -221,29 +261,16 @@
   }
 
   async function submit() {
-    if (!d.id) { err = 'Lancez d’abord un aperçu.'; d.step = 'apercu'; render(); return; }
+    if (!d.id || !d.previewOk) { err = 'Lancez d’abord un aperçu réussi.'; render(); return; }
     busy = true; render();
     try {
       var r = await fetch('/api/community-sources/' + encodeURIComponent(d.id) + '/submit', { method: 'POST', headers: authHeaders(), body: '{}' });
       var b = await r.json().catch(function () { return {}; });
       if (!r.ok) { err = esc(b.error || 'Soumission impossible.'); busy = false; render(); return; }
-      clearDraft();
-      root.innerHTML = '<section class="pub-step"><h1>C’est envoyé !</h1>' +
-        '<p>Votre alerte « ' + esc(d.name) + ' » est en revue. Vous la retrouverez dans ' +
-        '<a class="inline-link" href="/mes-publications">Mes publications</a>.</p></section>';
+      var name = d.title || 'votre alerte';
+      clearDraft(); d = F.emptyDraft(); d.step = 'confirme'; d.confirmName = name; busy = false; err = '';
+      render();
     } catch (e) { err = 'Erreur réseau, réessayez.'; busy = false; render(); }
-  }
-
-  async function deleteDraft() {
-    if (!d.id) { clearDraft(); d = F.emptyDraft(); render(); return; }
-    if (!window.confirm('Supprimer définitivement ce brouillon ?')) return;
-    busy = true; render();
-    try {
-      var r = await fetch('/api/community-sources/' + encodeURIComponent(d.id), { method: 'DELETE', headers: authHeaders() });
-      var b = await r.json().catch(function () { return {}; });
-      if (!r.ok) { err = esc(b.error || 'Suppression impossible.'); busy = false; render(); return; }
-    } catch (e) { /* on efface quand même localement */ }
-    clearDraft(); d = F.emptyDraft(); busy = false; err = ''; render();
   }
 
   // Hydrate le brouillon depuis ?id= (édition depuis « Mes publications »).
@@ -252,19 +279,18 @@
       var r = await fetch('/api/community-sources', { headers: authHeaders() });
       var b = await r.json().catch(function () { return {}; });
       var s = (b.sources || []).filter(function (x) { return x.id === id; })[0];
-      if (!s) return false;
+      if (!s) return;
       var typeByEngine = { 'veille-page': 'page', 'veille-rss': 'rss', 'veille-agenda': 'agenda' };
       var cfg = s.engine_config || {};
       d = Object.assign(F.emptyDraft(), {
-        id: s.id, status: s.status, type: typeByEngine[s.engine] || null,
-        url: s.endpoint_url || '', zone: cfg.zone || '', name: s.name || '',
-        categories: Array.isArray(s.categories) ? s.categories : [],
+        id: s.id, status: s.status, title: s.name || '',
+        category: Array.isArray(s.categories) && s.categories.length ? s.categories[0] : null,
+        type: typeByEngine[s.engine] || null, url: s.endpoint_url || '', zone: cfg.zone || '',
         alert_message: cfg.message || '', alert_url: cfg.url || '', preavis: cfg.preavis != null ? cfg.preavis : 1,
-        syncedUrl: s.endpoint_url || '', syncedZone: cfg.zone || '', step: 'adresse',
+        syncedUrl: s.endpoint_url || '', syncedZone: cfg.zone || '', step: 'essentiel',
       });
       saveDraft(d);
-      return true;
-    } catch (e) { return false; }
+    } catch (e) { /* on garde le brouillon local */ }
   }
 
   // ---- Démarrage --------------------------------------------------------------
@@ -274,8 +300,6 @@
     .then(function (r) { return r.json(); })
     .then(function (list) { CATS = Array.isArray(list) ? list : []; })
     .catch(function () {})
-    .then(function () {
-      if (editId && token()) return hydrateFromId(editId);
-    })
+    .then(function () { if (editId && token()) return hydrateFromId(editId); })
     .then(function () { render(); });
 })();

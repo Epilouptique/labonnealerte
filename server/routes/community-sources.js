@@ -62,21 +62,48 @@ async function findDuplicate(url, excludeId) {
   return dup ? { id: dup.id, name: dup.name, url: `/source/${encodeURIComponent(dup.id)}/statut` } : null;
 }
 
-// POST /community-sources — crée un brouillon MINIMAL (type + url) dès l'étape adresse.
-// Nom provisoire (hôte), aucune catégorie : la présentation (PATCH) les complète. Un tel
-// brouillon ne peut pas passer en review (cf. validateSubmittable dans /submit).
+// POST /community-sources — crée un brouillon dès l'écran « détails » (type + url), avec,
+// quand ils sont fournis, le TITRE et la CATÉGORIE saisis à l'écran 1 (plus de nom
+// provisoire) et la personnalisation. L'id public dérive du titre (jamais préfixé
+// « brouillon »). Sans titre fourni, repli sur le nom provisoire (hôte), rétro-compatible.
 router.post('/community-sources', async (req, res) => {
   const auth = await requireAuthor(req, res); if (!auth) return;
-  const v = lc.validateUrlType(req.body);
+  const b = req.body || {};
+  const v = lc.validateUrlType(b);
   if (!v.ok) return res.status(400).json({ error: v.error });
   const { engine, url } = v.value; // validateUrlType renvoie { ok, value: { engine, url, … } }
 
   const config = {};
-  const zone = req.body && typeof req.body.zone === 'string' ? req.body.zone.trim() : '';
+  const zone = typeof b.zone === 'string' ? b.zone.trim() : '';
   if (zone) {
     if (engine !== 'veille-page') return res.status(400).json({ error: 'Le sélecteur de zone ne s\'applique qu\'à une veille de page.' });
     if (!isValidSelector(zone)) return res.status(400).json({ error: 'Sélecteur invalide (balise, #id ou .classe simples).' });
     config.zone = zone;
+  }
+  // Personnalisation facultative (message / lien d'alerte) et préavis (agenda).
+  if (b.alert_message != null || b.alert_url != null) {
+    const perso = lc.validatePersonalization(b);
+    if (!perso.ok) return res.status(400).json({ error: perso.error });
+    if (perso.value.message) config.message = perso.value.message;
+    if (perso.value.url) config.url = perso.value.url;
+  }
+  if (engine === 'veille-agenda' && b.preavis != null) config.preavis = lc.clampPreavis(b.preavis);
+
+  // Titre (facultatif) : s'il est fourni, il sert de nom ET fonde l'id public.
+  let name, provisional = false;
+  if (b.name != null && String(b.name).trim() !== '') {
+    name = String(b.name).trim();
+    if (name.length < 3 || name.length > 60) return res.status(400).json({ error: 'Le titre doit faire de 3 à 60 caractères.' });
+  } else { name = lc.provisionalName(url); provisional = true; }
+
+  // Catégorie(s) (facultatif à la création, requis avant soumission).
+  let categories = [];
+  if (b.categories != null) {
+    const cat = sanitizeCategories(b.categories);
+    if (!cat.ok) return res.status(400).json({ error: cat.error });
+    const unknown = cat.categories.filter((c) => !VALID_SLUGS.includes(c));
+    if (unknown.length) return res.status(400).json({ error: `Catégorie inconnue : ${unknown.join(', ')}.` });
+    categories = cat.categories;
   }
 
   try {
@@ -91,8 +118,7 @@ router.post('/community-sources', async (req, res) => {
     const qc = lc.checkQuota(q.rows[0]);
     if (!qc.ok) return res.status(409).json({ error: qc.error });
 
-    const name = lc.provisionalName(url);
-    const base = slugify(name);
+    const base = slugify(name); // slugify ne produit jamais le préfixe « brouillon »
     let id = base, attempts = 0;
     while ((await pool.query('SELECT 1 FROM sources WHERE id = $1', [id])).rows.length) {
       id = `${base}-${crypto.randomBytes(2).toString('hex')}`;
@@ -104,11 +130,11 @@ router.post('/community-sources', async (req, res) => {
       `INSERT INTO sources
          (id, name, description, type, badge, status, engine, endpoint_url,
           author_subscriber_id, categories, requires_confirmation, engine_config)
-       VALUES ($1, $2, $3, 'internal', 'community', 'draft', $4, $5, $6, '{}', true, $7::jsonb)`,
-      [id, name, name, engine, url, auth.id, cfg]);
+       VALUES ($1, $2, $3, 'internal', 'community', 'draft', $4, $5, $6, $7, true, $8::jsonb)`,
+      [id, name, name, engine, url, auth.id, categories, cfg]);
 
-    return res.status(201).json({ id, status: 'draft', engine,
-      message: 'Brouillon créé. Lancez un aperçu, puis présentez votre alerte.' });
+    return res.status(201).json({ id, status: 'draft', engine, provisional,
+      message: 'Brouillon créé. Lancez un aperçu pour vérifier votre alerte.' });
   } catch (err) {
     console.error('[community] POST /community-sources :', err.message);
     return res.status(503).json({ error: 'Service indisponible, réessayez plus tard.' });
