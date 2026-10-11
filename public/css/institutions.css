@@ -4,6 +4,11 @@
    Pleine largeur, bandes sobres en alternance, un seul accent (ambre de la marque),
    contraste AA, mobile d'abord, prefers-reduced-motion respecté. Aucun script. */
 
+/* Le site peint une couche fixe plein écran (body::before, background.png violet) AU-DESSUS
+   du fond du body : elle masquait le fond propre des pages institutions (surface / gris du
+   formulaire). On la neutralise ici pour laisser voir le fond de body.inst. */
+body.inst::before { display: none !important; }
+
 body.inst {
   --inst-accent: var(--amber, #f2a900);
   --inst-accent-ink: #4a3500;            /* texte sur fond ambre : contraste AA */
