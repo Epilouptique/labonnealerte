@@ -15,6 +15,7 @@ const { hashIp } = require('../ugc');
 const { clientIp } = require('../profile-autofill');
 const { isValidSelector, zoneVisibleText } = require('../sources/lib/page-zone');
 const { hashHtml } = require('../sources/lib/hash-diff-html');
+const { parseFeed } = require('../sources/lib/feed-parser');
 const { safeFetchText, BROWSER_UA } = require('../safe-fetch');
 const lc = require('../sources/lib/source-lifecycle');
 
@@ -204,17 +205,43 @@ router.post('/community-sources/:id/preview', async (req, res) => {
         unstable = h1 !== h2;
         detected.state = 'inactive'; // 1re lecture = référence, aucune alerte
       } else {
-        const src = lc.buildEngineSource(s);
-        if (!src) return res.status(400).json({ error: 'Moteur de source non pris en charge.' });
-        const result = await src.check();
-        detected.state = result.state || 'inactive';
-        detected.since = result.since ? new Date(result.since).toISOString() : null;
-        detected.until = result.until ? new Date(result.until).toISOString() : null;
-        detected.url = result.url || s.endpoint_url;
-        excerpt = result.message ? String(result.message).slice(0, 400) : null;
+        // RSS / agenda : récupération STRICTE via safeFetchText (robots opt-in). Une erreur
+        // HTTP (4xx/5xx), un flux vide ou un XML illisible ne comptent JAMAIS comme réussis
+        // (le moteur du poller, lui, tolère les échecs transitoires : pas adapté à l'aperçu).
+        const accept = s.engine === 'veille-rss'
+          ? 'application/rss+xml, application/atom+xml, application/xml, text/xml'
+          : 'text/calendar, text/plain, */*';
+        let text;
+        try {
+          text = await safeFetchText(s.endpoint_url, { timeoutMs: 8000, maxBytes: 512 * 1024, robots: true, accept });
+        } catch (err) {
+          return res.status(200).json({ ok: false, error: lc.previewErrorMessage(err && err.public ? err.message : '') });
+        }
+        if (s.engine === 'veille-rss') {
+          const { items } = parseFeed(text);
+          if (!items.length) {
+            return res.status(200).json({ ok: false, error: 'Flux vide ou illisible : aucun article détecté. Vérifiez qu\'il s\'agit bien d\'un flux RSS ou Atom valide.' });
+          }
+          let newest = null;
+          for (const it of items) { if (it.date && (!newest || it.date > newest.date)) newest = it; }
+          excerpt = String((newest && newest.title) || items[0].title || '').slice(0, 400);
+          detected.state = 'inactive';
+          detected.url = s.endpoint_url;
+        } else {
+          // Agenda : le fetch strict ci-dessus a déjà écarté les erreurs HTTP ; on délègue
+          // le parsing/état au moteur.
+          const src = lc.buildEngineSource(s);
+          if (!src) return res.status(400).json({ error: 'Moteur de source non pris en charge.' });
+          const result = await src.check();
+          detected.state = result.state || 'inactive';
+          detected.since = result.since ? new Date(result.since).toISOString() : null;
+          detected.until = result.until ? new Date(result.until).toISOString() : null;
+          detected.url = result.url || s.endpoint_url;
+          excerpt = result.message ? String(result.message).slice(0, 400) : '';
+        }
       }
     } catch (err) {
-      return res.status(200).json({ ok: false, error: err && err.public ? err.message : 'La vérification a échoué (cible injoignable, interdite ou invalide).' });
+      return res.status(200).json({ ok: false, error: lc.previewErrorMessage(err && err.public ? err.message : '') });
     }
 
     if (s.engine === 'veille-page' && cfg.zone && !zoneFound) {
@@ -223,7 +250,12 @@ router.post('/community-sources/:id/preview', async (req, res) => {
 
     // Mémorise le dernier extrait pour la revue admin (fusion dans engine_config).
     try {
-      const merged = Object.assign({}, cfg, { last_extract: (excerpt || '').slice(0, 280), last_extract_at: new Date().toISOString() });
+      const nowIso = new Date().toISOString();
+      const merged = Object.assign({}, cfg, {
+        last_extract: (excerpt || '').slice(0, 280), last_extract_at: nowIso,
+        // Marquage d'aperçu RÉUSSI (vérifié à la soumission) : horodatage + URL + zone contrôlées.
+        preview_ok_at: nowIso, preview_url: s.endpoint_url, preview_zone: cfg.zone || null,
+      });
       await pool.query('UPDATE sources SET engine_config = $2::jsonb WHERE id = $1 AND author_subscriber_id = $3', [s.id, JSON.stringify(merged), auth.id]);
     } catch { /* best-effort */ }
 
@@ -253,6 +285,13 @@ router.post('/community-sources/:id/submit', async (req, res) => {
     if (!s) return res.status(404).json({ error: 'Source introuvable.' });
     if (!lc.canTransition(s.status, 'review', 'author')) {
       return res.status(409).json({ error: `Soumission impossible depuis « ${s.status} » : lancez d'abord un aperçu réussi (passage en test).` });
+    }
+    // Verrou d'aperçu : il faut un aperçu RÉUSSI récent correspondant à l'URL ET à la zone
+    // actuelles. Empêche une soumission sans aperçu, après un aperçu en échec, ou après un
+    // changement d'URL/zone (le statut « testing » seul ne suffit pas).
+    const cfg = lc.parseConfig(s.engine_config);
+    if (!lc.previewSatisfiesSubmit(cfg, s.endpoint_url, cfg.zone || null)) {
+      return res.status(409).json({ error: 'Lancez un aperçu réussi correspondant à l\'adresse (et à la zone) actuelle avant de soumettre.' });
     }
     // Verrou de complétude : un brouillon minimal (sans nom réel ni catégorie) ne passe pas.
     const comp = lc.validateSubmittable(s);
@@ -329,7 +368,10 @@ router.patch('/community-sources/:id', async (req, res) => {
     }
 
     // Changement d'URL/zone → retour en brouillon + aperçu invalidé.
-    if (urlChanged || zoneChanged) { delete config.last_extract; delete config.last_extract_at; }
+    if (urlChanged || zoneChanged) {
+      delete config.last_extract; delete config.last_extract_at;
+      lc.PREVIEW_MARK_KEYS.forEach((k) => { delete config[k]; }); // aperçu invalidé : à relancer
+    }
     const newStatus = (urlChanged || zoneChanged) ? 'draft' : s.status;
     const cfg = Object.keys(config).length ? JSON.stringify(config) : null;
 
