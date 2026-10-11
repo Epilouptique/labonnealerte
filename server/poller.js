@@ -60,7 +60,7 @@ async function loadSubscribersForAlert(sourceId, params) {
   const paramsCond = params ? 'sub.params = $2::jsonb' : 'sub.params IS NULL';
   const args = params ? [sourceId, JSON.stringify(params)] : [sourceId];
   const { rows } = await pool.query(
-    `SELECT s.id, s.email, s.token, s.email_enabled,
+    `SELECT s.id, s.email, s.token, s.email_enabled, s.notify_channel,
             s.quiet_start, s.quiet_end, s.quiet_disabled,
             (SELECT COUNT(*)::int FROM push_subscriptions p WHERE p.subscriber_id = s.id) AS push_count
        FROM subscribers s

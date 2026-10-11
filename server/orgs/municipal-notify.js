@@ -10,7 +10,7 @@ const nl = require('./lib/notify-lifecycle');
 
 // Forme d'abonné attendue par deliverToSubscribers : { id, email, token, email_enabled,
 // quiet_*, push_count }. Même sélection que poller.loadSubscribersForAlert.
-const SUB_FIELDS = `s.id, s.email, s.token, s.email_enabled, s.ville, s.departement,
+const SUB_FIELDS = `s.id, s.email, s.token, s.email_enabled, s.notify_channel, s.ville, s.departement,
   s.quiet_start, s.quiet_end, s.quiet_disabled,
   (SELECT COUNT(*)::int FROM push_subscriptions p WHERE p.subscriber_id = s.id) AS push_count`;
 
