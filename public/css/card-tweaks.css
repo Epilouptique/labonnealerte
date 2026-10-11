@@ -1,0 +1,7 @@
+/* card-tweaks.css — retouches ciblees du kiosque, chargees APRES site.css (donc
+   prioritaires) pour ne pas modifier site.css (edite par d'autres sessions).
+
+   Colonne ultra (.vc-side) du visuel mixte : on masque la rangee d'icones du
+   recto (.card-icons : j'aime / partager / ajouter / retourner) ; la carte
+   laterale reste epuree. */
+#grid[data-view-mode="mixte"] > .card.vc-side .card-icons { display: none !important; }
