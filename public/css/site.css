@@ -5299,6 +5299,13 @@ a.forum-tag:hover { text-decoration: underline; }
    retirée du DOM (la logique de site.js/recherche reste intacte). */
 #grid[data-view-mode="ultra"] .card-static-desc,
 #grid[data-view-mode="mixte"] > .card.vc-side .card-static-desc { display: none; }
+/* Verso des vignettes mini (colonne ultra « .vc-side ») : description COURTE au lieu de
+   la longue (trop dense). La courte est rendue en double masqué par défaut dans backFace. */
+.card-back-short { display: none; }
+#grid[data-view-mode="ultra"] .card-long-desc:not(.card-back-short),
+#grid[data-view-mode="mixte"] > .card.vc-side .card-long-desc:not(.card-back-short) { display: none; }
+#grid[data-view-mode="ultra"] .card-back-short,
+#grid[data-view-mode="mixte"] > .card.vc-side .card-back-short { display: block; }
 #grid[data-view-mode="ultra"] .card-front .card-content,
 #grid[data-view-mode="mixte"] > .card.vc-side .card-front .card-content { padding-top: 30px; }
 /* ULTRA uniquement (pas la colonne mixte) : on retire aussi les tags du recto et les icônes
