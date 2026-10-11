@@ -56,7 +56,7 @@ async function loadMembership(orgId, subId) {
   return rows[0] || null;
 }
 
-const EVT_COLUMNS = `id, org_id, template, title, body, category, commune_insee, commune_nom,
+const EVT_COLUMNS = `id, org_id, template, kind, title, body, category, commune_insee, commune_nom,
   starts_at, ends_at, status, created_at, updated_at, published_at`;
 
 // Garde-fou commun : membre actif d'une organisation vérifiée, autorisé pour `action`.
@@ -90,10 +90,10 @@ router.post('/organizations/:orgId/events', async (req, res) => {
     const communeNom = nameForInsee(mem.commune_insee);
     const ins = await pool.query(
       `INSERT INTO municipal_events
-         (org_id, author_subscriber_id, template, title, body, category, commune_insee, commune_nom, starts_at, ends_at, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'draft')
+         (org_id, author_subscriber_id, template, kind, title, body, category, commune_insee, commune_nom, starts_at, ends_at, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'draft')
        RETURNING ${EVT_COLUMNS}`,
-      [orgId, auth.id, e.template, e.title, e.body, e.category, mem.commune_insee, communeNom, e.starts_at, e.ends_at]);
+      [orgId, auth.id, e.template, e.kind, e.title, e.body, e.category, mem.commune_insee, communeNom, e.starts_at, e.ends_at]);
     return res.status(201).json({ event: ins.rows[0] });
   } catch (err) {
     console.error('[municipal-events] POST create :', err.message);
@@ -124,6 +124,7 @@ router.patch('/municipal-events/:id', async (req, res) => {
     // Revalidation complète à partir de l'état courant fusionné avec le corps fourni.
     const merged = {
       template: req.body.template != null ? req.body.template : event.template,
+      kind: req.body.kind != null ? req.body.kind : event.kind,
       title: req.body.title != null ? req.body.title : event.title,
       body: req.body.body != null ? req.body.body : event.body,
       category: req.body.category != null ? req.body.category : event.category,
@@ -135,10 +136,10 @@ router.patch('/municipal-events/:id', async (req, res) => {
     const e = v.value;
     const upd = await pool.query(
       `UPDATE municipal_events
-          SET template = $2, title = $3, body = $4, category = $5, starts_at = $6, ends_at = $7, updated_at = NOW()
+          SET template = $2, kind = $3, title = $4, body = $5, category = $6, starts_at = $7, ends_at = $8, updated_at = NOW()
         WHERE id = $1 AND status IN ('draft','review')
         RETURNING ${EVT_COLUMNS}`,
-      [id, e.template, e.title, e.body, e.category, e.starts_at, e.ends_at]);
+      [id, e.template, e.kind, e.title, e.body, e.category, e.starts_at, e.ends_at]);
     if (!upd.rows.length) return res.status(409).json({ error: 'Modification impossible (statut changé).' });
     return res.json({ event: upd.rows[0] });
   } catch (err) {
@@ -224,7 +225,7 @@ router.get('/communes/:insee/events', async (req, res) => {
   if (!/^(?:[0-9]{2}|2[AB])[0-9]{3}$/.test(insee)) return res.status(400).json({ error: 'Code INSEE invalide.' });
   try {
     const { rows } = await pool.query(
-      `SELECT e.id, e.template, e.title, e.body, e.category, e.commune_insee, e.commune_nom,
+      `SELECT e.id, e.template, e.kind, e.title, e.body, e.category, e.commune_insee, e.commune_nom,
               e.starts_at, e.ends_at, e.published_at
          FROM municipal_events e
          JOIN organizations o ON o.id = e.org_id
@@ -244,7 +245,7 @@ router.get('/communes/:insee/events', async (req, res) => {
 // Charge un événement avec ses champs de diffusion + l'adhésion de l'appelant.
 async function loadEventNotify(eventId, subId) {
   const { rows } = await pool.query(
-    `SELECT id, org_id, title, body, commune_insee, status, ends_at,
+    `SELECT id, org_id, kind, title, body, commune_insee, status, ends_at,
             notify_status, notify_scheduled_at, notify_sent_at, notify_resends, notify_count
        FROM municipal_events WHERE id = $1`, [eventId]);
   const e = rows[0];

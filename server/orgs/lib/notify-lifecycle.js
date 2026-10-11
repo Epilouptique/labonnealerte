@@ -31,6 +31,8 @@ function isNotifiable(event, now) {
 // Renvoie { ok, error? }.
 function canSchedule(event, now, opts = {}) {
   if (!isNotifiable(event, now)) return { ok: false, error: 'Événement non publié ou déjà terminé.' };
+  // Seul un événement de type « alerte » peut notifier (une « info » reste sur la fiche, sans envoi).
+  if (event.kind != null && event.kind !== 'alerte') return { ok: false, error: 'Seule une « alerte » peut notifier les habitants ; une « information » reste visible sans envoi.' };
   const resend = !!opts.resend;
   if (!resend) {
     if (event.notify_status === 'scheduled') return { ok: false, error: 'Un envoi est déjà programmé.' };

@@ -16,6 +16,13 @@ console.log('TEST événements municipaux (lot B)');
 ok(ev.TEMPLATES.length === 5 && ev.isTemplate('coupure-eau') && ev.isTemplate('libre'), 'cinq modèles, dont coupure-eau et libre');
 ok(!ev.isTemplate('spam'), 'modèle inconnu refusé');
 
+// 1bis) Type d'événement (alerte / info)
+ok(ev.KINDS.join(',') === 'alerte,info' && ev.isKind('alerte') && !ev.isKind('spam'), 'types : alerte / info');
+ok(ev.canNotifyKind('alerte') && !ev.canNotifyKind('info'), 'seule « alerte » peut notifier');
+ok(ev.validateEventInput({ template: 'libre', title: 'Info voirie', body: 'Texte suffisant ici.' }, {}).value.kind === 'info', 'kind défaut = info');
+ok(ev.validateEventInput({ template: 'libre', kind: 'alerte', title: 'Coupure', body: 'Texte suffisant ici.' }, {}).value.kind === 'alerte', 'kind alerte conservé');
+ok(!ev.validateEventInput({ template: 'libre', kind: 'urgent', title: 'X', body: 'Texte suffisant ici.' }, {}).ok, 'kind inconnu refusé');
+
 // 2) Transitions
 ok(ev.canTransitionEvent('draft', 'review') && ev.canTransitionEvent('draft', 'published') && ev.canTransitionEvent('draft', 'cancelled'), 'draft → review/published/cancelled');
 ok(ev.canTransitionEvent('review', 'published') && ev.canTransitionEvent('review', 'draft'), 'review → published/draft');

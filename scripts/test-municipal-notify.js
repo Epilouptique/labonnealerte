@@ -9,7 +9,7 @@ let passed = 0, fails = 0;
 const ok = (c, m) => { if (c) { passed++; console.log('  ✓ ' + m); } else { fails++; console.error('  ✗ ' + m); } };
 
 const NOW = Date.parse('2026-10-11T10:00:00Z');
-const pub = (over) => Object.assign({ status: 'published', ends_at: null, notify_status: 'none', notify_resends: 0, commune_insee: '05061' }, over || {});
+const pub = (over) => Object.assign({ status: 'published', kind: 'alerte', ends_at: null, notify_status: 'none', notify_resends: 0, commune_insee: '05061' }, over || {});
 
 console.log('TEST diffusion événements municipaux (lot C)');
 
@@ -34,6 +34,8 @@ ok(nl.canSchedule(pub({ notify_status: 'sent', notify_resends: 0 }), NOW, { rese
 ok(!nl.canSchedule(pub({ notify_status: 'sent', notify_resends: 1 }), NOW, { resend: true }).ok, 'deuxième renvoi refusé');
 ok(!nl.canSchedule(pub({ notify_status: 'none' }), NOW, { resend: true }).ok, 'renvoi sans envoi initial → refus');
 ok(!nl.canSchedule(pub({ ends_at: '2026-10-11T09:00:00Z' }), NOW).ok, 'programmation d\'un événement terminé → refus');
+ok(!nl.canSchedule(pub({ kind: 'info' }), NOW).ok, 'événement « info » → notification refusée');
+ok(nl.canSchedule(pub({ kind: 'alerte' }), NOW).ok, 'événement « alerte » → notification autorisée');
 
 // 4) Fenêtre d'annulation / échéance
 const sched = nl.scheduledAtFrom(NOW);
