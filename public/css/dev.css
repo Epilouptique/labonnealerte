@@ -16,6 +16,9 @@ body.dev {
      pages institutions ; ce token n'existe pas sous body.dev, d'ou la valeur litterale). */
   background: #f5f6f8;
 }
+/* Le site peint une couche fixe plein ecran (body::before, background.png violet) AU-DESSUS
+   du fond du body : elle masquait le gris. On la neutralise sur la page developpeur. */
+body.dev::before { display: none !important; }
 /* Espace developpeur en PLEINE LARGEUR, sans blocs flottants : plus de panneau
    opaque (fond, arrondi, ombre retires), le contenu repose sur le fond de la page. */
 body.dev .dev-intro,

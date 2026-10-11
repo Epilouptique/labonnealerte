@@ -115,14 +115,20 @@
     var g = grid(); if (!g) return 1;
     var cs = window.getComputedStyle(g);
     var gTop = g.getBoundingClientRect().top + (parseFloat(cs.paddingTop) || 0);
-    var maxBottom = gTop;
+    var maxEnd = 1;
     visibleCards().forEach(function (c) {
       if (c.classList.contains('add')) return;
       if (c.classList.contains('vc-side') !== !!colIsSide) return;
       var r = c.getBoundingClientRect();
-      if (r.height && r.bottom > maxBottom) maxBottom = r.bottom;
+      if (!r.height) return;
+      // Rangée de DÉBUT de la carte + son span (hauteur + marge) = 1re rangée libre après
+      // elle. On raisonne en rangées-span (comme measureMixte) et non en pixels visuels,
+      // pour que la carte entrante se colle juste après la dernière, sans trou ni recouvrement.
+      var startRow = Math.round((r.top - gTop) / ROW) + 1;
+      var span = Math.max(1, Math.ceil((r.height + MARGIN) / ROW));
+      if (startRow + span > maxEnd) maxEnd = startRow + span;
     });
-    return Math.max(1, Math.round((maxBottom - gTop) / ROW) + 1);
+    return Math.max(1, maxEnd);
   }
 
   function renew(movedCard, toSide) {
@@ -133,6 +139,7 @@
     // sa rangée venait de l'ancienne colonne et laisse un trou dans la nouvelle). Les deux
     // colonnes se tassent alors densément ; seule la carte entrante recevra un placement.
     visibleCards().forEach(function (c) { if (c.style) c.style.gridRowStart = ''; });
+    measureMixte();   // spans à jour sur la colonne tassée avant de calculer la rangée du bas
     var added = pool[0];
     var shown = visibleCards();
     var surplus = shown.filter(function (c) {
