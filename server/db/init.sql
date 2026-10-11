@@ -4911,3 +4911,50 @@ DO $$ BEGIN
       CHECK (subtitle IS NULL OR char_length(subtitle) <= 38);
   END IF;
 END $$;
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- ORGANISATIONS (chantier « Publier pour les mairies et com-com », LOT A).
+-- Une organisation (mairie / EPCI / autre) est RATTACHÉE à un demandeur (compte) et
+-- naît en 'pending'. Seul l'admin (scripts/org-admin.js) la vérifie/refuse/suspend.
+-- AUCUNE publication d'événement n'est permise ici : une organisation non vérifiée ne
+-- peut rien émettre (invariant du lot, appliqué côté code des lots suivants).
+-- DDL IDEMPOTENT : à rejouer par migrate.js / exécuté manuellement par Hugo.
+-- ════════════════════════════════════════════════════════════════════════════
+CREATE TABLE IF NOT EXISTS organizations (
+  id                       BIGSERIAL PRIMARY KEY,
+  name                     TEXT NOT NULL,
+  type                     TEXT NOT NULL DEFAULT 'commune' CHECK (type IN ('commune','epci','autre')),
+  commune_insee            TEXT,          -- type 'commune' : code INSEE (résolu via la liste officielle)
+  siren                    TEXT,          -- type 'epci'/'autre' : SIREN à 9 chiffres
+  email                    TEXT,          -- e-mail professionnel du demandeur (comparaison de domaine manuelle)
+  justification            TEXT,          -- justificatif libre facultatif
+  status                   TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','verified','suspended')),
+  status_reason            TEXT,          -- motif de refus/suspension (obligatoire côté admin)
+  requester_subscriber_id  INTEGER NOT NULL REFERENCES subscribers(id),
+  verified_by              TEXT,          -- identifiant/trace de l'admin ayant statué
+  verified_at             TIMESTAMPTZ,
+  created_at               TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at               TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+-- Doublon : une SEULE organisation non suspendue (pending/verified) par commune INSEE.
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_org_insee_active
+  ON organizations (commune_insee)
+  WHERE commune_insee IS NOT NULL AND status IN ('pending','verified');
+-- Idem par SIREN pour les EPCI/autres structures.
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_org_siren_active
+  ON organizations (siren)
+  WHERE siren IS NOT NULL AND status IN ('pending','verified');
+CREATE INDEX IF NOT EXISTS idx_org_requester ON organizations (requester_subscriber_id);
+CREATE INDEX IF NOT EXISTS idx_org_status ON organizations (status);
+
+-- Membres d'une organisation : rôle (admin/editeur) et statut d'adhésion (invite/actif).
+-- Le demandeur est inséré admin+actif à la création (cf. routes/organizations.js).
+CREATE TABLE IF NOT EXISTS organization_members (
+  org_id         BIGINT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  subscriber_id  INTEGER NOT NULL REFERENCES subscribers(id),
+  role           TEXT NOT NULL DEFAULT 'editeur' CHECK (role IN ('admin','editeur')),
+  status         TEXT NOT NULL DEFAULT 'invite' CHECK (status IN ('invite','actif')),
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (org_id, subscriber_id)
+);
+CREATE INDEX IF NOT EXISTS idx_org_members_sub ON organization_members (subscriber_id);
