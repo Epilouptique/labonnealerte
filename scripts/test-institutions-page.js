@@ -51,8 +51,34 @@ ok(/href="\/institutions\/publier"/.test(vitrine) && /mailto:contact@labonnealer
 ok(/<!--FOOTER-->/.test(vitrine) && /\/js\/header\.js/.test(vitrine), 'vitrine : même gabarit (footer + header)');
 ok(noMojibake(vitrine) && noMojibake(html), 'accents corrects (aucun mojibake)');
 
-// 4) Lien discret « Institutions » dans le pied de page public.
-ok(/href="\/institutions"/.test(footer), 'footer : lien Institutions présent');
+// 4) Bloc dédié « Institutions » dans le pied de page public (lot B-quater).
+ok(/href="\/institutions"/.test(footer), 'footer : lien vers /institutions présent');
+ok(/footer-institutions/.test(footer) && /Institutions et collectivit/i.test(footer), 'footer : bloc dédié « Institutions et collectivités »');
+ok(/href="\/institutions\/publier"/.test(footer), 'footer : lien « Demander l’accès »');
+
+// 5) Thème institutionnel dédié (lot B-quater), appliqué aux deux pages, pas ailleurs.
+const css = fs.readFileSync(path.join(ROOT, 'public/css/institutions.css'), 'utf8');
+ok(/\/css\/institutions\.css/.test(vitrine), 'vitrine : feuille de style dédiée liée');
+ok(/\/css\/institutions\.css/.test(html), 'assistant : feuille de style dédiée liée');
+ok(/<body class="[^"]*\binst\b/.test(vitrine) && /<body class="[^"]*\binst\b/.test(html), 'les deux pages portent la classe body.inst');
+// Aucune règle ne doit fuir hors de body.inst : toute ligne de sélecteur commençant
+// en colonne 0 et ouvrant un bloc `{` doit être soit @… (media/keyframes), soit body.inst….
+const leaks = css.replace(/\/\*[\s\S]*?\*\//g, '').split('\n')
+  .filter((l) => /\{\s*$/.test(l) && /^\S/.test(l))
+  .filter((l) => !/^@/.test(l) && !/^body\.inst\b/.test(l));
+ok(leaks.length === 0, 'CSS : toutes les règles sont préfixées body.inst (pas de fuite)');
+
+// 6) Honnêteté éditoriale : jamais de concurrent cité, emplacement hébergement balisé.
+ok(!/panneaupocket/i.test(vitrine), 'vitrine : aucune mention de concurrent');
+ok(/A CONFIRMER HUGO\s*:\s*hebergement/i.test(vitrine), 'vitrine : emplacement hébergement balisé « A CONFIRMER HUGO »');
+
+// 7) Illustrations originales : SVG inline avec alternative accessible, image OG dédiée.
+ok(/<svg[^>]*role="img"[^>]*aria-label=/.test(vitrine), 'vitrine : illustrations SVG avec aria-label');
+ok(/og:image"\s+content="https:\/\/labonnealerte\.fr\/img\/og-institutions\.svg"/.test(vitrine), 'vitrine : image OG dédiée');
+ok(fs.existsSync(path.join(ROOT, 'public/img/og-institutions.svg')), 'fichier image OG présent');
+
+// 8) FAQ sans script (details/summary natifs) — compatible CSP.
+ok(/<details>[\s\S]*<summary>/.test(vitrine), 'vitrine : FAQ en <details>/<summary> (sans JS)');
 
 console.log(`\n${passed} OK, ${fails} échec(s).`);
 process.exit(fails ? 1 : 0);
