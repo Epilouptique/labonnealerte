@@ -2554,7 +2554,7 @@ UPDATE sources SET params_schema = '[{"key":"pays","label":"Pays","type":"enum",
 -- Grands anniversaires historiques (chiffre rond), curés 2026-2027. TODO annuel.
 INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order)
 SELECT 'grands-anniversaires', 'Grands anniversaires', 'Mémoire culturelle et scientifique',
-  '100 ans de Metropolis, 50 ans de vos mangas cultes… Les grands anniversaires de la culture, jamais ratés.',
+  'Les grands anniversaires à chiffre rond de la culture et de la science (films, mangas, découvertes), signalés la veille et le jour J.',
   'internal', 'official', false, ARRAY['culture', 'monde'], 311
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'grands-anniversaires');
 INSERT INTO source_states (source_id) SELECT 'grands-anniversaires'
@@ -4258,6 +4258,8 @@ UPDATE sources SET description_long = 'Un rappel sobre à l''ouverture des grand
 UPDATE sources SET description_long = 'Le jour J des grandes journées internationales de l''ONU : droits des femmes (8 mars), droits de l''enfant, lutte contre les violences faites aux femmes, lutte contre le sida, personnes handicapées. Cinq dates, sans marronnier quotidien.' WHERE id = 'grandes-journees-mondiales';
 UPDATE sources SET description_long = 'Prévenu quelques jours avant les grandes marées (coefficient >= 100) sur le littoral français : pêche à pied exceptionnelle mais prudence accrue près de l''eau. Calendrier officiel SHOM / maree.info.' WHERE id = 'grandes-marees';
 UPDATE sources SET description_long = 'La veille et le jour J des grands anniversaires à chiffre rond (30, 50, 100, 150 ans) de la culture et de la science, curés à la main pour 2026-2028, plus les anniversaires de 1re parution en France de mangas cultes. Mémoire culturelle et scientifique, jamais un calendrier des tragédies.' WHERE id = 'grands-anniversaires';
+-- Description courte réécrite (plus claire : objet + timing). Appliquée au déploiement.
+UPDATE sources SET description = 'Les grands anniversaires à chiffre rond de la culture et de la science (films, mangas, découvertes), signalés la veille et le jour J.' WHERE id = 'grands-anniversaires';
 UPDATE sources SET description_long = 'Un rappel à l''approche des concerts des grandes têtes d''affiche en France (Florent Pagny, Gims, Karol G, Olivia Rodrigo, Niska, SCH, Blink-182, Grand Corps Malade…). Dates officielles des billetteries et salles.' WHERE id = 'grands-concerts';
 UPDATE sources SET description_long = 'Un rappel à l''approche des grands rendez-vous de la gastronomie mondiale : le palmarès The World''s 50 Best Restaurants et la finale du Bocuse d''Or (au SIRHA de Lyon). Dates officielles.' WHERE id = 'grands-prix-gastronomie';
 UPDATE sources SET description_long = 'Un rappel la veille et le jour des grands rendez-vous sportifs : finales de Coupe du monde, arrivée du Tour de France. Messages factuels, sans parti pris.' WHERE id = 'grands-rendez-vous-sportifs';

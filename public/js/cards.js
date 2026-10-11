@@ -820,7 +820,11 @@
 
     // « i » (verso) : description LONGUE si presente, sinon la courte (jamais de vide).
     // Visible sur toutes tailles d'ecran (le retournement fait office de popup partout).
-    var longDesc = '<p class="card-long-desc">' + esc(s.description_long || s.description || '') + '</p>';
+    // On rend AUSSI la description COURTE (masquee par defaut) : les vignettes mini
+    // (colonne ultra « .vc-side » du visuel mixte) l'affichent a la place de la longue
+    // (bascule purement CSS — cf. site.css), trop dense pour une si petite carte.
+    var longDesc = '<p class="card-long-desc">' + esc(s.description_long || s.description || '') + '</p>' +
+      '<p class="card-long-desc card-back-short">' + esc(s.description || '') + '</p>';
 
     // Badge @forum_slug ancré en haut-GAUCHE du verso, à la hauteur de flip-back (qui reste
     // en haut-droite) : les deux se font face sur la même ligne. Réutilise .forum-slug-badge
