@@ -35,7 +35,7 @@
   }
 
   function emptyDraft() {
-    return { step: 'essentiel', title: '', category: null, type: null, url: '', zone: '',
+    return { step: 'essentiel', title: '', categories: [], type: null, url: '', zone: '',
       alert_message: '', alert_url: '', preavis: 1, previewOk: false, previewExtract: null,
       previewUnstable: false, id: null, status: null, syncedUrl: null, syncedZone: null };
   }
@@ -101,7 +101,9 @@
       case 'essentiel': {
         var vt = validateTitle(d.title);
         if (!vt.ok) return vt;
-        if (!d.category) return { ok: false, error: 'Choisissez une catégorie.' };
+        var cats = Array.isArray(d.categories) ? d.categories : [];
+        if (cats.length < 1) return { ok: false, error: 'Choisissez au moins une catégorie.' };
+        if (cats.length > 3) return { ok: false, error: '3 catégories au maximum.' };
         return { ok: true };
       }
       case 'details': {
@@ -143,7 +145,7 @@
   // provisoire ; l'id public dérive du titre côté serveur).
   function createBody(d) {
     var b = { type: d.type, url: String(d.url || '').trim(),
-      name: String(d.title || '').trim(), categories: d.category ? [d.category] : [] };
+      name: String(d.title || '').trim(), categories: (Array.isArray(d.categories) ? d.categories : []).slice(0, 3) };
     if (d.type === 'page' && d.zone && String(d.zone).trim()) b.zone = String(d.zone).trim();
     if (d.alert_message && String(d.alert_message).trim()) b.alert_message = String(d.alert_message).trim();
     if (d.alert_url && String(d.alert_url).trim()) b.alert_url = String(d.alert_url).trim();

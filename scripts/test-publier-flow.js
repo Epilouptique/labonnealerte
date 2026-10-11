@@ -30,10 +30,12 @@ ok(F.validateTitle('Baisse de prix RTX').ok, 'titre valide');
 ok(!F.validateTitle('x'.repeat(41)).ok, 'titre > 40 refusé');
 ok(F.TITLE_MAX === 40, 'max titre = 40');
 
-// 3) Écran essentiel : titre + catégorie requis
-ok(!F.canContinue('essentiel', { title: 'Baisse de prix RTX' }), 'catégorie requise');
-ok(F.canContinue('essentiel', { title: 'Baisse de prix RTX', category: 'gpu' }), 'titre + catégorie → OK');
-ok(!F.canContinue('essentiel', { title: 'ab', category: 'gpu' }), 'titre invalide bloque');
+// 3) Écran essentiel : titre + au moins une catégorie (jusqu'à 3)
+ok(!F.canContinue('essentiel', { title: 'Baisse de prix RTX', categories: [] }), 'au moins une catégorie requise');
+ok(F.canContinue('essentiel', { title: 'Baisse de prix RTX', categories: ['gpu'] }), 'titre + catégorie → OK');
+ok(F.canContinue('essentiel', { title: 'Baisse de prix RTX', categories: ['gpu', 'high-tech', 'tech'] }), 'jusqu’à 3 catégories');
+ok(!F.canContinue('essentiel', { title: 'Baisse de prix RTX', categories: ['a', 'b', 'c', 'd'] }), 'plus de 3 refusé');
+ok(!F.canContinue('essentiel', { title: 'ab', categories: ['gpu'] }), 'titre invalide bloque');
 
 // 4) Suggestions de catégories par mots-clés (sans IA)
 const s1 = F.suggestCategories('Baisse de prix carte graphique RTX', CATS, 3).map((c) => c.slug);
@@ -57,18 +59,19 @@ ok(!F.canContinue('details', { type: 'rss', url: 'https://x.fr', zone: '#prix' }
 ok(!F.canContinue('details', { type: 'agenda', url: 'https://x.fr', preavis: 99 }), 'préavis hors bornes refusé');
 ok(!F.canContinue('details', { type: 'page', url: 'https://x.fr', alert_url: 'ftp://x' }), 'lien d\'alerte non http(s) refusé');
 
-// 7) Corps de création : titre + catégorie + type + url ENVOYÉS dès la création
-const bodyPage = F.createBody({ type: 'page', url: ' https://x.fr/p ', zone: '#prix', title: ' Prix RTX ', category: 'gpu', alert_message: 'Hop', alert_url: 'https://y.fr' });
+// 7) Corps de création : titre + catégories (jusqu'à 3) + type + url ENVOYÉS dès la création
+const bodyPage = F.createBody({ type: 'page', url: ' https://x.fr/p ', zone: '#prix', title: ' Prix RTX ', categories: ['gpu', 'high-tech'], alert_message: 'Hop', alert_url: 'https://y.fr' });
 ok(bodyPage.type === 'page' && bodyPage.url === 'https://x.fr/p' && bodyPage.zone === '#prix', 'createBody : type+url+zone');
-ok(bodyPage.name === 'Prix RTX' && JSON.stringify(bodyPage.categories) === '["gpu"]', 'createBody : titre + catégorie');
+ok(bodyPage.name === 'Prix RTX' && JSON.stringify(bodyPage.categories) === '["gpu","high-tech"]', 'createBody : titre + catégories multiples');
 ok(bodyPage.alert_message === 'Hop' && bodyPage.alert_url === 'https://y.fr', 'createBody : personnalisation');
-const bodyAgenda = F.createBody({ type: 'agenda', url: 'https://x.fr/c.ics', title: 'Agenda club', category: 'concerts', preavis: 3 });
+ok(JSON.stringify(F.createBody({ type: 'page', url: 'https://x', title: 'T', categories: ['a', 'b', 'c', 'd'] }).categories) === '["a","b","c"]', 'createBody : au plus 3 catégories');
+const bodyAgenda = F.createBody({ type: 'agenda', url: 'https://x.fr/c.ics', title: 'Agenda club', categories: ['concerts'], preavis: 3 });
 ok(bodyAgenda.preavis === 3 && bodyAgenda.zone === undefined, 'createBody : préavis agenda, pas de zone');
-ok(F.createBody({ type: 'rss', url: 'https://x', title: 'Blog', category: 'tech', zone: '#x' }).zone === undefined, 'createBody : pas de zone hors page');
+ok(F.createBody({ type: 'rss', url: 'https://x', title: 'Blog', categories: ['tech'], zone: '#x' }).zone === undefined, 'createBody : pas de zone hors page');
 
 // 8) Invalidation de l'aperçu, erreurs, libellés
 ok(F.invalidatesPreview('url') && F.invalidatesPreview('zone') && F.invalidatesPreview('type'), 'url/zone/type invalident l\'aperçu');
-ok(!F.invalidatesPreview('title') && !F.invalidatesPreview('category'), 'titre/catégorie n\'invalident pas l\'aperçu');
+ok(!F.invalidatesPreview('title') && !F.invalidatesPreview('categories'), 'titre/catégories n\'invalident pas l\'aperçu');
 ok(/déjà/.test(F.mapCreateError(409, { existing: { url: '/source/x/statut', name: 'X' } }).message), 'doublon → message');
 ok(F.statusLabel('review') === 'En revue' && F.statusLabel('published') === 'Publiée', 'libellés statut');
 
