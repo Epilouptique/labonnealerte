@@ -37,17 +37,22 @@ body.inst .lead { font-size: clamp(18px, 2.4vw, 21px); color: var(--inst-muted);
 body.inst .eyebrow { text-transform: uppercase; letter-spacing: .12em; font-size: 13px; font-weight: 700; color: var(--inst-accent-ink); margin: 0 0 10px; }
 body.inst .band--accent .eyebrow { color: var(--inst-accent); }
 
-/* HERO */
-body.inst .hero { padding: 72px 0 64px; }
-body.inst .hero-grid { display: grid; grid-template-columns: 1.1fr .9fr; gap: 48px; align-items: center; }
+/* HERO : la photo de mairie occupe le fond, cote DROIT, et se fond
+   progressivement dans le fond violet du site (--inst-surface) vers la gauche. */
+body.inst .hero {
+  padding: 72px 0 64px;
+  background:
+    linear-gradient(90deg, var(--inst-surface) 0%, var(--inst-surface) 40%, rgba(244,237,251,0) 78%),
+    url("/img/photo_mairie.jpg") right center / cover no-repeat;
+}
+body.inst .hero-grid { display: grid; grid-template-columns: 1.1fr .9fr; gap: 48px; align-items: center; min-height: 360px; }
 body.inst .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
-/* Photo de la mairie en fond de la partie droite du hero. */
-body.inst .hero-photo { width: 100%; min-height: 360px; border-radius: 16px; background: var(--inst-soft) url("/img/photo_mairie.jpg") center/cover no-repeat; box-shadow: 0 10px 30px rgba(26,21,38,.14); }
 
 /* Boutons */
-body.inst .btn { display: inline-flex; align-items: center; gap: 8px; padding: 14px 22px; border-radius: 10px; font-weight: 700; font-size: 16px; text-decoration: none; border: 2px solid transparent; transition: transform .12s ease, box-shadow .12s ease; }
-body.inst .btn-primary { background: var(--inst-accent); color: var(--inst-accent-ink); }
-body.inst .btn-primary:hover { box-shadow: 0 6px 18px rgba(242,169,0,.35); transform: translateY(-1px); }
+body.inst .btn { display: inline-flex; align-items: center; gap: 8px; padding: 14px 22px; border-radius: 10px; font-weight: 700; font-size: 16px; text-decoration: none; border: 2px solid transparent; transition: background-color .15s ease, color .15s ease, border-color .15s ease; }
+body.inst .btn-primary { background: var(--inst-accent); color: #fff; }
+/* Au survol : pas d'ombre, mais un virage vers le gris du site. */
+body.inst .btn-primary:hover { background: var(--inst-soft); color: var(--inst-ink); border-color: var(--inst-line); }
 body.inst .btn-ghost { background: transparent; border-color: var(--inst-line); color: inherit; }
 body.inst .band--accent .btn-ghost { border-color: rgba(255,255,255,.4); color: #fff; }
 body.inst .btn:focus-visible { outline: 3px solid var(--inst-accent); outline-offset: 3px; }
@@ -58,7 +63,7 @@ body.inst .cols-4 { grid-template-columns: repeat(4, 1fr); }
 body.inst .cols-3 { grid-template-columns: repeat(3, 1fr); }
 body.inst .cols-2 { grid-template-columns: repeat(2, 1fr); }
 body.inst .pillar h3 { margin-top: 14px; }
-body.inst .ico { width: 40px; height: 40px; color: var(--inst-accent-ink); }
+body.inst .ico { width: 40px; height: 40px; color: var(--amber, #a567e3); }
 body.inst .band--accent .ico { color: var(--inst-accent); }
 
 /* Étapes numérotées */
@@ -116,8 +121,9 @@ body.inst .todo-hugo { display: none; }
 
 /* Responsive */
 @media (max-width: 880px) {
-  body.inst .hero-grid { grid-template-columns: 1fr; gap: 32px; }
-  body.inst .hero-photo { max-width: 460px; min-height: 240px; margin: 0 auto; }
+  body.inst .hero-grid { grid-template-columns: 1fr; gap: 32px; min-height: 0; }
+  /* Mobile : la photo de fond nuirait a la lisibilite du texte -> fond violet uni. */
+  body.inst .hero { background: var(--inst-surface); }
   body.inst .cols-4 { grid-template-columns: repeat(2, 1fr); }
   body.inst .steps { grid-template-columns: repeat(2, 1fr); }
   body.inst .cases { grid-template-columns: 1fr; }

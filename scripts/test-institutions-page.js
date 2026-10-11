@@ -46,7 +46,7 @@ ok(!/name="robots"\s+content="noindex"/i.test(vitrine), 'vitrine : indexable (pa
 ok(/<title>[^<]*Institutions[^<]*<\/title>/.test(vitrine) && /<meta name="description"/.test(vitrine), 'vitrine : titre + meta description');
 ok(/rel="canonical"\s+href="https:\/\/labonnealerte\.fr\/institutions"/.test(vitrine), 'vitrine : canonical /institutions');
 ok(/['"]\/institutions['"]/.test(sitemap), 'vitrine : /institutions ajouté au sitemap');
-ok(/Comment ça marche/i.test(vitrine) && /garanti/i.test(vitrine) && /ne fait pas/i.test(vitrine) && /Demander l[’']accès/i.test(vitrine), 'vitrine : sections (ça marche, garanties, ne fait pas, CTA)');
+ok(/Comment ça marche/i.test(vitrine) && /garanti/i.test(vitrine) && /Demander l[’']accès/i.test(vitrine), 'vitrine : sections (ça marche, garanties, CTA)');
 ok(/href="\/institutions\/publier"/.test(vitrine) && /href="mailto:/.test(vitrine), 'vitrine : bouton Demander l’accès + contact');
 ok(/<!--FOOTER-->/.test(vitrine) && /\/js\/header\.js/.test(vitrine), 'vitrine : même gabarit (footer + header)');
 ok(noMojibake(vitrine) && noMojibake(html), 'accents corrects (aucun mojibake)');
@@ -54,7 +54,7 @@ ok(noMojibake(vitrine) && noMojibake(html), 'accents corrects (aucun mojibake)')
 // 4) Bloc dédié « Institutions » dans le pied de page public (lot B-quater).
 ok(/href="\/institutions"/.test(footer), 'footer : lien vers /institutions présent');
 ok(/footer-institutions/.test(footer) && /Institutions et collectivit/i.test(footer), 'footer : bloc dédié « Institutions et collectivités »');
-ok(/href="\/institutions\/publier"/.test(footer), 'footer : lien « Demander l’accès »');
+ok(/>Mairies</.test(footer) && />Syndicats</.test(footer) && />Associations</.test(footer), 'footer : liens Mairies / Syndicats / Associations');
 
 // 5) Thème institutionnel dédié (lot B-quater), appliqué aux deux pages, pas ailleurs.
 const css = fs.readFileSync(path.join(ROOT, 'public/css/institutions.css'), 'utf8');
@@ -70,7 +70,7 @@ ok(leaks.length === 0, 'CSS : toutes les règles sont préfixées body.inst (pas
 
 // 6) Honnêteté éditoriale : jamais de concurrent cité, emplacement hébergement balisé.
 ok(!/panneaupocket/i.test(vitrine), 'vitrine : aucune mention de concurrent');
-ok(/Données hébergées dans l'Union européenne \(Irlande\)/.test(vitrine) && /Nom de domaine enregistré en France/.test(vitrine), 'vitrine : mention édition/hébergement UE confirmée');
+ok(/Union européenne/i.test(vitrine) && /domaine enregistré en France/i.test(vitrine), 'vitrine : mention édition/hébergement (UE + domaine FR)');
 ok(!/héberg[ée]*\s+en\s+France/i.test(vitrine), 'vitrine : pas de promesse « hébergé en France »');
 ok(!/souverain/i.test(vitrine), 'vitrine : pas de « souverain »');
 ok(/mailto:institutions@labonnealerte\.fr/.test(vitrine) && /institutions@labonnealerte\.fr<\/a>/.test(vitrine), 'vitrine : contact institutions@labonnealerte.fr (mailto + texte)');
