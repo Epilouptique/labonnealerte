@@ -3,106 +3,365 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Institutions — La Bonne Alerte</title>
-<meta name="description" content="Mairies, intercommunalités et associations communales : un canal gratuit et sans publicité pour prévenir les habitants abonnés de votre commune. Service en lancement avec des communes pilotes.">
+<title>Institutions et collectivités — La Bonne Alerte</title>
+<meta name="description" content="Mairies, intercommunalités et associations communales : un canal gratuit, sans publicité et open source pour prévenir les habitants abonnés de votre commune. Service en lancement avec des communes pilotes.">
 <link rel="canonical" href="https://labonnealerte.fr/institutions">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="La Bonne Alerte">
 <meta property="og:locale" content="fr_FR">
-<meta property="og:title" content="Institutions — La Bonne Alerte">
+<meta property="og:title" content="Prévenir vos habitants, simplement et sans publicité">
 <meta property="og:description" content="Un canal gratuit, sans publicité et open source pour informer les habitants abonnés de votre commune.">
 <meta property="og:url" content="https://labonnealerte.fr/institutions">
-<meta property="og:image" content="https://labonnealerte.fr/img/og-default.png">
+<meta property="og:image" content="https://labonnealerte.fr/img/og-institutions.svg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="La Bonne Alerte — toutes vos alertes, en un clic.">
+<meta property="og:image:alt" content="La Bonne Alerte pour les institutions et collectivités.">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Institutions — La Bonne Alerte">
+<meta name="twitter:title" content="Institutions et collectivités — La Bonne Alerte">
 <meta name="twitter:description" content="Un canal gratuit, sans publicité et open source pour informer les habitants abonnés de votre commune.">
-<meta name="twitter:image" content="https://labonnealerte.fr/img/og-default.png">
+<meta name="twitter:image" content="https://labonnealerte.fr/img/og-institutions.svg">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="stylesheet" href="/css/fonts.css">
 <link rel="stylesheet" href="/css/tokens.css">
 <link rel="stylesheet" href="/css/site.css">
-<style>
-.page { max-width: 760px; padding: 48px 24px 80px; }
-.page h1 { font-size: clamp(28px, 5vw, 40px); font-weight: 800; letter-spacing: -0.02em; }
-.page .lead { color: var(--muted); font-size: 18px; margin-top: 12px; }
-.page section { margin-top: 36px; }
-.page h2 { font-size: 20px; font-weight: 800; margin-bottom: 10px; }
-.page p { color: var(--ink); line-height: 1.65; margin-top: 8px; }
-.page ul { margin: 10px 0 0; padding-left: 20px; color: var(--ink); line-height: 1.65; }
-.page li { margin-top: 6px; }
-.page ol.steps { margin: 10px 0 0; padding-left: 20px; }
-.page ol.steps li { margin-top: 10px; }
-.page a.inline { color: var(--amber-ink); font-weight: 600; text-decoration: underline; }
-.page .note { color: var(--muted); font-size: 15px; margin-top: 14px; }
-.page .cta { display: inline-block; margin-top: 16px; padding: 14px 20px; border-radius: 12px; background: var(--amber, #f2a900); color: #1a1300; font-weight: 700; text-decoration: none; }
-.page .cta.ghost { background: transparent; border: 2px solid var(--line, #e7e2ef); color: inherit; margin-left: 10px; }
-</style>
+<link rel="stylesheet" href="/css/institutions.css">
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#fdfaff" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0f1419" media="(prefers-color-scheme: dark)">
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 </head>
-<body>
+<body class="inst">
 
 <header>
   <div class="wrap nav"></div>
 </header>
 
-<main class="wrap page">
-  <h1>Pour les <span class="hl">institutions</span></h1>
-  <p class="lead">Mairies, intercommunalités et associations communales : informez simplement les habitants abonnés de votre commune, sans publicité et sans revente de données.</p>
-  <p class="note">Service <strong>en lancement</strong>, avec quelques communes pilotes. La diffusion de notifications reste fermée pour l'instant : vous pouvez préparer et vérifier vos messages, aucun envoi n'est actif tant que nous ne l'ouvrons pas commune par commune.</p>
+<main>
 
-  <section>
-    <h2>Ce que c'est</h2>
-    <p>La Bonne Alerte est un service <strong>gratuit</strong>, <strong>sans publicité</strong> et <strong>open source</strong>. Il permet à une collectivité vérifiée de publier des informations locales (coupure d'eau, travaux, événement, fermeture…) à destination des habitants qui suivent leur commune.</p>
-    <ul>
-      <li>Vous gardez la main : vous rédigez, relisez, puis publiez.</li>
-      <li>L'audience, ce sont les personnes abonnées à votre commune — pas une liste que vous constituez ni que nous revendons.</li>
-      <li>Code ouvert : le fonctionnement est public et auditable.</li>
-    </ul>
+  <!-- a) HERO -->
+  <section class="band hero">
+    <div class="inst-wrap hero-grid">
+      <div>
+        <p class="eyebrow">Pour les mairies, EPCI et associations communales</p>
+        <h1>Prévenir vos habitants, simplement et sans publicité.</h1>
+        <p class="lead">Publiez une coupure d'eau, des travaux, un événement ou une alerte météo locale. Les habitants abonnés à votre commune sont informés — sans publicité, sans revente de données, avec un code ouvert et auditable.</p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="/institutions/publier">Demander l'accès</a>
+          <a class="btn btn-ghost" href="#comment">Voir comment ça marche</a>
+        </div>
+        <p class="inst-muted" style="margin-top:20px;font-size:15px;">Service en lancement, avec quelques communes pilotes. La diffusion de notifications reste fermée tant que nous ne l'ouvrons pas, commune par commune.</p>
+      </div>
+      <svg class="hero-art" viewBox="0 0 440 340" role="img" aria-label="Illustration : un village et une notification envoyée aux habitants." xmlns="http://www.w3.org/2000/svg">
+        <rect x="0" y="0" width="440" height="340" rx="18" fill="#f5f6f8"/>
+        <!-- colline -->
+        <path d="M0 300 Q140 250 260 290 T440 280 V340 H0 Z" fill="#e4e9f2"/>
+        <!-- mairie -->
+        <g stroke="#1a1526" stroke-width="3" fill="#fff" stroke-linejoin="round">
+          <rect x="150" y="170" width="140" height="110"/>
+          <path d="M140 170 L220 120 L300 170 Z" fill="#fde9bf"/>
+          <rect x="210" y="210" width="20" height="70" fill="#e4e9f2"/>
+          <rect x="168" y="200" width="24" height="30" fill="#e4e9f2"/>
+          <rect x="248" y="200" width="24" height="30" fill="#e4e9f2"/>
+        </g>
+        <line x1="220" y1="120" x2="220" y2="96" stroke="#1a1526" stroke-width="3"/>
+        <path d="M220 98 h22 v12 h-22 z" fill="#f2a900"/>
+        <!-- cloche de notification -->
+        <g transform="translate(330 70)">
+          <circle cx="0" cy="0" r="38" fill="#f2a900"/>
+          <path d="M0 -18 a14 14 0 0 1 14 14 v10 l5 7 h-38 l5 -7 v-10 a14 14 0 0 1 14 -14z" fill="#4a3500"/>
+          <circle cx="0" cy="12" r="4" fill="#4a3500"/>
+        </g>
+        <!-- maisons des habitants -->
+        <g stroke="#1a1526" stroke-width="2.5" fill="#fff">
+          <path d="M60 250 h44 v34 h-44 z M58 250 l24 -18 l24 18" fill="#fff"/>
+          <path d="M336 252 h40 v32 h-40 z M334 252 l22 -16 l22 16" fill="#fff"/>
+        </g>
+      </svg>
+    </div>
   </section>
 
-  <section>
-    <h2>Comment ça marche, en 4 étapes</h2>
-    <ol class="steps">
-      <li><strong>Demande d'accès</strong> : vous décrivez votre structure et votre fonction depuis la page dédiée.</li>
-      <li><strong>Vérification manuelle</strong> : nous contrôlons, une à une, que la demande émane bien de la collectivité (par exemple via le domaine de l'e-mail professionnel) avant toute publication.</li>
-      <li><strong>Publication</strong> : une fois vérifiée, votre organisation rédige ses messages en quelques écrans, avec un aperçu de ce que verront les habitants.</li>
-      <li><strong>Alerte ou Information</strong> : une « Alerte » peut prévenir les habitants (notification) ; une « Information » reste affichée sur la fiche de la commune, sans notification.</li>
-    </ol>
+  <!-- b) VALEURS + service français -->
+  <section class="band band--soft">
+    <div class="inst-wrap">
+      <h2>Ce qui nous distingue</h2>
+      <div class="cols cols-4" style="margin-top:28px;">
+        <div class="pillar">
+          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2v20M5 7h9a3 3 0 0 1 0 6H5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="4" y1="20" x2="20" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <h3>Gratuit pour les communes</h3>
+          <p class="inst-muted">Aucun abonnement, aucun coût d'accès pour publier à destination de vos habitants.</p>
+        </div>
+        <div class="pillar">
+          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 8l8 8M16 8l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <h3>Sans publicité</h3>
+          <p class="inst-muted">Jamais d'annonces, jamais de bannières. Vos messages ne sont pas noyés dans de la réclame.</p>
+        </div>
+        <div class="pillar">
+          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <h3>Code ouvert et auditable</h3>
+          <p class="inst-muted">Le fonctionnement du service est public (licence libre) : il peut être vérifié par n'importe qui.</p>
+        </div>
+        <div class="pillar">
+          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 3v5c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 12l2 2 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <h3>Données jamais revendues</h3>
+          <p class="inst-muted">Les coordonnées des habitants ne sont ni vendues, ni cédées, ni exploitées à des fins publicitaires.</p>
+        </div>
+      </div>
+
+      <div style="margin-top:48px;max-width:70ch;">
+        <h3>Un service français et indépendant</h3>
+        <p class="inst-muted">La Bonne Alerte est édité par Dahu-Concept (voir les <a class="btn-ghost" style="border:0;padding:0;text-decoration:underline;color:inherit;font-weight:600;" href="/mentions-legales">mentions légales</a>). Le service est indépendant et son code est publié sous licence libre.</p>
+        <!-- A CONFIRMER HUGO : hebergement — indiquer ici le pays et le prestataire d'hébergement
+             de la base de données et des serveurs (ex. « hébergé en France chez … »). Ne rien
+             affirmer tant que ce n'est pas confirmé par Hugo. -->
+        <p class="inst-muted todo-hugo">[Hébergement : à compléter après confirmation.]</p>
+      </div>
+    </div>
   </section>
 
-  <section>
-    <h2>Nos garanties</h2>
-    <ul>
-      <li>Organisations <strong>vérifiées une à une</strong> ; une structure non vérifiée ne peut rien diffuser.</li>
-      <li><strong>Plafond d'envois par jour</strong> et <strong>délai d'annulation</strong> après « Publier » : un envoi peut être arrêté tant qu'il n'est pas parti.</li>
-      <li><strong>Journal des envois</strong> (qui, quand, combien de destinataires) côté administration.</li>
-      <li><strong>Aucune revente de données</strong>, aucune publicité. Voir la <a class="inline" href="/confidentialite">Confidentialité</a>.</li>
-    </ul>
+  <!-- c) COMMENT CA MARCHE -->
+  <section class="band" id="comment">
+    <div class="inst-wrap">
+      <p class="eyebrow">Comment ça marche</p>
+      <h2>De la demande d'accès à la diffusion, en 4 étapes</h2>
+      <div class="steps">
+        <div class="step">
+          <h3>Demande d'accès</h3>
+          <p class="inst-muted">Vous décrivez votre structure et votre fonction depuis la page dédiée.</p>
+        </div>
+        <div class="step">
+          <h3>Vérification manuelle</h3>
+          <p class="inst-muted">Nous contrôlons, une à une, que la demande émane bien de la collectivité avant toute publication.</p>
+        </div>
+        <div class="step">
+          <h3>Publication</h3>
+          <p class="inst-muted">Votre organisation rédige ses messages en quelques écrans, avec un aperçu de ce que verront les habitants.</p>
+        </div>
+        <div class="step">
+          <h3>Diffusion</h3>
+          <p class="inst-muted">Le message paraît sur la fiche de la commune ; une Alerte peut en plus notifier les habitants abonnés.</p>
+        </div>
+      </div>
+
+      <div class="kinds">
+        <div class="kind kind--alerte">
+          <span class="tag">Alerte</span>
+          <p>Événement urgent (coupure, risque météo) : le message s'affiche <strong>et</strong> peut déclencher une notification aux habitants abonnés.</p>
+        </div>
+        <div class="kind kind--info">
+          <span class="tag">Information</span>
+          <p>Message courant (événement, travaux planifiés) : il reste affiché sur la fiche de la commune, <strong>sans</strong> notification.</p>
+        </div>
+      </div>
+    </div>
   </section>
 
-  <section>
-    <h2>Ce que le service ne fait pas</h2>
-    <ul>
-      <li>Pas de <strong>ciblage par quartier</strong> : l'audience est l'ensemble des abonnés de la commune.</li>
-      <li>Pas de <strong>SMS</strong> : les messages passent par e-mail et notification web.</li>
-      <li>Pas de collecte de listes d'habitants pour votre compte : vous ne gérez pas d'annuaire.</li>
-    </ul>
+  <!-- d) CAS D'USAGE -->
+  <section class="band band--soft">
+    <div class="inst-wrap">
+      <h2>Des usages concrets au quotidien</h2>
+      <p class="lead">Quelques exemples de messages — fictifs, fournis à titre d'illustration.</p>
+      <div class="cases">
+        <div class="case">
+          <h3>Coupure d'eau ou d'électricité</h3>
+          <div class="msg">
+            <p class="msg-head">Alerte · Mairie <span class="ex">Exemple</span></p>
+            <p class="msg-body">Coupure d'eau prévue mardi 14/10 de 9h à 13h, rues des Lilas et du Moulin, pour des travaux sur le réseau. Pensez à prévoir une réserve d'eau.</p>
+          </div>
+        </div>
+        <div class="case">
+          <h3>Travaux et circulation</h3>
+          <div class="msg">
+            <p class="msg-head">Information · Mairie <span class="ex">Exemple</span></p>
+            <p class="msg-body">La rue de la Gare sera fermée à la circulation du 20 au 24 octobre. Déviation par l'avenue du Parc. Accès riverains maintenu.</p>
+          </div>
+        </div>
+        <div class="case">
+          <h3>Fermeture d'un équipement</h3>
+          <div class="msg">
+            <p class="msg-head">Information · Mairie <span class="ex">Exemple</span></p>
+            <p class="msg-body">La médiathèque sera exceptionnellement fermée samedi 18 octobre pour maintenance. Réouverture lundi aux horaires habituels.</p>
+          </div>
+        </div>
+        <div class="case">
+          <h3>Événement et alerte météo locale</h3>
+          <div class="msg">
+            <p class="msg-head">Alerte · Mairie <span class="ex">Exemple</span></p>
+            <p class="msg-body">Vent violent attendu cette nuit. Le marché de dimanche est reporté. Évitez les abords du parc où des branches peuvent tomber.</p>
+          </div>
+        </div>
+      </div>
+    </div>
   </section>
 
-  <section>
-    <h2>Participer</h2>
-    <p>Votre commune souhaite rejoindre les pilotes ? Déposez une demande d'accès — nous reviendrons vers vous après vérification.</p>
-    <p>
-      <a class="cta" href="/institutions/publier">Demander l'accès</a>
-      <a class="cta ghost" href="mailto:contact@labonnealerte.fr">Nous écrire</a>
-    </p>
+  <!-- e) MAQUETTES -->
+  <section class="band">
+    <div class="inst-wrap">
+      <h2>Ce que ça donne, des deux côtés</h2>
+      <p class="lead">Représentations fidèles de l'interface — illustrations originales, aucune capture d'un vrai compte.</p>
+      <div class="mockups">
+        <figure class="mockup">
+          <svg viewBox="0 0 220 300" role="img" aria-label="Maquette : carte d'alerte reçue par un habitant sur son téléphone." xmlns="http://www.w3.org/2000/svg">
+            <rect x="10" y="6" width="200" height="288" rx="26" fill="#fff" stroke="#1a1526" stroke-width="3"/>
+            <rect x="10" y="6" width="200" height="40" rx="26" fill="#1a1526"/>
+            <text x="110" y="32" text-anchor="middle" fill="#fff" font-size="13" font-family="sans-serif">La Bonne Alerte</text>
+            <rect x="26" y="62" width="168" height="92" rx="12" fill="#fff" stroke="#f2a900" stroke-width="2"/>
+            <rect x="38" y="76" width="54" height="16" rx="8" fill="#fde9bf"/>
+            <text x="65" y="88" text-anchor="middle" fill="#4a3500" font-size="10" font-family="sans-serif">ALERTE</text>
+            <rect x="38" y="102" width="140" height="8" rx="4" fill="#1a1526"/>
+            <rect x="38" y="118" width="120" height="7" rx="3.5" fill="#c9c6d4"/>
+            <rect x="38" y="132" width="132" height="7" rx="3.5" fill="#c9c6d4"/>
+            <rect x="26" y="168" width="168" height="54" rx="12" fill="#f5f6f8"/>
+            <rect x="38" y="182" width="48" height="14" rx="7" fill="#e4e9f2"/>
+            <text x="62" y="193" text-anchor="middle" fill="#2a3a52" font-size="9" font-family="sans-serif">INFO</text>
+            <rect x="38" y="204" width="120" height="7" rx="3.5" fill="#c9c6d4"/>
+          </svg>
+          <figcaption>Côté habitant : la carte d'alerte reçue.</figcaption>
+        </figure>
+        <figure class="mockup">
+          <svg viewBox="0 0 220 300" role="img" aria-label="Maquette : fiche d'une commune listant ses messages." xmlns="http://www.w3.org/2000/svg">
+            <rect x="10" y="6" width="200" height="288" rx="26" fill="#fff" stroke="#1a1526" stroke-width="3"/>
+            <rect x="26" y="26" width="168" height="48" rx="12" fill="#fde9bf"/>
+            <text x="110" y="55" text-anchor="middle" fill="#4a3500" font-size="15" font-weight="bold" font-family="sans-serif">Ma commune</text>
+            <rect x="26" y="90" width="168" height="44" rx="10" fill="#f5f6f8"/>
+            <circle cx="46" cy="112" r="8" fill="#f2a900"/>
+            <rect x="62" y="102" width="118" height="7" rx="3.5" fill="#1a1526"/>
+            <rect x="62" y="116" width="90" height="6" rx="3" fill="#c9c6d4"/>
+            <rect x="26" y="144" width="168" height="44" rx="10" fill="#f5f6f8"/>
+            <circle cx="46" cy="166" r="8" fill="#2a3a52"/>
+            <rect x="62" y="156" width="118" height="7" rx="3.5" fill="#1a1526"/>
+            <rect x="62" y="170" width="78" height="6" rx="3" fill="#c9c6d4"/>
+            <rect x="26" y="198" width="168" height="44" rx="10" fill="#f5f6f8"/>
+            <circle cx="46" cy="220" r="8" fill="#2a3a52"/>
+            <rect x="62" y="210" width="110" height="7" rx="3.5" fill="#1a1526"/>
+            <rect x="62" y="224" width="84" height="6" rx="3" fill="#c9c6d4"/>
+          </svg>
+          <figcaption>Côté public : la fiche de la commune.</figcaption>
+        </figure>
+        <figure class="mockup">
+          <svg viewBox="0 0 220 300" role="img" aria-label="Maquette : écran de saisie d'un message côté mairie." xmlns="http://www.w3.org/2000/svg">
+            <rect x="10" y="6" width="200" height="288" rx="18" fill="#fff" stroke="#1a1526" stroke-width="3"/>
+            <text x="28" y="40" fill="#1a1526" font-size="14" font-weight="bold" font-family="sans-serif">Nouveau message</text>
+            <rect x="28" y="54" width="60" height="18" rx="9" fill="#fde9bf"/>
+            <text x="58" y="67" text-anchor="middle" fill="#4a3500" font-size="10" font-family="sans-serif">Alerte</text>
+            <rect x="94" y="54" width="60" height="18" rx="9" fill="#f5f6f8" stroke="#e6e3ee"/>
+            <text x="124" y="67" text-anchor="middle" fill="#5b5768" font-size="10" font-family="sans-serif">Info</text>
+            <rect x="28" y="86" width="164" height="26" rx="8" fill="#fff" stroke="#e6e3ee" stroke-width="2"/>
+            <rect x="36" y="96" width="80" height="7" rx="3.5" fill="#c9c6d4"/>
+            <rect x="28" y="122" width="164" height="78" rx="8" fill="#fff" stroke="#e6e3ee" stroke-width="2"/>
+            <rect x="36" y="134" width="140" height="6" rx="3" fill="#c9c6d4"/>
+            <rect x="36" y="148" width="130" height="6" rx="3" fill="#c9c6d4"/>
+            <rect x="36" y="162" width="110" height="6" rx="3" fill="#c9c6d4"/>
+            <rect x="28" y="212" width="164" height="34" rx="10" fill="#f2a900"/>
+            <text x="110" y="234" text-anchor="middle" fill="#4a3500" font-size="13" font-weight="bold" font-family="sans-serif">Aperçu puis publier</text>
+          </svg>
+          <figcaption>Côté mairie : l'écran de saisie.</figcaption>
+        </figure>
+      </div>
+    </div>
   </section>
+
+  <!-- f) GARANTIES -->
+  <section class="band band--accent">
+    <div class="inst-wrap">
+      <p class="eyebrow">Garanties et maîtrise</p>
+      <h2>Un service encadré, par conception</h2>
+      <div class="cols cols-2" style="margin-top:24px;">
+        <ul class="checks checks--yes">
+          <li>Chaque organisation est <strong>vérifiée une à une</strong> ; une structure non vérifiée ne peut rien diffuser.</li>
+          <li><strong>Plafond d'envois par jour</strong> par organisation, pour éviter toute sur-sollicitation.</li>
+          <li><strong>Délai d'annulation de 10 minutes</strong> après « Publier » : un envoi peut être arrêté tant qu'il n'est pas parti.</li>
+        </ul>
+        <ul class="checks checks--yes">
+          <li><strong>Journal des envois</strong> (qui, quand, combien de destinataires) côté administration.</li>
+          <li><strong>Distinction Alerte / Information</strong> : seule une Alerte peut notifier ; une Information reste silencieuse.</li>
+          <li><strong>Désinscription en un clic</strong> pour les habitants, à tout moment.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- g) CE QUE LE SERVICE NE FAIT PAS -->
+  <section class="band">
+    <div class="inst-wrap">
+      <h2>Ce que le service ne fait pas</h2>
+      <p class="lead">Par honnêteté, voici ses limites assumées.</p>
+      <ul class="checks checks--no" style="max-width:70ch;">
+        <li><strong>Pas de ciblage par quartier</strong> : l'audience est l'ensemble des abonnés de la commune.</li>
+        <li><strong>Pas de SMS</strong> : les messages passent par e-mail et notification web.</li>
+        <li><strong>Pas de constitution d'annuaire</strong> : vous ne gérez aucune liste d'habitants pour votre compte.</li>
+      </ul>
+      <p class="inst-muted" style="margin-top:22px;"><strong>Service en lancement</strong>, avec quelques communes pilotes. La diffusion de notifications est activée progressivement, commune par commune.</p>
+    </div>
+  </section>
+
+  <!-- h) COMMUNES PILOTES -->
+  <section class="band band--soft">
+    <div class="inst-wrap" style="max-width:760px;text-align:center;">
+      <h2>Devenez commune pilote</h2>
+      <p class="lead" style="margin:16px auto 0;">Nous accompagnons un premier cercle de communes volontaires pour ouvrir la diffusion pas à pas. Votre commune souhaite en être ? Déposez une demande d'accès, nous reviendrons vers vous après vérification.</p>
+      <div class="hero-actions" style="justify-content:center;margin-top:26px;">
+        <a class="btn btn-primary" href="/institutions/publier">Candidater</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- i) FAQ -->
+  <section class="band">
+    <div class="inst-wrap">
+      <h2>Questions fréquentes</h2>
+      <div class="faq">
+        <details>
+          <summary>Combien ça coûte&nbsp;?</summary>
+          <div class="faq-a"><p class="inst-muted">C'est gratuit pour les communes : aucun abonnement, aucun coût d'accès pour publier à destination de vos habitants.</p></div>
+        </details>
+        <details>
+          <summary>Qui peut publier au nom de la commune&nbsp;?</summary>
+          <div class="faq-a"><p class="inst-muted">Les membres que vous désignez dans votre organisation vérifiée. Un rôle de rédaction prépare les messages ; un rôle d'administration peut publier et déclencher une diffusion.</p></div>
+        </details>
+        <details>
+          <summary>Combien de temps prend la vérification&nbsp;?</summary>
+          <div class="faq-a"><p class="inst-muted">La vérification est manuelle, faite au cas par cas. Le délai dépend du nombre de demandes en cours&nbsp;; nous revenons vers vous dès qu'elle est traitée.</p></div>
+        </details>
+        <details>
+          <summary>Que deviennent les données personnelles (RGPD)&nbsp;?</summary>
+          <div class="faq-a"><p class="inst-muted">Les coordonnées des habitants ne sont jamais revendues ni cédées. Vous ne récupérez pas de liste d'abonnés. Les détails figurent dans notre <a style="color:var(--inst-accent-ink);font-weight:600;" href="/confidentialite">politique de confidentialité</a>.</p></div>
+        </details>
+        <details>
+          <summary>Que voient exactement les habitants&nbsp;?</summary>
+          <div class="faq-a"><p class="inst-muted">Les messages publiés apparaissent sur la fiche de leur commune. Une Alerte peut en plus déclencher une notification&nbsp;; une Information reste affichée sans notifier.</p></div>
+        </details>
+        <details>
+          <summary>Comment un habitant se désinscrit-il&nbsp;?</summary>
+          <div class="faq-a"><p class="inst-muted">En un clic, à tout moment, depuis les messages reçus ou son espace. Le service ne pratique aucune rétention forcée.</p></div>
+        </details>
+        <details>
+          <summary>Faut-il une formation&nbsp;?</summary>
+          <div class="faq-a"><p class="inst-muted">Non. La saisie se fait en quelques écrans, avec un aperçu de ce que verront les habitants avant toute publication.</p></div>
+        </details>
+        <details>
+          <summary>Qui est derrière le service&nbsp;?</summary>
+          <div class="faq-a"><p class="inst-muted">La Bonne Alerte est éditée par Dahu-Concept&nbsp;; voir les <a style="color:var(--inst-accent-ink);font-weight:600;" href="/mentions-legales">mentions légales</a>. Le code est publié sous licence libre.</p></div>
+        </details>
+        <details>
+          <summary>Comment nous contacter&nbsp;?</summary>
+          <div class="faq-a"><p class="inst-muted">Par courriel à <a style="color:var(--inst-accent-ink);font-weight:600;" href="mailto:contact@labonnealerte.fr">contact@labonnealerte.fr</a>, ou directement via la demande d'accès.</p></div>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- j) CTA FINAL -->
+  <section class="band band--soft cta-final">
+    <div class="inst-wrap" style="max-width:720px;">
+      <h2>Prêt à informer vos habitants&nbsp;?</h2>
+      <p class="lead" style="margin:16px auto 0;">Déposez votre demande d'accès&nbsp;; nous revenons vers vous après vérification.</p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="/institutions/publier">Demander l'accès</a>
+        <a class="btn btn-ghost" href="mailto:contact@labonnealerte.fr">Nous écrire</a>
+      </div>
+    </div>
+  </section>
+
 </main>
 
 <!--FOOTER-->
