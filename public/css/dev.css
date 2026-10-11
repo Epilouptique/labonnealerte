@@ -12,6 +12,9 @@ body.dev {
   --code-bg: #101826;     /* bleu nuit : fond des blocs de code et des champs */
   --code-ink: #e9eef6;
   --code-line: #263248;
+  /* Fond gris clair dominant pour la page developpeur (meme gris que --inst-soft des
+     pages institutions ; ce token n'existe pas sous body.dev, d'ou la valeur litterale). */
+  background: #f5f6f8;
 }
 /* Espace developpeur en PLEINE LARGEUR, sans blocs flottants : plus de panneau
    opaque (fond, arrondi, ombre retires), le contenu repose sur le fond de la page. */
