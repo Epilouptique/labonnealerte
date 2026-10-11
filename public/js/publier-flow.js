@@ -23,6 +23,8 @@
   };
 
   var TITLE_MAX = 40;
+  var DESC_SHORT_MAX = 120; // contrainte SQL sources_description_short_len
+  var DESC_LONG_MAX = 300;  // contrainte SQL sources_description_long_len
   var HTTPS_RE = /^https:\/\/[^\s]{1,300}$/i;
   var ALERT_URL_RE = /^https?:\/\/[^\s]{1,500}$/i;
   var SELECTOR_RE = /^(?:[a-zA-Z][a-zA-Z0-9]{0,20})?(?:[#.][A-Za-z][\w-]{0,50})?$/;
@@ -36,6 +38,7 @@
 
   function emptyDraft() {
     return { step: 'essentiel', title: '', categories: [], type: null, url: '', zone: '',
+      description: '', description_long: '',
       alert_message: '', alert_url: '', preavis: 1, previewOk: false, previewExtract: null,
       previewUnstable: false, id: null, status: null, syncedUrl: null, syncedZone: null };
   }
@@ -113,6 +116,8 @@
           if (d.type !== 'page') return { ok: false, error: 'La zone ne s’applique qu’à une page web.' };
           if (!isValidSelector(d.zone)) return { ok: false, error: 'Zone invalide : une balise, #identifiant ou .classe simple.' };
         }
+        if (d.description && String(d.description).trim().length > DESC_SHORT_MAX) return { ok: false, error: 'Description courte trop longue (' + DESC_SHORT_MAX + ' caractères max).' };
+        if (d.description_long && String(d.description_long).trim().length > DESC_LONG_MAX) return { ok: false, error: 'Description longue trop longue (' + DESC_LONG_MAX + ' caractères max).' };
         if (d.alert_message && String(d.alert_message).length > 280) return { ok: false, error: 'Message d’alerte trop long (280 caractères max).' };
         if (d.alert_url && String(d.alert_url).trim() && !ALERT_URL_RE.test(String(d.alert_url).trim())) return { ok: false, error: 'Lien d’alerte invalide (http/https).' };
         if (d.type === 'agenda') { var p = parseInt(d.preavis, 10); if (isNaN(p) || p < 0 || p > 30) return { ok: false, error: 'Préavis entre 0 et 30 jours.' }; }
@@ -147,6 +152,8 @@
     var b = { type: d.type, url: String(d.url || '').trim(),
       name: String(d.title || '').trim(), categories: (Array.isArray(d.categories) ? d.categories : []).slice(0, 3) };
     if (d.type === 'page' && d.zone && String(d.zone).trim()) b.zone = String(d.zone).trim();
+    if (d.description && String(d.description).trim()) b.description = String(d.description).trim();
+    if (d.description_long && String(d.description_long).trim()) b.description_long = String(d.description_long).trim();
     if (d.alert_message && String(d.alert_message).trim()) b.alert_message = String(d.alert_message).trim();
     if (d.alert_url && String(d.alert_url).trim()) b.alert_url = String(d.alert_url).trim();
     if (d.type === 'agenda') b.preavis = parseInt(d.preavis, 10) || 1;
@@ -171,7 +178,8 @@
     }
   }
 
-  return { STEPS: STEPS, STEP_TITLES: STEP_TITLES, TYPES: TYPES, TITLE_MAX: TITLE_MAX, HTTPS_RE: HTTPS_RE,
+  return { STEPS: STEPS, STEP_TITLES: STEP_TITLES, TYPES: TYPES, TITLE_MAX: TITLE_MAX,
+    DESC_SHORT_MAX: DESC_SHORT_MAX, DESC_LONG_MAX: DESC_LONG_MAX, HTTPS_RE: HTTPS_RE,
     isValidSelector: isValidSelector, emptyDraft: emptyDraft,
     tokens: tokens, suggestCategories: suggestCategories, groupedCategories: groupedCategories,
     validateTitle: validateTitle, validateStep: validateStep, canContinue: canContinue,

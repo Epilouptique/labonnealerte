@@ -146,6 +146,29 @@ function validatePersonalization(body) {
   return { ok: true, value: out };
 }
 
+// Descriptions saisies par l'auteur : courte (<=120, contrainte sources_description_short_len)
+// et longue (<=300, contrainte sources_description_long_len). Texte BRUT : on retire les
+// caractères de contrôle (jamais de HTML ; l'affichage échappe de son côté). Champs
+// facultatifs → { ok, value:{ description?, description_long? } } (absents si vides).
+const DESC_SHORT_MAX = 120;
+const DESC_LONG_MAX = 300;
+function cleanText(v) { return String(v).replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim(); }
+function validateDescriptions(body) {
+  const b = body || {};
+  const out = {};
+  if (b.description != null && String(b.description).trim() !== '') {
+    const d = cleanText(b.description);
+    if (d.length > DESC_SHORT_MAX) return { ok: false, error: `Description courte trop longue (${DESC_SHORT_MAX} caractères max).` };
+    out.description = d;
+  }
+  if (b.description_long != null && String(b.description_long).trim() !== '') {
+    const d = cleanText(b.description_long);
+    if (d.length > DESC_LONG_MAX) return { ok: false, error: `Description longue trop longue (${DESC_LONG_MAX} caractères max).` };
+    out.description_long = d;
+  }
+  return { ok: true, value: out };
+}
+
 // ── Signalements ─────────────────────────────────────────────────────────────
 const REPORT_REASONS = ['contenu-errone', 'spam-bruit', 'doublon', 'inapproprie', 'droits-donnees'];
 const REPORT_SUSPEND_THRESHOLD = Math.max(1, parseInt(process.env.SOURCE_REPORT_SUSPEND_THRESHOLD || '3', 10) || 3);
@@ -215,6 +238,7 @@ module.exports = {
   ENGINES, ENGINE_BY_NAME, validateCreate, validateUrlType, provisionalName, isProvisionalName, validateSubmittable,
   engineParams, buildEngineSource, HTTPS_RE,
   clampPreavis, validatePersonalization,
+  DESC_SHORT_MAX, DESC_LONG_MAX, validateDescriptions,
   REPORT_REASONS, REPORT_SUSPEND_THRESHOLD, isValidReportReason, shouldAutoSuspend,
   normalizeUrl,
 };

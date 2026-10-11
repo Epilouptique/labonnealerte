@@ -38,9 +38,14 @@ function createRoute(body) {
   if (body.name != null && String(body.name).trim() !== '') name = String(body.name).trim();
   else { name = lc.provisionalName(url); provisional = true; }
   const categories = Array.isArray(body.categories) ? body.categories : [];
+  // Descriptions (lot 10) : courte vide → repli titre ; longue vide → NULL.
+  const vd = lc.validateDescriptions(body);
+  if (!vd.ok) return { status: 400, error: vd.error };
+  const description = vd.value.description || name;
+  const description_long = vd.value.description_long || null;
   const id = slugify(name);
   return { status: 201, provisional, row: {
-    id, name, description: name, type: 'internal', badge: 'community', status: 'draft',
+    id, name, description, description_long, type: 'internal', badge: 'community', status: 'draft',
     engine, endpoint_url: url, categories, engine_config: Object.keys(config).length ? config : null,
   } };
 }
@@ -93,6 +98,14 @@ async function previewRoute(row) {
   // Sans titre : repli sur nom provisoire dérivé de l'hôte (rétro-compatible).
   const noTitle = createRoute({ type: 'page', url: 'https://exemple.fr/p' });
   ok(noTitle.provisional === true && noTitle.row.name === lc.provisionalName('https://exemple.fr/p'), 'sans titre : repli nom provisoire');
+
+  // Descriptions (lot 10) : explicites persistées ; repli courte→titre, longue→NULL.
+  const descExpl = createRoute({ type: 'page', url: 'https://exemple.fr/d', name: 'Titre', categories: ['gpu'], description: 'Court résumé', description_long: 'Explication longue.' });
+  ok(descExpl.row.description === 'Court résumé' && descExpl.row.description_long === 'Explication longue.', 'descriptions explicites persistées');
+  const descRepli = createRoute({ type: 'page', url: 'https://exemple.fr/d2', name: 'Mon titre', categories: ['gpu'] });
+  ok(descRepli.row.description === 'Mon titre' && descRepli.row.description_long === null, 'repli : courte=titre, longue=NULL');
+  const descTooLong = createRoute({ type: 'page', url: 'https://exemple.fr/d3', name: 'T', categories: ['gpu'], description_long: 'x'.repeat(301) });
+  ok(descTooLong.status === 400, 'desc longue > 300 refusée (contrainte SQL)');
 
   // Zone sur une veille de page : persistée ; refusée hors page.
   const withZone = createRoute({ type: 'page', url: 'https://exemple.fr/p2', zone: '#prix', name: 'Z', categories: ['gpu'] });

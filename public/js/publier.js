@@ -132,6 +132,12 @@
           '<input type="text" id="f-zone" placeholder="#prix ou .tarifs" value="' + esc(d.zone) + '">' +
           '<span class="pub-hint">Pour ne suivre qu’une partie de la page : une balise (ex. <code>article</code>), un identifiant (<code>#prix</code>) ou une classe (<code>.tarifs</code>). Laissez vide pour toute la page.</span></label>';
       }
+      h += '<label class="pub-field"><span>Description courte (facultatif)</span>' +
+        '<input type="text" id="f-desc" maxlength="' + F.DESC_SHORT_MAX + '" placeholder="Résumé en une phrase (sinon, le titre est utilisé)" value="' + esc(d.description) + '">' +
+        '<span class="pub-hint"><span id="desc-count">' + (d.description || '').length + '</span>/' + F.DESC_SHORT_MAX + ' — affichée sur la carte du kiosque.</span></label>';
+      h += '<label class="pub-field"><span>Description longue (facultatif)</span>' +
+        '<textarea id="f-desclong" maxlength="' + F.DESC_LONG_MAX + '" rows="3" placeholder="Détail de ce qui est surveillé et de l’intérêt de l’alerte">' + esc(d.description_long) + '</textarea>' +
+        '<span class="pub-hint"><span id="desclong-count">' + (d.description_long || '').length + '</span>/' + F.DESC_LONG_MAX + ' — affichée au dos de la carte et sur la fiche.</span></label>';
       h += '<label class="pub-field"><span>Message d’alerte (facultatif)</span>' +
         '<input type="text" id="f-msg" maxlength="280" placeholder="Ce qui sera affiché quand ça change" value="' + esc(d.alert_message) + '"></label>';
       h += '<label class="pub-field"><span>Lien d’alerte (facultatif)</span>' +
@@ -191,7 +197,12 @@
         b.onclick = function () { setField('type', b.getAttribute('data-type')); render(); };
       });
       wire('f-url', 'url'); wire('f-zone', 'zone'); wire('f-msg', 'alert_message'); wire('f-link', 'alert_url'); wire('f-preavis', 'preavis');
+      wireCounter('f-desc', 'description', 'desc-count'); wireCounter('f-desclong', 'description_long', 'desclong-count');
     }
+  }
+  function wireCounter(id, field, countId) {
+    var el = document.getElementById(id); if (!el) return;
+    el.oninput = function () { setField(field, el.value); var c = document.getElementById(countId); if (c) c.textContent = String(el.value.length); };
   }
   // Ajoute/retire une catégorie (max 3). addOnly : ne fait qu'ajouter (depuis la liste).
   function toggleCat(slug, addOnly) {
@@ -293,6 +304,8 @@
         id: s.id, status: s.status, title: s.name || '',
         categories: Array.isArray(s.categories) ? s.categories.slice(0, 3) : [],
         type: typeByEngine[s.engine] || null, url: s.endpoint_url || '', zone: cfg.zone || '',
+        description: (s.description && s.description !== s.name) ? s.description : '',
+        description_long: s.description_long || '',
         alert_message: cfg.message || '', alert_url: cfg.url || '', preavis: cfg.preavis != null ? cfg.preavis : 1,
         syncedUrl: s.endpoint_url || '', syncedZone: cfg.zone || '', step: 'essentiel',
       });

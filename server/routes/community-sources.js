@@ -115,6 +115,12 @@ router.post('/community-sources', async (req, res) => {
     categories = cat.categories;
   }
 
+  // Descriptions facultatives (courte <=120, longue <=300). Repli : courte → titre ; longue → NULL.
+  const vd = lc.validateDescriptions(b);
+  if (!vd.ok) return res.status(400).json({ error: vd.error });
+  const descShort = vd.value.description || name;
+  const descLong = vd.value.description_long || null;
+
   try {
     const dup = await findDuplicate(url, null);
     if (dup) return res.status(409).json({ error: 'Une source surveille déjà cette URL.', existing: dup });
@@ -137,10 +143,10 @@ router.post('/community-sources', async (req, res) => {
     const cfg = Object.keys(config).length ? JSON.stringify(config) : null;
     await pool.query(
       `INSERT INTO sources
-         (id, name, description, type, badge, status, engine, endpoint_url,
+         (id, name, description, description_long, type, badge, status, engine, endpoint_url,
           author_subscriber_id, categories, requires_confirmation, engine_config)
-       VALUES ($1, $2, $3, 'internal', 'community', 'draft', $4, $5, $6, $7, true, $8::jsonb)`,
-      [id, name, name, engine, url, auth.id, categories, cfg]);
+       VALUES ($1, $2, $3, $4, 'internal', 'community', 'draft', $5, $6, $7, $8, true, $9::jsonb)`,
+      [id, name, descShort, descLong, engine, url, auth.id, categories, cfg]);
 
     return res.status(201).json({ id, status: 'draft', engine, provisional,
       message: 'Brouillon créé. Lancez un aperçu pour vérifier votre alerte.' });
@@ -155,7 +161,7 @@ router.get('/community-sources', async (req, res) => {
   const auth = await requireAuthor(req, res); if (!auth) return;
   try {
     const { rows } = await pool.query(
-      `SELECT id, name, status, engine, endpoint_url, badge, status_reason,
+      `SELECT id, name, description, description_long, status, engine, endpoint_url, badge, status_reason,
               categories, engine_config, status_changed_at, published_at
          FROM sources WHERE author_subscriber_id = $1 ORDER BY status_changed_at DESC`,
       [auth.id]);
@@ -169,7 +175,7 @@ router.get('/community-sources', async (req, res) => {
 // Charge une source de l'auteur (sinon 404, jamais la source d'un autre).
 async function loadOwned(id, authorId) {
   const { rows } = await pool.query(
-    'SELECT id, name, description, status, engine, endpoint_url, engine_config, categories, author_subscriber_id FROM sources WHERE id = $1', [id]);
+    'SELECT id, name, description, description_long, status, engine, endpoint_url, engine_config, categories, author_subscriber_id FROM sources WHERE id = $1', [id]);
   const s = rows[0];
   if (!lc.isOwner(s, authorId)) return null;
   return s;
@@ -283,14 +289,21 @@ router.patch('/community-sources/:id', async (req, res) => {
     }
     const isPage = s.engine === 'veille-page';
 
-    let name = s.name, description = s.description, categories = s.categories, endpoint = s.endpoint_url;
+    let name = s.name, description = s.description, description_long = s.description_long, categories = s.categories, endpoint = s.endpoint_url;
     const config = (() => { try { return typeof s.engine_config === 'string' ? JSON.parse(s.engine_config) : (s.engine_config || {}); } catch (e) { return {}; } })();
     let urlChanged = false, zoneChanged = false;
 
     if (has('name')) {
       const n = String(b.name || '').trim();
       if (n.length < 3 || n.length > 60) return res.status(400).json({ error: 'Le nom doit faire de 3 à 60 caractères.' });
-      name = n; description = n;
+      name = n; description = n; // repli par défaut ; une description explicite ci-dessous l'emporte
+    }
+    // Descriptions explicites (mêmes règles qu'à la création). Courte vide → repli titre ; longue vide → NULL.
+    if (has('description') || has('description_long')) {
+      const vd = lc.validateDescriptions(b);
+      if (!vd.ok) return res.status(400).json({ error: vd.error });
+      if (has('description')) description = vd.value.description || name;
+      if (has('description_long')) description_long = vd.value.description_long || null;
     }
     if (has('categories')) {
       const cat = sanitizeCategories(b.categories);
@@ -330,10 +343,10 @@ router.patch('/community-sources/:id', async (req, res) => {
     const cfg = Object.keys(config).length ? JSON.stringify(config) : null;
 
     await pool.query(
-      `UPDATE sources SET name = $2, description = $3, categories = $4, endpoint_url = $5,
-              engine_config = $6::jsonb, status = $7
-         WHERE id = $1 AND author_subscriber_id = $8 AND status IN ('draft','testing')`,
-      [s.id, name, description, categories, endpoint, cfg, newStatus, auth.id]);
+      `UPDATE sources SET name = $2, description = $3, description_long = $4, categories = $5, endpoint_url = $6,
+              engine_config = $7::jsonb, status = $8
+         WHERE id = $1 AND author_subscriber_id = $9 AND status IN ('draft','testing')`,
+      [s.id, name, description, description_long, categories, endpoint, cfg, newStatus, auth.id]);
 
     return res.json({ id: s.id, status: newStatus,
       previewInvalidated: urlChanged || zoneChanged,
