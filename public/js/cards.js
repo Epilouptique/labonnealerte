@@ -59,14 +59,27 @@
     } else {
       inner = '<g transform="rotate(' + (active ? 0 : -22) + ' 12 3.5)">' + body + '</g>';
     }
-    return '<svg class="state-bell" width="15" height="15" viewBox="0 0 24 24" aria-hidden="true" focusable="false" style="color:' + color + ';fill:currentColor;flex:none;vertical-align:middle">' + inner + '</svg>';
+    return '<svg class="state-bell" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" focusable="false" style="color:' + color + ';fill:currentColor;flex:none;vertical-align:middle">' + inner + '</svg>';
+  }
+
+  // Petits « z » qui montent et s'effacent en decale (sommeil de la cloche), comme
+  // l'app. Decoratif, coupe si animations reduites. SMIL : aucune dependance CSS.
+  function snoozeSvg() {
+    if (PREFERS_REDUCED) return '';
+    function z(begin) {
+      return '<text x="1" y="15" font-size="9" font-weight="700" font-family="inherit">z' +
+        '<animate attributeName="opacity" values="0;1;0" dur="2.4s" begin="' + begin + '" repeatCount="indefinite"/>' +
+        '<animateTransform attributeName="transform" attributeType="XML" type="translate" values="0 2;4 -9" dur="2.4s" begin="' + begin + '" repeatCount="indefinite"/>' +
+        '</text>';
+    }
+    return '<svg class="state-zzz" width="14" height="20" viewBox="0 0 14 20" aria-hidden="true" focusable="false" style="color:var(--green,#1a7f37);fill:currentColor;flex:none;overflow:visible;margin-left:-2px">' + z('0s') + z('1.2s') + '</svg>';
   }
 
   function stateFor(state) {
     if (state === 'active') {
       return '<div class="state active" role="img" aria-label="Active" title="Active">' + bellSvg(true) + '</div>';
     }
-    return '<div class="state idle" role="img" aria-label="Rien à signaler" title="Rien à signaler">' + bellSvg(false) + '</div>';
+    return '<div class="state idle" role="img" aria-label="Rien à signaler" title="Rien à signaler">' + bellSvg(false) + snoozeSvg() + '</div>';
   }
 
   function domainOf(url) {

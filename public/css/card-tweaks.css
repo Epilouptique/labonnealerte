@@ -1,7 +1,28 @@
 /* card-tweaks.css — retouches ciblees du kiosque, chargees APRES site.css (donc
-   prioritaires) pour ne pas modifier site.css (edite par d'autres sessions).
+   prioritaires) pour ne pas modifier site.css (edite par d'autres sessions). */
 
-   Colonne ultra (.vc-side) du visuel mixte : on masque la rangee d'icones du
-   recto (.card-icons : j'aime / partager / ajouter / retourner) ; la carte
-   laterale reste epuree. */
-#grid[data-view-mode="mixte"] > .card.vc-side .card-icons { display: none !important; }
+/* Voyant d'etat (.state) dans la rangee du haut : AUCUNE decoration, seulement la
+   cloche. Pas de bordure, de fond, d'arrondi ni d'ombre. */
+.card-toprow .state {
+  border: 0 !important;
+  background: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+/* Colonne ultra (.vc-side) du visuel mixte : carte reduite a l'essentiel —
+   uniquement la rangee du haut (.card-toprow : cloche + titre) et, en dessous, la
+   description courte (.card-static-desc / .card-desc). On masque tout le reste :
+   boutons d'action, partage, « j'aime », retourner, interrupteur, parametres,
+   tags, compteurs et fioritures. */
+#grid[data-view-mode="mixte"] > .card.vc-side .card-icons,
+#grid[data-view-mode="mixte"] > .card.vc-side .card-action,
+#grid[data-view-mode="mixte"] > .card.vc-side .back-tags,
+#grid[data-view-mode="mixte"] > .card.vc-side .sub-count,
+#grid[data-view-mode="mixte"] > .card.vc-side .card-attacks,
+#grid[data-view-mode="mixte"] > .card.vc-side .card-stat,
+#grid[data-view-mode="mixte"] > .card.vc-side .card-foot,
+#grid[data-view-mode="mixte"] > .card.vc-side .card-fineprint {
+  display: none !important;
+}
