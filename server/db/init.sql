@@ -5020,3 +5020,8 @@ CREATE INDEX IF NOT EXISTS idx_munevt_notif_event ON municipal_event_notificatio
 -- « info » reste visible sur la fiche commune sans envoi. Défaut prudent « info ». Additif.
 ALTER TABLE municipal_events ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'info'
   CHECK (kind IN ('alerte','info'));
+
+-- LOT B-bis : coordonnées du demandeur (formulaire de demande sur /mairie/publier).
+-- Additif : fonction (intitulé de poste) et téléphone facultatif, utiles à la vérification.
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS contact_function TEXT;
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS contact_phone TEXT;

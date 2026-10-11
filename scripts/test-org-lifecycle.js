@@ -49,11 +49,20 @@ const vE = ol.validateCreate(epci, null);
 ok(vE.ok && vE.value.siren === '200040715' && vE.value.commune_insee === null, 'EPCI valide par SIREN');
 ok(!ol.validateCreate({ ...epci, siren: '12' }, null).ok, 'EPCI sans SIREN valide → refus');
 
-// 6) Justificatif facultatif + bornes
+// 6) Justificatif facultatif + bornes (≤300)
 ok(ol.validateCreate({ ...base, justification: '' }, '05061').value.justification == null, 'justificatif vide → null');
 ok(ol.validateCreate({ ...base, justification: 'Arrêté municipal n°12' }, '05061').value.justification === 'Arrêté municipal n°12', 'justificatif conservé (nettoyé)');
-ok(!ol.validateCreate({ ...base, justification: 'x'.repeat(501) }, '05061').ok, 'justificatif > 500 refusé');
+ok(!ol.validateCreate({ ...base, justification: 'x'.repeat(301) }, '05061').ok, 'justificatif > 300 refusé');
+ok(ol.validateCreate({ ...base, justification: 'x'.repeat(300) }, '05061').ok, 'justificatif = 300 accepté');
 ok(ol.validateCreate({ ...base, justification: 'a\u0000b\tc' }, '05061').value.justification === 'a b c', 'justificatif : contrôles assainis');
+
+// 6bis) Fonction + téléphone (facultatifs) et honeypot (LOT B-bis)
+ok(ol.validateCreate({ ...base, fonction: 'Secrétaire de mairie' }, '05061').value.fonction === 'Secrétaire de mairie', 'fonction conservée');
+ok(!ol.validateCreate({ ...base, fonction: 'x'.repeat(121) }, '05061').ok, 'fonction > 120 refusée');
+ok(ol.validateCreate({ ...base, phone: '04 92 00 00 00' }, '05061').value.phone === '04 92 00 00 00', 'téléphone valide conservé');
+ok(!ol.validateCreate({ ...base, phone: 'abc' }, '05061').ok, 'téléphone non numérique refusé');
+ok(ol.validateCreate({ ...base }, '05061').value.fonction === null && ol.validateCreate({ ...base }, '05061').value.phone === null, 'fonction/téléphone absents → null');
+ok(ol.isHoneypotFilled({ website: 'http://spam' }) && !ol.isHoneypotFilled({}) && !ol.isHoneypotFilled({ website: '' }), 'honeypot : rempli = bot, vide/absent = humain');
 
 // 7) Quotas
 ok(ol.checkOrgQuota({ activeCount: 0 }).ok, 'quota : 0 organisation → OK');

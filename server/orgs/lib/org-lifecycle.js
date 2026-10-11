@@ -94,16 +94,37 @@ function validateCreate(body, inseeResolved) {
   let justification = null;
   if (b.justification != null && String(b.justification).trim() !== '') {
     const j = cleanText(b.justification);
-    if (j.length > 500) return { ok: false, error: 'Justificatif trop long (500 caractères max).' };
+    if (j.length > 300) return { ok: false, error: 'Justificatif trop long (300 caractères max).' };
     justification = j;
   }
 
-  return { ok: true, value: { name, type, commune_insee, siren, email, justification, role } };
+  // Fonction (intitulé de poste) et téléphone : facultatifs, utiles à la vérification.
+  let fonction = null;
+  if (b.fonction != null && String(b.fonction).trim() !== '') {
+    const f = cleanText(b.fonction);
+    if (f.length > 120) return { ok: false, error: 'Fonction trop longue (120 caractères max).' };
+    fonction = f;
+  }
+  let phone = null;
+  if (b.phone != null && String(b.phone).trim() !== '') {
+    const p = cleanText(b.phone);
+    if (p.length > 30 || !/^[+()./\s0-9]{6,30}$/.test(p)) return { ok: false, error: 'Téléphone invalide (6 à 30 chiffres/espaces).' };
+    phone = p;
+  }
+
+  return { ok: true, value: { name, type, commune_insee, siren, email, justification, fonction, phone, role } };
+}
+
+// Honeypot anti-robot : un champ leurre (ex. « website ») invisible pour l'humain. S'il est
+// rempli, c'est un bot. Pur et testable ; la route répond alors un succès neutre sans créer.
+function isHoneypotFilled(body) {
+  const v = body && (body.website != null ? body.website : body.url_site);
+  return !!(v != null && String(v).trim() !== '');
 }
 
 module.exports = {
   ORG_TYPES, ORG_STATUSES, ORG_TRANSITIONS, canTransitionOrg, transitionNeedsReason,
   MEMBER_ROLES, MEMBER_STATUSES, isValidRole, canManageMembers,
   MAX_ORGS_PER_ACCOUNT, CREATE_WINDOW_MS, CREATE_MAX, checkOrgQuota,
-  isInsee, isSiren, EMAIL_RE, emailDomain, cleanText, validateCreate,
+  isInsee, isSiren, EMAIL_RE, emailDomain, cleanText, validateCreate, isHoneypotFilled,
 };

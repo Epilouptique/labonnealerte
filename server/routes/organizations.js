@@ -76,7 +76,18 @@ router.post('/organizations', async (req, res) => {
   if (!createRateOk(auth.id)) return res.status(429).json({ error: 'Trop de demandes, réessayez dans quelques minutes.' });
   const b = req.body || {};
 
+  // Honeypot anti-robot : champ leurre rempli → on répond un succès NEUTRE sans rien créer
+  // (ne pas renseigner le bot sur l'échec).
+  if (ol.isHoneypotFilled(b)) {
+    return res.status(201).json({ organization: null, message: 'Demande enregistrée. Elle sera examinée avant toute publication.' });
+  }
+
   try {
+    // Une seule demande EN ATTENTE par compte.
+    const pend = await pool.query(
+      "SELECT 1 FROM organizations WHERE requester_subscriber_id = $1 AND status = 'pending' LIMIT 1", [auth.id]);
+    if (pend.rows.length) return res.status(409).json({ error: 'Vous avez déjà une demande en attente. Patientez le temps de sa vérification.' });
+
     // Résolution commune → INSEE via la liste officielle existante (geo.api), comme
     // community-reports. Le département du profil lève les homonymes.
     let inseeResolved = null;
@@ -84,8 +95,16 @@ router.post('/organizations', async (req, res) => {
       if (ol.isInsee(b.commune_insee)) {
         inseeResolved = String(b.commune_insee).toUpperCase();
       } else if (b.ville != null && String(b.ville).trim() !== '') {
-        const prof = await pool.query('SELECT departement FROM subscribers WHERE id = $1', [auth.id]);
-        const dept = prof.rows[0] ? prof.rows[0].departement : null;
+        // Département : fourni par le formulaire (code dept ou code postal) sinon profil.
+        // Aucune saisie libre d'INSEE : on résout le NOM via la liste officielle.
+        let dept = null;
+        const raw = String(b.departement || b.code_postal || '').trim();
+        if (/^(2[AB]|\d{2,3})$/i.test(raw)) dept = raw.toUpperCase();
+        else if (/^\d{4,5}$/.test(raw)) dept = raw.slice(0, 2); // code postal → 2 premiers chiffres
+        if (!dept) {
+          const prof = await pool.query('SELECT departement FROM subscribers WHERE id = $1', [auth.id]);
+          dept = prof.rows[0] ? prof.rows[0].departement : null;
+        }
         const r = await resolveCommuneInsee(b.ville, dept);
         inseeResolved = r ? r.insee : null;
       }
@@ -95,23 +114,6 @@ router.post('/organizations', async (req, res) => {
     if (!v.ok) return res.status(400).json({ error: v.error });
     const o = v.value;
 
-    // Doublon : même INSEE déjà vérifiée OU en attente (une structure = une demande active).
-    if (o.commune_insee) {
-      const dup = await pool.query(
-        "SELECT id, status FROM organizations WHERE commune_insee = $1 AND status IN ('pending','verified') LIMIT 1",
-        [o.commune_insee]);
-      if (dup.rows.length) {
-        return res.status(409).json({ error: 'Cette commune a déjà une organisation en attente ou vérifiée.', existing: { id: dup.rows[0].id, status: dup.rows[0].status } });
-      }
-    } else if (o.siren) {
-      const dup = await pool.query(
-        "SELECT id, status FROM organizations WHERE siren = $1 AND status IN ('pending','verified') LIMIT 1",
-        [o.siren]);
-      if (dup.rows.length) {
-        return res.status(409).json({ error: 'Cette structure (SIREN) a déjà une organisation en attente ou vérifiée.', existing: { id: dup.rows[0].id, status: dup.rows[0].status } });
-      }
-    }
-
     // Quota : organisations non closes (pending/verified) déjà demandées par ce compte.
     const q = await pool.query(
       "SELECT COUNT(*)::int AS n FROM organizations WHERE requester_subscriber_id = $1 AND status IN ('pending','verified')",
@@ -119,12 +121,15 @@ router.post('/organizations', async (req, res) => {
     const qc = ol.checkOrgQuota({ activeCount: q.rows[0].n });
     if (!qc.ok) return res.status(409).json({ error: qc.error });
 
+    // Unicité par INSEE/SIREN (pending/verified) assurée par un index unique partiel. On
+    // n'interroge PAS l'existence d'une organisation d'un AUTRE compte (pas de fuite) : on
+    // tente l'insertion et on renvoie un message NEUTRE si le conflit se produit (catch 23505).
     const ins = await pool.query(
       `INSERT INTO organizations (name, type, commune_insee, siren, email, justification,
-                                  status, requester_subscriber_id)
-       VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7)
+                                  contact_function, contact_phone, status, requester_subscriber_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', $9)
        RETURNING ${ORG_COLUMNS}`,
-      [o.name, o.type, o.commune_insee, o.siren, o.email, o.justification, auth.id]);
+      [o.name, o.type, o.commune_insee, o.siren, o.email, o.justification, o.fonction, o.phone, auth.id]);
     const org = ins.rows[0];
 
     // Le demandeur est membre ADMIN ACTIF de sa demande (rôle saisi conservé s'il est admin,
@@ -136,9 +141,10 @@ router.post('/organizations', async (req, res) => {
 
     return res.status(201).json({ organization: org, message: 'Demande enregistrée. Elle sera examinée avant toute publication.' });
   } catch (err) {
-    // Course possible avec l'index unique partiel (doublon INSEE) → message clair.
+    // Conflit d'unicité (INSEE/SIREN déjà pris) : message NEUTRE, sans confirmer qu'une
+    // organisation existe ni à qui elle appartient.
     if (err && err.code === '23505') {
-      return res.status(409).json({ error: 'Cette structure a déjà une organisation en attente ou vérifiée.' });
+      return res.status(409).json({ error: 'Cette demande ne peut pas être enregistrée en l\'état. Vérifiez les informations ou contactez-nous à contact@labonnealerte.fr.' });
     }
     console.error('[organizations] POST / :', err.message);
     return res.status(503).json({ error: 'Service indisponible.' });
