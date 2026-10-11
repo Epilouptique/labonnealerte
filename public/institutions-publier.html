@@ -15,11 +15,12 @@
 <meta name="theme-color" content="#fdfaff" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0f1419" media="(prefers-color-scheme: dark)">
 <style>
-  .pub-wrap{width:100%;max-width:800px;margin:0 auto;padding:16px 16px calc(24px + env(safe-area-inset-bottom))}
+  .pub-wrap{width:100%;max-width:1040px;margin:0 auto;padding:48px 24px calc(72px + env(safe-area-inset-bottom))}
   .pub-progress{height:8px;border-radius:999px;background:var(--line,#e7e2ef);overflow:hidden;margin:8px 0 4px}
   .pub-progress > i{display:block;height:100%;background:var(--amber,#f2a900);transition:width .25s ease}
   .pub-stepinfo{font-size:.85rem;color:var(--muted,#6b6878);margin-bottom:18px}
-  .pub-step{background:var(--surface,#fff);border-radius:24px;padding:22px;box-shadow:0 1px 3px rgba(30,20,50,.06);transition:box-shadow .2s ease}
+  /* Plein cadre, pas de bloc flottant : meme surface que /institutions, sans carte. */
+  .pub-step{background:transparent;border-radius:0;padding:0;box-shadow:none}
   .pub-step h1{font-size:1.5rem;line-height:1.2;margin:.2em 0 .6em}
   .pub-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
   .pub-card{display:flex;flex-direction:column;gap:3px;text-align:left;border:2px solid var(--line,#e7e2ef);border-radius:12px;padding:12px;background:var(--card,#fff);cursor:pointer;font:inherit}
