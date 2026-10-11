@@ -28,6 +28,11 @@ body.dev .dev-section > .wrap {
 }
 body.dev .dev-section { padding: 14px 0; border-top: none; }
 body.dev .dev-section > .wrap { max-width: 1080px; }
+/* Pour que la page ne soit pas uniformement grise : bandes PLEINE LARGEUR en alternance
+   (blanc / gris), fines separations — rythme sobre, sans blocs flottants. */
+body.dev .dev-section:nth-of-type(even) { background: #ffffff; }
+body.dev .dev-section + .dev-section { border-top: 1px solid rgba(20, 16, 40, .07); }
+body.dev .dev-intro { background: #ffffff; border-bottom: 1px solid rgba(20, 16, 40, .07); }
 
 /* Typo dominante : JetBrains Mono pour titres de section / endpoints / JSON. */
 body.dev .section-label,
@@ -55,11 +60,6 @@ body.dev .back-link:hover { color: var(--ink); }
 /* ---------- page /proposer ---------- */
 body.dev .dev-intro { margin-top: 24px; }
 /* D2) Paragraphe d'accueil NON technique, mis en avant avant la partie standard. */
-body.dev .intro-simple {
-  background: var(--amber-soft); border-radius: 12px; padding: 12px 14px;
-  color: var(--ink); font-size: 15.5px; margin-top: 14px; max-width: 620px;
-}
-body.dev .intro-simple .inline-link { color: var(--amber-ink); font-weight: 700; text-decoration: underline; }
 body.dev .dev-intro h1 { font-size: clamp(28px, 4.5vw, 40px); font-weight: 800; letter-spacing: -0.02em; }
 body.dev .dev-intro p { color: var(--muted); font-size: 17px; margin-top: 14px; max-width: 620px; }
 body.dev .dev-section h2 { font-size: 22px; font-weight: 800; margin-bottom: 8px; }
