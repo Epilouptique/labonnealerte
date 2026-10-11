@@ -32,7 +32,7 @@
   /* Chaque étape dans un bloc à fond clair, comme le reste du site. */
   .pub-step{background:var(--surface,#fff);border-radius:24px;padding:22px;box-shadow:0 1px 3px rgba(30,20,50,.06)}
   .pub-step h1{font-size:1.5rem;line-height:1.2;margin:.2em 0 .6em}
-  .pub-cards{display:grid;gap:12px}
+  .pub-cards{display:grid;grid-template-columns:1fr;gap:12px}
   .pub-card{display:flex;flex-direction:column;gap:4px;text-align:left;border:2px solid var(--line,#e7e2ef);border-radius:14px;padding:16px;background:var(--card,#fff);cursor:pointer;font:inherit}
   .pub-card[aria-pressed="true"]{border-color:var(--amber,#f2a900);box-shadow:0 0 0 3px color-mix(in srgb,var(--amber,#f2a900) 25%,transparent)}
   .pub-card b{font-size:1.05rem}
@@ -54,7 +54,10 @@
   .pub-sugg-item{display:block;width:100%;text-align:left;border:2px solid var(--line,#e7e2ef);border-radius:12px;padding:10px 14px;background:var(--card,#fff);color:inherit;cursor:pointer;font:inherit}
   .pub-sugg-item[aria-pressed="true"]{border-color:var(--amber,#f2a900);box-shadow:0 0 0 3px color-mix(in srgb,var(--amber,#f2a900) 25%,transparent)}
   .pub-sugg-item[disabled]{opacity:.5;cursor:not-allowed}
-  .pub-detailblock{margin-top:16px;padding-top:4px;border-top:1px dashed var(--line,#e7e2ef)}
+  .pub-detailblock{margin-top:16px;padding-top:4px;border-top:1px dashed var(--line,#e7e2ef);animation:pub-reveal .28s cubic-bezier(.2,.7,.2,1)}
+  @keyframes pub-reveal{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .pub-field input,.pub-field textarea,.pub-field select{transition:border-color .18s ease,box-shadow .18s ease}
+  @media (prefers-reduced-motion:reduce){.pub-detailblock{animation:none}}
   .pub-ok{color:var(--green,#1a7f37);font-weight:600;margin:10px 0 0}
   .pub-confirm p{font-size:1.05rem;line-height:1.5}
   /* Boutons intégrés au flux de la page (pas de barre fixe) : pleins, couleurs du site. */
