@@ -169,6 +169,35 @@ function validateDescriptions(body) {
   return { ok: true, value: out };
 }
 
+// ── Aperçu obligatoire avant soumission ──────────────────────────────────────
+// Un aperçu RÉUSSI marque engine_config avec { preview_ok_at, preview_url, preview_zone }.
+// La soumission exige un marquage RÉCENT correspondant à l'URL ET à la zone ACTUELLES.
+// Fenêtre de validité (défaut 7 jours) : évite qu'un aperçu ancien tienne lieu de contrôle.
+const PREVIEW_TTL_MS = Math.max(60_000, parseInt(process.env.COMMUNITY_PREVIEW_TTL_MS || '', 10) || 7 * 24 * 60 * 60 * 1000);
+function previewSatisfiesSubmit(config, url, zone, now) {
+  const c = parseConfig(config);
+  if (!c.preview_ok_at) return false;              // aucun aperçu réussi
+  const t = Date.parse(c.preview_ok_at);
+  if (Number.isNaN(t)) return false;
+  if ((now == null ? Date.now() : now) - t > PREVIEW_TTL_MS) return false; // aperçu périmé
+  if (c.preview_url !== url) return false;          // URL modifiée depuis l'aperçu
+  if ((c.preview_zone || null) !== (zone || null)) return false; // zone modifiée depuis l'aperçu
+  return true;
+}
+// Clés de marquage d'aperçu à effacer quand l'URL/zone change (aperçu invalidé).
+const PREVIEW_MARK_KEYS = ['preview_ok_at', 'preview_url', 'preview_zone'];
+
+// Message d'aperçu en échec : affiche le code HTTP reçu (si connu) et une aide.
+function previewErrorMessage(rawMessage) {
+  const base = String(rawMessage || '').trim();
+  const m = /HTTP\s+(\d{3})/i.exec(base);
+  if (m) {
+    return `L'adresse a répondu HTTP ${m[1]} : elle ne répond pas correctement — vérifiez le lien du flux, ou le site refuse peut-être les robots.`;
+  }
+  const head = base || 'La cible est injoignable, interdite ou invalide';
+  return `${head} — vérifiez le lien du flux, ou le site refuse peut-être les robots.`;
+}
+
 // ── Signalements ─────────────────────────────────────────────────────────────
 const REPORT_REASONS = ['contenu-errone', 'spam-bruit', 'doublon', 'inapproprie', 'droits-donnees'];
 const REPORT_SUSPEND_THRESHOLD = Math.max(1, parseInt(process.env.SOURCE_REPORT_SUSPEND_THRESHOLD || '3', 10) || 3);
@@ -239,6 +268,7 @@ module.exports = {
   engineParams, buildEngineSource, HTTPS_RE,
   clampPreavis, validatePersonalization,
   DESC_SHORT_MAX, DESC_LONG_MAX, validateDescriptions,
+  PREVIEW_TTL_MS, previewSatisfiesSubmit, PREVIEW_MARK_KEYS, previewErrorMessage, parseConfig,
   REPORT_REASONS, REPORT_SUSPEND_THRESHOLD, isValidReportReason, shouldAutoSuspend,
   normalizeUrl,
 };
