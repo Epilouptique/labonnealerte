@@ -73,7 +73,13 @@ ok(!/panneaupocket/i.test(vitrine), 'vitrine : aucune mention de concurrent');
 ok(/Données hébergées dans l'Union européenne \(Irlande\)/.test(vitrine) && /Nom de domaine enregistré en France/.test(vitrine), 'vitrine : mention édition/hébergement UE confirmée');
 ok(!/héberg[ée]*\s+en\s+France/i.test(vitrine), 'vitrine : pas de promesse « hébergé en France »');
 ok(!/souverain/i.test(vitrine), 'vitrine : pas de « souverain »');
-ok(/mailto:&lt;ADRESSE&gt;/.test(vitrine) && !/contact@labonnealerte\.fr/.test(vitrine), 'vitrine : adresse de contact en placeholder <ADRESSE>');
+ok(/mailto:institutions@labonnealerte\.fr/.test(vitrine) && /institutions@labonnealerte\.fr<\/a>/.test(vitrine), 'vitrine : contact institutions@labonnealerte.fr (mailto + texte)');
+ok(!/contact@labonnealerte\.fr/.test(vitrine), 'vitrine : pas d’autre adresse de contact');
+[['vitrine', vitrine], ['assistant', html]].forEach(function (p) {
+  ok(!/<ADRESSE>|&lt;ADRESSE&gt;/.test(p[1]), p[0] + ' : aucun placeholder <ADRESSE> résiduel');
+  ok(!/A CONFIRMER/.test(p[1]), p[0] + ' : aucun repère « A CONFIRMER » résiduel');
+});
+ok(!/Dahu-Concept/.test(vitrine) && /Dahu Concept/.test(vitrine), 'vitrine : éditeur écrit « Dahu Concept » (comme les mentions légales)');
 
 // 7) Illustrations originales : SVG inline avec alternative accessible, image OG dédiée.
 ok(/<svg[^>]*role="img"[^>]*aria-label=/.test(vitrine), 'vitrine : illustrations SVG avec aria-label');
