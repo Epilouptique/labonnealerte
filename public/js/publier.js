@@ -77,7 +77,10 @@
     if (!cats.length) return '';
     // Réutilise l'identité « tag » du site (back-tags / tag back-tag) ; ajoute le « × » de retrait.
     return '<div class="pub-chosen back-tags">' + cats.map(function (slug) {
-      return '<button type="button" class="tag back-tag pub-chip" data-del="' + esc(slug) + '" aria-label="Retirer ' + esc(catPath(catEntry(slug))) + '">' + esc(catPath(catEntry(slug))) + '<span class="pub-chip-x" aria-hidden="true">×</span></button>';
+      var e = catEntry(slug);
+      return '<button type="button" class="tag back-tag pub-chip" data-del="' + esc(slug) + '"' +
+        (e.group ? ' data-group="' + esc(e.group) + '"' : '') +
+        ' aria-label="Retirer ' + esc(catPath(e)) + '">' + esc(catPath(e)) + '<span class="pub-chip-x" aria-hidden="true">×</span></button>';
     }).join('') + '</div>';
   }
   // Suggestions : UN SEUL bloc, une catégorie par ligne, format « Famille › Sous-catégorie ».
