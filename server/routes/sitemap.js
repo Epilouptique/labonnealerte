@@ -43,6 +43,7 @@ const STATIC_PATHS = [
   '/confidentialite',
   '/proposer',
   '/publier',
+  '/institutions',
 ];
 
 function escXml(s) {
