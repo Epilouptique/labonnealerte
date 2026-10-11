@@ -4,6 +4,7 @@
 // des requêtes. Lancer : node scripts/test-publier-flow.js
 'use strict';
 const F = require('../public/js/publier-flow.js');
+const lc = require('../server/sources/lib/source-lifecycle.js');
 
 let passed = 0, fails = 0;
 const ok = (c, m) => { if (c) { passed++; console.log('  ✓ ' + m); } else { fails++; console.error('  ✗ ' + m); } };
@@ -68,6 +69,20 @@ ok(JSON.stringify(F.createBody({ type: 'page', url: 'https://x', title: 'T', cat
 const bodyAgenda = F.createBody({ type: 'agenda', url: 'https://x.fr/c.ics', title: 'Agenda club', categories: ['concerts'], preavis: 3 });
 ok(bodyAgenda.preavis === 3 && bodyAgenda.zone === undefined, 'createBody : préavis agenda, pas de zone');
 ok(F.createBody({ type: 'rss', url: 'https://x', title: 'Blog', categories: ['tech'], zone: '#x' }).zone === undefined, 'createBody : pas de zone hors page');
+
+// 7bis) Descriptions facultatives (lot 10) : limites écran + corps + validateur serveur
+ok(F.DESC_SHORT_MAX === 120 && F.DESC_LONG_MAX === 300, 'limites descriptions (120 / 300)');
+ok(!F.canContinue('details', { type: 'page', url: 'https://x.fr', description: 'x'.repeat(121) }), 'desc courte > 120 bloque');
+ok(!F.canContinue('details', { type: 'page', url: 'https://x.fr', description_long: 'x'.repeat(301) }), 'desc longue > 300 bloque');
+ok(F.canContinue('details', { type: 'page', url: 'https://x.fr', description: 'Court', description_long: 'Long' }), 'descriptions valides OK');
+const bd = F.createBody({ type: 'page', url: 'https://x.fr', title: 'T', categories: ['gpu'], description: ' Résumé ', description_long: ' Détail ' });
+ok(bd.description === 'Résumé' && bd.description_long === 'Détail', 'createBody : descriptions transmises (trim)');
+ok(F.createBody({ type: 'page', url: 'https://x.fr', title: 'T', categories: ['gpu'] }).description === undefined, 'createBody : desc absente si vide (repli serveur)');
+// Validateur serveur (POST/PATCH identiques)
+ok(!lc.validateDescriptions({ description: 'x'.repeat(121) }).ok, 'serveur : courte > 120 refusée');
+ok(!lc.validateDescriptions({ description_long: 'x'.repeat(301) }).ok, 'serveur : longue > 300 refusée');
+ok(lc.validateDescriptions({ description: 'a\u0000b\tc' }).value.description === 'a b c', 'serveur : caractères de contrôle assainis');
+ok(Object.keys(lc.validateDescriptions({ description: '  ', description_long: '' }).value).length === 0, 'serveur : vides → aucun champ (repli)');
 
 // 8) Invalidation de l'aperçu, erreurs, libellés
 ok(F.invalidatesPreview('url') && F.invalidatesPreview('zone') && F.invalidatesPreview('type'), 'url/zone/type invalident l\'aperçu');
