@@ -59,23 +59,88 @@
   }
 
   // ── Mode MIXTE : répartition des cartes entre colonne principale (large) et colonne
-  //    secondaire (ultra-compacte). RÈGLE : découpage POSITIONNEL déterministe — 1 carte sur
-  //    MAIN_EVERY va en colonne large, les autres en colonne ultra. INDÉPENDANT du statut
-  //    Active. Ratio 1:2 → les deux colonnes restent peuplées sur toute la hauteur.
-  //    Une carte dont l'utilisateur a changé la colonne au clic (.vc-user) garde SON choix :
-  //    on ne la reclasse pas. En revanche tout placement vertical explicite (grid-row-start,
-  //    posé par la bascule) est effacé à chaque changement de grille : il n'a de sens qu'au
-  //    moment du clic, et une valeur périmée après filtrage donnerait une rangée fantôme.
-  var MAIN_EVERY = 3;
+  //    secondaire (ultra-compacte). RÈGLE : nombres CIBLES — MAIN_TARGET cartes en colonne
+  //    large, le reste en colonne ultra (spread régulier sur l'ordre du DOM). INDÉPENDANT du
+  //    statut Active. Tout placement vertical explicite (grid-row-start, posé par la bascule)
+  //    est effacé à chaque changement de grille : il n'a de sens qu'au moment du clic, et une
+  //    valeur périmée après filtrage donnerait une rangée fantôme.
+  // CIBLES DE COLONNES (fil #9ter, demande Hugo) : exactement MAIN_TARGET cartes en
+  // colonne large et SIDE_TARGET en colonne ultra (18 au total = pagination mixte).
+  // Une bascule au clic conserve ces nombres par RENOUVELLEMENT (voir renew()).
+  var MAIN_TARGET = 7, SIDE_TARGET = 11, TOTAL_TARGET = MAIN_TARGET + SIDE_TARGET;
+  function mainWantedFor(total) {
+    if (total <= 0) return 0;
+    if (total >= TOTAL_TARGET) return MAIN_TARGET;
+    return Math.max(1, Math.round(total * MAIN_TARGET / TOTAL_TARGET));
+  }
+  // Cartes du réservoir (paginées hors écran) : masquées par .hidden-more, non filtrées,
+  // hors carte « Proposer », dans l'ordre du DOM (la 1re réapparaît « en bas »).
+  function poolCards() {
+    var g = grid(); if (!g) return [];
+    var out = [];
+    for (var i = 0; i < g.children.length; i++) {
+      var c = g.children[i];
+      if (!c.classList || !c.classList.contains('card')) continue;
+      if (c.classList.contains('add') || c.classList.contains('filtered')) continue;
+      if (c.classList.contains('hidden-more')) out.push(c);
+    }
+    return out;
+  }
   function splitMixte() {
-    var cards = visibleCards();
+    // Répartition fraîche à chaque changement de grille (recherche, catégorie, « plus ») :
+    // on ne mémorise plus le choix manuel (.vc-user) — le renouvellement vit entre deux
+    // changements de grille, et toute (re)construction repart d'un partage net MAIN/SIDE.
+    var cards = visibleCards().filter(function (c) { return !c.classList.contains('add'); });
+    var total = cards.length;
+    var mainWanted = mainWantedFor(total);
     cards.forEach(function (c, i) {
       if (c.style) c.style.gridRowStart = '';
-      if (c.classList.contains('vc-user') || c.classList.contains('vc-moving')) return;
-      var toMain = (i % MAIN_EVERY === 0);
-      c.classList.toggle('vc-side', !toMain);
+      if (c.classList.contains('vc-moving')) return;
+      var isMain = Math.floor(i * mainWanted / total) > Math.floor((i - 1) * mainWanted / total);
+      c.classList.remove('vc-user');
+      c.classList.toggle('vc-side', !isMain);
     });
     scheduleMeasure();
+  }
+
+  // RENOUVELLEMENT après une bascule : la carte déplacée va dans la colonne `toSide` ;
+  // la colonne QUITTÉE (!toSide) perd une carte → on la comble avec une carte du réservoir
+  // (apparaît en bas), et on retire une carte de la colonne d'ARRIVÉE (≠ carte déplacée),
+  // qui repart au réservoir. Les nombres MAIN/SIDE restent ainsi constants et la liste se
+  // renouvelle. Si le réservoir est vide, on laisse la simple bascule (pas de renouvellement).
+  function renew(movedCard, toSide) {
+    var deficitSide = !toSide;                 // colonne quittée (a besoin d'une carte)
+    var pool = poolCards();
+    if (!pool.length) { scheduleMeasure(); return; }
+    var added = pool[0];
+    var shown = visibleCards();
+    var surplus = shown.filter(function (c) {
+      return c !== movedCard && !c.classList.contains('add') &&
+        c.classList.contains('vc-side') === !!toSide;
+    });
+    var removed = surplus.length ? surplus[surplus.length - 1] : null;
+
+    added.style.gridRowStart = '';
+    added.classList.remove('hidden-more');
+    added.classList.toggle('vc-side', !!deficitSide);
+    added.classList.add('vc-user');
+
+    function doRemove() {
+      if (!removed) return;
+      removed.classList.add('hidden-more');
+      removed.classList.remove('vc-user', 'vc-side');
+      if (removed.style) { removed.style.gridRowStart = ''; removed.style.gridRowEnd = ''; }
+    }
+    if (REDUCE || !CAN_ANIMATE) { doRemove(); scheduleMeasure(); return; }
+    try { added.animate([{ opacity: 0, transform: 'scale(.96)' }, { opacity: 1, transform: 'none' }], { duration: 280, easing: EASE }); } catch (e) {}
+    if (removed) {
+      var a = null;
+      try { a = removed.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 220, easing: EASE }); } catch (e) {}
+      if (a) { a.onfinish = function () { doRemove(); scheduleMeasure(); }; a.oncancel = function () { doRemove(); scheduleMeasure(); }; }
+      else { doRemove(); scheduleMeasure(); }
+    } else {
+      scheduleMeasure();
+    }
   }
 
   // Planifie la (re)mesure : une passe immédiate au prochain rAF (après le reflow des
@@ -234,7 +299,7 @@
     card.style.gridRowStart = String(row);
     measureMixte();                    // nouveau span (lecture offsetHeight → layout à jour)
 
-    if (REDUCE || !CAN_ANIMATE) { scheduleMeasure(); return; }   // (c)
+    if (REDUCE || !CAN_ANIMATE) { renew(card, !!toSide); return; }   // (c) placement immédiat + renouvellement
 
     var after = rects(cards);
     card.classList.add('vc-moving');
@@ -251,7 +316,9 @@
       fini = true;
       if (secours) { clearTimeout(secours); secours = null; }
       card.classList.remove('vc-moving');
-      scheduleMeasure();
+      // Renouvellement UNE FOIS la bascule terminée : une nouvelle carte entre dans la
+      // colonne quittée, une carte de la colonne d'arrivée sort — nombres MAIN/SIDE constants.
+      renew(card, !!toSide);
     };
     secours = setTimeout(finir, DUR + 400);
     var endOne = function () {
