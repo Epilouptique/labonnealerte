@@ -129,6 +129,10 @@
     var deficitSide = !toSide;                 // colonne quittée (a besoin d'une carte)
     var pool = poolCards();
     if (!pool.length) { scheduleMeasure(); return; }
+    // Efface TOUT placement explicite (dont celui, désormais périmé, de la carte déplacée :
+    // sa rangée venait de l'ancienne colonne et laisse un trou dans la nouvelle). Les deux
+    // colonnes se tassent alors densément ; seule la carte entrante recevra un placement.
+    visibleCards().forEach(function (c) { if (c.style) c.style.gridRowStart = ''; });
     var added = pool[0];
     var shown = visibleCards();
     var surplus = shown.filter(function (c) {
@@ -137,7 +141,8 @@
     });
     var removed = surplus.length ? surplus[surplus.length - 1] : null;
 
-    // Placement EN BAS de la colonne déficitaire (sinon le flux dense la remonte en haut).
+    // Placement EN BAS de la colonne déficitaire (mesuré APRÈS le nettoyage ci-dessus, donc
+    // sur une colonne tassée) — sinon le flux dense remonterait la carte dans un trou en haut.
     var startRow = bottomRow(deficitSide);
     added.classList.remove('hidden-more');
     added.classList.toggle('vc-side', !!deficitSide);
