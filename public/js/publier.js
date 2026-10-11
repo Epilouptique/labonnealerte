@@ -85,9 +85,6 @@
     }
     h += '</div>';
 
-    h += '<details class="pub-help"><summary>Comment naviguer dans les catégories ?</summary>' +
-      '<p class="pub-hint">Choisissez la catégorie la plus proche de votre sujet. Les suggestions viennent des mots de votre titre. Sinon, parcourez la liste complète, regroupée par thème, et sélectionnez-en une seule.</p></details>';
-
     var groups = F.groupedCategories(CATS);
     h += '<label class="pub-field"><span>Ou choisissez une autre catégorie</span>' +
       '<select id="f-cat"><option value="">— Sélectionnez une catégorie —</option>' +
@@ -95,8 +92,7 @@
         return '<optgroup label="' + esc(familyLabel(g.group)) + '">' +
           g.items.map(function (it) { return '<option value="' + esc(it.slug) + '"' + (d.category === it.slug ? ' selected' : '') + '>' + esc(it.label) + '</option>'; }).join('') +
           '</optgroup>';
-      }).join('') + '</select>' +
-      (d.category ? '<span class="pub-hint">Catégorie choisie : <strong>' + esc(catLabel(d.category)) + '</strong></span>' : '') + '</label>';
+      }).join('') + '</select></label>';
     return h;
   }
 
@@ -185,7 +181,6 @@
         d.category = b.getAttribute('data-cat'); err = ''; saveDraft(d);
         var sel = document.getElementById('f-cat'); if (sel) sel.value = d.category;
         [].forEach.call(root.querySelectorAll('.pub-cats-sugg .pub-card'), function (x) { x.setAttribute('aria-pressed', String(x === b)); });
-        var lab = document.querySelector('#f-cat + .pub-hint'); // (re)rendu léger du libellé choisi
         render();
       };
     });
