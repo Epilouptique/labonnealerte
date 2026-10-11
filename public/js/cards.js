@@ -42,11 +42,31 @@
     return ic;
   }
 
+  // Voyant d'état = cloche (comme l'app Android) : verte et inclinee « qui dort » au
+  // repos, violette et secouee quand une alerte est active. SVG autonome (couleur en
+  // style inline, agitation en SMIL) : aucune dependance a site.css. L'agitation est
+  // coupee si l'utilisateur demande des animations reduites.
+  var BELL_PATH = 'M12 2.2a1.9 1.9 0 0 0-1.9 1.9v.6A5.8 5.8 0 0 0 6.3 10.2V15l-1.6 1.6a1 1 0 0 0 .7 1.7h13.2a1 1 0 0 0 .7-1.7L17.7 15v-4.8a5.8 5.8 0 0 0-3.8-5.5v-.6A1.9 1.9 0 0 0 12 2.2z';
+  var BELL_CLAPPER = 'M10.1 19.6a1.9 1.9 0 0 0 3.8 0z';
+  var PREFERS_REDUCED = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+  function bellSvg(active) {
+    var color = active ? 'var(--violet,#a567e3)' : 'var(--green,#1a7f37)';
+    var body = '<path d="' + BELL_PATH + '"/><path d="' + BELL_CLAPPER + '"/>';
+    var inner;
+    if (active && !PREFERS_REDUCED) {
+      inner = '<g><animateTransform attributeName="transform" attributeType="XML" type="rotate" values="-16 12 3.5;16 12 3.5;-16 12 3.5" dur="0.38s" repeatCount="indefinite"/>' + body + '</g>';
+    } else {
+      inner = '<g transform="rotate(' + (active ? 0 : -22) + ' 12 3.5)">' + body + '</g>';
+    }
+    return '<svg class="state-bell" width="15" height="15" viewBox="0 0 24 24" aria-hidden="true" focusable="false" style="color:' + color + ';fill:currentColor;flex:none;vertical-align:middle">' + inner + '</svg>';
+  }
+
   function stateFor(state) {
     if (state === 'active') {
-      return '<div class="state active" role="img" aria-label="Active" title="Active"><span class="dot-live"></span></div>';
+      return '<div class="state active" role="img" aria-label="Active" title="Active">' + bellSvg(true) + '</div>';
     }
-    return '<div class="state idle" role="img" aria-label="Rien à signaler" title="Rien à signaler"><span class="dot-idle"></span></div>';
+    return '<div class="state idle" role="img" aria-label="Rien à signaler" title="Rien à signaler">' + bellSvg(false) + '</div>';
   }
 
   function domainOf(url) {
