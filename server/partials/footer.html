@@ -4,6 +4,14 @@
      Style : public/css/site.css (section « footer »).
      Prise en compte : immediate en dev ; en production, au redemarrage du serveur
      (le rendu est mis en cache en memoire au premier affichage). -->
+<!-- 5e colonne (bloc Institutions) : on etend la grille a 5 pistes sur desktop sans
+     toucher a site.css (regle chargee apres, donc prioritaire). Les ruptures
+     responsive (900/560px) sont reconduites a l'identique. -->
+<style>
+  .footer-cols { grid-template-columns: 1.5fr 1fr 1fr 1fr 1fr; }
+  @media (max-width: 900px) { .footer-cols { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 560px) { .footer-cols { grid-template-columns: 1fr; } }
+</style>
 <footer>
   <div class="footer-cols">
     <div class="footer-col footer-brand">
@@ -22,7 +30,7 @@
       <a href="/proposer#standard">Espace développeur</a>
       <a href="https://github.com/Epilouptique/labonnealerte" target="_blank" rel="noopener">Code source</a>
     </nav>
-    <section class="footer-col footer-institutions" aria-label="Institutions et collectivités" style="border:1px solid rgba(128,128,128,.25);border-radius:12px;padding:14px 16px;">
+    <section class="footer-col footer-institutions" aria-label="Institutions et collectivités" style="border:1px solid rgba(128,128,128,.25);border-radius:12px;padding:0px 16px;">
       <p class="footer-h">Institutions et collectivités</p>
       <p style="margin:0 0 10px;font-size:.9em;opacity:.85;">Mairies, EPCI, associations&nbsp;: prévenez vos habitants, gratuitement et sans publicité.</p>
       <a href="/institutions" style="display:inline-block;padding:7px 14px;border-radius:8px;background:var(--amber,#f2a900);color:#4a3500;font-weight:700;text-decoration:none;">En savoir plus</a>
