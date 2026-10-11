@@ -41,7 +41,8 @@ body.inst .band--accent .eyebrow { color: var(--inst-accent); }
 body.inst .hero { padding: 72px 0 64px; }
 body.inst .hero-grid { display: grid; grid-template-columns: 1.1fr .9fr; gap: 48px; align-items: center; }
 body.inst .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
-body.inst .hero-art { width: 100%; height: auto; }
+/* Photo de la mairie en fond de la partie droite du hero. */
+body.inst .hero-photo { width: 100%; min-height: 360px; border-radius: 16px; background: var(--inst-soft) url("/img/photo_mairie.jpg") center/cover no-repeat; box-shadow: 0 10px 30px rgba(26,21,38,.14); }
 
 /* Boutons */
 body.inst .btn { display: inline-flex; align-items: center; gap: 8px; padding: 14px 22px; border-radius: 10px; font-weight: 700; font-size: 16px; text-decoration: none; border: 2px solid transparent; transition: transform .12s ease, box-shadow .12s ease; }
@@ -62,12 +63,12 @@ body.inst .band--accent .ico { color: var(--inst-accent); }
 
 /* Étapes numérotées */
 body.inst .steps { counter-reset: step; display: grid; gap: 28px; grid-template-columns: repeat(4, 1fr); margin-top: 8px; }
-body.inst .step { position: relative; padding-top: 52px; }
-body.inst .step::before { counter-increment: step; content: counter(step); position: absolute; top: 0; left: 0; width: 38px; height: 38px; border-radius: 50%; background: var(--inst-accent); color: var(--inst-accent-ink); font-weight: 800; display: flex; align-items: center; justify-content: center; }
+body.inst .step { position: relative; background: var(--inst-soft); border-radius: 14px; padding: 60px 22px 24px; }
+body.inst .step::before { counter-increment: step; content: counter(step); position: absolute; top: 22px; left: 22px; width: 38px; height: 38px; border-radius: 50%; background: var(--inst-accent); color: var(--inst-accent-ink); font-weight: 800; display: flex; align-items: center; justify-content: center; }
 
 /* Distinction Alerte / Information */
 body.inst .kinds { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 28px; }
-body.inst .kind { border-left: 4px solid var(--inst-line); padding: 4px 0 4px 18px; }
+body.inst .kind { background: var(--inst-soft); border-radius: 14px; border-left: 4px solid var(--inst-line); padding: 16px 18px; }
 body.inst .kind--alerte { border-left-color: var(--inst-accent); }
 body.inst .kind .tag { display: inline-block; font-size: 13px; font-weight: 700; padding: 3px 10px; border-radius: 999px; }
 body.inst .kind--alerte .tag { background: #fde9bf; color: var(--inst-accent-ink); }
@@ -116,7 +117,7 @@ body.inst .todo-hugo { display: none; }
 /* Responsive */
 @media (max-width: 880px) {
   body.inst .hero-grid { grid-template-columns: 1fr; gap: 32px; }
-  body.inst .hero-art { max-width: 420px; margin: 0 auto; }
+  body.inst .hero-photo { max-width: 460px; min-height: 240px; margin: 0 auto; }
   body.inst .cols-4 { grid-template-columns: repeat(2, 1fr); }
   body.inst .steps { grid-template-columns: repeat(2, 1fr); }
   body.inst .cases { grid-template-columns: 1fr; }
