@@ -40,14 +40,17 @@
     if (!token()) { renderGate(); return; }
     if (d.step === 'confirme') { renderConfirm(); return; }
     var step = d.step === 'details' ? 'details' : 'essentiel';
-    var html = '<div class="pub-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + F.progress(step) + '"><i style="width:' + F.progress(step) + '%"></i></div>';
+    // TOUT dans un seul bloc .pub-step (barre de progression, info d'étape, titre, corps,
+    // actions, lien dev) : rendu uni, un seul fond clair.
+    var html = '<section class="pub-step">';
+    html += '<div class="pub-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + F.progress(step) + '"><i style="width:' + F.progress(step) + '%"></i></div>';
     html += '<p class="pub-stepinfo">Étape ' + (F.indexOf(step) + 1) + ' sur ' + F.STEPS.length + '</p>';
-    html += '<section class="pub-step"><h1>' + esc(nbsp(F.STEP_TITLES[step])) + '</h1>';
+    html += '<h1>' + esc(nbsp(F.STEP_TITLES[step])) + '</h1>';
     html += step === 'essentiel' ? bodyEssentiel() : bodyDetails();
     if (err) html += '<p class="pub-err" role="alert">' + err + '</p>';
-    html += '</section>';
     html += actions(step);
     if (step === 'essentiel') html += devLink();
+    html += '</section>';
     root.innerHTML = html;
     bind(step);
   }
@@ -72,8 +75,9 @@
   function chosenHtml() {
     var cats = selectedCats();
     if (!cats.length) return '';
-    return '<div class="pub-chosen">' + cats.map(function (slug) {
-      return '<button type="button" class="pub-chip" data-del="' + esc(slug) + '" aria-label="Retirer ' + esc(catPath(catEntry(slug))) + '">' + esc(catPath(catEntry(slug))) + ' <span aria-hidden="true">×</span></button>';
+    // Réutilise l'identité « tag » du site (back-tags / tag back-tag) ; ajoute le « × » de retrait.
+    return '<div class="pub-chosen back-tags">' + cats.map(function (slug) {
+      return '<button type="button" class="tag back-tag pub-chip" data-del="' + esc(slug) + '" aria-label="Retirer ' + esc(catPath(catEntry(slug))) + '">' + esc(catPath(catEntry(slug))) + '<span class="pub-chip-x" aria-hidden="true">×</span></button>';
     }).join('') + '</div>';
   }
   // Suggestions : UN SEUL bloc, une catégorie par ligne, format « Famille › Sous-catégorie ».
