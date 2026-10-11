@@ -28,7 +28,7 @@ const target = to === 'refused' ? 'suspended' : to;
     if (args['list-pending']) {
       const { rows } = await pool.query(
         `SELECT o.id, o.name, o.type, o.commune_insee, o.siren, o.email, o.justification,
-                o.created_at, s.email AS requester_email
+                o.contact_function, o.contact_phone, o.created_at, s.email AS requester_email
            FROM organizations o
            JOIN subscribers s ON s.id = o.requester_subscriber_id
           WHERE o.status = 'pending' ORDER BY o.created_at ASC`);
@@ -37,6 +37,7 @@ const target = to === 'refused' ? 'suspended' : to;
         const ident = r.commune_insee ? `INSEE ${r.commune_insee}` : (r.siren ? `SIREN ${r.siren}` : '—');
         console.log(`\n• #${r.id} — « ${r.name} » [${r.type}] ${ident}`);
         console.log(`  e-mail pro : ${r.email || '—'} (domaine : ${ol.emailDomain(r.email) || '—'})`);
+        console.log(`  fonction   : ${r.contact_function || '—'}${r.contact_phone ? ' · tél : ' + r.contact_phone : ''}`);
         console.log(`  demandeur  : ${r.requester_email || '—'} (domaine : ${ol.emailDomain(r.requester_email) || '—'})`);
         if (r.justification) console.log(`  justificatif : « ${r.justification} »`);
         console.log(`  déposée le : ${r.created_at.toISOString ? r.created_at.toISOString() : r.created_at}`);

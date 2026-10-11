@@ -21,9 +21,12 @@
   var STEPS = ['modele', 'contenu', 'relecture'];
 
   var state = {
-    step: 'modele', orgs: [], pendingOrgs: [], memberOrgs: [], org: null, loaded: false, authError: false,
+    step: 'modele', orgs: [], pendingOrgs: [], suspendedOrgs: [], memberOrgs: [], org: null, loaded: false, authError: false,
     draft: { template: '', kind: 'info', title: '', body: '', category: '', starts_at: '', ends_at: '' },
-    createdId: null, busy: false, err: '', ok: ''
+    createdId: null, busy: false, err: '', ok: '',
+    // Formulaire de demande d'accès (écran « Demande d'accès »).
+    access: { name: '', type: 'commune', ville: '', departement: '', siren: '', role: 'admin', fonction: '', email: '', phone: '', justification: '', accept: false, website: '' },
+    accessErr: '', accessBusy: false, accessSent: false
   };
 
   function api(method, path, body) {
@@ -44,6 +47,8 @@
       state.orgs = list.filter(function (o) { return o.status === 'verified' && o.my_member_status === 'actif'; });
       // Organisations liées EN ATTENTE de vérification (membre ou demandeur).
       state.pendingOrgs = list.filter(function (o) { return o.status === 'pending'; });
+      // Organisations refusées/suspendues (motif affiché).
+      state.suspendedOrgs = list.filter(function (o) { return o.status === 'suspended'; });
       state.org = state.orgs[0] || null;
     }).catch(function () { state.err = 'Chargement impossible.'; });
   }
@@ -66,12 +71,33 @@
     if (state.authError) { root.innerHTML = block('<h1>Connexion requise</h1><p>Connectez-vous avec le compte de votre collectivité pour publier un événement.</p><p><a class="pub-btn" href="/connexion" style="display:inline-block;text-decoration:none;text-align:center">Se connecter</a></p>'); return; }
     if (!state.loaded) { root.innerHTML = block('<p>Chargement…</p>'); return; }
     if (!state.orgs.length) {
-      if ((state.pendingOrgs || []).length) {
-        var names = state.pendingOrgs.map(function (o) { return esc(o.name); }).join(', ');
-        root.innerHTML = block('<h1>En attente de vérification</h1><p>Votre organisation (' + names + ') a été enregistrée et attend une vérification avant de pouvoir publier. Vous serez prévenu une fois validée.</p>');
+      if (state.accessSent) {
+        root.innerHTML = block('<h1>Demande reçue 🙌</h1>' +
+          '<p>Merci. Nous vérifions votre demande <strong>sous quelques jours</strong>&nbsp;: contrôle manuel que vous représentez bien cette structure, puis réponse par e-mail.</p>' +
+          '<p><strong>Rien n’est publié</strong> tant que votre organisation n’est pas vérifiée. Vous pourrez alors revenir sur cette page pour publier vos événements.</p>');
         return;
       }
-      root.innerHTML = block('<h1>Demande d’accès</h1><p>Vous n’êtes membre d’aucune organisation vérifiée. Pour publier des événements au nom d’une collectivité, déposez une demande — elle sera examinée avant toute publication.</p>');
+      if ((state.pendingOrgs || []).length) {
+        var p = state.pendingOrgs[0];
+        root.innerHTML = block('<h1>En attente de vérification</h1>' +
+          '<p>Votre demande pour <strong>' + esc(p.name) + '</strong>' + (p.created_at ? ' (déposée le ' + esc(fmtDate(p.created_at)) + ')' : '') + ' est en cours d’examen. Vous serez prévenu par e-mail une fois votre organisation vérifiée.</p>' +
+          '<p>Rien n’est publié avant la vérification.</p>');
+        return;
+      }
+      if ((state.suspendedOrgs || []).length) {
+        var su = state.suspendedOrgs[0];
+        root.innerHTML = block('<h1>Demande non validée</h1>' +
+          '<p>La demande pour <strong>' + esc(su.name) + '</strong> n’a pas été validée.</p>' +
+          (su.status_reason ? '<p><strong>Motif&nbsp;:</strong> ' + esc(su.status_reason) + '</p>' : '') +
+          '<p>Vous pouvez corriger et redéposer une demande ci-dessous.</p>' + accessFormHtml());
+        bindAccessForm();
+        return;
+      }
+      root.innerHTML = block(
+        '<h1>Publier pour votre collectivité</h1>' +
+        '<p>Vous n’êtes membre d’aucune organisation vérifiée. Déposez une demande d’accès&nbsp;: nous la vérifions avant toute publication.</p>' +
+        accessFormHtml());
+      bindAccessForm();
       return;
     }
     var html = '<section class="pub-step">';
@@ -88,6 +114,94 @@
     wire();
   }
   function block(inner) { return '<section class="pub-step">' + inner + '</section>'; }
+
+  // ── Écran « Demande d'accès » : vrai formulaire ───────────────────────────────
+  function accessFormHtml() {
+    var a = state.access;
+    var typeOpt = function (v, label) { return '<option value="' + v + '"' + (a.type === v ? ' selected' : '') + '>' + label + '</option>'; };
+    var roleOpt = function (v, label) { return '<option value="' + v + '"' + (a.role === v ? ' selected' : '') + '>' + label + '</option>'; };
+    var commune = a.type === 'commune'
+      ? '<div class="pub-row">' +
+          '<label class="pub-field"><span>Commune</span><input id="mp-a-ville" type="text" maxlength="80" value="' + esc(a.ville) + '" placeholder="Ex. Gap"></label>' +
+          '<label class="pub-field"><span>Département ou code postal</span><input id="mp-a-dept" type="text" maxlength="5" value="' + esc(a.departement) + '" placeholder="05 ou 05000"></label>' +
+        '</div><p class="pub-hint" style="margin:-6px 0 14px">Saisissez le nom de la commune&nbsp;: le code INSEE est résolu automatiquement.</p>'
+      : '<label class="pub-field"><span>SIREN de la structure</span><input id="mp-a-siren" type="text" maxlength="11" value="' + esc(a.siren) + '" placeholder="9 chiffres"></label>';
+    return '<div class="pub-detailblock" style="margin-top:14px">' +
+      '<label class="pub-field"><span>Nom de l’organisation</span><input id="mp-a-name" type="text" maxlength="120" value="' + esc(a.name) + '" placeholder="Ex. Mairie de Gap"><p class="pub-hint"><span id="mp-a-name-count">' + a.name.length + '</span>/120</p></label>' +
+      '<label class="pub-field"><span>Type</span><select id="mp-a-type">' + typeOpt('commune', 'Commune') + typeOpt('epci', 'Intercommunalité (EPCI)') + typeOpt('autre', 'Association communale / autre') + '</select></label>' +
+      commune +
+      '<div class="pub-row">' +
+        '<label class="pub-field"><span>Votre rôle</span><select id="mp-a-role">' + roleOpt('admin', 'Administrateur') + roleOpt('editeur', 'Éditeur') + '</select></label>' +
+        '<label class="pub-field"><span>Votre fonction</span><input id="mp-a-fonction" type="text" maxlength="120" value="' + esc(a.fonction) + '" placeholder="Ex. Secrétaire de mairie"></label>' +
+      '</div>' +
+      '<label class="pub-field"><span>E-mail professionnel</span><input id="mp-a-email" type="email" maxlength="200" value="' + esc(a.email) + '" placeholder="prenom.nom@mairie-xxx.fr"><p class="pub-hint">Domaine&nbsp;: <strong id="mp-a-domain">' + esc(domainOf(a.email) || '—') + '</strong> — il nous aide à vérifier votre structure.</p></label>' +
+      '<label class="pub-field"><span>Téléphone (facultatif)</span><input id="mp-a-phone" type="tel" maxlength="30" value="' + esc(a.phone) + '" placeholder="04 ..."></label>' +
+      '<label class="pub-field"><span>En quelques mots, votre demande</span><textarea id="mp-a-just" maxlength="300" placeholder="Ex. Je suis en charge de la communication de la mairie.">' + esc(a.justification) + '</textarea><p class="pub-hint"><span id="mp-a-just-count">' + a.justification.length + '</span>/300</p></label>' +
+      '<label style="display:flex;gap:10px;align-items:flex-start;margin:4px 0 2px;cursor:pointer"><input id="mp-a-accept" type="checkbox"' + (a.accept ? ' checked' : '') + ' style="width:auto;margin-top:3px"><span>J’accepte que mes informations soient utilisées pour vérifier ma demande (voir la <a href="/confidentialite">Confidentialité</a>).</span></label>' +
+      // Honeypot anti-robot (invisible, non focusable).
+      '<div aria-hidden="true" style="position:absolute;left:-9999px;top:auto;height:0;overflow:hidden"><label>Site web<input id="mp-a-website" type="text" tabindex="-1" autocomplete="off" value="' + esc(a.website) + '"></label></div>' +
+      (state.accessErr ? '<p class="pub-err">' + esc(state.accessErr) + '</p>' : '') +
+      '<div class="pub-actions"><button type="button" class="pub-btn" id="mp-a-submit"' + (state.accessBusy ? ' disabled' : '') + '>Envoyer ma demande</button></div>' +
+      '</div>';
+  }
+  function domainOf(email) { var m = /@([^\s@]+)$/.exec(String(email || '').trim().toLowerCase()); return m ? m[1] : null; }
+
+  function collectAccess() {
+    var g = function (id) { var el = document.getElementById(id); return el ? el.value : undefined; };
+    var a = state.access;
+    if (g('mp-a-name') != null) a.name = g('mp-a-name');
+    if (g('mp-a-type') != null) a.type = g('mp-a-type');
+    if (g('mp-a-ville') != null) a.ville = g('mp-a-ville');
+    if (g('mp-a-dept') != null) a.departement = g('mp-a-dept');
+    if (g('mp-a-siren') != null) a.siren = g('mp-a-siren');
+    if (g('mp-a-role') != null) a.role = g('mp-a-role');
+    if (g('mp-a-fonction') != null) a.fonction = g('mp-a-fonction');
+    if (g('mp-a-email') != null) a.email = g('mp-a-email');
+    if (g('mp-a-phone') != null) a.phone = g('mp-a-phone');
+    if (g('mp-a-just') != null) a.justification = g('mp-a-just');
+    if (g('mp-a-website') != null) a.website = g('mp-a-website');
+    var chk = document.getElementById('mp-a-accept'); if (chk) a.accept = chk.checked;
+  }
+
+  function bindAccessForm() {
+    var sync = function () { collectAccess(); };
+    ['mp-a-name', 'mp-a-ville', 'mp-a-dept', 'mp-a-siren', 'mp-a-role', 'mp-a-fonction', 'mp-a-phone', 'mp-a-website'].forEach(function (id) {
+      var el = document.getElementById(id); if (el) el.oninput = sync;
+    });
+    var nameEl = document.getElementById('mp-a-name'); var nc = document.getElementById('mp-a-name-count');
+    if (nameEl && nc) nameEl.addEventListener('input', function () { nc.textContent = nameEl.value.length; });
+    var just = document.getElementById('mp-a-just'); var jc = document.getElementById('mp-a-just-count');
+    if (just && jc) just.addEventListener('input', function () { collectAccess(); jc.textContent = just.value.length; });
+    var email = document.getElementById('mp-a-email'); var dom = document.getElementById('mp-a-domain');
+    if (email) email.addEventListener('input', function () { collectAccess(); if (dom) dom.textContent = domainOf(email.value) || '—'; });
+    var typeEl = document.getElementById('mp-a-type'); if (typeEl) typeEl.onchange = function () { collectAccess(); render(); };
+    var sub = document.getElementById('mp-a-submit'); if (sub) sub.onclick = submitAccess;
+  }
+
+  function submitAccess() {
+    collectAccess();
+    var a = state.access;
+    state.accessErr = '';
+    if (!a.name || a.name.trim().length < 3) { state.accessErr = 'Indiquez le nom de votre organisation (3 caractères min).'; return render(); }
+    if (a.type === 'commune' && (!a.ville || a.ville.trim() === '')) { state.accessErr = 'Indiquez votre commune.'; return render(); }
+    if (a.type !== 'commune' && !/^\d{9}$/.test(String(a.siren).replace(/\s+/g, ''))) { state.accessErr = 'Indiquez un SIREN valide (9 chiffres).'; return render(); }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(a.email)) { state.accessErr = 'Indiquez un e-mail professionnel valide.'; return render(); }
+    if (!a.accept) { state.accessErr = 'Merci de cocher l’acceptation pour continuer.'; return render(); }
+
+    state.accessBusy = true; render();
+    var body = {
+      name: a.name, type: a.type, role: a.role, fonction: a.fonction || undefined,
+      email: a.email, phone: a.phone || undefined, justification: a.justification || undefined,
+      website: a.website || undefined
+    };
+    if (a.type === 'commune') { body.ville = a.ville; body.departement = a.departement || undefined; }
+    else { body.siren = String(a.siren).replace(/\s+/g, ''); }
+    api('POST', '/api/organizations', body).then(function (r) {
+      state.accessBusy = false;
+      if (!r.ok) { state.accessErr = (r.body && r.body.error) || 'Envoi impossible, réessayez.'; return render(); }
+      state.accessSent = true; render();
+    }).catch(function () { state.accessBusy = false; state.accessErr = 'Envoi impossible, réessayez.'; render(); });
+  }
 
   function orgPicker() {
     if (state.orgs.length < 2) return '';

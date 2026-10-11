@@ -38,6 +38,16 @@ ok(/Demande d’accès|Demande d'accès/.test(js), 'état sans organisation : é
 ok(/En attente de vérification/.test(js), 'état pending : écran en attente de vérification');
 ok(/function draw\s*\(/.test(js) && /catch\s*\(\s*e\s*\)\s*\{[^}]*root\.innerHTML/.test(js), 'erreur de script → message visible (render protège draw)');
 
+// 4bis) Formulaire de demande d'accès (LOT B-bis) : champs obligatoires + honeypot + conditions.
+['mp-a-name', 'mp-a-type', 'mp-a-ville', 'mp-a-role', 'mp-a-fonction', 'mp-a-email', 'mp-a-just', 'mp-a-accept'].forEach(function (id) {
+  ok(js.indexOf("'" + id + "'") !== -1 || js.indexOf('"' + id + '"') !== -1 || js.indexOf(id) !== -1, 'formulaire : champ ' + id + ' présent');
+});
+ok(/mp-a-website/.test(js) && /left:-9999px/.test(js), 'honeypot anti-robot discret présent');
+ok(/\/confidentialite/.test(js) && /accept/i.test(js), 'case d’acceptation avec lien Confidentialité');
+ok(/300/.test(js) && /mp-a-just-count/.test(js), 'compteur de caractères (justification ≤300)');
+ok(/Demande reçue/.test(js), 'écran « Demande reçue » après envoi');
+ok(/En attente de vérification/.test(js) && /Motif/.test(js), 'écrans « en attente » et « motif » (refus/suspension)');
+
 // 5) noindex et hors sitemap.
 ok(/<meta\s+name="robots"\s+content="noindex"/i.test(html), 'meta robots noindex présent');
 ok(!/['"]\/mairie\/publier['"]/.test(sitemap) && !/\/mairie\b/.test(sitemap), '/mairie/publier absent du sitemap (STATIC_PATHS)');
