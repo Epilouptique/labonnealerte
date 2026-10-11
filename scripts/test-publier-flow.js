@@ -1,74 +1,76 @@
-// scripts/test-publier-flow.js — LOT 4 : logique du parcours « Publier une alerte »
-// (public/js/publier-flow.js). HORS DOM, hors réseau. Couvre l'enchaînement des étapes,
-// les validations, le gating du bouton Continuer, les droits/erreurs, les libellés.
-// Lancer : node scripts/test-publier-flow.js
+// scripts/test-publier-flow.js — LOT 9 : logique du parcours « Publier une alerte »
+// (public/js/publier-flow.js), 2 écrans. HORS DOM, hors réseau : enchaînement des écrans,
+// validations, suggestions de catégories par mots-clés, regroupement par famille, corps
+// des requêtes. Lancer : node scripts/test-publier-flow.js
 'use strict';
 const F = require('../public/js/publier-flow.js');
 
 let passed = 0, fails = 0;
 const ok = (c, m) => { if (c) { passed++; console.log('  ✓ ' + m); } else { fails++; console.error('  ✗ ' + m); } };
 
-console.log('TEST parcours « Publier une alerte »');
+// Taxonomie minimale de test (slug/label/group), comme /api/categories.
+const CATS = [
+  { slug: 'gpu', label: 'Cartes graphiques', group: 'shopping' },
+  { slug: 'high-tech', label: 'High-tech', group: 'shopping' },
+  { slug: 'tech', label: 'Tech', group: 'tech-dev' },
+  { slug: 'concerts', label: 'Concerts', group: 'billetterie-sorties' },
+  { slug: 'meteo', label: 'Météo', group: 'meteo-risques' },
+];
 
-// 1) Ordre des étapes (adresse → aperçu → présentation, grâce au brouillon minimal)
-ok(F.STEPS.join(',') === 'type,adresse,apercu,presentation,recap', 'ordre des étapes correct');
-ok(F.nextStep('adresse') === 'apercu' && F.nextStep('apercu') === 'presentation', 'adresse → aperçu → présentation');
-ok(F.nextStep('type') === 'adresse' && F.prevStep('adresse') === 'type', 'navigation avant/arrière');
-ok(F.prevStep('type') === 'type' && F.nextStep('recap') === 'recap', 'bornes d\'étapes');
-ok(F.progress('type') === 20 && F.progress('recap') === 100, 'barre de progression');
+console.log('TEST parcours « Publier une alerte » (2 écrans)');
 
-// 2) Étape type
-ok(!F.canContinue('type', {}), 'type : rien choisi → bloqué');
-ok(F.canContinue('type', { type: 'page' }), 'type : page → OK');
-ok(!F.canContinue('type', { type: 'ftp' }), 'type inconnu → bloqué');
+// 1) Écrans
+ok(F.STEPS.join(',') === 'essentiel,details', 'deux écrans : essentiel → details');
+ok(F.nextStep('essentiel') === 'details' && F.prevStep('details') === 'essentiel', 'navigation avant/arrière');
+ok(F.progress('essentiel') === 50 && F.progress('details') === 100, 'barre de progression');
 
-// 3) Étape adresse (+ zone)
-ok(F.canContinue('adresse', { type: 'page', url: 'https://x.fr/p' }), 'adresse https valide');
-ok(!F.canContinue('adresse', { type: 'page', url: 'http://x.fr' }), 'adresse non https refusée');
-ok(F.canContinue('adresse', { type: 'page', url: 'https://x.fr', zone: '#prix' }), 'zone valide sur page');
-ok(!F.canContinue('adresse', { type: 'page', url: 'https://x.fr', zone: 'div > p' }), 'zone invalide refusée');
-ok(!F.canContinue('adresse', { type: 'rss', url: 'https://x.fr', zone: '#prix' }), 'zone interdite hors page');
+// 2) Titre (max 40)
+ok(!F.validateTitle('ab').ok, 'titre trop court refusé');
+ok(F.validateTitle('Baisse de prix RTX').ok, 'titre valide');
+ok(!F.validateTitle('x'.repeat(41)).ok, 'titre > 40 refusé');
+ok(F.TITLE_MAX === 40, 'max titre = 40');
 
-// 4) Étape présentation
-const okPres = { name: 'Tarifs Netflix', categories: ['vie-quotidienne'], type: 'page' };
-ok(F.canContinue('presentation', okPres), 'présentation valide');
-ok(!F.canContinue('presentation', { name: 'ab', categories: ['x'] }), 'nom trop court refusé');
-ok(!F.canContinue('presentation', { name: 'Nom', categories: [] }), 'au moins une catégorie requise');
-ok(!F.canContinue('presentation', { name: 'Nom', categories: ['a', 'b', 'c', 'd'] }), 'max 3 catégories');
-ok(!F.canContinue('presentation', Object.assign({}, okPres, { alert_url: 'ftp://x' })), 'lien d\'alerte non http(s) refusé');
-ok(!F.canContinue('presentation', Object.assign({}, okPres, { type: 'agenda', preavis: 99 })), 'préavis hors bornes refusé');
-ok(F.canContinue('presentation', Object.assign({}, okPres, { type: 'agenda', preavis: 3 })), 'préavis valide');
+// 3) Écran essentiel : titre + catégorie requis
+ok(!F.canContinue('essentiel', { title: 'Baisse de prix RTX' }), 'catégorie requise');
+ok(F.canContinue('essentiel', { title: 'Baisse de prix RTX', category: 'gpu' }), 'titre + catégorie → OK');
+ok(!F.canContinue('essentiel', { title: 'ab', category: 'gpu' }), 'titre invalide bloque');
 
-// 5) Étape aperçu : gating sur previewOk
-ok(!F.canContinue('apercu', { previewOk: false }), 'aperçu non lancé → Continuer bloqué');
-ok(F.canContinue('apercu', { previewOk: true }), 'aperçu réussi → Continuer autorisé');
+// 4) Suggestions de catégories par mots-clés (sans IA)
+const s1 = F.suggestCategories('Baisse de prix carte graphique RTX', CATS, 3).map((c) => c.slug);
+ok(s1.indexOf('gpu') !== -1, 'suggestion : « carte graphique » → gpu');
+ok(F.suggestCategories('Concert de rock à Lyon', CATS, 3).map((c) => c.slug).indexOf('concerts') !== -1, 'suggestion : « concert » → concerts');
+ok(F.suggestCategories('', CATS, 3).length === 0, 'aucune suggestion sans titre');
+ok(F.suggestCategories('Vigilance météo orange', CATS, 3).length <= 3, 'au plus 3 suggestions');
 
-// 6) Invalidation de l'aperçu quand l'adresse/zone/type change
+// 5) Regroupement par famille (liste déroulante)
+const groups = F.groupedCategories(CATS);
+const shopping = groups.filter((g) => g.group === 'shopping')[0];
+ok(shopping && shopping.items.length === 2, 'famille shopping regroupe gpu + high-tech');
+ok(groups.some((g) => g.group === 'tech-dev'), 'famille tech-dev présente');
+
+// 6) Écran details : type + url (+ zone/perso/préavis)
+ok(!F.canContinue('details', { type: 'page' }), 'url requise');
+ok(F.canContinue('details', { type: 'page', url: 'https://x.fr/p' }), 'page + https → OK');
+ok(!F.canContinue('details', { type: 'page', url: 'http://x.fr' }), 'non https refusé');
+ok(F.canContinue('details', { type: 'page', url: 'https://x.fr', zone: '#prix' }), 'zone valide sur page');
+ok(!F.canContinue('details', { type: 'rss', url: 'https://x.fr', zone: '#prix' }), 'zone interdite hors page');
+ok(!F.canContinue('details', { type: 'agenda', url: 'https://x.fr', preavis: 99 }), 'préavis hors bornes refusé');
+ok(!F.canContinue('details', { type: 'page', url: 'https://x.fr', alert_url: 'ftp://x' }), 'lien d\'alerte non http(s) refusé');
+
+// 7) Corps de création : titre + catégorie + type + url ENVOYÉS dès la création
+const bodyPage = F.createBody({ type: 'page', url: ' https://x.fr/p ', zone: '#prix', title: ' Prix RTX ', category: 'gpu', alert_message: 'Hop', alert_url: 'https://y.fr' });
+ok(bodyPage.type === 'page' && bodyPage.url === 'https://x.fr/p' && bodyPage.zone === '#prix', 'createBody : type+url+zone');
+ok(bodyPage.name === 'Prix RTX' && JSON.stringify(bodyPage.categories) === '["gpu"]', 'createBody : titre + catégorie');
+ok(bodyPage.alert_message === 'Hop' && bodyPage.alert_url === 'https://y.fr', 'createBody : personnalisation');
+const bodyAgenda = F.createBody({ type: 'agenda', url: 'https://x.fr/c.ics', title: 'Agenda club', category: 'concerts', preavis: 3 });
+ok(bodyAgenda.preavis === 3 && bodyAgenda.zone === undefined, 'createBody : préavis agenda, pas de zone');
+ok(F.createBody({ type: 'rss', url: 'https://x', title: 'Blog', category: 'tech', zone: '#x' }).zone === undefined, 'createBody : pas de zone hors page');
+
+// 8) Invalidation de l'aperçu, erreurs, libellés
 ok(F.invalidatesPreview('url') && F.invalidatesPreview('zone') && F.invalidatesPreview('type'), 'url/zone/type invalident l\'aperçu');
-ok(!F.invalidatesPreview('name') && !F.invalidatesPreview('categories'), 'nom/catégories n\'invalident pas l\'aperçu');
-
-// 7) Erreurs de création
-let m = F.mapCreateError(409, { existing: { id: 'x', name: 'Veille X', url: '/source/x/statut' } });
-ok(/déjà/.test(m.message) && m.link === '/source/x/statut', 'doublon → message + lien vers la source');
-ok(/atteinte/i.test(F.mapCreateError(409, { error: 'Limite atteinte : 5…' }).message), 'quota → message');
-ok(F.mapCreateError(400, { error: 'URL refusée' }).message === 'URL refusée', 'URL refusée → message serveur');
-ok(/[Cc]onnexion/.test(F.mapCreateError(401, {}).message), '401 → connexion requise');
-
-// 8) Corps de création MINIMAL (étape adresse) + PATCH présentation/adresse
-const body = F.createBody({ type: 'page', url: ' https://x.fr/p ', zone: '#prix', name: 'Nom', categories: ['a'] });
-ok(body.type === 'page' && body.url === 'https://x.fr/p' && body.zone === '#prix', 'createBody minimal : type+url+zone');
-ok(body.name === undefined && body.categories === undefined, 'createBody minimal : pas de nom/catégories');
-ok(F.createBody({ type: 'rss', url: 'https://x', zone: '#x' }).zone === undefined, 'createBody : pas de zone hors page');
-const pb = F.presentationBody({ type: 'agenda', name: ' Nom ', categories: ['a', 'b'], alert_message: 'Hop', alert_url: 'https://y.fr', preavis: 4 });
-ok(pb.name === 'Nom' && pb.categories.length === 2 && pb.alert_message === 'Hop' && pb.alert_url === 'https://y.fr' && pb.preavis === 4, 'presentationBody : champs présentation + préavis');
-const abp = F.addressBody({ type: 'page', url: ' https://z.fr ', zone: '.t' });
-ok(abp.url === 'https://z.fr' && abp.zone === '.t', 'addressBody : url + zone (page)');
-ok(F.addressBody({ type: 'rss', url: 'https://z.fr' }).zone === undefined, 'addressBody : pas de zone hors page');
-
-// 9) Libellés de statut (Mes publications)
-ok(F.statusLabel('draft') === 'Brouillon' && F.statusLabel('testing') === 'À tester', 'libellés draft/testing');
-ok(F.statusLabel('review') === 'En revue' && F.statusLabel('published') === 'Publiée', 'libellés review/published');
-ok(F.statusLabel('suspended', 'abus') === 'Suspendue — abus', 'libellé suspended + motif');
+ok(!F.invalidatesPreview('title') && !F.invalidatesPreview('category'), 'titre/catégorie n\'invalident pas l\'aperçu');
+ok(/déjà/.test(F.mapCreateError(409, { existing: { url: '/source/x/statut', name: 'X' } }).message), 'doublon → message');
+ok(F.statusLabel('review') === 'En revue' && F.statusLabel('published') === 'Publiée', 'libellés statut');
 
 console.log(`\n${passed} OK, ${fails} échec(s).`);
 process.exit(fails ? 1 : 0);

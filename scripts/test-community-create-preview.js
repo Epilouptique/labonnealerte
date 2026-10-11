@@ -21,7 +21,8 @@ function slugify(name) {
     .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'veille';
 }
 
-// Simule la PERSISTANCE de la route POST corrigée (lecture via v.value), sans base.
+// Simule la PERSISTANCE de la route POST (LOT 9 : titre + catégorie à la création, id
+// dérivé du titre, lecture corrigée via v.value), sans base.
 function createRoute(body) {
   const v = lc.validateUrlType(body);
   if (!v.ok) return { status: 400, error: v.error };
@@ -32,11 +33,15 @@ function createRoute(body) {
     if (engine !== 'veille-page') return { status: 400, error: 'zone hors page' };
     config.zone = zone;
   }
-  const name = lc.provisionalName(url);
+  // Titre fourni → nom + id dérivés du titre (jamais « brouillon ») ; sinon repli hôte.
+  let name, provisional = false;
+  if (body.name != null && String(body.name).trim() !== '') name = String(body.name).trim();
+  else { name = lc.provisionalName(url); provisional = true; }
+  const categories = Array.isArray(body.categories) ? body.categories : [];
   const id = slugify(name);
-  return { status: 201, row: {
+  return { status: 201, provisional, row: {
     id, name, description: name, type: 'internal', badge: 'community', status: 'draft',
-    engine, endpoint_url: url, categories: [], engine_config: Object.keys(config).length ? config : null,
+    engine, endpoint_url: url, categories, engine_config: Object.keys(config).length ? config : null,
   } };
 }
 
@@ -60,32 +65,39 @@ async function previewRoute(row) {
 }
 
 (async () => {
+  // Séquence RÉELLE de l'assistant (LOT 9) : écran 1 titre + catégorie, écran 2 type + url.
   const CASES = [
-    { type: 'page',   url: 'https://exemple.fr/tarifs',    engine: 'veille-page'   },
-    { type: 'rss',    url: 'https://blog.exemple.fr/feed',  engine: 'veille-rss'    },
-    { type: 'agenda', url: 'https://agenda.exemple.fr/c.ics', engine: 'veille-agenda' },
+    { type: 'page',   url: 'https://exemple.fr/tarifs',      engine: 'veille-page',   title: 'Prix RTX',   cat: 'gpu',      id: 'prix-rtx' },
+    { type: 'rss',    url: 'https://blog.exemple.fr/feed',   engine: 'veille-rss',    title: 'Blog Acme',  cat: 'tech',     id: 'blog-acme' },
+    { type: 'agenda', url: 'https://agenda.exemple.fr/c.ics', engine: 'veille-agenda', title: 'Agenda club', cat: 'concerts', id: 'agenda-club' },
   ];
 
   for (const c of CASES) {
-    const host = new URL(c.url).hostname.replace(/^www\./, '');
-    const body = F.createBody(Object.assign(F.emptyDraft(), { type: c.type, url: c.url }));
+    const draft = Object.assign(F.emptyDraft(), { type: c.type, url: c.url, title: c.title, category: c.cat });
+    const body = F.createBody(draft);
     assert.strictEqual(body.url, c.url);
+    ok(body.name === c.title && JSON.stringify(body.categories) === JSON.stringify([c.cat]), `${c.type} : titre + catégorie envoyés dès la création`);
     const resp = createRoute(body);
-    ok(resp.status === 201, `${c.type} : brouillon créé (201)`);
+    ok(resp.status === 201 && resp.provisional === false, `${c.type} : brouillon créé (201, non provisoire)`);
     ok(resp.row.engine === c.engine, `${c.type} : engine = ${c.engine} (non NULL)`);
     ok(resp.row.endpoint_url === c.url, `${c.type} : endpoint_url persisté (non NULL)`);
-    ok(resp.row.name === lc.provisionalName(c.url) && resp.row.name.indexOf(host) > 0, `${c.type} : nom provisoire dérivé de l'hôte (${resp.row.name})`);
-    ok(resp.row.id === 'brouillon-' + slugify(host), `${c.type} : id dérivé de l'hôte (${resp.row.id})`);
-    ok(resp.row.id !== 'brouillon-ma-veille', `${c.type} : pas l'id de repli « ma veille »`);
+    ok(resp.row.name === c.title, `${c.type} : nom = titre saisi`);
+    ok(JSON.stringify(resp.row.categories) === JSON.stringify([c.cat]), `${c.type} : catégorie persistée`);
+    ok(resp.row.id === c.id, `${c.type} : id dérivé du titre (${resp.row.id})`);
+    ok(resp.row.id.indexOf('brouillon') !== 0, `${c.type} : id jamais préfixé « brouillon »`);
 
     const pv = await previewRoute(resp.row);
     ok(pv.ok, `${c.type} : aperçu OK (pas « Moteur non pris en charge »)`);
   }
 
+  // Sans titre : repli sur nom provisoire dérivé de l'hôte (rétro-compatible).
+  const noTitle = createRoute({ type: 'page', url: 'https://exemple.fr/p' });
+  ok(noTitle.provisional === true && noTitle.row.name === lc.provisionalName('https://exemple.fr/p'), 'sans titre : repli nom provisoire');
+
   // Zone sur une veille de page : persistée ; refusée hors page.
-  const withZone = createRoute({ type: 'page', url: 'https://exemple.fr/p', zone: '#prix' });
+  const withZone = createRoute({ type: 'page', url: 'https://exemple.fr/p2', zone: '#prix', name: 'Z', categories: ['gpu'] });
   ok(withZone.status === 201 && withZone.row.engine_config.zone === '#prix', 'zone persistée sur veille-page');
-  ok(createRoute({ type: 'rss', url: 'https://exemple.fr/f', zone: '#x' }).status === 400, 'zone refusée hors page');
+  ok(createRoute({ type: 'rss', url: 'https://exemple.fr/f', zone: '#x', name: 'R', categories: ['tech'] }).status === 400, 'zone refusée hors page');
 
   // PATCH : changement d'URL → endpoint_url mis à jour, engine inchangé, aperçu toujours OK.
   const base = createRoute({ type: 'rss', url: 'https://blog.exemple.fr/feed' }).row;

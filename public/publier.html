@@ -25,7 +25,7 @@
 <meta name="theme-color" content="#0f1419" media="(prefers-color-scheme: dark)">
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 <style>
-  .pub-wrap{max-width:640px;margin:0 auto;padding:16px 16px 120px}
+  .pub-wrap{max-width:640px;margin:0 auto;padding:16px 16px calc(24px + env(safe-area-inset-bottom))}
   .pub-progress{height:8px;border-radius:999px;background:var(--line,#e7e2ef);overflow:hidden;margin:8px 0 4px}
   .pub-progress > i{display:block;height:100%;background:var(--amber,#f2a900);transition:width .25s ease}
   .pub-stepinfo{font-size:.85rem;color:var(--muted,#6b6878);margin-bottom:18px}
@@ -44,13 +44,16 @@
   .pub-err a{color:inherit;text-decoration:underline}
   .pub-extract{white-space:pre-wrap;background:var(--bg-soft,#f6f3fb);border:1px solid var(--line,#e7e2ef);border-radius:12px;padding:12px;max-height:220px;overflow:auto;font-size:.9rem}
   .pub-warn{background:#fff6e6;border:1px solid #f2a900;border-radius:12px;padding:10px 12px;margin-top:10px}
-  .pub-cats{display:flex;flex-wrap:wrap;gap:8px}
-  .pub-cats label{display:inline-flex;align-items:center;gap:6px;border:2px solid var(--line,#e7e2ef);border-radius:999px;padding:6px 12px;cursor:pointer}
-  .pub-cats input{width:auto}
-  .pub-recap{list-style:none;padding:0}
-  .pub-recap li{padding:8px 0;border-bottom:1px solid var(--line,#e7e2ef)}
-  .pub-bar{position:fixed;left:0;right:0;bottom:0;z-index:50;background:var(--card,#fff);border-top:1px solid var(--line,#e7e2ef);padding:12px 16px;display:flex;gap:10px;justify-content:space-between;max-width:640px;margin:0 auto}
-  .pub-btn{flex:1;padding:14px;border-radius:12px;border:0;font:inherit;font-weight:700;cursor:pointer;background:var(--amber,#f2a900);color:#1a1300}
+  .pub-card-sm{padding:12px 14px}
+  .pub-card-sm b{font-size:1rem}
+  .pub-help{margin:0 0 14px;border:1px solid var(--line,#e7e2ef);border-radius:12px;padding:8px 12px;background:var(--bg-soft,#f6f3fb)}
+  .pub-help summary{cursor:pointer;font-weight:600}
+  .pub-detailblock{margin-top:16px;padding-top:4px;border-top:1px dashed var(--line,#e7e2ef)}
+  .pub-ok{color:var(--green,#1a7f37);font-weight:600;margin:10px 0 0}
+  .pub-confirm p{font-size:1.05rem;line-height:1.5}
+  /* Boutons intégrés au flux de la page (pas de barre fixe) : pleins, couleurs du site. */
+  .pub-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:22px;padding-bottom:env(safe-area-inset-bottom)}
+  .pub-btn{flex:1;min-width:160px;padding:14px;border-radius:12px;border:0;font:inherit;font-weight:700;cursor:pointer;background:var(--amber,#f2a900);color:#1a1300}
   .pub-btn.ghost{flex:0 0 auto;background:transparent;border:2px solid var(--line,#e7e2ef);color:inherit}
   .pub-btn[disabled]{opacity:.5;cursor:not-allowed}
   .pub-dev{margin-top:20px;font-size:.85rem}
