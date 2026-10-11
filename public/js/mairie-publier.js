@@ -21,7 +21,7 @@
   var STEPS = ['modele', 'contenu', 'relecture'];
 
   var state = {
-    step: 'modele', orgs: [], org: null, loaded: false, authError: false,
+    step: 'modele', orgs: [], pendingOrgs: [], memberOrgs: [], org: null, loaded: false, authError: false,
     draft: { template: '', kind: 'info', title: '', body: '', category: '', starts_at: '', ends_at: '' },
     createdId: null, busy: false, err: '', ok: ''
   };
@@ -39,8 +39,11 @@
     return api('GET', '/api/organizations').then(function (r) {
       if (r.status === 401) { state.authError = true; return; }
       var list = (r.body && r.body.organizations) || [];
-      // Organisations VÉRIFIÉES dont l'utilisateur est membre ACTIF.
+      state.memberOrgs = list;
+      // Organisations VÉRIFIÉES dont l'utilisateur est membre ACTIF (peut publier).
       state.orgs = list.filter(function (o) { return o.status === 'verified' && o.my_member_status === 'actif'; });
+      // Organisations liées EN ATTENTE de vérification (membre ou demandeur).
+      state.pendingOrgs = list.filter(function (o) { return o.status === 'pending'; });
       state.org = state.orgs[0] || null;
     }).catch(function () { state.err = 'Chargement impossible.'; });
   }
@@ -50,11 +53,25 @@
   function tplById(id) { for (var i = 0; i < TEMPLATES.length; i++) if (TEMPLATES[i].id === id) return TEMPLATES[i]; return null; }
 
   // ── Rendu des écrans ────────────────────────────────────────────────────────
+  // Wrapper robuste : quelle que soit l'erreur, un écran VISIBLE est rendu (jamais de page vide).
   function render() {
+    try { document.body.classList.remove('loading'); } catch (e) {}
+    try { draw(); }
+    catch (e) {
+      try { root.innerHTML = block('<h1>Oups</h1><p>Une erreur est survenue à l’affichage de cette page. Rechargez pour réessayer.</p>'); } catch (_) {}
+      try { console.error('[mairie-publier]', e); } catch (_) {}
+    }
+  }
+  function draw() {
     if (state.authError) { root.innerHTML = block('<h1>Connexion requise</h1><p>Connectez-vous avec le compte de votre collectivité pour publier un événement.</p><p><a class="pub-btn" href="/connexion" style="display:inline-block;text-decoration:none;text-align:center">Se connecter</a></p>'); return; }
     if (!state.loaded) { root.innerHTML = block('<p>Chargement…</p>'); return; }
     if (!state.orgs.length) {
-      root.innerHTML = block('<h1>Aucune organisation vérifiée</h1><p>Vous devez appartenir à une organisation <strong>vérifiée</strong> pour publier. Déposez une demande, elle sera examinée avant toute publication.</p>');
+      if ((state.pendingOrgs || []).length) {
+        var names = state.pendingOrgs.map(function (o) { return esc(o.name); }).join(', ');
+        root.innerHTML = block('<h1>En attente de vérification</h1><p>Votre organisation (' + names + ') a été enregistrée et attend une vérification avant de pouvoir publier. Vous serez prévenu une fois validée.</p>');
+        return;
+      }
+      root.innerHTML = block('<h1>Demande d’accès</h1><p>Vous n’êtes membre d’aucune organisation vérifiée. Pour publier des événements au nom d’une collectivité, déposez une demande — elle sera examinée avant toute publication.</p>');
       return;
     }
     var html = '<section class="pub-step">';
