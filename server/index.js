@@ -224,9 +224,17 @@ app.use('/auth', authRouter);
 app.get('/proposer', (req, res) => {
   sendPage(res, 'proposer.html');
 });
-// Saisie d'un événement par une organisation (mairie / com-com) — assistant 3 écrans.
+// Vitrine publique « Institutions » (indexable, dans le sitemap).
+app.get('/institutions', (req, res) => {
+  sendPage(res, 'institutions.html');
+});
+// Saisie d'un événement par une organisation (mairie / intercommunalité…) — assistant 3 écrans.
+app.get('/institutions/publier', (req, res) => {
+  sendPage(res, 'institutions-publier.html');
+});
+// Ancienne adresse → redirection permanente.
 app.get('/mairie/publier', (req, res) => {
-  sendPage(res, 'mairie-publier.html');
+  res.redirect(301, '/institutions/publier');
 });
 // Parcours grand public « Publier une alerte » (assistant) + ses publications.
 // Fermé tant que PUBLISH_ENABLED !== 'true' : on laisse filer vers le 404 commun.

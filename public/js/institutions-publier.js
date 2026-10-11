@@ -1,4 +1,4 @@
-/* mairie-publier.js — assistant 3 écrans de publication d'un événement municipal.
+/* institutions-publier.js — assistant 3 écrans de publication d'un événement municipal.
    (1) modèle + titre ; (2) texte, dates, catégorie ; (3) relecture (aperçu habitant) + Publier.
    AUCUNE notification n'est envoyée (lot B) : publier rend l'événement visible (fiche commune).
    Dépend d'un compte connecté (localStorage 'lba-token') membre ACTIF d'une organisation VÉRIFIÉE. */
@@ -64,7 +64,7 @@
     try { draw(); }
     catch (e) {
       try { root.innerHTML = block('<h1>Oups</h1><p>Une erreur est survenue à l’affichage de cette page. Rechargez pour réessayer.</p>'); } catch (_) {}
-      try { console.error('[mairie-publier]', e); } catch (_) {}
+      try { console.error('[institutions-publier]', e); } catch (_) {}
     }
   }
   function draw() {
@@ -320,7 +320,7 @@
         state.busy = false;
         if (!p.ok) { state.err = (p.body && p.body.error) || 'Publication impossible.'; render(); return; }
         state.ok = p.body.published ? 'Publié : l’événement est visible sur la fiche de la commune.' : 'Envoyé en relecture : un administrateur de l’organisation doit le publier.';
-        root.innerHTML = block('<h1>' + (p.body.published ? 'C’est publié ✅' : 'Envoyé en relecture ✅') + '</h1><p>' + esc(state.ok) + '</p><p><a class="pub-btn" href="/mairie/publier" style="display:inline-block;text-decoration:none;text-align:center">Nouvel événement</a></p>');
+        root.innerHTML = block('<h1>' + (p.body.published ? 'C’est publié ✅' : 'Envoyé en relecture ✅') + '</h1><p>' + esc(state.ok) + '</p><p><a class="pub-btn" href="/institutions/publier" style="display:inline-block;text-decoration:none;text-align:center">Nouvel événement</a></p>');
       });
     });
   }
