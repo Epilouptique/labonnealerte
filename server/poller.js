@@ -13,6 +13,7 @@ const { trackDomain } = require('./doomname');
 const { runProbe } = require('./leboncoin-promo-probe'); // Sonde de contrôle leboncoin, TEMPORAIRE (cf. startPoller)
 const { runUserTaskNotify } = require('./user-tasks-notify'); // V3 échéances (cron quotidien, cf. startPoller)
 const { runCommunityReportsExpire } = require('./community-reports-expire'); // Cartes communautaires (cron quotidien, cf. startPoller)
+const municipalNotify = require('./orgs/municipal-notify'); // Diffusion événements mairies (cron, inerte si drapeau fermé)
 
 // Purge des sessions expirées : au plus une fois par jour.
 let lastSessionCleanup = 0;
@@ -76,6 +77,22 @@ async function dispatchAlert(sourceId, params, info) {
   try { subs = await loadSubscribersForAlert(sourceId, params); }
   catch (err) { console.error(`[poller] ${sourceId} : lecture abonnés échouée :`, err.message); return; }
 
+  const paramsJson = params ? JSON.stringify(params) : null;
+  const r = await deliverToSubscribers(subs, info, { sourceId, params });
+  console.log(
+    `[poller] Alerte ${sourceId}${paramsJson ? ' ' + paramsJson : ''} : ` +
+    `email ${r.email.sent} · push ${r.pushSent} · différées ${r.deferred}`
+  );
+}
+
+// Livraison PARTAGÉE à une liste d'abonnés déjà résolue (mêmes règles que dispatchAlert :
+// opt-in email/push, file de veille en heures calmes). Réutilisée par la diffusion des
+// événements municipaux (server/orgs/municipal-notify.js) — un SEUL système d'envoi.
+// `ref` = { sourceId, params } : seulement pour la clé des différés et rien d'autre.
+// Renvoie { email:{sent,failed}, pushSent, deferred }.
+async function deliverToSubscribers(subs, info, ref = {}) {
+  const sourceId = ref.sourceId != null ? ref.sourceId : null;
+  const params = ref.params != null ? ref.params : null;
   const payload = { name: info.name, message: info.message, url: info.url, statusUrl: info.statusUrl };
   const paramsJson = params ? JSON.stringify(params) : null;
   const immediateEmails = [];
@@ -98,12 +115,12 @@ async function dispatchAlert(sourceId, params, info) {
   let email = { sent: 0, failed: 0 };
   if (immediateEmails.length) {
     try { email = await sendPromoAlert(immediateEmails, info); }
-    catch (err) { console.error(`[poller] ${sourceId} email :`, err.message); }
+    catch (err) { console.error('[poller] envoi email :', err.message); }
   }
   let pushSent = 0;
   for (const id of immediatePush) {
     try { const r = await sendToSubscriber(id, info); pushSent += r.sent; }
-    catch (err) { console.error(`[poller] ${sourceId} push #${id} :`, err.message); }
+    catch (err) { console.error(`[poller] push #${id} :`, err.message); }
   }
   let deferred = 0;
   for (const v of toDefer) {
@@ -115,11 +132,7 @@ async function dispatchAlert(sourceId, params, info) {
       deferred += 1;
     } catch (err) { console.error('[poller] insert différé :', err.message); }
   }
-
-  console.log(
-    `[poller] Alerte ${sourceId}${paramsJson ? ' ' + paramsJson : ''} : ` +
-    `email ${email.sent} · push ${pushSent} · différées ${deferred}`
-  );
+  return { email, pushSent, deferred };
 }
 
 async function notifySourceSubscribers(sourceId, result = {}) {
@@ -865,10 +878,18 @@ function startPoller() {
     runCommunityReportsExpire(pool).catch((err) => console.error('[community-reports] runCommunityReportsExpire :', err.message));
   }, { timezone: 'Europe/Paris' });
   console.log('[poller] Clôture par expiration (cartes communautaires) : cron quotidien "0 4 * * *" (Europe/Paris).');
+
+  // Diffusion des événements municipaux (LOT C) : balaie les envois DUS. INERTE tant que
+  // MUNICIPAL_NOTIFY_ENABLED !== 'true' (la fonction sort immédiatement). Réutilise le
+  // chemin d'envoi (deliverToSubscribers) — aucun second système d'envoi.
+  cron.schedule('*/5 * * * *', () => {
+    municipalNotify.dispatchDue(deliverToSubscribers).catch((err) => console.error('[municipal-notify] dispatchDue :', err.message));
+  });
+  console.log('[poller] Diffusion événements municipaux : cron "*/5 * * * *" (inerte si MUNICIPAL_NOTIFY_ENABLED != true).');
 }
 
 // processSource/processParamSource/decideTransition exposés pour le banc d'essai.
 module.exports = {
   startPoller, runCycle, processSource, processParamSource, decideTransition,
-  dispatchAlert, flushDeferredNotifications, flushSubscriber,
+  dispatchAlert, deliverToSubscribers, flushDeferredNotifications, flushSubscriber,
 };

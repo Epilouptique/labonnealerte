@@ -10,6 +10,8 @@ const { authenticate } = require('../sessions');
 const { VALID_SLUGS } = require('../categories');
 const { nameForInsee } = require('../sources/lib/commune-insee');
 const ev = require('../orgs/lib/event-lifecycle');
+const nl = require('../orgs/lib/notify-lifecycle');
+const mn = require('../orgs/municipal-notify');
 
 const router = express.Router();
 
@@ -234,6 +236,99 @@ router.get('/communes/:insee/events', async (req, res) => {
     return res.json({ commune_insee: insee, events: rows });
   } catch (err) {
     console.error('[municipal-events] GET commune public :', err.message);
+    return res.status(503).json({ error: 'Service indisponible.' });
+  }
+});
+
+// ── LOT C : diffusion aux abonnés de la commune, avec protections ───────────────
+// Charge un événement avec ses champs de diffusion + l'adhésion de l'appelant.
+async function loadEventNotify(eventId, subId) {
+  const { rows } = await pool.query(
+    `SELECT id, org_id, title, body, commune_insee, status, ends_at,
+            notify_status, notify_scheduled_at, notify_sent_at, notify_resends, notify_count
+       FROM municipal_events WHERE id = $1`, [eventId]);
+  const e = rows[0];
+  if (!e) return { event: null, mem: null };
+  return { event: e, mem: await loadMembership(e.org_id, subId) };
+}
+
+// POST /api/municipal-events/:id/notify — PROGRAMME l'envoi différé (fenêtre d'annulation).
+// Admin uniquement. body { resend?:true }. Rien ne part ici : un cron dû enverra plus tard,
+// et seulement si MUNICIPAL_NOTIFY_ENABLED === 'true'.
+router.post('/municipal-events/:id/notify', async (req, res) => {
+  const auth = await requireAccount(req, res); if (!auth) return;
+  const id = parseInt(req.params.id, 10);
+  if (!Number.isInteger(id)) return res.status(400).json({ error: 'id invalide.' });
+  const resend = !!(req.body && req.body.resend);
+  try {
+    const { event, mem } = await loadEventNotify(id, auth.id);
+    if (!event) return res.status(404).json({ error: 'Événement introuvable.' });
+    if (!guard(res, mem, 'publish')) return; // diffusion = droit admin
+    const dec = nl.canSchedule(event, Date.now(), { resend });
+    if (!dec.ok) return res.status(409).json({ error: dec.error });
+
+    const scheduledAt = nl.scheduledAtFrom(Date.now());
+    const upd = await pool.query(
+      `UPDATE municipal_events
+          SET notify_status = 'scheduled', notify_scheduled_at = $2, notify_requested_by = $3, updated_at = NOW()
+        WHERE id = $1 AND status = 'published'
+        RETURNING id, notify_status, notify_scheduled_at`,
+      [id, scheduledAt, auth.id]);
+    if (!upd.rows.length) return res.status(409).json({ error: 'Programmation impossible (événement non publié ?).' });
+    await mn.logNotif(id, 'scheduled', auth.id, null, nl.notifyEnabled() ? 'ok' : 'flag_off', resend ? 'renvoi' : null);
+    return res.json({
+      scheduled_at: scheduledAt, delay_min: nl.SEND_DELAY_MIN,
+      cancellable_until: scheduledAt, will_send: nl.notifyEnabled(),
+      note: nl.notifyEnabled()
+        ? `Envoi programmé dans ${nl.SEND_DELAY_MIN} min. Vous pouvez encore l'annuler.`
+        : `Programmé, mais la diffusion globale est désactivée : rien ne sera envoyé pour l'instant.`,
+    });
+  } catch (err) {
+    console.error('[municipal-events] notify :', err.message);
+    return res.status(503).json({ error: 'Service indisponible.' });
+  }
+});
+
+// POST /api/municipal-events/:id/notify/cancel — annule l'envoi tant qu'il n'est pas parti.
+// L'événement reste PUBLIÉ et visible, simplement sans notification.
+router.post('/municipal-events/:id/notify/cancel', async (req, res) => {
+  const auth = await requireAccount(req, res); if (!auth) return;
+  const id = parseInt(req.params.id, 10);
+  if (!Number.isInteger(id)) return res.status(400).json({ error: 'id invalide.' });
+  try {
+    const { event, mem } = await loadEventNotify(id, auth.id);
+    if (!event) return res.status(404).json({ error: 'Événement introuvable.' });
+    if (!guard(res, mem, 'publish')) return;
+    if (event.notify_status !== 'scheduled' || !nl.isWithinCancelWindow(event.notify_scheduled_at, Date.now())) {
+      return res.status(409).json({ error: 'Annulation impossible : l\'envoi est déjà parti ou aucun envoi n\'est programmé.' });
+    }
+    const upd = await pool.query(
+      "UPDATE municipal_events SET notify_status = 'none', notify_scheduled_at = NULL, updated_at = NOW() WHERE id = $1 AND notify_status = 'scheduled' RETURNING id",
+      [id]);
+    if (!upd.rows.length) return res.status(409).json({ error: 'Annulation impossible (statut changé).' });
+    await mn.logNotif(id, 'cancelled', auth.id, null, 'ok', null);
+    return res.json({ cancelled: true, message: 'Envoi annulé. L\'événement reste visible, sans notification.' });
+  } catch (err) {
+    console.error('[municipal-events] notify/cancel :', err.message);
+    return res.status(503).json({ error: 'Service indisponible.' });
+  }
+});
+
+// POST /api/municipal-events/:id/notify/test — « test à moi seul » : s'envoie l'aperçu.
+// Autorisé même interrupteur global fermé, et avant publication. Membre actif d'org vérifiée.
+router.post('/municipal-events/:id/notify/test', async (req, res) => {
+  const auth = await requireAccount(req, res); if (!auth) return;
+  const id = parseInt(req.params.id, 10);
+  if (!Number.isInteger(id)) return res.status(400).json({ error: 'id invalide.' });
+  try {
+    const { event, mem } = await loadEventNotify(id, auth.id);
+    if (!event) return res.status(404).json({ error: 'Événement introuvable.' });
+    if (!guard(res, mem, 'submit')) return;
+    const deliver = require('../poller').deliverToSubscribers;
+    const r = await mn.sendTest(deliver, event, auth.id);
+    return res.json({ tested: true, sent: r.sent, message: 'Aperçu envoyé à votre compte uniquement.' });
+  } catch (err) {
+    console.error('[municipal-events] notify/test :', err.message);
     return res.status(503).json({ error: 'Service indisponible.' });
   }
 });

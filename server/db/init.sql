@@ -4985,3 +4985,33 @@ CREATE TABLE IF NOT EXISTS municipal_events (
 CREATE INDEX IF NOT EXISTS idx_munevt_org ON municipal_events (org_id, status);
 CREATE INDEX IF NOT EXISTS idx_munevt_commune_pub
   ON municipal_events (commune_insee, status) WHERE status = 'published';
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- DIFFUSION DES ÉVÉNEMENTS MUNICIPAUX (chantier « mairies », LOT C). Protections :
+-- envoi DIFFÉRÉ (fenêtre d'annulation), idempotence, plafonds, interrupteur global
+-- MUNICIPAL_NOTIFY_ENABLED (défaut faux), journal. Réutilise le chemin d'envoi du
+-- poller (deliverToSubscribers). DDL IDEMPOTENT, strictement additif.
+-- ════════════════════════════════════════════════════════════════════════════
+ALTER TABLE municipal_events ADD COLUMN IF NOT EXISTS notify_status TEXT NOT NULL DEFAULT 'none'
+  CHECK (notify_status IN ('none','scheduled','sent','cancelled'));
+ALTER TABLE municipal_events ADD COLUMN IF NOT EXISTS notify_scheduled_at TIMESTAMPTZ;
+ALTER TABLE municipal_events ADD COLUMN IF NOT EXISTS notify_sent_at TIMESTAMPTZ;
+ALTER TABLE municipal_events ADD COLUMN IF NOT EXISTS notify_count INTEGER;
+ALTER TABLE municipal_events ADD COLUMN IF NOT EXISTS notify_resends SMALLINT NOT NULL DEFAULT 0;
+ALTER TABLE municipal_events ADD COLUMN IF NOT EXISTS notify_requested_by INTEGER REFERENCES subscribers(id);
+-- File d'envois dus (scheduled) : accélère le balayage du runner.
+CREATE INDEX IF NOT EXISTS idx_munevt_notify_due
+  ON municipal_events (notify_scheduled_at) WHERE notify_status = 'scheduled';
+
+-- Journal des envois : qui, quand, combien de destinataires, résultat.
+CREATE TABLE IF NOT EXISTS municipal_event_notifications (
+  id                  BIGSERIAL PRIMARY KEY,
+  event_id            BIGINT NOT NULL REFERENCES municipal_events(id) ON DELETE CASCADE,
+  kind                TEXT NOT NULL CHECK (kind IN ('scheduled','sent','cancelled','test','skipped')),
+  actor_subscriber_id INTEGER REFERENCES subscribers(id),
+  recipients_count    INTEGER,
+  result              TEXT,   -- 'ok' | 'disabled' | 'needs_manual' | 'no_recipients' | 'expired' | message d'erreur
+  detail              TEXT,
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_munevt_notif_event ON municipal_event_notifications (event_id, created_at DESC);
