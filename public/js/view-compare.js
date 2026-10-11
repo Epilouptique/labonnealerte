@@ -108,6 +108,23 @@
   // (apparaît en bas), et on retire une carte de la colonne d'ARRIVÉE (≠ carte déplacée),
   // qui repart au réservoir. Les nombres MAIN/SIDE restent ainsi constants et la liste se
   // renouvelle. Si le réservoir est vide, on laisse la simple bascule (pas de renouvellement).
+  // Numéro de rangée (trame 8px) juste SOUS la dernière carte d'une colonne donnée.
+  // Sert à poser la carte entrante tout EN BAS : sans placement explicite, le
+  // `grid-auto-flow: dense` la remonterait dans le premier trou libre (donc en haut).
+  function bottomRow(colIsSide) {
+    var g = grid(); if (!g) return 1;
+    var cs = window.getComputedStyle(g);
+    var gTop = g.getBoundingClientRect().top + (parseFloat(cs.paddingTop) || 0);
+    var maxBottom = gTop;
+    visibleCards().forEach(function (c) {
+      if (c.classList.contains('add')) return;
+      if (c.classList.contains('vc-side') !== !!colIsSide) return;
+      var r = c.getBoundingClientRect();
+      if (r.height && r.bottom > maxBottom) maxBottom = r.bottom;
+    });
+    return Math.max(1, Math.round((maxBottom - gTop) / ROW) + 1);
+  }
+
   function renew(movedCard, toSide) {
     var deficitSide = !toSide;                 // colonne quittée (a besoin d'une carte)
     var pool = poolCards();
@@ -120,10 +137,12 @@
     });
     var removed = surplus.length ? surplus[surplus.length - 1] : null;
 
-    added.style.gridRowStart = '';
+    // Placement EN BAS de la colonne déficitaire (sinon le flux dense la remonte en haut).
+    var startRow = bottomRow(deficitSide);
     added.classList.remove('hidden-more');
     added.classList.toggle('vc-side', !!deficitSide);
     added.classList.add('vc-user');
+    added.style.gridRowStart = String(startRow);
 
     function doRemove() {
       if (!removed) return;
