@@ -30,7 +30,10 @@
 /* ...et la description COURTE revient sur le RECTO (site.css la masquait en vc-side
    pour la renvoyer au verso). On l'affiche de nouveau sur le front, bornee a 3 lignes. */
 #grid[data-view-mode="mixte"] > .card.vc-side .card-static-desc { display: block !important; }
-#grid[data-view-mode="mixte"] > .card.vc-side .card-desc { -webkit-line-clamp: 3; font-size: 12.5px; }
+#grid[data-view-mode="mixte"] > .card.vc-side .card-desc { -webkit-line-clamp: 3; font-size: 14px; }
 
 /* Badge « officiel/verifie » du titre un peu trop bas : on le remonte legerement. */
 .card-top .badge-ic.official { margin-top: 0 !important; }
+
+/* Colonne ultra : un peu d'air au-dessus de la rangee du haut. */
+#grid[data-view-mode="mixte"] > .card.vc-side .card-toprow { padding-top: 7px; }
