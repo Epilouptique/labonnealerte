@@ -4958,3 +4958,30 @@ CREATE TABLE IF NOT EXISTS organization_members (
   PRIMARY KEY (org_id, subscriber_id)
 );
 CREATE INDEX IF NOT EXISTS idx_org_members_sub ON organization_members (subscriber_id);
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- ÉVÉNEMENTS MUNICIPAUX (chantier « mairies », LOT B). Événements SAISIS par une
+-- organisation VÉRIFIÉE (coupure, travaux, événement, fermeture, libre), modelés sur
+-- community_reports. AUCUN envoi de notification : « publié » = visible au kiosque / sur
+-- la fiche de la commune, rien de plus. DDL IDEMPOTENT, strictement additif.
+-- ════════════════════════════════════════════════════════════════════════════
+CREATE TABLE IF NOT EXISTS municipal_events (
+  id                    BIGSERIAL PRIMARY KEY,
+  org_id                BIGINT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  author_subscriber_id  INTEGER NOT NULL REFERENCES subscribers(id),
+  template              TEXT NOT NULL DEFAULT 'libre' CHECK (template IN ('coupure-eau','travaux','evenement','fermeture','libre')),
+  title                 TEXT NOT NULL,
+  body                  TEXT NOT NULL,
+  category              TEXT,                 -- slug catégorie (famille vie-locale), facultatif
+  commune_insee         TEXT NOT NULL,        -- zone = commune (code INSEE)
+  commune_nom           TEXT,
+  starts_at             TIMESTAMPTZ,
+  ends_at               TIMESTAMPTZ,          -- fin / expiration (facultatif)
+  status                TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','review','published','cancelled')),
+  created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  published_at          TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_munevt_org ON municipal_events (org_id, status);
+CREATE INDEX IF NOT EXISTS idx_munevt_commune_pub
+  ON municipal_events (commune_insee, status) WHERE status = 'published';

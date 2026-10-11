@@ -215,6 +215,7 @@ app.use('/api', userTasksApiRouter);
 app.use('/api', communityReportsRouter);
 app.use('/api', communitySourcesRouter);
 app.use('/api', organizationsRouter);
+app.use('/api', require('./routes/municipal-events'));
 app.use('/api', require('./routes/app-api')); // application Android (fil APP-01)
 app.use('/api/dev', devRouter);
 // Connexion OAuth (Google / GitHub) — redirections serveur.
@@ -222,6 +223,10 @@ app.use('/auth', authRouter);
 // Page développeur « Proposer une source » (palette Veille de nuit).
 app.get('/proposer', (req, res) => {
   sendPage(res, 'proposer.html');
+});
+// Saisie d'un événement par une organisation (mairie / com-com) — assistant 3 écrans.
+app.get('/mairie/publier', (req, res) => {
+  sendPage(res, 'mairie-publier.html');
 });
 // Parcours grand public « Publier une alerte » (assistant) + ses publications.
 // Fermé tant que PUBLISH_ENABLED !== 'true' : on laisse filer vers le 404 commun.
