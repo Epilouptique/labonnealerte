@@ -22,7 +22,7 @@
 
   var state = {
     step: 'modele', orgs: [], org: null, loaded: false, authError: false,
-    draft: { template: '', title: '', body: '', category: '', starts_at: '', ends_at: '' },
+    draft: { template: '', kind: 'info', title: '', body: '', category: '', starts_at: '', ends_at: '' },
     createdId: null, busy: false, err: '', ok: ''
   };
 
@@ -89,7 +89,15 @@
   }
 
   function stepContenu() {
+    var k = state.draft.kind || 'info';
+    var kindCards =
+      '<div class="pub-cards" style="grid-template-columns:1fr 1fr">' +
+        '<button type="button" class="pub-card" data-kind="alerte" aria-pressed="' + (k === 'alerte' ? 'true' : 'false') + '"><b>Alerte</b><span>Prévenir les habitants maintenant (notification).</span></button>' +
+        '<button type="button" class="pub-card" data-kind="info" aria-pressed="' + (k === 'info' ? 'true' : 'false') + '"><b>Information</b><span>Visible sur la fiche de la commune, sans notification.</span></button>' +
+      '</div>';
     return '<div class="pub-detailblock"><h1>Le message</h1>' +
+      '<label class="pub-field"><span>Type</span></label>' + kindCards +
+      '<p class="pub-hint" style="margin:6px 0 14px">Alerte : prévenir les habitants maintenant. Information : visible sur la fiche, sans notification.</p>' +
       '<label class="pub-field"><span>Texte (vu par les habitants)</span><textarea id="mp-body" maxlength="2000" placeholder="Décrivez l’information : quoi, où, quand, consignes…">' + esc(state.draft.body) + '</textarea></label>' +
       '<div class="pub-row">' +
         '<label class="pub-field"><span>Début (facultatif)</span><input id="mp-start" type="datetime-local" value="' + esc(state.draft.starts_at) + '"></label>' +
@@ -103,7 +111,7 @@
 
   function stepRelecture() {
     var d = state.draft;
-    var meta = [TPL_LABEL[d.template] || 'Information', state.org.name];
+    var meta = [(d.kind === 'alerte' ? 'Alerte' : 'Information'), TPL_LABEL[d.template] || '', state.org.name].filter(Boolean);
     var dates = '';
     if (d.starts_at || d.ends_at) dates = '<p class="meta">' + (d.starts_at ? 'Du ' + esc(fmtDate(d.starts_at)) : '') + (d.ends_at ? ' au ' + esc(fmtDate(d.ends_at)) : '') + '</p>';
     return '<div class="pub-detailblock"><h1>Relecture</h1>' +
@@ -146,7 +154,7 @@
     var d = state.draft;
     var tpl = tplById(d.template);
     var payload = {
-      template: d.template, title: d.title, body: d.body,
+      template: d.template, kind: d.kind || 'info', title: d.title, body: d.body,
       category: d.category || (tpl ? tpl.cat : '') || undefined,
       starts_at: d.starts_at || undefined, ends_at: d.ends_at || undefined
     };
@@ -191,6 +199,9 @@
   function wire() {
     [].forEach.call(root.querySelectorAll('.pub-card[data-tpl]'), function (b) {
       b.onclick = function () { var t = tplById(b.getAttribute('data-tpl')); state.draft.template = t.id; if (t.title && (!state.draft.title || state.draft.title.trim() === '')) state.draft.title = t.title; render(); };
+    });
+    [].forEach.call(root.querySelectorAll('.pub-card[data-kind]'), function (b) {
+      b.onclick = function () { collect(); state.draft.kind = b.getAttribute('data-kind'); render(); };
     });
     var next = document.getElementById('mp-next'); if (next) next.onclick = goNext;
     var back = document.getElementById('mp-back'); if (back) back.onclick = goBack;

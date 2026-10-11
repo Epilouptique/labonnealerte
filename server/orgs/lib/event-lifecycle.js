@@ -8,6 +8,13 @@
 const TEMPLATES = ['coupure-eau', 'travaux', 'evenement', 'fermeture', 'libre'];
 function isTemplate(t) { return TEMPLATES.includes(String(t || '')); }
 
+// Type d'événement : « alerte » (peut notifier les habitants) ou « info » (visible sur la
+// fiche commune, SANS notification). Défaut prudent : « info » (aucun envoi par défaut).
+const KINDS = ['alerte', 'info'];
+function isKind(k) { return KINDS.includes(String(k || '')); }
+// Seul « alerte » autorise une notification.
+function canNotifyKind(k) { return String(k || '') === 'alerte'; }
+
 // draft (brouillon) · review (relecture) · published (publié) · cancelled (annulé).
 const EVENT_STATUSES = ['draft', 'review', 'published', 'cancelled'];
 // Transitions autorisées (acteur = membre de l'organisation ; le rôle décide du droit, cf.
@@ -64,6 +71,8 @@ function validateEventInput(body, opts = {}) {
   const b = body || {};
   const template = String(b.template || 'libre').trim().toLowerCase();
   if (!isTemplate(template)) return { ok: false, error: 'Modèle inconnu.' };
+  const kind = String(b.kind || 'info').trim().toLowerCase();
+  if (!isKind(kind)) return { ok: false, error: 'Type invalide : « alerte » ou « info ».' };
 
   const title = cleanLine(b.title);
   if (title.length < TITLE_MIN || title.length > TITLE_MAX) {
@@ -89,7 +98,7 @@ function validateEventInput(body, opts = {}) {
     return { ok: false, error: 'La date de fin doit être postérieure à la date de début.' };
   }
 
-  return { ok: true, value: { template, title, body: text, category, starts_at: starts_at || null, ends_at: ends_at || null } };
+  return { ok: true, value: { template, kind, title, body: text, category, starts_at: starts_at || null, ends_at: ends_at || null } };
 }
 
 // Un événement publié est « vivant » tant qu'il n'a pas de fin passée (expiration).
@@ -101,7 +110,7 @@ function isLive(row, now) {
 }
 
 module.exports = {
-  TEMPLATES, isTemplate, EVENT_STATUSES, EVENT_TRANSITIONS, canTransitionEvent, isEditable,
+  TEMPLATES, isTemplate, KINDS, isKind, canNotifyKind, EVENT_STATUSES, EVENT_TRANSITIONS, canTransitionEvent, isEditable,
   roleCan, canPublish, publishTargetFor,
   TITLE_MIN, TITLE_MAX, BODY_MIN, BODY_MAX, cleanLine, cleanBody, parseDate,
   validateEventInput, isLive,

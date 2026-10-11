@@ -5015,3 +5015,8 @@ CREATE TABLE IF NOT EXISTS municipal_event_notifications (
   created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_munevt_notif_event ON municipal_event_notifications (event_id, created_at DESC);
+
+-- LOT C (complément) : type d'événement municipal. « alerte » peut notifier les habitants ;
+-- « info » reste visible sur la fiche commune sans envoi. Défaut prudent « info ». Additif.
+ALTER TABLE municipal_events ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'info'
+  CHECK (kind IN ('alerte','info'));
