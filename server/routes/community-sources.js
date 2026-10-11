@@ -69,17 +69,18 @@ router.post('/community-sources', async (req, res) => {
   const auth = await requireAuthor(req, res); if (!auth) return;
   const v = lc.validateUrlType(req.body);
   if (!v.ok) return res.status(400).json({ error: v.error });
+  const { engine, url } = v.value; // validateUrlType renvoie { ok, value: { engine, url, … } }
 
   const config = {};
   const zone = req.body && typeof req.body.zone === 'string' ? req.body.zone.trim() : '';
   if (zone) {
-    if (v.engine !== 'veille-page') return res.status(400).json({ error: 'Le sélecteur de zone ne s\'applique qu\'à une veille de page.' });
+    if (engine !== 'veille-page') return res.status(400).json({ error: 'Le sélecteur de zone ne s\'applique qu\'à une veille de page.' });
     if (!isValidSelector(zone)) return res.status(400).json({ error: 'Sélecteur invalide (balise, #id ou .classe simples).' });
     config.zone = zone;
   }
 
   try {
-    const dup = await findDuplicate(v.url, null);
+    const dup = await findDuplicate(url, null);
     if (dup) return res.status(409).json({ error: 'Une source surveille déjà cette URL.', existing: dup });
 
     const q = await pool.query(
@@ -90,7 +91,7 @@ router.post('/community-sources', async (req, res) => {
     const qc = lc.checkQuota(q.rows[0]);
     if (!qc.ok) return res.status(409).json({ error: qc.error });
 
-    const name = lc.provisionalName(v.url);
+    const name = lc.provisionalName(url);
     const base = slugify(name);
     let id = base, attempts = 0;
     while ((await pool.query('SELECT 1 FROM sources WHERE id = $1', [id])).rows.length) {
@@ -104,9 +105,9 @@ router.post('/community-sources', async (req, res) => {
          (id, name, description, type, badge, status, engine, endpoint_url,
           author_subscriber_id, categories, requires_confirmation, engine_config)
        VALUES ($1, $2, $3, 'internal', 'community', 'draft', $4, $5, $6, '{}', true, $7::jsonb)`,
-      [id, name, name, v.engine, v.url, auth.id, cfg]);
+      [id, name, name, engine, url, auth.id, cfg]);
 
-    return res.status(201).json({ id, status: 'draft', engine: v.engine,
+    return res.status(201).json({ id, status: 'draft', engine,
       message: 'Brouillon créé. Lancez un aperçu, puis présentez votre alerte.' });
   } catch (err) {
     console.error('[community] POST /community-sources :', err.message);
