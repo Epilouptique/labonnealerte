@@ -73,7 +73,7 @@ async function previewRoute(row) {
   ];
 
   for (const c of CASES) {
-    const draft = Object.assign(F.emptyDraft(), { type: c.type, url: c.url, title: c.title, category: c.cat });
+    const draft = Object.assign(F.emptyDraft(), { type: c.type, url: c.url, title: c.title, categories: [c.cat] });
     const body = F.createBody(draft);
     assert.strictEqual(body.url, c.url);
     ok(body.name === c.title && JSON.stringify(body.categories) === JSON.stringify([c.cat]), `${c.type} : titre + catégorie envoyés dès la création`);

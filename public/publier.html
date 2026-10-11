@@ -29,6 +29,8 @@
   .pub-progress{height:8px;border-radius:999px;background:var(--line,#e7e2ef);overflow:hidden;margin:8px 0 4px}
   .pub-progress > i{display:block;height:100%;background:var(--amber,#f2a900);transition:width .25s ease}
   .pub-stepinfo{font-size:.85rem;color:var(--muted,#6b6878);margin-bottom:18px}
+  /* Chaque étape dans un bloc à fond clair, comme le reste du site. */
+  .pub-step{background:var(--surface,#fff);border-radius:24px;padding:22px;box-shadow:0 1px 3px rgba(30,20,50,.06)}
   .pub-step h1{font-size:1.5rem;line-height:1.2;margin:.2em 0 .6em}
   .pub-cards{display:grid;gap:12px}
   .pub-card{display:flex;flex-direction:column;gap:4px;text-align:left;border:2px solid var(--line,#e7e2ef);border-radius:14px;padding:16px;background:var(--card,#fff);cursor:pointer;font:inherit}
@@ -44,8 +46,14 @@
   .pub-err a{color:inherit;text-decoration:underline}
   .pub-extract{white-space:pre-wrap;background:var(--bg-soft,#f6f3fb);border:1px solid var(--line,#e7e2ef);border-radius:12px;padding:12px;max-height:220px;overflow:auto;font-size:.9rem}
   .pub-warn{background:#fff6e6;border:1px solid #f2a900;border-radius:12px;padding:10px 12px;margin-top:10px}
-  .pub-card-sm{padding:12px 14px}
-  .pub-card-sm b{font-size:1rem}
+  /* Catégories choisies (chips retirables) + suggestions en liste (une par ligne). */
+  .pub-chosen{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+  .pub-chip{display:inline-flex;align-items:center;gap:6px;border:0;border-radius:999px;padding:6px 12px;font:inherit;font-weight:600;cursor:pointer;background:var(--amber,#f2a900);color:#1a1300}
+  .pub-chip span{font-size:1.1em;line-height:1}
+  .pub-sugg-list{display:flex;flex-direction:column;gap:8px}
+  .pub-sugg-item{display:block;width:100%;text-align:left;border:2px solid var(--line,#e7e2ef);border-radius:12px;padding:10px 14px;background:var(--card,#fff);color:inherit;cursor:pointer;font:inherit}
+  .pub-sugg-item[aria-pressed="true"]{border-color:var(--amber,#f2a900);box-shadow:0 0 0 3px color-mix(in srgb,var(--amber,#f2a900) 25%,transparent)}
+  .pub-sugg-item[disabled]{opacity:.5;cursor:not-allowed}
   .pub-detailblock{margin-top:16px;padding-top:4px;border-top:1px dashed var(--line,#e7e2ef)}
   .pub-ok{color:var(--green,#1a7f37);font-weight:600;margin:10px 0 0}
   .pub-confirm p{font-size:1.05rem;line-height:1.5}

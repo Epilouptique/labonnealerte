@@ -65,32 +65,46 @@
     return h + '</div>';
   }
 
+  // ---- Catégories (multiples, jusqu'à 3) --------------------------------------
+  function catEntry(slug) { for (var i = 0; i < CATS.length; i++) if (CATS[i].slug === slug) return CATS[i]; return { slug: slug, label: slug, group: 'autre' }; }
+  function catPath(c) { return familyLabel(c.group) + ' › ' + c.label; } // « Famille › Sous-catégorie »
+  function selectedCats() { return Array.isArray(d.categories) ? d.categories : []; }
+  function chosenHtml() {
+    var cats = selectedCats();
+    if (!cats.length) return '';
+    return '<div class="pub-chosen">' + cats.map(function (slug) {
+      return '<button type="button" class="pub-chip" data-del="' + esc(slug) + '" aria-label="Retirer ' + esc(catPath(catEntry(slug))) + '">' + esc(catPath(catEntry(slug))) + ' <span aria-hidden="true">×</span></button>';
+    }).join('') + '</div>';
+  }
+  // Suggestions : UN SEUL bloc, une catégorie par ligne, format « Famille › Sous-catégorie ».
+  function suggHtml(title) {
+    var cats = selectedCats();
+    var sugg = F.suggestCategories(title, CATS, 3);
+    if (!sugg.length) return '<p class="pub-hint">Saisissez un titre pour voir des suggestions, ou ajoutez une catégorie ci-dessous.</p>';
+    var full = cats.length >= 3;
+    return '<div class="pub-sugg-list" role="group" aria-label="Catégories suggérées">' +
+      sugg.map(function (c) {
+        var on = cats.indexOf(c.slug) >= 0;
+        return '<button type="button" class="pub-sugg-item" data-cat="' + esc(c.slug) + '" aria-pressed="' + on + '"' + (!on && full ? ' disabled' : '') + '>' + esc(catPath(c)) + '</button>';
+      }).join('') + '</div>';
+  }
+
   // ---- Écran 1 : l'essentiel --------------------------------------------------
   function bodyEssentiel() {
     var title = d.title || '';
-    var sugg = F.suggestCategories(title, CATS, 3);
     var h = '<label class="pub-field"><span>Quel est le titre de l’alerte ?</span>' +
       '<input type="text" id="f-title" maxlength="' + F.TITLE_MAX + '" placeholder="Ex. : Baisse de prix carte graphique RTX" value="' + esc(title) + '">' +
       '<span class="pub-hint"><span id="title-count">' + title.length + '</span>/' + F.TITLE_MAX + '</span></label>';
 
-    h += '<div class="pub-field"><span id="sugg-lab">Catégories suggérées</span>';
-    if (sugg.length) {
-      h += '<div class="pub-cards pub-cats-sugg" role="group" aria-labelledby="sugg-lab">' +
-        sugg.map(function (c) {
-          return '<button type="button" class="pub-card pub-card-sm" data-cat="' + esc(c.slug) + '" aria-pressed="' + (d.category === c.slug) + '">' +
-            '<b>' + esc(c.label) + '</b><span>' + esc(familyLabel(c.group)) + '</span></button>';
-        }).join('') + '</div>';
-    } else {
-      h += '<p class="pub-hint">Saisissez un titre pour voir des suggestions, ou choisissez ci-dessous.</p>';
-    }
-    h += '</div>';
+    h += '<div class="pub-field"><span id="sugg-lab">Catégories suggérées (jusqu’à 3)</span>' +
+      '<div id="sugg-wrap">' + chosenHtml() + suggHtml(title) + '</div></div>';
 
     var groups = F.groupedCategories(CATS);
-    h += '<label class="pub-field"><span>Ou choisissez une autre catégorie</span>' +
+    h += '<label class="pub-field"><span>Ou ajoutez une autre catégorie</span>' +
       '<select id="f-cat"><option value="">— Sélectionnez une catégorie —</option>' +
       groups.map(function (g) {
         return '<optgroup label="' + esc(familyLabel(g.group)) + '">' +
-          g.items.map(function (it) { return '<option value="' + esc(it.slug) + '"' + (d.category === it.slug ? ' selected' : '') + '>' + esc(it.label) + '</option>'; }).join('') +
+          g.items.map(function (it) { return '<option value="' + esc(it.slug) + '">' + esc(it.label) + '</option>'; }).join('') +
           '</optgroup>';
       }).join('') + '</select></label>';
     return h;
@@ -162,11 +176,11 @@
       if (ti) ti.oninput = function () {
         d.title = ti.value; err = ''; saveDraft(d);
         var cnt = document.getElementById('title-count'); if (cnt) cnt.textContent = String((d.title || '').length);
-        renderSuggestions();
+        refreshCatArea();
       };
-      bindSuggestions();
+      bindCatArea();
       var sel = document.getElementById('f-cat');
-      if (sel) sel.onchange = function () { d.category = sel.value || null; err = ''; saveDraft(d); render(); };
+      if (sel) sel.onchange = function () { if (sel.value) toggleCat(sel.value, true); sel.value = ''; refreshCatArea(); };
     }
     if (step === 'details') {
       [].forEach.call(root.querySelectorAll('.pub-card[data-type]'), function (b) {
@@ -175,34 +189,28 @@
       wire('f-url', 'url'); wire('f-zone', 'zone'); wire('f-msg', 'alert_message'); wire('f-link', 'alert_url'); wire('f-preavis', 'preavis');
     }
   }
-  function bindSuggestions() {
-    [].forEach.call(root.querySelectorAll('.pub-cats-sugg .pub-card'), function (b) {
-      b.onclick = function () {
-        d.category = b.getAttribute('data-cat'); err = ''; saveDraft(d);
-        var sel = document.getElementById('f-cat'); if (sel) sel.value = d.category;
-        [].forEach.call(root.querySelectorAll('.pub-cats-sugg .pub-card'), function (x) { x.setAttribute('aria-pressed', String(x === b)); });
-        render();
-      };
+  // Ajoute/retire une catégorie (max 3). addOnly : ne fait qu'ajouter (depuis la liste).
+  function toggleCat(slug, addOnly) {
+    var cats = selectedCats().slice();
+    var i = cats.indexOf(slug);
+    if (i >= 0) { if (addOnly) return; cats.splice(i, 1); }
+    else { if (cats.length >= 3) return; cats.push(slug); }
+    d.categories = cats; err = ''; saveDraft(d);
+  }
+  function bindCatArea() {
+    [].forEach.call(root.querySelectorAll('.pub-sugg-item'), function (b) {
+      b.onclick = function () { toggleCat(b.getAttribute('data-cat')); refreshCatArea(); };
+    });
+    [].forEach.call(root.querySelectorAll('.pub-chip[data-del]'), function (b) {
+      b.onclick = function () { toggleCat(b.getAttribute('data-del')); refreshCatArea(); };
     });
   }
-  // Re-rendu ciblé des suggestions pendant la frappe (sans reconstruire tout l'écran).
-  function renderSuggestions() {
-    var host = document.querySelector('.pub-cats-sugg');
-    var labHost = host ? host.parentNode : document.querySelector('[aria-labelledby="sugg-lab"], #sugg-lab');
-    var sugg = F.suggestCategories(d.title || '', CATS, 3);
-    var wrap = document.getElementById('sugg-lab') ? document.getElementById('sugg-lab').parentNode : null;
-    if (!wrap) return;
-    var html = '<span id="sugg-lab">Catégories suggérées</span>';
-    if (sugg.length) {
-      html += '<div class="pub-cards pub-cats-sugg" role="group" aria-labelledby="sugg-lab">' +
-        sugg.map(function (c) {
-          return '<button type="button" class="pub-card pub-card-sm" data-cat="' + esc(c.slug) + '" aria-pressed="' + (d.category === c.slug) + '"><b>' + esc(c.label) + '</b><span>' + esc(familyLabel(c.group)) + '</span></button>';
-        }).join('') + '</div>';
-    } else {
-      html += '<p class="pub-hint">Saisissez un titre pour voir des suggestions, ou choisissez ci-dessous.</p>';
-    }
-    wrap.innerHTML = html;
-    bindSuggestions();
+  // Re-rendu ciblé de la zone catégories (sans reconstruire tout l'écran).
+  function refreshCatArea() {
+    var wrap = document.getElementById('sugg-wrap');
+    if (!wrap) { render(); return; }
+    wrap.innerHTML = chosenHtml() + suggHtml(d.title || '');
+    bindCatArea();
   }
   function wire(id, field) {
     var el = document.getElementById(id); if (!el) return;
@@ -279,7 +287,7 @@
       var cfg = s.engine_config || {};
       d = Object.assign(F.emptyDraft(), {
         id: s.id, status: s.status, title: s.name || '',
-        category: Array.isArray(s.categories) && s.categories.length ? s.categories[0] : null,
+        categories: Array.isArray(s.categories) ? s.categories.slice(0, 3) : [],
         type: typeByEngine[s.engine] || null, url: s.endpoint_url || '', zone: cfg.zone || '',
         alert_message: cfg.message || '', alert_url: cfg.url || '', preavis: cfg.preavis != null ? cfg.preavis : 1,
         syncedUrl: s.endpoint_url || '', syncedZone: cfg.zone || '', step: 'essentiel',
