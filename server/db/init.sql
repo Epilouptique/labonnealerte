@@ -4743,16 +4743,11 @@ BEGIN
   END IF;
 END $$;
 
--- Catégorie chapeau « Bonnes affaires » (voir server/categories.js) : posée EN PLUS du tag
--- précis sur toute source qui fait économiser (bons plans, soldes, promos, prix carburant…).
--- Idempotent : n'ajoute rien si déjà présent, et respecte le plafond de 3 catégories.
-UPDATE sources SET categories = categories || ARRAY['bonnes-affaires']
-WHERE NOT ('bonnes-affaires' = ANY(categories))
-  AND COALESCE(cardinality(categories), 0) < 3
-  AND categories && ARRAY['bons-plans', 'promos', 'ventes-flash', 'soldes', 'codes-promo',
-      'cashback', 'livraison-gratuite', 'baisse-de-prix', 'restock', 'precommandes',
-      'occasions', 'encheres', 'echantillons-gratuits', 'deals-du-jour', 'erreurs-de-prix',
-      'prix-carburant', 'prix-occasion'];
+-- Catégorie chapeau « Bonnes affaires » RETIRÉE (faisait doublon avec la famille « Bons
+-- plans », cf. server/categories.js — constat APP-10). On supprime le tag 'bonnes-affaires'
+-- de toutes les sources en conservant leur tag précis. Idempotent.
+UPDATE sources SET categories = array_remove(categories, 'bonnes-affaires')
+WHERE 'bonnes-affaires' = ANY(categories);
 
 -- ================================================================
 -- deck_reports : UNICITE (deck_id, target, ip_hash) — 31/07/2026
