@@ -5030,3 +5030,40 @@ ALTER TABLE municipal_events ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT
 -- Additif : fonction (intitulé de poste) et téléphone facultatif, utiles à la vérification.
 ALTER TABLE organizations ADD COLUMN IF NOT EXISTS contact_function TEXT;
 ALTER TABLE organizations ADD COLUMN IF NOT EXISTS contact_phone TEXT;
+
+-- ================================================================
+-- LOT E1 · Nouvelles sources officielles conformes (phase 1b, 12/10/2026).
+-- Insérées en statut 'review' (enabled=false par le trigger) : JAMAIS publiées
+-- d'office, la publication reste une décision admin. robots.txt et CGU lus.
+-- ps-plus-jeux-mois NON créée : robots.txt de blog.fr.playstation.com
+-- « Disallow: /tag/ » pour tous les agents (flux du tag interdit).
+-- ================================================================
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, status)
+SELECT 'bce-taux-directeurs', 'Taux de la BCE', 'La décision de politique monétaire',
+  'La BCE monte, baisse ou maintient ses taux : prévenu le jour de la décision.',
+  'internal', 'official', false, ARRAY['finance', 'taux-interet'], 61, 'review'
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'bce-taux-directeurs');
+INSERT INTO source_states (source_id) SELECT 'bce-taux-directeurs'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'bce-taux-directeurs');
+UPDATE sources SET description_long = 'Le jour de chacune des 8 réunions annuelles de politique monétaire, la Banque centrale européenne publie sa décision sur les taux directeurs. Une alerte, le lien vers le communiqué officiel. Source : Banque centrale européenne.'
+ WHERE id = 'bce-taux-directeurs' AND description_long IS NULL;
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, status)
+SELECT 'fuite-donnees-majeure', 'Fuite de données majeure', 'Les grosses fuites de comptes',
+  'Une grosse fuite de comptes vient d''être confirmée : changez ce mot de passe. Source : Have I Been Pwned (CC BY 4.0)',
+  'internal', 'official', false, ARRAY['securite', 'fuites-de-donnees'], 56, 'review'
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'fuite-donnees-majeure');
+INSERT INTO source_states (source_id) SELECT 'fuite-donnees-majeure'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'fuite-donnees-majeure');
+UPDATE sources SET description_long = 'Prévenu quand une fuite d''au moins 1 million de comptes, ou visant un site en .fr, est ajoutée à Have I Been Pwned. L''alerte ne dit pas si votre compte est concerné : vérifiez-le sur haveibeenpwned.com. Source : Have I Been Pwned (CC BY 4.0), https://haveibeenpwned.com'
+ WHERE id = 'fuite-donnees-majeure' AND description_long IS NULL;
+
+INSERT INTO sources (id, name, subtitle, description, type, badge, requires_confirmation, categories, display_order, status)
+SELECT 'fete-du-cinema', 'Fête du Cinéma', 'La séance à petit prix',
+  'La Fête du Cinéma est annoncée : prévenu dès l''annonce officielle du CNC.',
+  'internal', 'official', false, ARRAY['cinema', 'films'], 143, 'review'
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE id = 'fete-du-cinema');
+INSERT INTO source_states (source_id) SELECT 'fete-du-cinema'
+WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'fete-du-cinema');
+UPDATE sources SET description_long = 'Une fois par an, la Fête du Cinéma propose la séance à petit prix pendant quelques jours. Prévenu dès que le CNC l''annonce, souvent peu de jours avant. Source : CNC.'
+ WHERE id = 'fete-du-cinema' AND description_long IS NULL;
