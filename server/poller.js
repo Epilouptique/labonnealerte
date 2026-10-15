@@ -636,8 +636,14 @@ async function flushDeferredNotifications() {
 // le corps a plusieurs `return` anticipes (DB indisponible, aucune source active)
 // et un `finally` place ici les couvre tous, y compris une exception imprevue.
 let cycleRunning = false;
+// Arrêt propre (LOT G) : une fois posé, plus aucun NOUVEAU cycle n'est lancé par le cron.
+// Le cycle déjà en cours, lui, va jusqu'au bout (l'arrêt l'attend, cf. graceful-shutdown).
+let pollerStopping = false;
+function stopPoller() { pollerStopping = true; }
+function isCycleRunning() { return cycleRunning; }
 
 async function runCycle() {
+  if (pollerStopping) return;
   if (cycleRunning) {
     console.warn('[poller] Cycle precedent encore en cours - declenchement ignore.');
     return;
@@ -841,6 +847,6 @@ function startPoller() {
 
 // processSource/processParamSource/decideTransition exposés pour le banc d'essai.
 module.exports = {
-  startPoller, runCycle, processSource, processParamSource, decideTransition,
+  startPoller, runCycle, stopPoller, isCycleRunning, processSource, processParamSource, decideTransition,
   dispatchAlert, deliverToSubscribers, flushDeferredNotifications, flushSubscriber,
 };

@@ -21,7 +21,8 @@ const communitySourcesRouter = require('./routes/community-sources');
 const organizationsRouter = require('./routes/organizations');
 const sitemapRouter = require('./routes/sitemap');
 const { cleanupExpired } = require('./sessions');
-const { startPoller } = require('./poller');
+const { startPoller, stopPoller, isCycleRunning } = require('./poller');
+const { createGracefulShutdown } = require('./graceful-shutdown');
 const { sendPage, renderPage, pagesMiddleware } = require('./pages');
 
 const app = express();
@@ -380,8 +381,15 @@ app.use((req, res) => {
     "Cette adresse ne correspond à aucune page du site. Elle a peut-être été mal recopiée.");
 });
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`[server] Écoute sur http://localhost:${PORT}`);
   cleanupExpired(); // purge des sessions expirées au démarrage
   startPoller();
+});
+
+// Arrêt propre (LOT G) : ferme le serveur HTTP, attend la fin du cycle poller en cours
+// (max 20 s), puis ferme le pool pg. Railway envoie SIGTERM avant de couper le conteneur.
+const shutdown = createGracefulShutdown({ server, stopPoller, isCycleRunning, pool });
+['SIGTERM', 'SIGINT'].forEach((sig) => {
+  process.on(sig, () => { shutdown(sig).then(() => process.exit(0)).catch(() => process.exit(1)); });
 });
