@@ -1,7 +1,7 @@
 {
   "name": "labonnealerte",
   "version": "1.0.0",
-  "description": "Alerte automatique sur la promo Livraison à 0,99 de Leboncoin",
+  "description": "Kiosque d'alertes français, sans publicité, code ouvert",
   "main": "server/index.js",
   "scripts": {
     "start": "node server/index.js",

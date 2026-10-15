@@ -115,6 +115,19 @@ const REF = { sourceId: null, params: null };
   ok(D.calls.push.indexOf(10) !== -1 && D.calls.push.indexOf(11) !== -1 && D.calls.push.indexOf(13) !== -1, 'canal both/null/push : push envoyé');
   ok(D.calls.push.indexOf(12) === -1, 'canal email : PAS de push');
 
+  // ── LOT G : DOCUMENTE le comportement en heures calmes d'un événement municipal « alerte ».
+  // deliverToSubscribers est volontairement AGNOSTIQUE au type (alerte/info) : le filtrage par
+  // kind se fait EN AMONT (canSchedule). Donc, en heures calmes, même une « alerte » municipale
+  // est MISE EN FILE (deferred_notifications), jamais envoyée immédiatement — exactement comme
+  // une alerte de source. Ce test fige ce contrat (utile avant d'ajouter une option « urgence »).
+  const Q = makeSpies();
+  const MUNI = [{ id: 77, email: 'maire@x.fr', token: 'tm', email_enabled: true, push_count: 1, __quiet: true }];
+  const retMuni = await deliverToSubscribers(MUNI, INFO, { sourceId: 'org:1', params: null }, Q.deps);
+  ok(Q.calls.emails.length === 0 && Q.calls.push.length === 0, 'heures calmes (alerte municipale) : AUCUN envoi immédiat');
+  ok(Q.calls.deferred.length === 2, 'heures calmes : 2 lignes différées (email + push) pour l’abonné de la commune');
+  ok(Q.calls.deferred.every((d) => d.params[0] === 77) && Q.calls.deferred.some((d) => d.params[3] === 'email') && Q.calls.deferred.some((d) => d.params[3] === 'push'), 'différés : bon abonné, canaux email ET push');
+  ok(retMuni.deferred === 2 && retMuni.pushSent === 0 && retMuni.email.sent === 0, 'retour : tout différé, rien envoyé');
+
   console.log(`\n${passed} OK, ${fails} échec(s).`);
   process.exit(fails ? 1 : 0);
 })();
