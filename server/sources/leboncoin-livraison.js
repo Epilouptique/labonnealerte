@@ -9,7 +9,7 @@
 //
 // check() rapporte l'état instantané ; la transition vit dans le poller.
 
-const { detectDealabsPromo } = require('./lib/dealabs-promo');
+const { detectDealabsPromo, DEALABS_URL } = require('./lib/dealabs-promo');
 
 // L'URL montrée à l'abonné reste leboncoin : c'est là qu'il va profiter de la promo.
 // Dealabs est notre capteur, pas la destination — l'attribution se fait dans le message.
@@ -39,6 +39,15 @@ function inactive() {
   return { state: 'inactive', since: null, until: null, message: null, url: PROMO_URL };
 }
 
+// Jour + date en français pour « jusqu'au <…> », sans dépendance (Intl suffit).
+function formatDateFr(d) {
+  try {
+    return new Intl.DateTimeFormat('fr-FR', {
+      weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Paris',
+    }).format(d);
+  } catch (e) { return null; }
+}
+
 /**
  * Vérifie l'état instantané de la promo — piste Dealabs uniquement.
  * @returns {Promise<{ state, since, until, message, url }>}
@@ -46,20 +55,40 @@ function inactive() {
 async function check() {
   // detectDealabsPromo throw en cas d'erreur réseau/HTTP : on laisse remonter. Une
   // panne de Dealabs n'est PAS « la promo est finie » ; le poller garde l'état intact.
-  const res = await detectDealabsPromo();
+  const res = await detectDealabsPromo({ now: Date.now() });
 
   if (res.active_count === 0) return inactive();
 
-  // `until` reste null : Dealabs ne publie pas de date de fin exploitable (elle vit
-  // dans le corps du deal, en texte libre non structuré). Plutôt que de la deviner, on
-  // ne l'affirme pas — l'ordre de grandeur est donné en clair dans le message.
+  const b = res.best || {};
+  // `until` = date de fin LUE dans le corps du thread si disponible, sinon null (jamais
+  // devinée). Le message ne dit « jusqu'au <date> » que si la fin est réellement connue.
+  const until = b.endDate ? new Date(b.endDate) : null;
+  const finFr = until ? formatDateFr(until) : null;
+  const jusqua = finFr ? ` jusqu'au ${finFr}` : ' (colis ≤ 2 kg, en général jusqu\'au lundi matin)';
+
+  // ANCRE D'ÉPISODE : `since` reste la date de PUBLICATION du thread (stable tant que le
+  // même thread reste actif). On ne l'ancre PAS sur la date de début lue : ce serait un
+  // saut de valeur ≥ 24 h face au `since` déjà stocké en prod (28/10), que le poller
+  // interpréterait en « nouvel épisode » → re-notification. Le correctif empêche déjà
+  // d'activer une annonce (début futur) : `since` ne vaut donc jamais une date à venir.
+  const since = sinceFromPublishedAt(b.publishedAt);
+
+  // Journalise l'activation (titre, URL capteur, publishedAt, dates lues) — traçabilité
+  // demandée pour auditer chaque passage inactive → active dans les logs du poller.
+  try {
+    console.log('[leboncoin-livraison] activé via Dealabs : ' + JSON.stringify({
+      title: b.title, publishedAt: b.publishedAt,
+      startDate: b.startDate, endDate: b.endDate, capteur: DEALABS_URL,
+    }));
+  } catch (e) { /* log best-effort, jamais bloquant */ }
+
   return {
     state: 'active',
-    since: sinceFromPublishedAt(res.best && res.best.publishedAt),
-    until: null,
+    since,
+    until,
     message:
-      '📦 Livraison Mondial Relay à 0,99 € active sur leboncoin '
-      + '(colis ≤ 2 kg, en général jusqu\'au lundi matin) — repéré via Dealabs',
+      '📦 Livraison Mondial Relay à 0,99 € active sur leboncoin'
+      + jusqua + ' — repéré via Dealabs',
     url: PROMO_URL,
   };
 }
