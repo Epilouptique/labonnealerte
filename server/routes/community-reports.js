@@ -74,7 +74,7 @@ router.get('/community-reports', async (req, res) => {
                       WHERE rs.report_id = r.id AND rs.subscriber_id = $1) AS subscribed,
               EXISTS(SELECT 1 FROM community_report_spots sp
                       WHERE sp.report_id = r.id AND sp.subscriber_id = $1) AS spotted,
-              (r.author_subscriber_id = $1) AS is_author
+              COALESCE(r.author_subscriber_id = $1, false) AS is_author
          FROM community_reports r
         WHERE r.type = $2 AND r.status = 'active'`,
       [auth.id, cfg.id]
@@ -246,7 +246,7 @@ router.post('/community-reports/:id/spot', async (req, res) => {
     // ne peut donc jamais la faire échouer) — même patron que forum.js (notif réponse).
     // Seulement pour un NOUVEAU spot (idempotence : un témoin qui reposte where/when
     // sur un spot déjà enregistré via ON CONFLICT DO NOTHING ne redéclenche pas l'email).
-    if (isNewSpot && rep.rows[0].author_subscriber_id !== auth.id) {
+    if (isNewSpot && rep.rows[0].author_subscriber_id && rep.rows[0].author_subscriber_id !== auth.id) {
       pool.query('SELECT email, token FROM subscribers WHERE id = $1', [rep.rows[0].author_subscriber_id])
         .then((a) => {
           if (a.rows.length && a.rows[0].email) {
