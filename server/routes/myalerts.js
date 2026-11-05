@@ -611,18 +611,61 @@ apiRouter.post('/logout', async (req, res) => {
 
 /* ------------------------------------------------------------------ */
 /* DELETE /api/my-alerts/account — droit à l'effacement (RGPD).        */
-/* Supprime le compte : abonnements et sessions partent en CASCADE.    */
+/* Règle : le CONTENU PUBLIC (sujets et messages du forum, signalements */
+/* communautaires) est ANONYMISÉ (auteur NULL, affiché « Membre         */
+/* supprimé ») ; les DONNÉES PERSONNELLES sont EFFACÉES (abonnements,   */
+/* sessions, notifications, favoris, échéances, decks, témoignages,     */
+/* adhésions d'organisation…). Traces municipales : acteur NULL.        */
+/* Une transaction : tout ou rien. Les étapes explicites ci-dessous     */
+/* doublent les ON DELETE de init.sql (le code marche avant comme après */
+/* la migration ; avant, une colonne encore NOT NULL fait échouer        */
+/* l'anonymisation → ROLLBACK et 503, comme avant ce correctif).         */
 /* ------------------------------------------------------------------ */
+const ACCOUNT_ANONYMIZE = [
+  ['forum_topics', 'author_subscriber_id'],
+  ['forum_posts', 'author_subscriber_id'],
+  ['forum_reports', 'reporter_subscriber_id'],
+  ['community_reports', 'author_subscriber_id'],
+  ['organizations', 'requester_subscriber_id'],
+  ['municipal_events', 'author_subscriber_id'],
+  ['municipal_events', 'notify_requested_by'],
+  ['municipal_event_notifications', 'actor_subscriber_id'],
+];
+const ACCOUNT_ERASE = [
+  ['community_report_spots', 'subscriber_id'],
+  ['community_report_subscriptions', 'subscriber_id'],
+  ['organization_members', 'subscriber_id'],
+];
+async function deleteAccount(client, id) {
+  for (const [t, c] of ACCOUNT_ANONYMIZE) await client.query(`UPDATE ${t} SET ${c} = NULL WHERE ${c} = $1`, [id]);
+  for (const [t, c] of ACCOUNT_ERASE) await client.query(`DELETE FROM ${t} WHERE ${c} = $1`, [id]);
+  // Alertes proposées : la source reste (auteur NULL par FK), l'e-mail du proposant part.
+  await client.query('UPDATE sources SET submitted_by_email = NULL WHERE author_subscriber_id = $1', [id]);
+  // Le reste (abonnements, sessions, push, notifications différées, favoris, échéances,
+  // decks, likes, points, historique de pseudo…) part en ON DELETE CASCADE.
+  const r = await client.query('DELETE FROM subscribers WHERE id = $1', [id]);
+  return r.rowCount;
+}
+
 apiRouter.delete('/my-alerts/account', async (req, res) => {
+  let client;
   try {
     const auth = await authenticate((req.body || {}).token);
     if (!auth) return res.status(401).json({ error: 'Lien invalide ou expiré' });
 
-    await pool.query('DELETE FROM subscribers WHERE id = $1', [auth.id]);
+    client = await pool.connect();
+    await client.query('BEGIN');
+    await deleteAccount(client, auth.id);
+    await client.query('COMMIT');
+    console.log('[my-alerts] Compte supprimé (id interne %d)', auth.id);
     return res.status(200).json({ ok: true });
   } catch (err) {
-    console.error('[my-alerts] Erreur DELETE /account :', err.message);
+    if (client) await client.query('ROLLBACK').catch(() => {});
+    // Jamais de détail SQL au client ; le code d'erreur suffit au diagnostic.
+    console.error('[my-alerts] Erreur DELETE /account :', err.code || '', err.message);
     return res.status(503).json({ error: 'Service indisponible' });
+  } finally {
+    if (client) client.release();
   }
 });
 

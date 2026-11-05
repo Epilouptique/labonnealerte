@@ -288,19 +288,20 @@ const TOPIC_SELECT = `
          s.forum_slug AS source_slug, s.name AS source_name,
          c.forum_slug AS deck_slug, c.name AS deck_name,
          c.share_token AS deck_token, c.owner_subscriber_id AS deck_owner,
-         COALESCE(au.display_name, 'Membre') AS author, au.pseudo AS author_pseudo
+         CASE WHEN au.id IS NULL THEN 'Membre supprimé' ELSE COALESCE(au.display_name, 'Membre') END AS author, au.pseudo AS author_pseudo
     FROM forum_topics ft
-    JOIN subscribers au ON au.id = ft.author_subscriber_id
+    LEFT JOIN subscribers au ON au.id = ft.author_subscriber_id
     LEFT JOIN sources s ON s.id = ft.source_id
     LEFT JOIN collections c ON c.id = ft.deck_id`;
 
-// Auteur affiché : @pseudo cliquable vers /u/:pseudo, sinon « Membre » non cliquable
-// (compte sans pseudo — ex. avant backfill / sans display_name). escHtml systématique.
-function authorByline(pseudo, cls) {
+// Auteur affiché : @pseudo cliquable vers /u/:pseudo, sinon libellé non cliquable :
+// « Membre » (compte sans pseudo) ou « Membre supprimé » (compte effacé : auteur NULL,
+// contenu anonymisé et conservé). escHtml systématique.
+function authorByline(pseudo, cls, label) {
   const k = cls || 'tc-author';
   return pseudo
     ? `<a class="${k} forum-author" href="/u/${escHtml(pseudo)}">@${escHtml(pseudo)}</a>`
-    : `<span class="${k}">Membre</span>`;
+    : `<span class="${k}">${escHtml(label || 'Membre')}</span>`;
 }
 
 // Badge @forum_slug (violet) affiché SUR un sujet, cliquable vers la CARTE elle-même
@@ -329,7 +330,7 @@ function topicCard(t) {
     <div class="topic-card-meta">
       <a class="forum-tag" href="/forum/c/${escHtml(t.category)}">${escHtml(catLabel)}</a>
       ${slugBadge(t)}
-      ${authorByline(t.author_pseudo)}
+      ${authorByline(t.author_pseudo, null, t.author)}
       <span class="tc-dot">·</span>
       <span class="tc-time">${escHtml(relativeTime(t.last_reply_at))}</span>
       <span class="tc-replies">${REPLY_SVG}${n}</span>
@@ -508,9 +509,9 @@ router.get('/forum/t/:slug', async (req, res) => {
               ft.source_id, ft.deck_id,
               s.forum_slug AS source_slug, c.forum_slug AS deck_slug,
               c.share_token AS deck_token, c.owner_subscriber_id AS deck_owner,
-              COALESCE(au.display_name, 'Membre') AS author, au.pseudo AS author_pseudo, ft.created_at
+              CASE WHEN au.id IS NULL THEN 'Membre supprimé' ELSE COALESCE(au.display_name, 'Membre') END AS author, au.pseudo AS author_pseudo, ft.created_at
          FROM forum_topics ft
-         JOIN subscribers au ON au.id = ft.author_subscriber_id
+         LEFT JOIN subscribers au ON au.id = ft.author_subscriber_id
          LEFT JOIN sources s ON s.id = ft.source_id
          LEFT JOIN collections c ON c.id = ft.deck_id
         WHERE ft.slug = $1`, [slug]);
@@ -518,8 +519,8 @@ router.get('/forum/t/:slug', async (req, res) => {
     const topic = t.rows[0];
     const p = await pool.query(
       `SELECT fp.id, fp.body, fp.created_at,
-              COALESCE(s.display_name, 'Membre') AS author, s.pseudo AS author_pseudo
-         FROM forum_posts fp JOIN subscribers s ON s.id = fp.author_subscriber_id
+              CASE WHEN s.id IS NULL THEN 'Membre supprimé' ELSE COALESCE(s.display_name, 'Membre') END AS author, s.pseudo AS author_pseudo
+         FROM forum_posts fp LEFT JOIN subscribers s ON s.id = fp.author_subscriber_id
         WHERE fp.topic_id = $1 AND fp.hidden = false
         ORDER BY fp.created_at ASC LIMIT $2 OFFSET $3`,
       [topic.id, POSTS_PER_PAGE, (page_ - 1) * POSTS_PER_PAGE]);
@@ -532,7 +533,7 @@ router.get('/forum/t/:slug', async (req, res) => {
       const cls = (page_ === 1 && i === 0) ? 'card post-card post-card-op forum-in' : 'card post-card forum-in';
       return `<article class="${cls}">
         <div class="post-meta">
-          ${authorByline(post.author_pseudo, 'post-author')}
+          ${authorByline(post.author_pseudo, 'post-author', post.author)}
           <span class="tc-dot">·</span>
           <span class="post-time">${escHtml(relativeTime(post.created_at))}</span>
           <button type="button" class="forum-report" data-post-id="${post.id}" title="Signaler ce message" aria-label="Signaler ce message">${FLAG_SVG}</button>
@@ -564,7 +565,7 @@ router.get('/forum/t/:slug', async (req, res) => {
          <div class="topic-card-meta">
            <a class="forum-tag" href="/forum/c/${escHtml(topic.category)}">${escHtml(catLabel)}</a>
            ${slugBadge(topic)}
-           ${authorByline(topic.author_pseudo)}
+           ${authorByline(topic.author_pseudo, null, topic.author)}
            <span class="tc-dot">·</span>
            <span class="tc-time">${escHtml(relativeTime(topic.created_at))}</span>
            ${topic.locked ? `<span class="forum-lock">${LOCK_SVG} verrouillé</span>` : ''}
@@ -862,7 +863,7 @@ router.post('/forum/t/:id/reply', async (req, res) => {
     await client.query('COMMIT');
 
     // Notif l'auteur du sujet (sauf s'il se répond à lui-même). Non bloquant.
-    if (t.rows[0].author_subscriber_id !== auth.id) {
+    if (t.rows[0].author_subscriber_id && t.rows[0].author_subscriber_id !== auth.id) {
       notify = { topicTitle: t.rows[0].title, slug: t.rows[0].slug, authorId: t.rows[0].author_subscriber_id };
     }
     res.status(201).json({ ok: true });

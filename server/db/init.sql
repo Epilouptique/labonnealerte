@@ -4649,7 +4649,7 @@ CREATE TABLE IF NOT EXISTS forum_topics (
                    CHECK (category IN ('discussion','propositions','dev','entraide','suggestions')),
   title          VARCHAR(140) NOT NULL,
   slug           VARCHAR(160) NOT NULL,
-  author_subscriber_id INTEGER NOT NULL REFERENCES subscribers(id),
+  author_subscriber_id INTEGER REFERENCES subscribers(id) ON DELETE SET NULL,
   source_id      VARCHAR(64) REFERENCES sources(id),         -- tag source, nullable
   created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   last_reply_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -4666,7 +4666,7 @@ CREATE INDEX IF NOT EXISTS idx_forum_topics_recent       ON forum_topics (last_r
 CREATE TABLE IF NOT EXISTS forum_posts (
   id             BIGSERIAL PRIMARY KEY,
   topic_id       BIGINT NOT NULL REFERENCES forum_topics(id) ON DELETE CASCADE,
-  author_subscriber_id INTEGER NOT NULL REFERENCES subscribers(id),
+  author_subscriber_id INTEGER REFERENCES subscribers(id) ON DELETE SET NULL,
   body           TEXT NOT NULL,
   created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   hidden         BOOLEAN NOT NULL DEFAULT false,
@@ -4679,7 +4679,7 @@ CREATE TABLE IF NOT EXISTS forum_reports (
   id             BIGSERIAL PRIMARY KEY,
   post_id        BIGINT NOT NULL REFERENCES forum_posts(id) ON DELETE CASCADE,
   reporter_ip_hash TEXT NOT NULL,
-  reporter_subscriber_id INTEGER REFERENCES subscribers(id),  -- nullable
+  reporter_subscriber_id INTEGER REFERENCES subscribers(id) ON DELETE SET NULL,  -- nullable
   reason         VARCHAR(40),                                 -- optionnel
   reported_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -4796,7 +4796,7 @@ CREATE TABLE IF NOT EXISTS community_reports (
   radius_km             INTEGER NOT NULL,
   description           TEXT NOT NULL,
   link                  TEXT,
-  author_subscriber_id  INTEGER NOT NULL REFERENCES subscribers(id),
+  author_subscriber_id  INTEGER REFERENCES subscribers(id) ON DELETE SET NULL,
   created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   expires_at            TIMESTAMPTZ NOT NULL,
   extensions_count      SMALLINT NOT NULL DEFAULT 0,
@@ -4808,7 +4808,7 @@ CREATE INDEX IF NOT EXISTS idx_community_reports_active
 -- « Repéré » : un signalement par compte distinct (PK composite = dédup naturelle).
 CREATE TABLE IF NOT EXISTS community_report_spots (
   report_id      BIGINT NOT NULL REFERENCES community_reports(id) ON DELETE CASCADE,
-  subscriber_id  INTEGER NOT NULL REFERENCES subscribers(id),
+  subscriber_id  INTEGER NOT NULL REFERENCES subscribers(id) ON DELETE CASCADE,
   created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (report_id, subscriber_id)
 );
@@ -4822,7 +4822,7 @@ ALTER TABLE community_report_spots ADD COLUMN IF NOT EXISTS seen_when TEXT;
 -- Abonnés directs à une instance (auteur inclus dès la création).
 CREATE TABLE IF NOT EXISTS community_report_subscriptions (
   report_id      BIGINT NOT NULL REFERENCES community_reports(id) ON DELETE CASCADE,
-  subscriber_id  INTEGER NOT NULL REFERENCES subscribers(id),
+  subscriber_id  INTEGER NOT NULL REFERENCES subscribers(id) ON DELETE CASCADE,
   created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (report_id, subscriber_id)
 );
@@ -4935,7 +4935,7 @@ CREATE TABLE IF NOT EXISTS organizations (
   justification            TEXT,          -- justificatif libre facultatif
   status                   TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','verified','suspended')),
   status_reason            TEXT,          -- motif de refus/suspension (obligatoire côté admin)
-  requester_subscriber_id  INTEGER NOT NULL REFERENCES subscribers(id),
+  requester_subscriber_id  INTEGER REFERENCES subscribers(id) ON DELETE SET NULL,
   verified_by              TEXT,          -- identifiant/trace de l'admin ayant statué
   verified_at             TIMESTAMPTZ,
   created_at               TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -4956,7 +4956,7 @@ CREATE INDEX IF NOT EXISTS idx_org_status ON organizations (status);
 -- Le demandeur est inséré admin+actif à la création (cf. routes/organizations.js).
 CREATE TABLE IF NOT EXISTS organization_members (
   org_id         BIGINT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
-  subscriber_id  INTEGER NOT NULL REFERENCES subscribers(id),
+  subscriber_id  INTEGER NOT NULL REFERENCES subscribers(id) ON DELETE CASCADE,
   role           TEXT NOT NULL DEFAULT 'editeur' CHECK (role IN ('admin','editeur')),
   status         TEXT NOT NULL DEFAULT 'invite' CHECK (status IN ('invite','actif')),
   created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -4973,7 +4973,7 @@ CREATE INDEX IF NOT EXISTS idx_org_members_sub ON organization_members (subscrib
 CREATE TABLE IF NOT EXISTS municipal_events (
   id                    BIGSERIAL PRIMARY KEY,
   org_id                BIGINT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
-  author_subscriber_id  INTEGER NOT NULL REFERENCES subscribers(id),
+  author_subscriber_id  INTEGER REFERENCES subscribers(id) ON DELETE SET NULL,
   template              TEXT NOT NULL DEFAULT 'libre' CHECK (template IN ('coupure-eau','travaux','evenement','fermeture','libre')),
   title                 TEXT NOT NULL,
   body                  TEXT NOT NULL,
@@ -5003,7 +5003,7 @@ ALTER TABLE municipal_events ADD COLUMN IF NOT EXISTS notify_scheduled_at TIMEST
 ALTER TABLE municipal_events ADD COLUMN IF NOT EXISTS notify_sent_at TIMESTAMPTZ;
 ALTER TABLE municipal_events ADD COLUMN IF NOT EXISTS notify_count INTEGER;
 ALTER TABLE municipal_events ADD COLUMN IF NOT EXISTS notify_resends SMALLINT NOT NULL DEFAULT 0;
-ALTER TABLE municipal_events ADD COLUMN IF NOT EXISTS notify_requested_by INTEGER REFERENCES subscribers(id);
+ALTER TABLE municipal_events ADD COLUMN IF NOT EXISTS notify_requested_by INTEGER REFERENCES subscribers(id) ON DELETE SET NULL;
 -- File d'envois dus (scheduled) : accélère le balayage du runner.
 CREATE INDEX IF NOT EXISTS idx_munevt_notify_due
   ON municipal_events (notify_scheduled_at) WHERE notify_status = 'scheduled';
@@ -5013,7 +5013,7 @@ CREATE TABLE IF NOT EXISTS municipal_event_notifications (
   id                  BIGSERIAL PRIMARY KEY,
   event_id            BIGINT NOT NULL REFERENCES municipal_events(id) ON DELETE CASCADE,
   kind                TEXT NOT NULL CHECK (kind IN ('scheduled','sent','cancelled','test','skipped')),
-  actor_subscriber_id INTEGER REFERENCES subscribers(id),
+  actor_subscriber_id INTEGER REFERENCES subscribers(id) ON DELETE SET NULL,
   recipients_count    INTEGER,
   result              TEXT,   -- 'ok' | 'disabled' | 'needs_manual' | 'no_recipients' | 'expired' | message d'erreur
   detail              TEXT,
@@ -5067,3 +5067,55 @@ INSERT INTO source_states (source_id) SELECT 'fete-du-cinema'
 WHERE NOT EXISTS (SELECT 1 FROM source_states WHERE source_id = 'fete-du-cinema');
 UPDATE sources SET description_long = 'Une fois par an, la Fête du Cinéma propose la séance à petit prix pendant quelques jours. Prévenu dès que le CNC l''annonce, souvent peu de jours avant. Source : CNC.'
  WHERE id = 'fete-du-cinema' AND description_long IS NULL;
+
+-- ============================================================================
+-- Suppression de compte effective (exigence Google Play, 11/2026).
+-- Toute clé étrangère vers subscribers(id) a une règle ON DELETE :
+--   contenu public (forum, signalements communautaires) et traces municipales
+--   → SET NULL (anonymisé, affiché « Membre supprimé ») ;
+--   données personnelles (témoignages, abonnements communautaires, adhésions
+--   d'organisation) → CASCADE.
+-- Idempotent : on ne touche une contrainte que si sa règle diffère. Les CREATE
+-- TABLE ci-dessus portent déjà ces règles (base neuve) ; ce bloc corrige les bases
+-- existantes. Contrôle : aucune FK vers subscribers en NO ACTION ('a').
+-- ============================================================================
+DO $$
+DECLARE
+  spec  TEXT[];
+  specs TEXT[][] := ARRAY[
+    ['forum_topics', 'author_subscriber_id', 'n'],
+    ['forum_posts', 'author_subscriber_id', 'n'],
+    ['forum_reports', 'reporter_subscriber_id', 'n'],
+    ['community_reports', 'author_subscriber_id', 'n'],
+    ['community_report_spots', 'subscriber_id', 'c'],
+    ['community_report_subscriptions', 'subscriber_id', 'c'],
+    ['organizations', 'requester_subscriber_id', 'n'],
+    ['organization_members', 'subscriber_id', 'c'],
+    ['municipal_events', 'author_subscriber_id', 'n'],
+    ['municipal_events', 'notify_requested_by', 'n'],
+    ['municipal_event_notifications', 'actor_subscriber_id', 'n']
+  ];
+  cname TEXT;
+  cdel  "char";
+BEGIN
+  FOREACH spec SLICE 1 IN ARRAY specs LOOP
+    IF to_regclass(spec[1]) IS NULL THEN CONTINUE; END IF;
+    SELECT c.conname, c.confdeltype INTO cname, cdel
+      FROM pg_constraint c
+      JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = c.conkey[1]
+     WHERE c.contype = 'f' AND c.conrelid = spec[1]::regclass
+       AND c.confrelid = 'subscribers'::regclass AND a.attname = spec[2]
+     LIMIT 1;
+    IF spec[3] = 'n' THEN
+      EXECUTE format('ALTER TABLE %I ALTER COLUMN %I DROP NOT NULL', spec[1], spec[2]);
+    END IF;
+    IF cname IS NULL OR cdel <> spec[3]::"char" THEN
+      IF cname IS NOT NULL THEN
+        EXECUTE format('ALTER TABLE %I DROP CONSTRAINT %I', spec[1], cname);
+      END IF;
+      EXECUTE format('ALTER TABLE %I ADD CONSTRAINT %I FOREIGN KEY (%I) REFERENCES subscribers(id) ON DELETE %s',
+        spec[1], spec[1] || '_' || spec[2] || '_fkey', spec[2],
+        CASE spec[3] WHEN 'n' THEN 'SET NULL' ELSE 'CASCADE' END);
+    END IF;
+  END LOOP;
+END $$;

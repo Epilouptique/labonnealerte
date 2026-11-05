@@ -362,9 +362,9 @@ const FORUM_POSTS_PER_PAGE = 20;
 const FORUM_TOPIC_SELECT = `
   SELECT ft.id, ft.slug, ft.title, ft.category, ft.reply_count, ft.last_reply_at, ft.locked,
          ft.source_id, s.forum_slug AS source_slug, s.name AS source_name,
-         COALESCE(au.display_name, 'Membre') AS author, au.pseudo AS author_pseudo
+         CASE WHEN au.id IS NULL THEN 'Membre supprimé' ELSE COALESCE(au.display_name, 'Membre') END AS author, au.pseudo AS author_pseudo
     FROM forum_topics ft
-    JOIN subscribers au ON au.id = ft.author_subscriber_id
+    LEFT JOIN subscribers au ON au.id = ft.author_subscriber_id
     LEFT JOIN sources s ON s.id = ft.source_id`;
 
 function forumTopic(r) {
@@ -433,17 +433,17 @@ router.get('/app/forum/topics/:slug', async (req, res) => {
     const t = await pool.query(
       `SELECT ft.id, ft.slug, ft.title, ft.category, ft.reply_count, ft.last_reply_at, ft.locked, ft.hidden,
               ft.source_id, s.forum_slug AS source_slug, s.name AS source_name,
-              COALESCE(au.display_name, 'Membre') AS author, au.pseudo AS author_pseudo
+              CASE WHEN au.id IS NULL THEN 'Membre supprimé' ELSE COALESCE(au.display_name, 'Membre') END AS author, au.pseudo AS author_pseudo
          FROM forum_topics ft
-         JOIN subscribers au ON au.id = ft.author_subscriber_id
+         LEFT JOIN subscribers au ON au.id = ft.author_subscriber_id
          LEFT JOIN sources s ON s.id = ft.source_id
         WHERE ft.slug = $1`, [slug]);
     if (!t.rows.length || t.rows[0].hidden) return res.status(404).json({ error: 'Sujet introuvable' });
     const topic = t.rows[0];
     const p = await pool.query(
       `SELECT fp.id, fp.body, fp.created_at,
-              COALESCE(s.display_name, 'Membre') AS author, s.pseudo AS author_pseudo
-         FROM forum_posts fp JOIN subscribers s ON s.id = fp.author_subscriber_id
+              CASE WHEN s.id IS NULL THEN 'Membre supprimé' ELSE COALESCE(s.display_name, 'Membre') END AS author, s.pseudo AS author_pseudo
+         FROM forum_posts fp LEFT JOIN subscribers s ON s.id = fp.author_subscriber_id
         WHERE fp.topic_id = $1 AND fp.hidden = false
         ORDER BY fp.created_at ASC LIMIT $2 OFFSET $3`,
       [topic.id, FORUM_POSTS_PER_PAGE + 1, (page - 1) * FORUM_POSTS_PER_PAGE]);
