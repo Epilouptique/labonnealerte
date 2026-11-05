@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>L'application Android — La Bonne Alerte</title>
+<!-- noindex tant que la fiche Google Play n'est pas en ligne : pas de canonical ni de og:*
+     (règle du dépôt pour les pages noindex). À la mise en ligne : retirer noindex, ajouter
+     le bloc social des pages publiques et /app au sitemap. -->
+<meta name="robots" content="noindex">
+<meta name="description" content="Vos alertes en notifications Android : gratuit, sans publicité ni traceur.">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="/css/fonts.css">
+<link rel="stylesheet" href="/css/tokens.css">
+<link rel="stylesheet" href="/css/site.css">
+<style>
+.page { max-width: 1024px; padding: 48px 24px 80px; }
+.page h1 { font-size: clamp(28px, 5vw, 40px); font-weight: 800; letter-spacing: -0.02em; }
+.page .lead { color: var(--muted); font-size: 18px; margin-top: 12px; }
+.page section { margin-top: 36px; }
+.page h2 { font-size: 20px; font-weight: 800; margin-bottom: 10px; }
+.page p { color: var(--ink); line-height: 1.65; margin-top: 8px; }
+.page p.muted { color: var(--muted); }
+.page ul { margin-top: 10px; padding-left: 22px; color: var(--ink); line-height: 1.65; }
+.page ul li { margin-top: 6px; }
+/* E1) violet de TEXTE (5,5:1) + soulignement permanent : la couleur seule ne doit pas porter l information de lien. */
+.page a.inline { color: var(--amber-ink); font-weight: 600; text-decoration: underline; }
+.page a.inline:hover { text-decoration: underline; }
+</style>
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#fdfaff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1419" media="(prefers-color-scheme: dark)">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+</head>
+<body>
+
+<header>
+  <!-- Header injecte par js/header.js (source unique). Ancre minimale. -->
+  <div class="wrap nav"></div>
+</header>
+
+<main class="wrap page">
+  <h1>L'application Android</h1>
+    <p>Vos alertes deviennent des notifications sur votre téléphone. Gratuit, open source, <strong>sans publicité ni traceur</strong>.</p>
+
+    <h2>Télécharger</h2>
+    <ul>
+      <li><a class="inline" href="https://play.google.com/store/apps/details?id=fr.labonnealerte.app">Google Play</a></li>
+      <!-- <li><a class="inline" href="https://f-droid.org/packages/fr.labonnealerte.app/">F-Droid</a> : version sans aucun service Google</li> -->
+    </ul>
+
+    <h2>Ce que fait l'application</h2>
+    <ul>
+      <li>Le kiosque complet de plus de 260 alertes, consultable sans compte</li>
+      <li>Connexion par code reçu par email, ou avec Google, sans mot de passe</li>
+      <li>Réception au choix : notification, email ou les deux</li>
+      <li>Heures calmes la nuit, plafond de notifications, silence d'une heure ou d'une journée</li>
+      <li>Mes alertes, favoris, forum, animaux perdus, échéances, widgets, mode sombre</li>
+    </ul>
+
+    <h2>Recevoir les alertes à la seconde</h2>
+    <p>L'application n'utilise pas le service de notifications de Google. Installez une petite application de réception libre et gratuite, comme <a class="inline" href="https://ntfy.sh/">ntfy</a> : vos alertes arrivent à la seconde, chiffrées de bout en bout. Sans elle, l'application vérifie vos alertes toutes les 15 minutes environ.</p>
+
+    <h2>Vos données</h2>
+    <p>Ce que l'application envoie, ce qu'elle garde sur le téléphone et comment supprimer votre compte : <a class="inline" href="/confidentialite#application-android">confidentialité</a> et <a class="inline" href="/confidentialite#suppression">supprimer mon compte</a>.</p>
+</main>
+
+<!--FOOTER-->
+
+<script src="/js/theme.js"></script>
+<script src="/js/session.js"></script>
+<script src="/js/header.js"></script>
+<script src="/js/pwa.js"></script>
+</body>
+</html>
