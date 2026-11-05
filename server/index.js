@@ -221,6 +221,10 @@ app.use('/api/dev', devRouter);
 // Connexion OAuth (Google / GitHub) — redirections serveur.
 app.use('/auth', authRouter);
 // Page développeur « Proposer une source » (palette Veille de nuit).
+// Page de l'application Android (noindex tant que la fiche Play n'est pas en ligne).
+app.get('/app', (req, res) => {
+  sendPage(res, 'app.html');
+});
 app.get('/proposer', (req, res) => {
   sendPage(res, 'proposer.html');
 });

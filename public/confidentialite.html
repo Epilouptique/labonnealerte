@@ -112,9 +112,43 @@
     <p>Nous utilisons le stockage local de votre navigateur pour&nbsp;: votre préférence de thème, votre jeton de session et le fait qu'une recommandation ait été ignorée. Il ne s'agit pas de cookies tiers, et rien n'est partagé avec un tiers.</p>
   </section>
 
+  <section id="application-android">
+    <h2>Application Android</h2>
+    <p>L'application <strong>La Bonne Alerte</strong> pour Android (paquet <code>fr.labonnealerte.app</code>) utilise le même compte et le même serveur que le site. Elle ne contient <strong>aucune publicité, aucun outil de mesure d'audience et aucun rapport de plantage</strong>.</p>
+    <p><strong>Données envoyées à nos serveurs</strong>, les mêmes que sur le site&nbsp;:</p>
+    <ul>
+      <li>votre <strong>adresse email</strong>, quand vous demandez un code de connexion&nbsp;;</li>
+      <li>si vous utilisez <strong>« Continuer avec Google »</strong> (version Google Play seulement)&nbsp;: un jeton d'identité délivré par Google, vérifié par notre serveur, dont nous gardons votre adresse email et un identifiant technique de compte Google&nbsp;;</li>
+      <li>vos <strong>abonnements</strong>, <strong>favoris</strong>, <strong>échéances</strong>, votre <strong>profil</strong> facultatif (pays, département, ville, pseudo), vos <strong>heures calmes</strong> et votre <strong>canal de réception</strong> (notification, email ou les deux)&nbsp;;</li>
+      <li>ce que vous publiez&nbsp;: messages du forum, signalements d'animaux perdus, alertes proposées, signalements de contenu&nbsp;;</li>
+      <li>l'<strong>adresse de réception des notifications</strong> fournie par votre application de réception (voir ci-dessous)&nbsp;;</li>
+      <li>la <strong>version de l'application</strong> (en-tête technique), pour la compatibilité.</li>
+    </ul>
+    <p><strong>Données gardées seulement sur le téléphone</strong>&nbsp;: le jeton de connexion (exclu de toute sauvegarde et de tout transfert d'appareil), l'historique des notifications reçues, vos réglages et la liste des auteurs ou signalements que vous avez masqués. Le jeton et l'historique sont effacés à la déconnexion et à la suppression du compte&nbsp;; tout est effacé en désinstallant l'application.</p>
+    <p><strong>Position</strong>&nbsp;: l'application ne demande jamais votre position. Les signalements de proximité utilisent la commune de votre profil.</p>
+    <p><strong>Notifications</strong>&nbsp;: l'application n'utilise pas le service de notifications de Google. Si vous installez une application de réception UnifiedPush (ntfy, NextPush…), nos alertes passent par le serveur de cette application, <strong>chiffrées de bout en bout</strong> (norme Web Push, RFC&nbsp;8291)&nbsp;: son opérateur ne peut pas les lire. Le serveur par défaut de ntfy, ntfy.sh, est opéré par un tiers&nbsp;; vous pouvez en choisir un autre dans ntfy. Sans application de réception, La Bonne Alerte interroge elle-même nos serveurs environ toutes les 15&nbsp;minutes.</p>
+    <p><strong>Contenus des autres utilisateurs</strong>&nbsp;: vous pouvez signaler un message du forum, une alerte communautaire ou un signalement d'animal perdu, et masquer un auteur ou un signalement sur votre téléphone (annulable dans Réglages › Confidentialité).</p>
+    <p><strong>Liens externes</strong> (dons, pages des sources)&nbsp;: ils s'ouvrent dans votre navigateur, qui applique ses propres règles.</p>
+  </section>
+
+  <section id="suppression">
+    <h2>Supprimer mon compte</h2>
+    <p>Vous pouvez supprimer votre compte à tout moment, sans justification&nbsp;:</p>
+    <ul>
+      <li><strong>dans l'application Android</strong>&nbsp;: Mon compte › Réglages › <strong>Supprimer mon compte</strong>, puis confirmez&nbsp;;</li>
+      <li><strong>sur le site</strong>&nbsp;: connectez-vous, ouvrez <strong>Mon compte</strong> (en haut à droite) puis <strong>Supprimer mon compte</strong>, en bas de la rubrique «&nbsp;Divers&nbsp;»&nbsp;;</li>
+      <li><strong>si vous n'avez plus accès à votre compte</strong>&nbsp;: écrivez à <a class="inline" href="mailto:contact@labonnealerte.fr?subject=Suppression%20de%20mon%20compte">contact@labonnealerte.fr</a> avec l'objet «&nbsp;Suppression de mon compte&nbsp;», depuis l'adresse du compte si possible (sinon indiquez-la). Nous vérifions que la demande vient bien du titulaire, supprimons le compte et vous le confirmons sous 30&nbsp;jours au plus.</li>
+    </ul>
+    <p>La suppression est <strong>immédiate et définitive</strong>&nbsp;:</p>
+    <ul>
+      <li><strong>vos données personnelles sont effacées</strong>&nbsp;: adresse email, identifiant Google éventuel, pseudo et profil, abonnements, favoris, échéances, sessions, adresses de notification, notifications en attente, témoignages et abonnements aux signalements d'animaux perdus, adhésion à une organisation&nbsp;;</li>
+      <li><strong>le contenu public que vous avez publié est anonymisé</strong>, pas supprimé&nbsp;: vos sujets et messages du forum, vos signalements d'animaux perdus et les alertes que vous avez proposées restent visibles, signés «&nbsp;Membre supprimé&nbsp;», sans lien vers vous. Leur texte reste tel que vous l'avez écrit&nbsp;: si vous souhaitez qu'un message précis disparaisse, écrivez-nous à la même adresse, avant ou après la suppression du compte. Les traces des publications municipales sont conservées sans votre identité.</li>
+    </ul>
+  </section>
+
   <section>
     <h2>Vos droits</h2>
-    <p>Vous disposez d'un droit d'accès, de rectification, d'effacement, d'opposition et de portabilité de vos données. Vous pouvez les exercer par email à <a class="inline" href="mailto:contact@labonnealerte.fr">contact@labonnealerte.fr</a>, ou directement via le bouton « Supprimer mon compte » dans « Ma collection ».</p>
+    <p>Vous disposez d'un droit d'accès, de rectification, d'effacement, d'opposition et de portabilité de vos données. Vous pouvez les exercer par email à <a class="inline" href="mailto:contact@labonnealerte.fr">contact@labonnealerte.fr</a>, ou directement via le bouton « Supprimer mon compte » (voir <a class="inline" href="#suppression">Supprimer mon compte</a>).</p>
     <p class="muted">Vous pouvez également introduire une réclamation auprès de la CNIL&nbsp;: <a class="inline" href="https://www.cnil.fr" target="_blank" rel="noopener">cnil.fr</a>.</p>
   </section>
 </main>
