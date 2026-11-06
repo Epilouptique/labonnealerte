@@ -16,16 +16,18 @@
 const fs = require('fs');
 const path = require('path');
 const { publishEnabled } = require('./publish-flag');
+const { appPlayUrlEnabled } = require('./app-play-flag');
 
 const publicDir = path.join(__dirname, '..', 'public');
 
-// Drapeau client « Publier une alerte » : exposé en ATTRIBUT sur <html>
-// (data-lba-publish="true|false") plutôt qu'en script inline — la CSP du site impose
-// script-src 'self' (aucun inline), donc un <script> injecté serait bloqué et les CTA
-// resteraient masqués. La CSS masque les .publish-cta tant que l'attribut ne vaut pas
-// "true". Aucun JS ne lit ce drapeau : seule la feuille de style s'en sert.
-function publishFlagAttr() {
-  return ' data-lba-publish="' + (publishEnabled() ? 'true' : 'false') + '"';
+// Drapeaux client exposés en ATTRIBUTS sur <html> (data-lba-publish / data-lba-app-play)
+// plutôt qu'en script inline — la CSP du site impose script-src 'self' (aucun inline),
+// donc un <script> injecté serait bloqué et les blocs resteraient masqués. La CSS masque
+// les .publish-cta et le bloc .appmob tant que l'attribut correspondant ne vaut pas
+// "true". Aucun JS ne lit ces drapeaux : seule la feuille de style s'en sert.
+function flagsAttr() {
+  return ' data-lba-publish="' + (publishEnabled() ? 'true' : 'false') + '"'
+    + ' data-lba-app-play="' + (appPlayUrlEnabled() ? 'true' : 'false') + '"';
 }
 const footerFile = path.join(__dirname, 'partials', 'footer.html');
 const CACHE = process.env.NODE_ENV === 'production';
@@ -46,8 +48,8 @@ function renderPage(file) {
   if (CACHE && pageCache.has(file)) return pageCache.get(file);
   let html = fs.readFileSync(path.join(publicDir, file), 'utf8')
     .replace('<!--FOOTER-->', () => footerHtml());
-  // Pose le drapeau de publication en attribut sur la balise <html> (une fois par page).
-  html = html.replace(/<html(\s|>)/i, (m, p1) => '<html' + publishFlagAttr() + p1);
+  // Pose les drapeaux (publication + app Play) en attributs sur <html> (une fois par page).
+  html = html.replace(/<html(\s|>)/i, (m, p1) => '<html' + flagsAttr() + p1);
   if (CACHE) pageCache.set(file, html);
   return html;
 }

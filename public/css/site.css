@@ -754,6 +754,14 @@ html[data-theme="dark"] .community-spotted-tag { color: var(--violet-l, #bd8ef0)
 }
 .card.add .plus { font-size: 30px; font-weight: 300; color: var(--amber); }
 .card.add strong { color: var(--ink); }
+/* Lot accueil-app : au repos la carte « Publier une alerte » était quasi invisible (fond
+   transparent). Fond très légèrement teinté + contour un peu plus marqué EN PERMANENCE,
+   dans les deux thèmes ; l'effet de survol ci-dessous reste identique. Logique PUBLISH_ENABLED
+   inchangée (la carte reste masquée tant que le drapeau n'est pas actif). */
+.card.add.publish-cta {
+  background: color-mix(in srgb, var(--amber) 7%, transparent);
+  border-color: color-mix(in srgb, var(--amber) 42%, transparent);
+}
 .card.add:hover { background: var(--amber-soft); border-color: var(--amber); }
 /* Endpoint (verso) : cliquable, JetBrains Mono. */
 .endpoint {
@@ -1483,16 +1491,29 @@ body[data-mode="connected"] .hero p { display: none; }
    Le bouton reprend le style de .btn-login par GROUPEMENT de selecteur (pas de
    classe ajoutee) : aucun handler du header ne peut le capter. */
 .hero-start { display: none; }
-body[data-mode="anon"] .hero-start { display: block; margin-top: 20px; }
+/* Lot accueil-app : l'amorce (promesse + bouton) était illisible posée directement sur le
+   fond décoratif. On lui donne une CARTE opaque (var(--surface)) à fort contraste dans les
+   deux thèmes (ink sur surface : >12:1 en clair, ~10:1 en sombre), bouton à DROITE du texte
+   sur desktop et centré SOUS le texte sur mobile. */
+body[data-mode="anon"] .hero-start {
+  display: flex; align-items: center; gap: 22px; text-align: left;
+  margin: 20px auto 0; max-width: 680px;
+  background: var(--surface);
+  border: 1px solid color-mix(in srgb, var(--amber) 24%, transparent);
+  border-radius: 18px; padding: 20px 24px;
+  box-shadow: 0 2px 14px rgba(15, 20, 25, .07);
+}
 .hero-promise {
   color: var(--ink); font-size: 16px; line-height: 1.5;
-  margin: 0 auto 18px; max-width: 560px;
+  margin: 0; max-width: none; flex: 1 1 auto; text-align: left;
 }
 .hero-cta {
   display: inline-block; font-size: 15px; padding: 12px 26px;
+  flex: 0 0 auto; white-space: nowrap;
 }
 @media (max-width: 640px) {
-  .hero-promise { font-size: 15px; }
+  body[data-mode="anon"] .hero-start { flex-direction: column; text-align: center; gap: 16px; padding: 18px 18px; }
+  .hero-promise { font-size: 15px; text-align: center; }
   .hero-cta { width: 100%; max-width: 320px; text-align: center; }
 }
 body[data-mode="connected"] .hero { padding: 0px 0 0px; }
@@ -5519,3 +5540,41 @@ select:focus-visible,
    masqués tant que <html> ne porte pas data-lba-publish="true" (attribut posé côté
    serveur par pages.js — pas de script inline, pour respecter la CSP script-src 'self'). */
 html:not([data-lba-publish="true"]) .publish-cta { display: none !important; }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Lot accueil-app — page d'accueil (visiteur non connecté) + header.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* Header, TOUTES les pages : on masque le suffixe « !fr » du logo (le « ! » stylé .bang
+   + « fr » .fr), sans toucher au markup — il suffira de retirer cette règle pour le
+   rétablir. N'affecte ni le <title>, ni le domaine, ni les balises, ni les e-mails (le
+   logo y est rendu en texte nu « labonnealerte.fr » par server/mailer.js). .brandmark
+   couvre l'accueil, les pages secondaires (.cx-logo) et le logo construit par header.js
+   (desktop + menu mobile). */
+.brandmark .bang, .brandmark .fr { display: none; }
+
+/* Bloc « Sur mon smartphone » (invite vers l'app Android) : masqué tant que <html> ne porte
+   pas data-lba-app-play="true" (variable APP_PLAY_URL_ENABLED, attribut posé par pages.js) —
+   même mécanisme que .publish-cta. La fiche Play n'étant pas publiée, il reste masqué par
+   défaut. On alterne le fond avec les sections voisines (// en chiffres sur #edf, // devs sur
+   --surface) en posant --bg ici. */
+html:not([data-lba-app-play="true"]) .appmob { display: none !important; }
+.appmob { background: var(--bg); padding: 56px 0; }
+.appmob-grid { display: grid; grid-template-columns: 1fr auto; gap: 32px; align-items: center; }
+.appmob-copy h2 { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; }
+.appmob-copy p { color: var(--muted); margin-top: 10px; font-size: 15px; max-width: 60ch; }
+.appmob-badge { display: inline-block; }
+/* Badge officiel 646×250 : height auto conserve le ratio exact → jamais déformé. */
+.appmob-badge img { display: block; width: 220px; height: auto; max-width: 100%; }
+@media (max-width: 760px) {
+  .appmob-grid { grid-template-columns: 1fr; }
+}
+
+/* Lien discret « Voir toutes les alertes » (visiteur non connecté) : même pilule que
+   .more-btn-all, variante texte. Affiché/masqué par site.js (updateMore). */
+.see-all-anon {
+  font: inherit; font-weight: 600; font-size: 14px; text-decoration: none;
+  color: var(--muted); border: 1px solid color-mix(in srgb, var(--muted) 35%, transparent);
+  border-radius: 999px; padding: 12px 24px;
+}
+.see-all-anon:hover { color: var(--ink); border-color: var(--muted); }
