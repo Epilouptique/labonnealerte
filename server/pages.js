@@ -17,17 +17,25 @@ const fs = require('fs');
 const path = require('path');
 const { publishEnabled } = require('./publish-flag');
 const { appPlayUrlEnabled } = require('./app-play-flag');
+const { availableImages, testForcingEnabled } = require('./encarts');
 
 const publicDir = path.join(__dirname, '..', 'public');
 
-// Drapeaux client exposés en ATTRIBUTS sur <html> (data-lba-publish / data-lba-app-play)
-// plutôt qu'en script inline — la CSP du site impose script-src 'self' (aucun inline),
-// donc un <script> injecté serait bloqué et les blocs resteraient masqués. La CSS masque
-// les .publish-cta et le bloc .appmob tant que l'attribut correspondant ne vaut pas
-// "true". Aucun JS ne lit ces drapeaux : seule la feuille de style s'en sert.
+// Échappe une valeur destinée à un attribut HTML entre guillemets doubles (JSON des encarts).
+function attrEscape(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// Drapeaux client exposés en ATTRIBUTS sur <html> (data-lba-publish / data-lba-app-play /
+// data-lba-encart-*) plutôt qu'en script inline — la CSP du site impose script-src 'self'
+// (aucun inline), donc un <script> injecté serait bloqué. La CSS masque les .publish-cta et
+// le bloc .appmob tant que l'attribut correspondant ne vaut pas "true". Les attributs encart
+// renseignent public/js/encarts.js (visuels réellement présents + forçage de test hors prod).
 function flagsAttr() {
   return ' data-lba-publish="' + (publishEnabled() ? 'true' : 'false') + '"'
-    + ' data-lba-app-play="' + (appPlayUrlEnabled() ? 'true' : 'false') + '"';
+    + ' data-lba-app-play="' + (appPlayUrlEnabled() ? 'true' : 'false') + '"'
+    + ' data-lba-encart-img="' + attrEscape(JSON.stringify(availableImages())) + '"'
+    + ' data-lba-encart-test="' + (testForcingEnabled() ? '1' : '0') + '"';
 }
 const footerFile = path.join(__dirname, 'partials', 'footer.html');
 const CACHE = process.env.NODE_ENV === 'production';

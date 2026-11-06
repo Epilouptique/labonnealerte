@@ -5584,3 +5584,60 @@ html:not([data-lba-app-play="true"]) .appmob { display: none !important; }
   border-radius: 999px; padding: 12px 24px;
 }
 .see-all-anon:hover { color: var(--ink); border-color: var(--muted); }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   « Encarts sympas » — encarts promotionnels MAISON dans la colonne de mini-cartes.
+   Jamais de vraie pub : pastille « Pas une pub (promis) ». Plus grand qu'une mini-carte
+   (≈ 2 de haut), zone image à ratio fixe, titre + 2 lignes + CTA. Thème clair/sombre,
+   responsive, prefers-reduced-motion. Placé par public/js/encarts.js.
+   ───────────────────────────────────────────────────────────────────────────── */
+.encart {
+  grid-column: 2; align-self: start; max-width: 320px; width: 100%;
+  display: flex; flex-direction: column; overflow: hidden;
+  background: var(--surface); border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--amber) 26%, transparent);
+  box-shadow: 0 2px 14px rgba(15, 20, 25, .08);
+}
+/* Apparition douce une fois placé (désactivée si l'utilisateur préfère moins d'animations). */
+.encart.is-placed { animation: encart-in .28s ease both; }
+@keyframes encart-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .encart.is-placed { animation: none; } }
+
+/* Zone image : ratio fixe 16/10, object-fit cover → jamais déformée. */
+.encart-media { display: block; width: 100%; aspect-ratio: 16 / 10; overflow: hidden; }
+.encart-media img { display: block; width: 100%; height: 100%; object-fit: cover; }
+/* Remplacement (aucun fichier image encore) : dégradé maison, distinct par encart. */
+.encart-media--placeholder { background: linear-gradient(135deg, #a567e3, #6f57d6); }
+.encart-media--placeholder[data-encart="aurores"] { background: linear-gradient(160deg, #1f6f6b, #2e8b8b 45%, #7bd88f); }
+.encart-media--placeholder[data-encart="livraison-1e"] { background: linear-gradient(135deg, #a567e3, #bd8ef0); }
+.encart-media--placeholder[data-encart="echeances"] { background: linear-gradient(135deg, #5b73c4, #8a6fd4); }
+
+.encart-body { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px 16px; }
+/* Pastille « Pas une pub (promis) » : discrète mais lisible (contraste AA dans les 2 thèmes). */
+.encart-badge {
+  align-self: flex-start; font-size: 11px; font-weight: 700; letter-spacing: .02em;
+  color: var(--amber-ink); background: color-mix(in srgb, var(--amber) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--amber) 30%, transparent);
+  padding: 3px 9px; border-radius: 999px;
+}
+.encart-title { color: var(--ink); font-size: 17px; font-weight: 800; letter-spacing: -0.01em; line-height: 1.25; }
+.encart-text {
+  color: var(--ink); font-size: 14px; line-height: 1.45;
+  /* 2 lignes visées : on borne proprement sans couper un mot en plein milieu. */
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.encart-cta {
+  align-self: flex-start; margin-top: 4px;
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 44px; padding: 10px 20px;          /* cible tactile ≥ 44px */
+  background: var(--amber); color: #fff; text-decoration: none;
+  font-weight: 700; font-size: 14px; border-radius: 999px;
+  box-shadow: 0 1px 3px rgba(30, 20, 50, .12);
+}
+.encart-cta:hover { background: color-mix(in srgb, var(--amber) 88%, #000); color: #fff; }
+
+/* Mobile (≤ 640px) : la grille passe en flux 1 colonne (cf. #grid mixte). L'encart suit,
+   pleine largeur, sans placement de rangée. */
+@media (max-width: 640px) {
+  .encart { grid-column: auto; max-width: none; }
+}

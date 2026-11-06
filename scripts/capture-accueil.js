@@ -26,7 +26,11 @@ const http = require('http');
 const { spawn } = require('child_process');
 
 const ROOT = path.join(__dirname, '..');
-const OUT_DIR = process.env.CAPTURE_OUT || path.join(ROOT, '..', 'captures-accueil');
+// Mode « encarts » (--encarts) : force tour à tour chaque encart via ?encart=<id> et écrit
+// dans ../captures-encarts/. Sinon : captures de l'accueil (APP_PLAY on/off) dans ../captures-accueil/.
+const ENCART_MODE = process.argv.includes('--encarts');
+const ENCART_IDS = ['livraison-1e', 'aurores', 'echeances'];
+const OUT_DIR = process.env.CAPTURE_OUT || path.join(ROOT, '..', ENCART_MODE ? 'captures-encarts' : 'captures-accueil');
 const PUBLISH = process.env.PUBLISH_ENABLED || 'true'; // défaut : montrer la carte « Publier » (comme en prod)
 const FORCE_MOCK = process.argv.includes('--mock') || process.env.CAPTURE_MOCK === '1';
 
@@ -64,13 +68,27 @@ function waitHttpReady(port, timeoutMs) {
 }
 
 // ── Jeu de données de test minimal (mock) : forme suffisante pour cards.js ──
+// Inclut les 3 alertes CIBLES des encarts (leboncoin-livraison, aurores-france,
+// tache-echeance-glissante) pour que les encarts soient éligibles dans les captures.
 function mockSources() {
+  const targets = [
+    { id: 'leboncoin-livraison', name: 'Livraison à 0,99 €', categories: ['bons-plans'] },
+    { id: 'aurores-france', name: 'Aurores en France', categories: ['astronomie'] },
+    { id: 'tache-echeance-glissante', name: 'Tâche à échéance', categories: ['vie-pratique'], type: 'user-task' },
+  ].map((t, i) => ({
+    id: t.id, name: t.name, subtitle: 'Alerte de démonstration',
+    description: 'Jeu de données de test pour les captures (aucune base). Contenu factice.',
+    description_long: null, badge: 'official', type: t.type || 'internal', link_url: null,
+    categories: t.categories, params_schema: null, likes_count: 50 - i,
+    created_at: new Date(Date.now() - i * 3600000).toISOString(), forum_slug: t.id,
+    state: 'active', subscriber_count: 20 - i, topic_count: 0,
+  }));
   const cats = [['meteo'], ['bons-plans', 'jeux-video'], ['securite'], ['transport'],
     ['sante'], ['culture'], ['environnement'], ['emploi'], ['logement'], ['sport']];
   const noms = ['Vigilance météo', 'Jeu gratuit Epic', 'Alertes CERT-FR', 'Grèves transport',
     'Rappels produits', 'Sorties ciné', 'Qualité de l’air', 'Concours fonction publique',
     'Nouvelles annonces', 'Billetterie match'];
-  return noms.map((name, i) => ({
+  const demo = noms.map((name, i) => ({
     id: 'demo-' + i,
     name: name,
     subtitle: 'Alerte de démonstration',
@@ -88,6 +106,7 @@ function mockSources() {
     subscriber_count: (10 - i),
     topic_count: 0,
   }));
+  return targets.concat(demo);
 }
 
 // ── Serveur de test autonome (mock) : public/ + pages.js + endpoints factices ──
@@ -99,6 +118,7 @@ function startMockServer(port, appPlayEnabled) {
   delete require.cache[require.resolve(path.join(ROOT, 'server', 'pages.js'))];
   delete require.cache[require.resolve(path.join(ROOT, 'server', 'app-play-flag.js'))];
   delete require.cache[require.resolve(path.join(ROOT, 'server', 'publish-flag.js'))];
+  delete require.cache[require.resolve(path.join(ROOT, 'server', 'encarts.js'))];
   const express = require('express');
   const { pagesMiddleware } = require(path.join(ROOT, 'server', 'pages.js'));
   const app = express();
@@ -160,28 +180,49 @@ const SHOTS = [
   catch (e) { console.error('Chromium non lancé : ' + e.message + '\n→ `npx playwright install chromium`'); process.exit(1); }
 
   const written = [];
-  for (const appPlay of [false, true]) {
+
+  async function shoot(base, s, query, file) {
+    const ctx = await browser.newContext({
+      viewport: s.viewport, colorScheme: s.colorScheme, deviceScaleFactor: s.dsf || 1,
+    });
+    const page = await ctx.newPage();
+    await page.goto(base + (query || ''), { waitUntil: 'networkidle' });
+    // Accueil ANONYME : aucun jeton en contexte neuf → mode anon. On attend le rendu.
+    try { await page.waitForSelector('body[data-mode="anon"]', { timeout: 8000 }); } catch (e) {}
+    try { await page.waitForSelector('#grid .card.flip', { timeout: 8000 }); } catch (e) {}
+    if (query && /encart=/.test(query)) {
+      try { await page.waitForSelector('.encart.is-placed', { timeout: 6000 }); } catch (e) {}
+      await page.waitForTimeout(3600); // laisser les re-placements successifs stabiliser l'encart
+    } else {
+      await page.waitForTimeout(1400); // masonry mixte (mesures différées) + polices
+    }
+    await page.screenshot({ path: file, fullPage: true });
+    written.push(file);
+    await ctx.close();
+  }
+
+  if (ENCART_MODE) {
+    // Un seul serveur (mock), forçage de chaque encart via ?encart=<id> (autorisé hors prod).
     const port = await freePort();
-    const srv = await startServer(port, appPlay);
+    const srv = await startServer(port, false);
     const base = 'http://127.0.0.1:' + port + '/';
     try {
-      for (const s of SHOTS) {
-        const ctx = await browser.newContext({
-          viewport: s.viewport, colorScheme: s.colorScheme, deviceScaleFactor: s.dsf || 1,
-        });
-        const page = await ctx.newPage();
-        await page.goto(base, { waitUntil: 'networkidle' });
-        // Accueil ANONYME : aucun jeton en contexte neuf → mode anon. On attend le rendu.
-        try { await page.waitForSelector('body[data-mode="anon"]', { timeout: 8000 }); } catch (e) {}
-        try { await page.waitForSelector('#grid .card.flip', { timeout: 8000 }); } catch (e) {}
-        await page.waitForTimeout(1300); // masonry mixte (mesures différées) + polices
-        const file = path.join(OUT_DIR, 'accueil-' + s.key + '-play-' + (appPlay ? 'on' : 'off') + '.png');
-        await page.screenshot({ path: file, fullPage: true });
-        written.push(file);
-        await ctx.close();
+      for (const id of ENCART_IDS) {
+        for (const s of SHOTS) {
+          await shoot(base, s, '?encart=' + id, path.join(OUT_DIR, 'encart-' + id + '-' + s.key + '.png'));
+        }
       }
-    } finally {
-      await srv.stop();
+    } finally { await srv.stop(); }
+  } else {
+    for (const appPlay of [false, true]) {
+      const port = await freePort();
+      const srv = await startServer(port, appPlay);
+      const base = 'http://127.0.0.1:' + port + '/';
+      try {
+        for (const s of SHOTS) {
+          await shoot(base, s, '', path.join(OUT_DIR, 'accueil-' + s.key + '-play-' + (appPlay ? 'on' : 'off') + '.png'));
+        }
+      } finally { await srv.stop(); }
     }
   }
   await browser.close();
