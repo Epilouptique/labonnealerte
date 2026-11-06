@@ -15,6 +15,7 @@ async function deliverToSubscribers(subs, info, ref = {}, deps = {}) {
   const sendToSubscriber = deps.sendToSubscriber || require('./webpush').sendToSubscriber;
   const isQuietNow = deps.isQuietNow || require('./quiet-hours').isQuietNow;
   const pool = deps.pool || require('./db').pool;
+  const isReviewerEmail = deps.isReviewerEmail || require('./reviewer').isReviewerEmail;
 
   const sourceId = ref.sourceId != null ? ref.sourceId : null;
   const params = ref.params != null ? ref.params : null;
@@ -25,6 +26,9 @@ async function deliverToSubscribers(subs, info, ref = {}, deps = {}) {
   const toDefer = [];
 
   for (const s of subs) {
+    // Compte relecteur Google Play : aucune notification réelle (mail NI push) ne part vers
+    // cette adresse — ni immédiate, ni mise en file. Sans variables configurées : jamais vrai.
+    if (isReviewerEmail(s.email)) continue;
     // Préférence de canal (LOT D) : 'both' (défaut = comportement historique), 'email' ou
     // 'push'. null/absent ⇒ 'both' ⇒ exactement l'ancien comportement (opt-in email + push).
     const channel = s.notify_channel || 'both';

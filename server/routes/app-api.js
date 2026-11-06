@@ -20,6 +20,7 @@ const { publicKey } = require('../webpush');
 const { resolveLabel } = require('../params');
 const { publicEventMessage } = require('../public-events');
 const { fingerprint } = require('../token-hash');
+const reviewer = require('../reviewer');
 
 const router = express.Router();
 
@@ -177,6 +178,9 @@ router.post('/app/login/request', async (req, res) => {
   // Reponse neutre AVANT tout acces a la base : meme duree pour un email inscrit ou non
   // (anti-enumeration par mesure du temps de reponse, audit APP-02).
   res.status(200).json(NEUTRAL);
+  // Compte relecteur Google Play : réponse normale (déjà envoyée ci-dessus) mais AUCUN
+  // e-mail, aucun code en mémoire, aucune écriture — le code fixe est vérifié dans verify.
+  if (reviewer.isReviewerEmail(normalized)) return;
   if (normalized && normalized.length <= 254 && EMAIL_RE.test(normalized) &&
       recent(sendsByEmail, normalized, SEND_WINDOW_MS).length < MAX_SENDS_PER_EMAIL &&
       globalSendOk()) {
@@ -224,6 +228,33 @@ router.post('/app/login/verify', async (req, res) => {
   if (!normalized || typeof code !== 'string' || !/^\d{6}$/.test(code)) return bad();
   if (recent(failsByEmail, normalized, FAIL_WINDOW_MS).length >= MAX_FAILS_PER_EMAIL) {
     return res.status(429).json({ error: 'Trop d\'essais pour cette adresse, réessayez dans une heure.' });
+  }
+  // Compte relecteur Google Play : code FIXE (REVIEWER_CODE). Les gardes anti-force-brute
+  // ci-dessus (limite par IP, 10 échecs/h par adresse) s'appliquent déjà ; un mauvais code
+  // compte comme un échec normal. Le compte est créé/confirmé au premier login, non admin,
+  // conditions acceptées — comme une création classique.
+  const verdict = reviewer.classifyReviewerLogin(normalized, code);
+  if (verdict === 'match' || verdict === 'mismatch') {
+    if (verdict === 'mismatch') {
+      push(failsByEmail, normalized, FAIL_WINDOW_MS);
+      return bad();
+    }
+    try {
+      const token = crypto.randomBytes(32).toString('hex'); // jeton d'abonné (désinscription)
+      const { rows } = await pool.query(
+        `INSERT INTO subscribers (email, confirmed, token, terms_accepted_at, terms_version)
+         VALUES ($1, true, $2, NOW(), $3)
+         ON CONFLICT (email) DO UPDATE SET confirmed = true
+         RETURNING id, email`,
+        [normalized, token, APP_TERMS_VERSION]
+      );
+      const sessionToken = await createSession(rows[0].id);
+      failsByEmail.delete(normalized);
+      return res.status(200).json({ token: sessionToken, email: rows[0].email });
+    } catch (err) {
+      console.error('[app-api] Erreur login relecteur :', errTag(err));
+      return res.status(503).json({ error: 'Service indisponible' });
+    }
   }
   const entry = codes.get(normalized);
   if (!entry || entry.exp < Date.now()) {
