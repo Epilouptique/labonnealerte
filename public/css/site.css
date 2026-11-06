@@ -264,6 +264,11 @@ html[data-theme="light"] header { background: #ffffff; } /* thème clair : blanc
    S'applique à toutes les pages (le .hl du hero n'était que local). */
 h1 .hl { color: var(wheat); }
 .hero p { color: var(--muted); font-size: 18px; margin: 18px auto 0; max-width: 520px; }
+/* Lot accueil-app : la ligne d'accroche (enfant DIRECT du hero, au-dessus de la carte) était
+   en gris --muted, peu lisible sur le violet du hero. On la passe en --ink, à fort contraste
+   dans les deux thèmes (WCAG AA largement dépassé : >6:1 clair, >10:1 sombre). Ne vise QUE ce
+   <p> (> p) : .hero-promise (dans .hero-start) n'est pas un enfant direct et reste inchangée. */
+.hero > p { color: var(--ink); }
 /* Point 1) Très petits smartphones (iPhone SE, ~375px et moins) : le .wrap ne laisse
    que 16px de marge — on renforce l'air autour du titre et du paragraphe pour qu'ils
    ne collent plus aux bords. */
@@ -1136,6 +1141,7 @@ input:focus-visible,
   body:not(.dev) main.wrap,
   body:not(.dev) .devs .wrap,
   body:not(.dev) .stats-section .wrap,
+  body:not(.dev) .appmob .wrap,
   body:not(.dev) .hist-section { position: relative; }
   body:not(.dev) .section-label {
     position: absolute; top: 2px; margin: 0; text-align: right;
