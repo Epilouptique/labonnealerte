@@ -21,7 +21,7 @@ var ENCARTS = [
   {
     id: 'livraison-1e', actif: true, slug: 'leboncoin-livraison',
     titre: "La livraison à 1 € t'a encore échappé ?",
-    texte: "Elle apparaît sur leboncoin, elle disparaît, et toi tu l'apprends le lendemain. Laisse-nous faire le guet : on te prévient dès qu'elle revient.",
+    texte: "Elle apparaît sur leboncoin, elle disparaît, et tu l'apprends le lendemain. Laisse-nous faire le guet : on te prévient dès qu'elle revient.",
     bouton: 'Me prévenir',
     alt: "Illustration : la livraison à petit prix qu'on surveille pour vous.",
   },

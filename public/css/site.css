@@ -5621,11 +5621,9 @@ html:not([data-lba-app-play="true"]) .appmob { display: none !important; }
   padding: 3px 9px; border-radius: 999px;
 }
 .encart-title { color: var(--ink); font-size: 17px; font-weight: 800; letter-spacing: -0.01em; line-height: 1.25; }
-.encart-text {
-  color: var(--ink); font-size: 14px; line-height: 1.45;
-  /* 2 lignes visées : on borne proprement sans couper un mot en plein milieu. */
-  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
-}
+/* Texte toujours affiché EN ENTIER (pas de line-clamp ni de hauteur fixe) : l'encart
+   grandit avec son contenu, le bouton reste visible dessous. */
+.encart-text { color: var(--ink); font-size: 14px; line-height: 1.45; }
 .encart-cta {
   align-self: flex-start; margin-top: 4px;
   display: inline-flex; align-items: center; justify-content: center;
