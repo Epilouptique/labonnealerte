@@ -19,6 +19,32 @@ ok(ENCARTS.every(hasRequired), 'chaque encart a id, slug, titre, texte, bouton')
 const ids = ENCARTS.map((e) => e.id).sort();
 ok(JSON.stringify(ids) === JSON.stringify(['aurores', 'echeances', 'livraison-1e']), 'ids attendus : aurores, echeances, livraison-1e');
 
+// ── 1b) Textes exacts (titre / texte / bouton) ──
+const byId = {};
+ENCARTS.forEach((e) => { byId[e.id] = e; });
+const EXPECT = {
+  'livraison-1e': {
+    titre: "La livraison à 1 € t'a encore échappé ?",
+    texte: "Laisse-nous faire le guet : on te prévient dès qu'elle revient.",
+    bouton: 'Me prévenir',
+  },
+  aurores: {
+    titre: "Comment ça, c'était hier, l'aurore boréale ?",
+    texte: "Un ciel vert au-dessus de la France, tout le monde le savait… sauf toi. Cette fois, on te siffle avant.",
+    bouton: 'Surveiller le ciel',
+  },
+  echeances: {
+    titre: "Ton contrôle technique, il est pour quand déjà ?",
+    texte: "Tu ne sais pas ? Nous si. On te rappelle.",
+    bouton: 'Créer mon rappel',
+  },
+};
+Object.keys(EXPECT).forEach((id) => {
+  ['titre', 'texte', 'bouton'].forEach((champ) => {
+    ok(byId[id] && byId[id][champ] === EXPECT[id][champ], 'texte exact — ' + id + '.' + champ);
+  });
+});
+
 // ── 2) Slugs cibles réels (garde-fou : présents dans le catalogue init.sql) ──
 const initSql = fs.readFileSync(path.join(__dirname, '..', 'server', 'db', 'init.sql'), 'utf8');
 ENCARTS.forEach((e) => {
