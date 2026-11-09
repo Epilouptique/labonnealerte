@@ -3,9 +3,10 @@
    hasard parmi ceux qui sont ÉLIGIBLES (actif ET dont l'alerte cible existe dans le catalogue).
 
    Inspiration (rythme rompu par un bloc plus grand et visuel) : les encarts « maison » de
-   certains sites d'actu — l'idée, pas le code ni le style. Chaque encart porte une pastille
-   « Pas une pub (promis) » pour ne jamais être pris pour une annonce. Aucun traceur, aucun
-   appel externe, aucune statistique. Le choix n'est pas persisté (nouveau tirage à chaque page).
+   certains sites d'actu — l'idée, pas le code ni le style. Le texte passe PAR-DESSUS l'image
+   (titre en haut sur un scrim sombre, sous-titre + bouton en bas sur un panneau beige). Aucun
+   traceur, aucun appel externe, aucune statistique. Le choix n'est pas persisté (nouveau
+   tirage à chaque page).
 
    Intégration : l'encart est un <article class="encart"> (PAS .card) → invisible pour le
    découpage colonnes de view-compare.js. Desktop : placé en colonne 2 (mini-cartes), juste
@@ -119,11 +120,12 @@ if (typeof document !== 'undefined' && typeof window !== 'undefined') {
       a.className = 'encart';
       a.setAttribute('aria-label', 'À découvrir');
       a.setAttribute('data-encart-id', e.id);
+      // Texte PAR-DESSUS l'image : titre en haut (scrim sombre), panneau beige en bas
+      // (sous-titre + bouton à droite). Plus de bloc texte séparé ni de pastille.
       a.innerHTML =
         mediaHTML(e) +
-        '<span class="encart-body">' +
-          '<span class="encart-badge">Pas une pub (promis)</span>' +
-          '<strong class="encart-title">' + esc(e.titre) + '</strong>' +
+        '<strong class="encart-title">' + esc(e.titre) + '</strong>' +
+        '<span class="encart-panel">' +
           '<span class="encart-text">' + esc(e.texte) + '</span>' +
           '<a class="encart-cta" href="/source/' + encodeURIComponent(e.slug) + '/statut">' + esc(e.bouton) + '</a>' +
         '</span>';

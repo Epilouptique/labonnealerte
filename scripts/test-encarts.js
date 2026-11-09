@@ -78,16 +78,27 @@ for (let i = 0; i < 30; i++) {
 }
 ok(allSingle, '30 tirages : toujours un objet unique (jamais 2, jamais une liste)');
 
-// ── 5) Rendu client : la pastille « Pas une pub (promis) » et le CTA vers l'alerte ──
+// ── 5) Rendu client : texte PAR-DESSUS l'image (titre + panneau), CTA vers l'alerte,
+//      plus AUCUNE pastille « Pas une pub » ni bloc .encart-body séparé ──
 const clientSrc = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'encarts.js'), 'utf8');
-ok(/Pas une pub \(promis\)/.test(clientSrc), 'mention « Pas une pub (promis) » présente dans le rendu');
+ok(!/Pas une pub/.test(clientSrc), 'plus de pastille « Pas une pub (promis) » dans le markup');
+ok(!/encart-badge/.test(clientSrc) && !/encart-body/.test(clientSrc), 'plus de .encart-badge ni .encart-body');
+ok(/class="encart-title"/.test(clientSrc), 'titre .encart-title présent (par-dessus l’image)');
+ok(/class="encart-panel"/.test(clientSrc), 'panneau .encart-panel présent (bas de l’image)');
+ok(/class="encart-text"/.test(clientSrc) && /class="encart-cta"/.test(clientSrc), 'sous-titre + bouton dans le panneau');
 ok(/\/source\/'\s*\+\s*encodeURIComponent\(e\.slug\)\s*\+\s*'\/statut/.test(clientSrc), 'CTA → page de l’alerte /source/<slug>/statut (flux d’abonnement existant)');
 ok(clientSrc.indexOf('À découvrir') !== -1 && /createElement\('article'\)/.test(clientSrc), 'encart = <article> aria-label « À découvrir »');
 
-// ── 5b) CSS : zone image en PORTRAIT 5/8 (visuels 600×960), plus de 16/10 ──
+// ── 5b) CSS : image PORTRAIT 5/8 plein cadre + overlay (titre scrim / panneau beige) ──
 const cssSrc = fs.readFileSync(path.join(__dirname, '..', 'public', 'css', 'site.css'), 'utf8');
 ok(/\.encart-media\s*\{[^}]*aspect-ratio:\s*5\s*\/\s*8/.test(cssSrc), '.encart-media en ratio 5/8 (portrait)');
 ok(!/\.encart-media\s*\{[^}]*aspect-ratio:\s*16\s*\/\s*10/.test(cssSrc), 'plus de ratio 16/10 sur .encart-media');
+ok(/\.encart\s*\{[^}]*position:\s*relative/.test(cssSrc), '.encart en position relative (ancre les calques)');
+ok(/\.encart-title\s*\{[^}]*position:\s*absolute/.test(cssSrc), 'titre en overlay absolu (par-dessus l’image)');
+ok(/\.encart-panel\s*\{[^}]*position:\s*absolute[^}]*bottom:\s*0/.test(cssSrc), 'panneau en overlay absolu, ancré en bas');
+ok(/--encart-panel-bg/.test(cssSrc) && /--encart-panel-ink/.test(cssSrc), 'fond beige + encre du panneau en variables (clair/sombre)');
+ok(/--encart-scrim-h/.test(cssSrc) && /--encart-panel-h/.test(cssSrc), 'scrim/panneau réglables par encart (variables CSS)');
+ok(/\.encart-cta\s*\{[^}]*align-self:\s*flex-end/.test(cssSrc), 'bouton aligné à droite dans le panneau');
 ok(/\.encart-media[^{]*\{[^}]*max-height:\s*70vh/.test(cssSrc), 'mobile : hauteur d’image plafonnée (max-height 70vh)');
 
 // ── 6) Injection serveur : attributs <html> data-lba-encart-img / -test ──
