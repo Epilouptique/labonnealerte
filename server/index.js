@@ -264,6 +264,11 @@ app.get('/mentions-legales', (req, res) => {
 app.get('/confidentialite', (req, res) => {
   sendPage(res, 'confidentialite.html');
 });
+app.get('/conditions', (req, res) => {
+  sendPage(res, 'conditions.html');
+});
+// Alias historique → redirection permanente (SEO : une seule URL canonique /conditions).
+app.get('/cgu', (req, res) => res.redirect(301, '/conditions'));
 
 app.get('/le-point', (req, res) => {
   sendPage(res, 'le-point.html');

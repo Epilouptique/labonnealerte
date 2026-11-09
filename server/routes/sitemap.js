@@ -41,6 +41,7 @@ const STATIC_PATHS = [
   '/soutenir',
   '/mentions-legales',
   '/confidentialite',
+  '/conditions',
   '/proposer',
   '/publier',
   '/institutions',
