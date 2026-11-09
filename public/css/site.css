@@ -5603,9 +5603,10 @@ html:not([data-lba-app-play="true"]) .appmob { display: none !important; }
 @keyframes encart-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .encart.is-placed { animation: none; } }
 
-/* Zone image : ratio fixe 16/10, object-fit cover → jamais déformée. */
-.encart-media { display: block; width: 100%; aspect-ratio: 16 / 10; overflow: hidden; }
-.encart-media img { display: block; width: 100%; height: 100%; object-fit: cover; }
+/* Zone image : PORTRAIT ratio 5/8 (visuels 600×960), object-fit cover → jamais déformée.
+   object-position: center top → on garde le haut du visuel en priorité. */
+.encart-media { display: block; width: 100%; aspect-ratio: 5 / 8; overflow: hidden; }
+.encart-media img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center top; }
 /* Remplacement (aucun fichier image encore) : dégradé maison, distinct par encart. */
 .encart-media--placeholder { background: linear-gradient(135deg, #a567e3, #6f57d6); }
 .encart-media--placeholder[data-encart="aurores"] { background: linear-gradient(160deg, #1f6f6b, #2e8b8b 45%, #7bd88f); }
@@ -5635,7 +5636,11 @@ html:not([data-lba-app-play="true"]) .appmob { display: none !important; }
 .encart-cta:hover { background: color-mix(in srgb, var(--amber) 88%, #000); color: #fff; }
 
 /* Mobile (≤ 640px) : la grille passe en flux 1 colonne (cf. #grid mixte). L'encart suit,
-   pleine largeur, sans placement de rangée. */
+   pleine largeur, sans placement de rangée. L'image portrait est plafonnée (max-height)
+   et centrée pour que l'encart ne prenne pas tout l'écran. */
 @media (max-width: 640px) {
   .encart { grid-column: auto; max-width: none; }
+  .encart-media { aspect-ratio: auto; max-height: 70vh; }
+  .encart-media img { height: auto; max-height: 70vh; margin: 0 auto; object-position: center top; }
+  .encart-media--placeholder { aspect-ratio: 5 / 8; max-height: 70vh; }
 }

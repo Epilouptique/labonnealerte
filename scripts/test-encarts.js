@@ -58,6 +58,12 @@ ok(/Pas une pub \(promis\)/.test(clientSrc), 'mention « Pas une pub (promis) »
 ok(/\/source\/'\s*\+\s*encodeURIComponent\(e\.slug\)\s*\+\s*'\/statut/.test(clientSrc), 'CTA → page de l’alerte /source/<slug>/statut (flux d’abonnement existant)');
 ok(clientSrc.indexOf('À découvrir') !== -1 && /createElement\('article'\)/.test(clientSrc), 'encart = <article> aria-label « À découvrir »');
 
+// ── 5b) CSS : zone image en PORTRAIT 5/8 (visuels 600×960), plus de 16/10 ──
+const cssSrc = fs.readFileSync(path.join(__dirname, '..', 'public', 'css', 'site.css'), 'utf8');
+ok(/\.encart-media\s*\{[^}]*aspect-ratio:\s*5\s*\/\s*8/.test(cssSrc), '.encart-media en ratio 5/8 (portrait)');
+ok(!/\.encart-media\s*\{[^}]*aspect-ratio:\s*16\s*\/\s*10/.test(cssSrc), 'plus de ratio 16/10 sur .encart-media');
+ok(/\.encart-media[^{]*\{[^}]*max-height:\s*70vh/.test(cssSrc), 'mobile : hauteur d’image plafonnée (max-height 70vh)');
+
 // ── 6) Injection serveur : attributs <html> data-lba-encart-img / -test ──
 process.env.NODE_ENV = 'test';
 function renderHome() {
