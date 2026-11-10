@@ -29,7 +29,7 @@ var ENCARTS = [
   {
     id: 'aurores', actif: true, slug: 'aurores-france',
     titre: "Comment ça, c'était hier, l'aurore boréale ?",
-    texte: "Un ciel vert au-dessus de la France, tout le monde le savait… sauf toi. Cette fois, on te siffle avant.",
+    texte: "Un ciel vert au-dessus de la France, tout le monde le savait… sauf toi.",
     bouton: 'Surveiller le ciel',
     alt: 'Illustration : un ciel nocturne teinté de vert au-dessus de la France.',
   },
@@ -146,8 +146,10 @@ if (typeof document !== 'undefined' && typeof window !== 'undefined') {
       return out;
     }
 
-    function hide() { if (el) { el.classList.remove('is-placed'); el.style.display = 'none'; } }
-    function show() { if (el) { el.style.display = ''; el.classList.add('is-placed'); } }
+    var revealed = false;               // l'animation d'apparition (encart-in) ne joue qu'UNE fois
+    function hide() { if (el) { el.style.display = 'none'; el.classList.remove('is-placed'); revealed = false; } }
+    function ensureVisible() { if (el && el.style.display === 'none') el.style.display = ''; } // sans animer
+    function reveal() { if (el && !revealed) { revealed = true; el.classList.add('is-placed'); } } // 1 seule fois
 
     function place() {
       if (!el) return;
@@ -160,18 +162,20 @@ if (typeof document !== 'undefined' && typeof window !== 'undefined') {
         if (cardsM.length < MIN_CARDS_MOBILE) { hide(); return; }
         var anchor = cardsM[2];
         if (anchor && anchor.nextSibling !== el) g.insertBefore(el, anchor.nextSibling);
-        show();
+        ensureVisible(); reveal();
         return;
       }
 
       // Desktop : colonne 2 (mini-cartes), juste après la 2e mini-carte (.vc-side), via
-      // grid-row. On RETIRE d'abord l'encart du flux (display:none) pour mesurer les cartes
-      // SEULES — sinon un placement précédent de l'encart fausse la position de la 2e carte.
-      el.style.display = 'none'; el.classList.remove('is-placed');
-      el.style.gridRowStart = ''; el.style.gridRowEnd = '';
+      // grid-row. Pour mesurer les cartes SEULES sans clignoter, on GARE l'encart très bas
+      // (rangée hors de vue) au lieu de le masquer (display:none ré-animerait l'apparition à
+      // chaque passe de replacement). Il reste visible ; son placement final est posé plus bas.
+      ensureVisible();
+      el.style.gridColumn = '2';
+      el.style.gridRowStart = '9999'; el.style.gridRowEnd = '';
       var cards = visibleCards();
       var side = cards.filter(function (c) { return c.classList.contains('vc-side'); });
-      if (side.length < MIN_SIDE_DESKTOP) { return; } // trop peu / jamais en dernier → reste masqué
+      if (side.length < MIN_SIDE_DESKTOP) { hide(); return; } // trop peu / jamais en dernier → masqué
       var cs = window.getComputedStyle(g);
       var gTop = g.getBoundingClientRect().top + (parseFloat(cs.paddingTop) || 0);
       // La maçonnerie « dense » ne suit pas l'ordre du DOM : on trie les mini-cartes par
@@ -186,12 +190,10 @@ if (typeof document !== 'undefined' && typeof window !== 'undefined') {
       var spanM = (second.el.style.gridRowEnd || '').match(/\d+/);
       var span = spanM ? parseInt(spanM[0], 10) : Math.max(1, Math.ceil((second.rect.height + MARGIN) / ROW));
       var startRow = startOfSecond + span;
-      el.style.gridColumn = '2';
-      el.style.display = '';            // réintègre, puis on pose la rangée mesurée
-      el.style.gridRowStart = String(startRow);
-      var h = el.offsetHeight || 0;     // hauteur réelle une fois visible
+      el.style.gridRowStart = String(startRow);   // rangée finale (remplace le parking 9999)
+      var h = el.offsetHeight || 0;     // hauteur réelle (l'encart est déjà visible)
       if (h) el.style.gridRowEnd = 'span ' + Math.max(1, Math.ceil((h + MARGIN) / ROW));
-      el.classList.add('is-placed');
+      reveal();                          // animation d'apparition : une seule fois
     }
 
     function schedulePlace() { clearTimeout(placeT); placeT = setTimeout(place, 140); }

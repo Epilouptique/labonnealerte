@@ -30,7 +30,7 @@ const EXPECT = {
   },
   aurores: {
     titre: "Comment ça, c'était hier, l'aurore boréale ?",
-    texte: "Un ciel vert au-dessus de la France, tout le monde le savait… sauf toi. Cette fois, on te siffle avant.",
+    texte: "Un ciel vert au-dessus de la France, tout le monde le savait… sauf toi.",
     bouton: 'Surveiller le ciel',
   },
   echeances: {
@@ -89,17 +89,26 @@ ok(/class="encart-text"/.test(clientSrc) && /class="encart-cta"/.test(clientSrc)
 ok(/\/source\/'\s*\+\s*encodeURIComponent\(e\.slug\)\s*\+\s*'\/statut/.test(clientSrc), 'CTA → page de l’alerte /source/<slug>/statut (flux d’abonnement existant)');
 ok(clientSrc.indexOf('À découvrir') !== -1 && /createElement\('article'\)/.test(clientSrc), 'encart = <article> aria-label « À découvrir »');
 
-// ── 5b) CSS : image PORTRAIT 5/8 plein cadre + overlay (titre scrim / panneau beige) ──
+// ── 5c) Anti-clignotement : l'apparition (is-placed) ne joue qu'UNE fois et la mesure ne
+//      masque plus l'encart (display:none ré-animait à chaque passe) → parking hors de vue ──
+ok(/var\s+revealed\s*=\s*false/.test(clientSrc) && /!revealed[\s\S]{0,60}add\(\s*['"]is-placed['"]/.test(clientSrc), 'is-placed ajouté une seule fois (drapeau revealed)');
+ok(!/style\.display\s*=\s*['"]none['"][\s\S]{0,120}visibleCards\(\)/.test(clientSrc), 'plus de display:none juste avant la mesure des cartes (desktop)');
+ok(/gridRowStart\s*=\s*['"]9999['"]/.test(clientSrc), 'mesure par parking (gridRowStart 9999), pas par masquage');
+
+// ── 5b) CSS : image portrait PAR ENCART (hauteur naturelle) + overlay (titre scrim / panneau beige) ──
 const cssSrc = fs.readFileSync(path.join(__dirname, '..', 'public', 'css', 'site.css'), 'utf8');
-ok(/\.encart-media\s*\{[^}]*aspect-ratio:\s*5\s*\/\s*8/.test(cssSrc), '.encart-media en ratio 5/8 (portrait)');
-ok(!/\.encart-media\s*\{[^}]*aspect-ratio:\s*16\s*\/\s*10/.test(cssSrc), 'plus de ratio 16/10 sur .encart-media');
+ok(!/aspect-ratio:\s*5\s*\/\s*8/.test(cssSrc), 'plus de ratio fixe 5/8 (hauteur naturelle par encart)');
+ok(/\n\.encart-media\s*\{(?:(?!aspect-ratio)[^}])*\}/.test(cssSrc), '.encart-media générique sans aspect-ratio (posé par encart)');
+ok(/\.encart\[data-encart-id="livraison-1e"\]\s*\.encart-media\s*\{[^}]*aspect-ratio:\s*600\s*\/\s*915/.test(cssSrc), 'ratio par encart : livraison-1e 600/915');
+ok(/\.encart\[data-encart-id="aurores"\]\s*\.encart-media\s*\{[^}]*aspect-ratio:\s*600\s*\/\s*1030/.test(cssSrc), 'ratio par encart : aurores 600/1030');
+ok(/\.encart\[data-encart-id="echeances"\]\s*\.encart-media\s*\{[^}]*aspect-ratio:\s*600\s*\/\s*1151/.test(cssSrc), 'ratio par encart : echeances 600/1151');
 ok(/\.encart\s*\{[^}]*position:\s*relative/.test(cssSrc), '.encart en position relative (ancre les calques)');
 ok(/\.encart-title\s*\{[^}]*position:\s*absolute/.test(cssSrc), 'titre en overlay absolu (par-dessus l’image)');
 ok(/\.encart-panel\s*\{[^}]*position:\s*absolute[^}]*bottom:\s*0/.test(cssSrc), 'panneau en overlay absolu, ancré en bas');
 ok(/--encart-panel-bg/.test(cssSrc) && /--encart-panel-ink/.test(cssSrc), 'fond beige + encre du panneau en variables (clair/sombre)');
 ok(/--encart-scrim-h/.test(cssSrc) && /--encart-panel-h/.test(cssSrc), 'scrim/panneau réglables par encart (variables CSS)');
 ok(/\.encart-cta\s*\{[^}]*align-self:\s*flex-end/.test(cssSrc), 'bouton aligné à droite dans le panneau');
-ok(/\.encart-media[^{]*\{[^}]*max-height:\s*70vh/.test(cssSrc), 'mobile : hauteur d’image plafonnée (max-height 70vh)');
+ok(/\.encart\[data-encart-id\]\s*\.encart-media\s*\{[^}]*max-height:\s*\d+vh/.test(cssSrc), 'mobile : hauteur d’image plafonnée (max-height Nvh)');
 
 // ── 6) Injection serveur : attributs <html> data-lba-encart-img / -test ──
 process.env.NODE_ENV = 'test';
