@@ -12,8 +12,15 @@
    découpage colonnes de view-compare.js. Desktop : placé en colonne 2 (mini-cartes), juste
    après la 2e mini-carte, via grid-row explicite. Mobile (1 colonne) : inséré dans le DOM
    après la 3e carte. Ne s'affiche jamais en premier ni en dernier, ni s'il y a trop peu de
-   cartes. CTA → page de l'alerte (/source/<slug>/statut), qui porte le flux d'abonnement
-   existant (y compris la connexion pour un visiteur anonyme) : aucune logique nouvelle. */
+   cartes.
+
+   CTA (bouton, PAS de lien) : au clic, il abonne DIRECTEMENT à l'alerte cible en RÉUTILISANT
+   le contrôle d'abonnement de la carte correspondante du kiosque — on simule le clic
+   utilisateur sur le switch (sources simples) ou sur « + configurer » (tâches / paramétrées).
+   Aucun code d'abonnement nouveau, aucun appel API dédié, aucune navigation : exactement le
+   même comportement que la carte (invite de connexion, messages d'erreur, formulaire e-mail en
+   anonyme). Après succès, le bouton passe à « Abonné ✓ » (désactivé) ; il reflète en continu
+   l'état data-subscribed de la carte. */
 'use strict';
 
 // Liste de données : 3 objets modifiables sans toucher à la logique. `actif:false` ou une
@@ -80,8 +87,11 @@ if (typeof document !== 'undefined' && typeof window !== 'undefined') {
     var MIN_SIDE_DESKTOP = 3;           // ≥3 mini-cartes : l'encart (après la 2e) n'est jamais le dernier
     var MIN_CARDS_MOBILE = 4;           // ≥4 cartes : l'encart (après la 3e) n'est jamais le dernier
     var el = null;                      // l'élément encart courant
+    var cta = null;                     // le bouton d'abonnement de l'encart
     var chosen = null;                  // l'encart tiré pour cette page (fixe : pas de re-tirage)
     var placeT = null;
+    var cardMO = null;                  // observe la carte cible (reflet de data-subscribed)
+    var watched = null;                 // carte actuellement observée
 
     function grid() { return document.getElementById('grid'); }
     function root() { return document.documentElement; }
@@ -127,9 +137,98 @@ if (typeof document !== 'undefined' && typeof window !== 'undefined') {
         '<strong class="encart-title">' + esc(e.titre) + '</strong>' +
         '<span class="encart-panel">' +
           '<span class="encart-text">' + esc(e.texte) + '</span>' +
-          '<a class="encart-cta" href="/source/' + encodeURIComponent(e.slug) + '/statut">' + esc(e.bouton) + '</a>' +
+          '<button type="button" class="encart-cta">' + esc(e.bouton) + '</button>' +
         '</span>';
+      cta = a.querySelector('.encart-cta');
+      if (cta) cta.addEventListener('click', onCtaClick);
       return a;
+    }
+
+    // Carte source réelle du kiosque pour un slug donné (jamais une tuile-deck).
+    function cardForSlug(slug) {
+      var g = grid(); if (!g || !slug) return null;
+      return g.querySelector('.card[data-source-id="' + slug + '"]');
+    }
+
+    // La carte est-elle abonnée ? data-subscribed='1' (connecté, ou tâche configurée), OU —
+    // en anonyme — ligne d'abonnement non « en attente » + switch coché + libellé « Abonné »
+    // (succès du formulaire e-mail). On NE prend PAS un simple « coché » en anonyme : cocher
+    // ouvre d'abord l'état « en attente », ce n'est pas encore un abonnement.
+    function cardSubscribed(card) {
+      if (!card) return false;
+      if (card.getAttribute('data-subscribed') === '1') return true;
+      var row = card.querySelector('.card-front .switch-row:not(.param-mute-row):not(.param-follow-row)');
+      if (row && !row.classList.contains('pending')) {
+        var sw = row.querySelector('input[type="checkbox"]');
+        var lbl = row.querySelector('.switch-label');
+        if (sw && sw.checked && lbl && /abonn/i.test(lbl.textContent || '')) return true;
+      }
+      return false;
+    }
+
+    // Reflète l'état de la carte sur le bouton de l'encart.
+    function paintCta(subscribed) {
+      if (!cta || !chosen) return;
+      if (subscribed) {
+        cta.textContent = 'Abonné ✓';
+        cta.classList.add('is-subscribed');
+        cta.setAttribute('disabled', 'disabled');
+        cta.setAttribute('aria-disabled', 'true');
+      } else {
+        cta.textContent = chosen.bouton;
+        cta.classList.remove('is-subscribed');
+        cta.removeAttribute('disabled');
+        cta.removeAttribute('aria-disabled');
+      }
+    }
+    function syncCta() { paintCta(cardSubscribed(cardForSlug(chosen && chosen.slug))); }
+
+    // Observe la carte cible : dès que son abonnement change (data-subscribed, classes de la
+    // ligne de switch), on repeint le bouton. Ré-attache si la carte est re-rendue (nouveau nœud).
+    function watchCard() {
+      var card = cardForSlug(chosen && chosen.slug);
+      if (card === watched) return;
+      if (cardMO) { cardMO.disconnect(); cardMO = null; }
+      watched = card || null;
+      if (card && window.MutationObserver) {
+        cardMO = new MutationObserver(syncCta);
+        cardMO.observe(card, { attributes: true, attributeFilter: ['data-subscribed'] });
+      }
+      syncCta();
+    }
+
+    // Clic sur le bouton : on déclenche le MÊME contrôle que la carte correspondante — aucune
+    // navigation, aucun appel d'abonnement nouveau. Sources simples → switch (change simulé) ;
+    // tâches / cartes paramétrées → bouton « + configurer » (ouvre exactement le même flux).
+    function onCtaClick(ev) {
+      if (ev) {
+        ev.preventDefault();
+        // Le clic ne doit PAS remonter au document : site.js y annule toute carte « en
+        // attente » dès qu'on clique hors d'elle — or le CTA est hors de la carte, et ce même
+        // clic annulerait aussitôt le formulaire e-mail que le switch vient d'ouvrir (anonyme).
+        ev.stopPropagation();
+      }
+      if (!chosen || (cta && cta.hasAttribute('disabled'))) return;
+      var card = cardForSlug(chosen.slug);
+      if (!card) return;                 // carte non rendue : rien à réutiliser (jamais de nav)
+      var front = card.querySelector('.card-front') || card;
+      var sw = front.querySelector('.switch-row:not(.param-mute-row):not(.param-follow-row) input[type="checkbox"]');
+      if (sw) {
+        if (!sw.checked) { sw.checked = true; sw.dispatchEvent(new Event('change', { bubbles: true })); }
+      } else {
+        // Tâche personnelle / carte paramétrée : le contrôle d'abonnement est un bouton
+        // (« + configurer ») ou, en anonyme, un lien « invite de connexion ». On fait
+        // EXACTEMENT ce que fait ce contrôle (clic natif) — y compris son éventuelle invite.
+        var trigger = front.querySelector('.task-config, .param-follow, .task-config-anon');
+        if (trigger) trigger.click();
+      }
+      // L'abonnement est asynchrone (fetch) : on re-synchronise quelques fois après le clic
+      // pour refléter l'état final sans dépendre uniquement de l'observateur de mutations.
+      var n = 0;
+      var poll = setInterval(function () {
+        n++; watchCard();
+        if (cardSubscribed(cardForSlug(chosen.slug)) || n >= 14) clearInterval(poll);
+      }, 260);
     }
 
     // Cartes réellement visibles de #grid (hors filtrage/pagination, hors « Proposer »/encart).
@@ -163,6 +262,7 @@ if (typeof document !== 'undefined' && typeof window !== 'undefined') {
         var anchor = cardsM[2];
         if (anchor && anchor.nextSibling !== el) g.insertBefore(el, anchor.nextSibling);
         ensureVisible(); reveal();
+        watchCard();
         return;
       }
 
@@ -194,6 +294,7 @@ if (typeof document !== 'undefined' && typeof window !== 'undefined') {
       var h = el.offsetHeight || 0;     // hauteur réelle (l'encart est déjà visible)
       if (h) el.style.gridRowEnd = 'span ' + Math.max(1, Math.ceil((h + MARGIN) / ROW));
       reveal();                          // animation d'apparition : une seule fois
+      watchCard();                       // reflète l'état d'abonnement de la carte cible
     }
 
     function schedulePlace() { clearTimeout(placeT); placeT = setTimeout(place, 140); }

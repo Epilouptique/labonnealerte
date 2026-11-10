@@ -268,7 +268,7 @@ h1 .hl { color: var(wheat); }
    en gris --muted, peu lisible sur le violet du hero. On la passe en --ink, à fort contraste
    dans les deux thèmes (WCAG AA largement dépassé : >6:1 clair, >10:1 sombre). Ne vise QUE ce
    <p> (> p) : .hero-promise (dans .hero-start) n'est pas un enfant direct et reste inchangée. */
-.hero > p { color: var(--ink); }
+.hero > p { color: #fff; text-align: center; }
 /* Point 1) Très petits smartphones (iPhone SE, ~375px et moins) : le .wrap ne laisse
    que 16px de marge — on renforce l'air autour du titre et du paragraphe pour qu'ils
    ne collent plus aux bords. */
@@ -5616,13 +5616,9 @@ html[data-theme="dark"] .encart {
 @keyframes encart-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .encart.is-placed { animation: none; } }
 
-/* Zone image : chaque visuel garde sa HAUTEUR NATURELLE. L'aspect-ratio est posé PAR ENCART
-   (ci-dessous), AVANT le chargement de l'image → la boîte réserve sa taille, aucun reflow ni
-   clignotement quand l'image arrive. Largeur de référence : 600 px. */
-.encart-media { display: block; width: 100%; overflow: hidden; }
-.encart[data-encart-id="livraison-1e"] .encart-media { aspect-ratio: 600 / 915; }
-.encart[data-encart-id="aurores"]      .encart-media { aspect-ratio: 600 / 1030; }
-.encart[data-encart-id="echeances"]    .encart-media { aspect-ratio: 600 / 1151; }
+/* Zone image : ratio UNIQUE 3/5 (les 3 visuels sont en 600×1000), posé AVANT le chargement
+   de l'image → la boîte réserve sa taille, aucun reflow ni clignotement quand l'image arrive. */
+.encart-media { display: block; width: 100%; overflow: hidden; aspect-ratio: 3 / 5; }
 .encart-media img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center top; }
 /* Fallback sans image : dégradé maison, distinct par encart. Le titre/panneau restent lisibles. */
 .encart-media--placeholder { background: linear-gradient(135deg, #a567e3, #6f57d6); }
@@ -5659,10 +5655,19 @@ html[data-theme="dark"] .encart {
   display: inline-flex; align-items: center; justify-content: center;
   min-height: 44px; padding: 10px 20px;          /* cible tactile ≥ 44px */
   background: var(--amber); color: #fff; text-decoration: none;
-  font-weight: 700; font-size: 14px; border-radius: 999px;
+  font-family: inherit; font-weight: 700; font-size: 14px; line-height: 1;
+  border: 0; border-radius: 999px; cursor: pointer;
   box-shadow: 0 1px 3px rgba(30, 20, 50, .12);
 }
 .encart-cta:hover { background: color-mix(in srgb, var(--amber) 88%, #000); color: #fff; }
+.encart-cta:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+/* Après abonnement : bouton « Abonné ✓ », vert, désactivé (reflète l'état de la carte). */
+.encart-cta.is-subscribed,
+.encart-cta[disabled] {
+  background: var(--green, #2f9e44); color: #fff; cursor: default; box-shadow: none;
+}
+.encart-cta.is-subscribed:hover,
+.encart-cta[disabled]:hover { background: var(--green, #2f9e44); color: #fff; }
 
 /* Réglages par encart : hauteur du scrim/panneau selon où se trouve le sujet de l'image. */
 .encart[data-encart-id="livraison-1e"] { --encart-scrim-h: 30px; --encart-panel-h: 42%; }
@@ -5673,7 +5678,7 @@ html[data-theme="dark"] .encart {
    pleine largeur, sans placement de rangée. L'image portrait est plafonnée et centrée. */
 @media (max-width: 640px) {
   .encart { grid-column: auto; max-width: none; }
-  /* L'aspect-ratio par encart est conservé ; on plafonne seulement la hauteur pour que
-     l'encart ne prenne pas tout l'écran (le panneau bas reste visible, image rognée en bas). */
-  .encart[data-encart-id] .encart-media { max-height: 78vh; }
+  /* Le ratio 3/5 est conservé ; on plafonne seulement la hauteur pour que l'encart ne prenne
+     pas tout l'écran (le panneau bas reste visible, image rognée en bas). */
+  .encart-media { max-height: 78vh; }
 }

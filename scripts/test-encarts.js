@@ -86,8 +86,20 @@ ok(!/encart-badge/.test(clientSrc) && !/encart-body/.test(clientSrc), 'plus de .
 ok(/class="encart-title"/.test(clientSrc), 'titre .encart-title présent (par-dessus l’image)');
 ok(/class="encart-panel"/.test(clientSrc), 'panneau .encart-panel présent (bas de l’image)');
 ok(/class="encart-text"/.test(clientSrc) && /class="encart-cta"/.test(clientSrc), 'sous-titre + bouton dans le panneau');
-ok(/\/source\/'\s*\+\s*encodeURIComponent\(e\.slug\)\s*\+\s*'\/statut/.test(clientSrc), 'CTA → page de l’alerte /source/<slug>/statut (flux d’abonnement existant)');
 ok(clientSrc.indexOf('À découvrir') !== -1 && /createElement\('article'\)/.test(clientSrc), 'encart = <article> aria-label « À découvrir »');
+
+// ── 5d) CTA = BOUTON qui abonne en réutilisant le switch de la carte (pas de lien, pas de nav) ──
+ok(/<button type="button" class="encart-cta">/.test(clientSrc), 'CTA = <button type="button"> (accessible clavier), pas un lien');
+ok(!/encart-cta[^>]*href/.test(clientSrc) && !/\/statut/.test(clientSrc), 'plus de <a href> ni de navigation /source/<slug>/statut sur le CTA');
+ok(/cardForSlug/.test(clientSrc) && /\.card\[data-source-id="/.test(clientSrc), 'le CTA retrouve la carte du kiosque par data-source-id');
+ok(/dispatchEvent\(\s*new Event\(\s*['"]change['"]/.test(clientSrc) && /switch-row:not\(\.param-mute-row\):not\(\.param-follow-row\)/.test(clientSrc),
+  'abonnement réutilisé : on simule le change du switch de la carte (aucun appel API nouveau)');
+ok(/task-config/.test(clientSrc) && /param-follow/.test(clientSrc),
+  'tâches / cartes paramétrées : on déclenche le même bouton (« + configurer » / param-follow)');
+ok(!/fetch\s*\(/.test(clientSrc) && !/location\.(href|assign|replace)\b/.test(clientSrc),
+  'encarts.js n’introduit aucun fetch d’abonnement ni aucune navigation propre (location.href/assign/replace)');
+ok(/Abonné ✓/.test(clientSrc) && /is-subscribed/.test(clientSrc) && /data-subscribed/.test(clientSrc),
+  'après succès : bouton « Abonné ✓ » (désactivé), reflété depuis data-subscribed de la carte');
 
 // ── 5c) Anti-clignotement : l'apparition (is-placed) ne joue qu'UNE fois et la mesure ne
 //      masque plus l'encart (display:none ré-animait à chaque passe) → parking hors de vue ──
@@ -97,18 +109,15 @@ ok(/gridRowStart\s*=\s*['"]9999['"]/.test(clientSrc), 'mesure par parking (gridR
 
 // ── 5b) CSS : image portrait PAR ENCART (hauteur naturelle) + overlay (titre scrim / panneau beige) ──
 const cssSrc = fs.readFileSync(path.join(__dirname, '..', 'public', 'css', 'site.css'), 'utf8');
-ok(!/aspect-ratio:\s*5\s*\/\s*8/.test(cssSrc), 'plus de ratio fixe 5/8 (hauteur naturelle par encart)');
-ok(/\n\.encart-media\s*\{(?:(?!aspect-ratio)[^}])*\}/.test(cssSrc), '.encart-media générique sans aspect-ratio (posé par encart)');
-ok(/\.encart\[data-encart-id="livraison-1e"\]\s*\.encart-media\s*\{[^}]*aspect-ratio:\s*600\s*\/\s*915/.test(cssSrc), 'ratio par encart : livraison-1e 600/915');
-ok(/\.encart\[data-encart-id="aurores"\]\s*\.encart-media\s*\{[^}]*aspect-ratio:\s*600\s*\/\s*1030/.test(cssSrc), 'ratio par encart : aurores 600/1030');
-ok(/\.encart\[data-encart-id="echeances"\]\s*\.encart-media\s*\{[^}]*aspect-ratio:\s*600\s*\/\s*1151/.test(cssSrc), 'ratio par encart : echeances 600/1151');
+ok(/\.encart-media\s*\{[^}]*aspect-ratio:\s*3\s*\/\s*5/.test(cssSrc), 'ratio UNIQUE 3/5 sur .encart-media (les 3 visuels sont en 600×1000)');
+ok(!/\[data-encart-id="[^"]+"\]\s*\.encart-media\s*\{[^}]*aspect-ratio/.test(cssSrc), 'plus de règle d’aspect-ratio par data-encart-id');
 ok(/\.encart\s*\{[^}]*position:\s*relative/.test(cssSrc), '.encart en position relative (ancre les calques)');
 ok(/\.encart-title\s*\{[^}]*position:\s*absolute/.test(cssSrc), 'titre en overlay absolu (par-dessus l’image)');
 ok(/\.encart-panel\s*\{[^}]*position:\s*absolute[^}]*bottom:\s*0/.test(cssSrc), 'panneau en overlay absolu, ancré en bas');
 ok(/--encart-panel-bg/.test(cssSrc) && /--encart-panel-ink/.test(cssSrc), 'fond beige + encre du panneau en variables (clair/sombre)');
 ok(/--encart-scrim-h/.test(cssSrc) && /--encart-panel-h/.test(cssSrc), 'scrim/panneau réglables par encart (variables CSS)');
 ok(/\.encart-cta\s*\{[^}]*align-self:\s*flex-end/.test(cssSrc), 'bouton aligné à droite dans le panneau');
-ok(/\.encart\[data-encart-id\]\s*\.encart-media\s*\{[^}]*max-height:\s*\d+vh/.test(cssSrc), 'mobile : hauteur d’image plafonnée (max-height Nvh)');
+ok(/@media[^{]*max-width:\s*640px[\s\S]*?\.encart-media\s*\{[^}]*max-height:\s*\d+vh/.test(cssSrc), 'mobile : hauteur d’image plafonnée (max-height Nvh)');
 
 // ── 6) Injection serveur : attributs <html> data-lba-encart-img / -test ──
 process.env.NODE_ENV = 'test';
