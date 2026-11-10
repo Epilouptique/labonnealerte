@@ -9,8 +9,9 @@
      les crawlers sociaux n'executent pas le JavaScript, une balise ajoutee par
      script n'est jamais vue. og:image est en URL ABSOLUE pour la meme raison.
      Canonical de la home : TOUJOURS / meme sous ?cat=..., ?mode=nouveautes|selection|
-     favoris. Ce sont des duplicatas connus du meme kiosque ; le fichier etant servi
-     tel quel pour toutes ces URL, la valeur en dur suffit et ne peut pas deriver. -->
+     favoris, ?tout=1 (apercu complet du kiosque pour un visiteur non connecte). Ce sont
+     des duplicatas connus du meme kiosque ; le fichier etant servi tel quel pour toutes
+     ces URL, la valeur en dur ci-dessous suffit et ne peut pas deriver. -->
 <link rel="canonical" href="https://labonnealerte.fr/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="La Bonne Alerte">
@@ -44,7 +45,7 @@
 <header>
   <div class="wrap nav">
     <a class="brand brandmark" href="/" aria-label="La Bonne Alerte — accueil"><span class="lig"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path d="M 0 20 C -6 93, 66 52, 60 10"/></svg><span class="l">l</span>a</span>bonne<span class="a">alerte</span><span class="bang"><span class="bar"></span><span class="dot"></span></span><span class="fr">fr</span></a>
-    <a class="btn-deposit" href="/publier" title="Publier une alerte"><span class="plus" aria-hidden="true">+</span> <span class="bd-label">Publier une alerte</span></a>
+    <a class="btn-deposit publish-cta" href="/publier" title="Publier une alerte"><span class="plus" aria-hidden="true">+</span> <span class="bd-label">Publier une alerte</span></a>
     <button class="nav-toggle" type="button" aria-label="Ouvrir le menu" aria-expanded="false" aria-controls="nav-menu">
       <span></span><span></span><span></span>
     </button>
@@ -126,7 +127,7 @@
 
     <!-- Carte « Publier une alerte » — statique, toujours visible.
          Sert aussi d'ancre d'insertion des cartes dynamiques (id static-extras). -->
-    <a class="card add" href="/publier" id="static-extras">
+    <a class="card add publish-cta" href="/publier" id="static-extras">
       <span class="plus">+</span>
       <strong>Publier une alerte</strong>
       <span style="font-size:13px">Surveillez une page web, un flux RSS<br>ou un agenda. On vous prévient.</span>
@@ -154,7 +155,7 @@
          (celui qui ne trouve rien est précisément celui qui peut combler le manque). -->
     <div class="empty-actions">
       <button class="empty-btn" type="button" id="search-empty-btn">Effacer la recherche</button>
-      <a class="empty-btn secondaire" href="/publier">Publier cette alerte</a>
+      <a class="empty-btn secondaire publish-cta" href="/publier">Publier cette alerte</a>
     </div>
   </div>
 
@@ -165,6 +166,11 @@
     <button class="more-btn" id="moreBtn" type="button" style="display:none">Afficher plus d'alertes</button>
     <!-- Vue liste uniquement : raccourci « tout afficher » (affiché/masqué par site.js). -->
     <button class="more-btn more-btn-all" id="allBtn" type="button" style="display:none">Toutes les alertes</button>
+    <!-- Visiteur NON connecté : l'accueil ne montre qu'un aperçu (3 grandes + 4 petites),
+         sans compteur ni « Afficher plus ». Ce lien discret ouvre le kiosque complet
+         (?tout=1, même page, toutes les alertes). Affiché/masqué par site.js (anon seul,
+         caché une fois tout affiché). -->
+    <a class="see-all-anon" id="see-all-anon" href="/?tout=1" style="display:none">Voir toutes les alertes →</a>
   </div>
 </main>
 
@@ -321,7 +327,7 @@
               <span class="notif-sub">Le plus efficace, et totalement gratuit.</span></span>
             <span class="notif-chevron" aria-hidden="true">→</span>
           </a>
-          <a class="notif-row notif-nav" href="/publier">
+          <a class="notif-row notif-nav publish-cta" href="/publier">
             <span class="notif-txt"><strong>Publier une alerte</strong>
               <span class="notif-sub">Surveillez une page, un flux RSS ou un agenda.</span></span>
             <span class="notif-chevron" aria-hidden="true">→</span>
@@ -358,6 +364,28 @@
         <p>Gratuit, ouvert, sans pub et sans revente de données. Choisissez vos alertes, on s'occupe du reste.</p>
         <a class="stats-cta" href="#alertes">Choisir mes alertes →</a>
       </div>
+    </div>
+  </div>
+</section>
+
+<!-- Bloc « Sur mon smartphone » — invitation vers l'application Android. MASQUÉ par
+     défaut : visible uniquement quand <html data-lba-app-play="true"> (variable
+     APP_PLAY_URL_ENABLED posée sur Railway), car la fiche Play n'est pas encore publiée.
+     Le masquage est géré par la CSS (html:not([data-lba-app-play="true"]) .appmob), comme
+     pour .publish-cta : aucun JS ne lit ce drapeau. Le badge « Disponible sur Google Play »
+     est l'asset officiel FR (public/img/google-play-fr.png), affiché sans déformation
+     (ratio conservé, zone de dégagement incluse dans l'image). -->
+<section class="appmob" id="appmob">
+  <div class="wrap">
+    <div class="section-label">// sur mon smartphone</div>
+    <div class="appmob-grid">
+      <div class="appmob-copy">
+        <h2>L'appli, pour être prévenu à la seconde.</h2>
+        <p>Vos alertes arrivent en notifications instantanées. Le kiosque et ses 260+ alertes se consultent sans compte. Gratuite, sans pub, open source — comme le site.</p>
+      </div>
+      <a class="appmob-badge" href="https://play.google.com/store/apps/details?id=fr.labonnealerte.app" target="_blank" rel="noopener">
+        <img src="/img/google-play-fr.png" alt="Disponible sur Google Play" width="323" height="125">
+      </a>
     </div>
   </div>
 </section>
@@ -399,6 +427,9 @@
 <!-- TEMPORAIRE — fil #9bis (visuel retenu : mixte) : applique en permanence le visuel
      « Large + colonne ultra » à #grid (plus de barre de boutons). -->
 <script src="/js/view-compare.js"></script>
+<!-- Encarts promotionnels maison (au plus 1 par page, tiré au hasard) : après site.js et
+     view-compare.js (a besoin de window.LBAKiosk et du visuel mixte). -->
+<script src="/js/encarts.js"></script>
 <script src="/js/hero-letters.js"></script>
 <script src="/js/nav.js"></script>
 <script src="/js/header.js"></script>

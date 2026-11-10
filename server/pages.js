@@ -15,8 +15,28 @@
 
 const fs = require('fs');
 const path = require('path');
+const { publishEnabled } = require('./publish-flag');
+const { appPlayUrlEnabled } = require('./app-play-flag');
+const { availableImages, testForcingEnabled } = require('./encarts');
 
 const publicDir = path.join(__dirname, '..', 'public');
+
+// Échappe une valeur destinée à un attribut HTML entre guillemets doubles (JSON des encarts).
+function attrEscape(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// Drapeaux client exposés en ATTRIBUTS sur <html> (data-lba-publish / data-lba-app-play /
+// data-lba-encart-*) plutôt qu'en script inline — la CSP du site impose script-src 'self'
+// (aucun inline), donc un <script> injecté serait bloqué. La CSS masque les .publish-cta et
+// le bloc .appmob tant que l'attribut correspondant ne vaut pas "true". Les attributs encart
+// renseignent public/js/encarts.js (visuels réellement présents + forçage de test hors prod).
+function flagsAttr() {
+  return ' data-lba-publish="' + (publishEnabled() ? 'true' : 'false') + '"'
+    + ' data-lba-app-play="' + (appPlayUrlEnabled() ? 'true' : 'false') + '"'
+    + ' data-lba-encart-img="' + attrEscape(JSON.stringify(availableImages())) + '"'
+    + ' data-lba-encart-test="' + (testForcingEnabled() ? '1' : '0') + '"';
+}
 const footerFile = path.join(__dirname, 'partials', 'footer.html');
 const CACHE = process.env.NODE_ENV === 'production';
 const pageCache = new Map();
@@ -34,8 +54,10 @@ function footerHtml() {
 // Page de public/ assemblee (chaine). Leve ENOENT si le fichier n'existe pas.
 function renderPage(file) {
   if (CACHE && pageCache.has(file)) return pageCache.get(file);
-  const html = fs.readFileSync(path.join(publicDir, file), 'utf8')
+  let html = fs.readFileSync(path.join(publicDir, file), 'utf8')
     .replace('<!--FOOTER-->', () => footerHtml());
+  // Pose les drapeaux (publication + app Play) en attributs sur <html> (une fois par page).
+  html = html.replace(/<html(\s|>)/i, (m, p1) => '<html' + flagsAttr() + p1);
   if (CACHE) pageCache.set(file, html);
   return html;
 }
@@ -53,6 +75,17 @@ function pagesMiddleware(req, res, next) {
   if (req.path === '/') file = 'index.html';
   else if (/^\/[\w-]+\.html$/.test(req.path)) file = req.path.slice(1);
   else return next();
+  // Parcours fermé : les pages de publication ne sont PAS servies (même en .html direct).
+  // On renvoie le 404 commun ici — un simple next() laisserait express.static servir le fichier.
+  if (!publishEnabled() && (file === 'publier.html' || file === 'mes-publications.html')) {
+    try {
+      const html = renderPage('404.html')
+        .replace(/\{\{CODE\}\}/g, '404')
+        .replace(/\{\{TITRE\}\}/g, 'Page introuvable')
+        .replace(/\{\{MESSAGE\}\}/g, 'Cette page n’est pas disponible.');
+      return res.status(404).type('html').send(html);
+    } catch (e) { return res.status(404).type('html').send('Page introuvable'); }
+  }
   try {
     sendPage(res, file);
   } catch (err) {

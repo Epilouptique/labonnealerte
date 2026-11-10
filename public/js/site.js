@@ -1855,6 +1855,11 @@
   var INITIAL_ANON = 5, INITIAL_CONNECTED = 8, STEP = 9;
   var STEP_LIST = 16; // vue liste : « Afficher plus » ajoute 16 sources (au lieu de 9)
   var cat = 'all', visibleLimit = INITIAL_ANON, secondaryOpen = false, currentMode = 'anon';
+  // Lot accueil-app : un visiteur NON connecté ne voit de l'accueil qu'un APERÇU du kiosque
+  // (ANON_PREVIEW alertes). Le lien « Voir toutes les alertes » ouvre le kiosque complet sur
+  // la même page via ?tout=1 (lu une seule fois ici). Le mode connecté reste INCHANGÉ.
+  var ANON_PREVIEW = 7; // 7 visibles → la répartition mixte en met round(7*7/18)=3 en grand, 4 en petit
+  var anonShowAll = /[?&]tout=1(?:&|$)/.test(window.location.search || '');
   var accountEmail = null; // email de la session connectée (pour le panneau compte)
   var accountDisplayName = null; // pseudo unifié (auto-rempli à la 1re connexion) — pilote « Bonjour » + avatar
   // (j) Vue LISTE + onglet « Toutes » + connecté : 16 par défaut (au lieu de 8).
@@ -1868,7 +1873,10 @@
   function isMixteView() { var g = document.getElementById('grid'); return !!(g && g.getAttribute('data-view-mode') === 'mixte'); }
   function initialLimit() {
     if (currentMode === 'connected' && cat === 'all' && isListView()) return INITIAL_LIST_ALL_CONNECTED;
-    if (isMixteView()) return 18; // fil #9bis : mixte = 18 par défaut (au lieu de ~9)
+    if (isMixteView()) {
+      if (currentMode === 'connected') return 18; // connecté : inchangé (fil #9bis)
+      return anonShowAll ? 9999 : ANON_PREVIEW;   // anon : aperçu 7, ou kiosque complet si ?tout=1
+    }
     return currentMode === 'connected' ? INITIAL_CONNECTED : INITIAL_ANON;
   }
   var cards = [], moreBtn = null, allBtn = null, qInput = null, grid = null, addCard = null;
@@ -2154,20 +2162,32 @@
 
   function updateMore(info) {
     if (!moreBtn) return;
+    // Lot accueil-app : un visiteur NON connecté n'a NI « Afficher plus » NI compteur sur
+    // l'accueil (il voit un aperçu + le lien « Voir toutes les alertes »). Le mode connecté
+    // garde exactement l'ancien comportement.
+    var anon = currentMode !== 'connected';
     // A) Plus de compteur « (+X) » : le bouton dit simplement « Afficher plus d'alertes ».
-    var hide = (info.searching || info.hiddenMore === 0);
+    var hide = (anon || info.searching || info.hiddenMore === 0);
     moreBtn.style.display = hide ? 'none' : '';
     // H3) « N sur M alertes » : sans repère, on ne sait pas si « Afficher plus » ramène
-    // 3 cartes ou 200. Le pas de pagination est inchangé.
+    // 3 cartes ou 200. Le pas de pagination est inchangé. Masqué en non connecté.
     var cpt = document.getElementById('grid-count');
     if (cpt) {
-      var total = (info.eligible != null) ? info.eligible : 0;
-      var vus = Math.max(0, total - (info.hiddenMore || 0));
-      cpt.textContent = total ? (vus + ' sur ' + total + (total > 1 ? ' alertes' : ' alerte')) : '';
-      cpt.hidden = !total;
+      if (anon) {
+        cpt.textContent = ''; cpt.hidden = true;
+      } else {
+        var total = (info.eligible != null) ? info.eligible : 0;
+        var vus = Math.max(0, total - (info.hiddenMore || 0));
+        cpt.textContent = total ? (vus + ' sur ' + total + (total > 1 ? ' alertes' : ' alerte')) : '';
+        cpt.hidden = !total;
+      }
     }
     // « Toutes les alertes » : vue liste uniquement, et seulement s'il reste du caché.
     if (allBtn) allBtn.style.display = (hide || !isListView()) ? 'none' : '';
+    // Lien discret « Voir toutes les alertes » (anon) : visible tant qu'on n'est pas déjà en
+    // vue complète (?tout=1) et qu'il reste des alertes à découvrir.
+    var seeAll = document.getElementById('see-all-anon');
+    if (seeAll) seeAll.style.display = (anon && !anonShowAll && (info.hiddenMore || 0) > 0) ? '' : 'none';
   }
   function snapshot(list) { var m = new Map(); list.forEach(function (c) { m.set(c, c.getBoundingClientRect()); }); return m; }
 

@@ -24,6 +24,7 @@ const { cleanupExpired } = require('./sessions');
 const { startPoller, stopPoller, isCycleRunning } = require('./poller');
 const { createGracefulShutdown } = require('./graceful-shutdown');
 const { sendPage, renderPage, pagesMiddleware } = require('./pages');
+const { publishEnabled } = require('./publish-flag');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -241,10 +242,13 @@ app.get('/mairie/publier', (req, res) => {
   res.redirect(301, '/institutions/publier');
 });
 // Parcours grand public « Publier une alerte » (assistant) + ses publications.
-app.get('/publier', (req, res) => {
+// Fermé tant que PUBLISH_ENABLED !== 'true' : on laisse filer vers le 404 commun.
+app.get('/publier', (req, res, next) => {
+  if (!publishEnabled()) return next();
   sendPage(res, 'publier.html');
 });
-app.get('/mes-publications', (req, res) => {
+app.get('/mes-publications', (req, res, next) => {
+  if (!publishEnabled()) return next();
   sendPage(res, 'mes-publications.html');
 });
 // Pages statiques simples.
@@ -260,6 +264,11 @@ app.get('/mentions-legales', (req, res) => {
 app.get('/confidentialite', (req, res) => {
   sendPage(res, 'confidentialite.html');
 });
+app.get('/conditions', (req, res) => {
+  sendPage(res, 'conditions.html');
+});
+// Alias historique → redirection permanente (SEO : une seule URL canonique /conditions).
+app.get('/cgu', (req, res) => res.redirect(301, '/conditions'));
 
 app.get('/le-point', (req, res) => {
   sendPage(res, 'le-point.html');

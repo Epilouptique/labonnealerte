@@ -264,6 +264,11 @@ html[data-theme="light"] header { background: #ffffff; } /* thème clair : blanc
    S'applique à toutes les pages (le .hl du hero n'était que local). */
 h1 .hl { color: var(wheat); }
 .hero p { color: var(--muted); font-size: 18px; margin: 18px auto 0; max-width: 520px; }
+/* Lot accueil-app : la ligne d'accroche (enfant DIRECT du hero, au-dessus de la carte) était
+   en gris --muted, peu lisible sur le violet du hero. On la passe en --ink, à fort contraste
+   dans les deux thèmes (WCAG AA largement dépassé : >6:1 clair, >10:1 sombre). Ne vise QUE ce
+   <p> (> p) : .hero-promise (dans .hero-start) n'est pas un enfant direct et reste inchangée. */
+.hero > p { color: var(--ink); }
 /* Point 1) Très petits smartphones (iPhone SE, ~375px et moins) : le .wrap ne laisse
    que 16px de marge — on renforce l'air autour du titre et du paragraphe pour qu'ils
    ne collent plus aux bords. */
@@ -754,6 +759,14 @@ html[data-theme="dark"] .community-spotted-tag { color: var(--violet-l, #bd8ef0)
 }
 .card.add .plus { font-size: 30px; font-weight: 300; color: var(--amber); }
 .card.add strong { color: var(--ink); }
+/* Lot accueil-app : au repos la carte « Publier une alerte » était quasi invisible (fond
+   transparent). Fond très légèrement teinté + contour un peu plus marqué EN PERMANENCE,
+   dans les deux thèmes ; l'effet de survol ci-dessous reste identique. Logique PUBLISH_ENABLED
+   inchangée (la carte reste masquée tant que le drapeau n'est pas actif). */
+.card.add.publish-cta {
+  background: color-mix(in srgb, var(--amber) 7%, transparent);
+  border-color: color-mix(in srgb, var(--amber) 42%, transparent);
+}
 .card.add:hover { background: var(--amber-soft); border-color: var(--amber); }
 /* Endpoint (verso) : cliquable, JetBrains Mono. */
 .endpoint {
@@ -1128,6 +1141,7 @@ input:focus-visible,
   body:not(.dev) main.wrap,
   body:not(.dev) .devs .wrap,
   body:not(.dev) .stats-section .wrap,
+  body:not(.dev) .appmob .wrap,
   body:not(.dev) .hist-section { position: relative; }
   body:not(.dev) .section-label {
     position: absolute; top: 2px; margin: 0; text-align: right;
@@ -1483,16 +1497,29 @@ body[data-mode="connected"] .hero p { display: none; }
    Le bouton reprend le style de .btn-login par GROUPEMENT de selecteur (pas de
    classe ajoutee) : aucun handler du header ne peut le capter. */
 .hero-start { display: none; }
-body[data-mode="anon"] .hero-start { display: block; margin-top: 20px; }
+/* Lot accueil-app : l'amorce (promesse + bouton) était illisible posée directement sur le
+   fond décoratif. On lui donne une CARTE opaque (var(--surface)) à fort contraste dans les
+   deux thèmes (ink sur surface : >12:1 en clair, ~10:1 en sombre), bouton à DROITE du texte
+   sur desktop et centré SOUS le texte sur mobile. */
+body[data-mode="anon"] .hero-start {
+  display: flex; align-items: center; gap: 22px; text-align: left;
+  margin: 20px auto 0; max-width: 680px;
+  background: var(--surface);
+  border: 1px solid color-mix(in srgb, var(--amber) 24%, transparent);
+  border-radius: 18px; padding: 20px 24px;
+  box-shadow: 0 2px 14px rgba(15, 20, 25, .07);
+}
 .hero-promise {
   color: var(--ink); font-size: 16px; line-height: 1.5;
-  margin: 0 auto 18px; max-width: 560px;
+  margin: 0; max-width: none; flex: 1 1 auto; text-align: left;
 }
 .hero-cta {
   display: inline-block; font-size: 15px; padding: 12px 26px;
+  flex: 0 0 auto; white-space: nowrap;
 }
 @media (max-width: 640px) {
-  .hero-promise { font-size: 15px; }
+  body[data-mode="anon"] .hero-start { flex-direction: column; text-align: center; gap: 16px; padding: 18px 18px; }
+  .hero-promise { font-size: 15px; text-align: center; }
   .hero-cta { width: 100%; max-width: 320px; text-align: center; }
 }
 body[data-mode="connected"] .hero { padding: 0px 0 0px; }
@@ -5514,3 +5541,134 @@ select:focus-visible,
 .dept-combo .dept-search:focus-visible { outline: 3px solid var(--amber-ink); outline-offset: 1px; }
 .dept-combo .dept-listbox { max-height: 240px; }
 .dept-combo .dyn-status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+/* Interrupteur « Publier une alerte » (LOT 5 interim) : les CTA .publish-cta sont
+   masqués tant que <html> ne porte pas data-lba-publish="true" (attribut posé côté
+   serveur par pages.js — pas de script inline, pour respecter la CSP script-src 'self'). */
+html:not([data-lba-publish="true"]) .publish-cta { display: none !important; }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Lot accueil-app — page d'accueil (visiteur non connecté) + header.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* Header, TOUTES les pages : on masque le suffixe « !fr » du logo (le « ! » stylé .bang
+   + « fr » .fr), sans toucher au markup — il suffira de retirer cette règle pour le
+   rétablir. N'affecte ni le <title>, ni le domaine, ni les balises, ni les e-mails (le
+   logo y est rendu en texte nu « labonnealerte.fr » par server/mailer.js). .brandmark
+   couvre l'accueil, les pages secondaires (.cx-logo) et le logo construit par header.js
+   (desktop + menu mobile). */
+.brandmark .bang, .brandmark .fr { display: none; }
+
+/* Bloc « Sur mon smartphone » (invite vers l'app Android) : masqué tant que <html> ne porte
+   pas data-lba-app-play="true" (variable APP_PLAY_URL_ENABLED, attribut posé par pages.js) —
+   même mécanisme que .publish-cta. La fiche Play n'étant pas publiée, il reste masqué par
+   défaut. On alterne le fond avec les sections voisines (// en chiffres sur #edf, // devs sur
+   --surface) en posant --bg ici. */
+html:not([data-lba-app-play="true"]) .appmob { display: none !important; }
+.appmob { background: var(--bg); padding: 56px 0; }
+.appmob-grid { display: grid; grid-template-columns: 1fr auto; gap: 32px; align-items: center; }
+.appmob-copy h2 { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; }
+.appmob-copy p { color: var(--muted); margin-top: 10px; font-size: 15px; max-width: 60ch; }
+.appmob-badge { display: inline-block; }
+/* Badge officiel 646×250 : height auto conserve le ratio exact → jamais déformé. */
+.appmob-badge img { display: block; width: 220px; height: auto; max-width: 100%; }
+@media (max-width: 760px) {
+  .appmob-grid { grid-template-columns: 1fr; }
+}
+
+/* Lien discret « Voir toutes les alertes » (visiteur non connecté) : même pilule que
+   .more-btn-all, variante texte. Affiché/masqué par site.js (updateMore). */
+.see-all-anon {
+  font: inherit; font-weight: 600; font-size: 14px; text-decoration: none;
+  color: var(--muted); border: 1px solid color-mix(in srgb, var(--muted) 35%, transparent);
+  border-radius: 999px; padding: 12px 24px;
+}
+.see-all-anon:hover { color: var(--ink); border-color: var(--muted); }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   « Encarts sympas » — encarts promotionnels MAISON dans la colonne de mini-cartes.
+   Jamais de vraie pub. Le TEXTE passe PAR-DESSUS l'image (portrait 5/8 plein cadre) :
+   titre en haut sur un scrim sombre (lisible même sur un haut clair), sous-titre + CTA
+   en bas sur un panneau BEIGE (texte foncé ; en sombre : violet très sombre + texte clair).
+   Hauteur du scrim et du panneau réglables PAR ENCART (--encart-scrim-h / --encart-panel-h)
+   pour ne jamais masquer le sujet. Thème clair/sombre, responsive, prefers-reduced-motion.
+   Placé par public/js/encarts.js.
+   ───────────────────────────────────────────────────────────────────────────── */
+.encart {
+  position: relative;                 /* ancre les calques titre + panneau */
+  grid-column: 2; align-self: start; max-width: 320px; width: 100%;
+  display: block; overflow: hidden;
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--amber) 26%, transparent);
+  box-shadow: 0 2px 14px rgba(15, 20, 25, .08);
+  /* Réglages par défaut (surchargés par id plus bas si le sujet l'exige). */
+  --encart-scrim-h: 34px;             /* retombée du dégradé sombre sous le titre */
+  --encart-panel-h: 40%;             /* hauteur minimale du panneau beige du bas */
+  --encart-panel-bg: #f1e7d4;        /* BEIGE opaque (couleur de panneau du site) */
+  --encart-panel-ink: #0f1419;       /* texte foncé sur beige (contraste > 12:1) */
+}
+html[data-theme="dark"] .encart {
+  --encart-panel-bg: #1d1730;        /* violet très sombre */
+  --encart-panel-ink: #f2efe9;       /* texte clair (contraste > 12:1) */
+}
+/* Apparition douce une fois placé (désactivée si l'utilisateur préfère moins d'animations). */
+.encart.is-placed { animation: encart-in .28s ease both; }
+@keyframes encart-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .encart.is-placed { animation: none; } }
+
+/* Zone image : PORTRAIT ratio 5/8 (visuels 600×960), plein cadre, object-fit cover. */
+.encart-media { display: block; width: 100%; aspect-ratio: 5 / 8; overflow: hidden; }
+.encart-media img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center top; }
+/* Fallback sans image : dégradé maison, distinct par encart. Le titre/panneau restent lisibles. */
+.encart-media--placeholder { background: linear-gradient(135deg, #a567e3, #6f57d6); }
+.encart-media--placeholder[data-encart="aurores"] { background: linear-gradient(160deg, #1f6f6b, #2e8b8b 45%, #7bd88f); }
+.encart-media--placeholder[data-encart="livraison-1e"] { background: linear-gradient(135deg, #a567e3, #bd8ef0); }
+.encart-media--placeholder[data-encart="echeances"] { background: linear-gradient(135deg, #5b73c4, #8a6fd4); }
+
+/* Titre : en haut, blanc + text-shadow, sur un scrim sombre qui s'estompe vers le bas →
+   lisible même quand le haut de l'image est clair (ex. livraison-1e, haut beige). */
+.encart-title {
+  position: absolute; top: 0; left: 0; right: 0; margin: 0;
+  padding: 14px 16px var(--encart-scrim-h);
+  color: #fff; font-size: 17px; font-weight: 800; letter-spacing: -0.01em; line-height: 1.25;
+  text-shadow: 0 1px 6px rgba(20, 10, 40, .55), 0 1px 2px rgba(0, 0, 0, .4);
+  background: linear-gradient(to bottom,
+    rgba(28, 16, 52, .80) 0%, rgba(28, 16, 52, .46) 55%, rgba(28, 16, 52, 0) 100%);
+  pointer-events: none;              /* n'intercepte pas le clic du bouton */
+}
+/* Panneau bas : sous-titre + bouton, sur un fond BEIGE opaque qui s'estompe en remontant
+   vers l'image. Le texte repose sur la zone pleine (contraste >= 4.5:1). */
+.encart-panel {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  display: flex; flex-direction: column; gap: 10px;
+  min-height: var(--encart-panel-h);
+  padding: 30px 16px 14px;           /* padding-top : garde le texte sous la zone estompée */
+  color: var(--encart-panel-ink);
+  background: linear-gradient(to top,
+    var(--encart-panel-bg) 0%, var(--encart-panel-bg) 74%,
+    color-mix(in srgb, var(--encart-panel-bg) 55%, transparent) 90%, transparent 100%);
+}
+.encart-text { margin: 0; font-size: 14px; line-height: 1.45; color: var(--encart-panel-ink); }
+.encart-cta {
+  align-self: flex-end;              /* bouton aligné à droite */
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 44px; padding: 10px 20px;          /* cible tactile ≥ 44px */
+  background: var(--amber); color: #fff; text-decoration: none;
+  font-weight: 700; font-size: 14px; border-radius: 999px;
+  box-shadow: 0 1px 3px rgba(30, 20, 50, .12);
+}
+.encart-cta:hover { background: color-mix(in srgb, var(--amber) 88%, #000); color: #fff; }
+
+/* Réglages par encart : hauteur du scrim/panneau selon où se trouve le sujet de l'image. */
+.encart[data-encart-id="livraison-1e"] { --encart-scrim-h: 30px; --encart-panel-h: 42%; }
+.encart[data-encart-id="aurores"]      { --encart-scrim-h: 36px; --encart-panel-h: 38%; }
+.encart[data-encart-id="echeances"]    { --encart-scrim-h: 34px; --encart-panel-h: 44%; }
+
+/* Mobile (≤ 640px) : la grille passe en flux 1 colonne (cf. #grid mixte). L'encart suit,
+   pleine largeur, sans placement de rangée. L'image portrait est plafonnée et centrée. */
+@media (max-width: 640px) {
+  .encart { grid-column: auto; max-width: none; }
+  .encart-media { aspect-ratio: auto; max-height: 70vh; }
+  .encart-media img { height: auto; max-height: 70vh; margin: 0 auto; object-position: center top; }
+  .encart-media--placeholder { aspect-ratio: 5 / 8; max-height: 70vh; }
+}
