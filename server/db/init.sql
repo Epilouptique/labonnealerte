@@ -160,14 +160,19 @@ CREATE TABLE IF NOT EXISTS subscriptions (
   PRIMARY KEY (subscriber_id, source_id)
 );
 
--- Abonnements push web (une entrée par appareil/navigateur d'un abonné).
+-- Abonnements push (une entrée par appareil/navigateur d'un abonné).
+--   kind = 'web'  : Web Push VAPID (site, app Android via UnifiedPush) ; p256dh et auth obligatoires.
+--   kind = 'expo' : app iOS ; endpoint = jeton ExponentPushToken[...], p256dh et auth NULL.
 CREATE TABLE IF NOT EXISTS push_subscriptions (
   id SERIAL PRIMARY KEY,
   subscriber_id INTEGER REFERENCES subscribers(id) ON DELETE CASCADE,
   endpoint TEXT UNIQUE NOT NULL,
-  p256dh TEXT NOT NULL,
-  auth TEXT NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  p256dh TEXT,
+  auth TEXT,
+  kind VARCHAR(8) NOT NULL DEFAULT 'web',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT push_subscriptions_web_keys_chk CHECK (kind <> 'web' OR (p256dh IS NOT NULL AND auth IS NOT NULL)),
+  CONSTRAINT push_subscriptions_kind_chk CHECK (kind IN ('web', 'expo'))
 );
 CREATE INDEX IF NOT EXISTS idx_push_subscriber ON push_subscriptions (subscriber_id);
 
@@ -5118,4 +5123,50 @@ BEGIN
         CASE spec[3] WHEN 'n' THEN 'SET NULL' ELSE 'CASCADE' END);
     END IF;
   END LOOP;
+END $$;
+
+-- ============================================================================
+-- Transport push Expo pour l'app iOS (IOS-02, 11/2026).
+-- push_subscriptions.kind distingue 'web' (VAPID, inchangé : site + Android
+-- UnifiedPush) et 'expo' (jeton ExponentPushToken[...] dans endpoint, sans clés).
+-- Idempotent : colonne ajoutée si absente, NOT NULL retirés (sans effet s'ils le
+-- sont déjà), contrainte CHECK posée seulement si absente. Les CREATE TABLE
+-- ci-dessus portent déjà ce schéma (base neuve) ; ce bloc corrige les bases
+-- existantes. Toutes les lignes existantes deviennent kind = 'web' (défaut) et
+-- ont déjà leurs clés : la contrainte est satisfaite.
+-- ============================================================================
+ALTER TABLE push_subscriptions ADD COLUMN IF NOT EXISTS kind VARCHAR(8) NOT NULL DEFAULT 'web';
+ALTER TABLE push_subscriptions ALTER COLUMN p256dh DROP NOT NULL;
+ALTER TABLE push_subscriptions ALTER COLUMN auth DROP NOT NULL;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+     WHERE conrelid = 'push_subscriptions'::regclass
+       AND conname = 'push_subscriptions_web_keys_chk'
+  ) THEN
+    ALTER TABLE push_subscriptions
+      ADD CONSTRAINT push_subscriptions_web_keys_chk
+      CHECK (kind <> 'web' OR (p256dh IS NOT NULL AND auth IS NOT NULL));
+  END IF;
+END $$;
+
+-- ============================================================================
+-- Valeurs autorisées pour push_subscriptions.kind (IOS-04, 11/2026).
+-- Une valeur hors liste ('Expo', 'ios'...) serait ignorée par les deux branches
+-- d'envoi de webpush.js tout en comptant dans push_count : on la refuse.
+-- Idempotent : contrainte posée seulement si absente. Le code n'écrit que 'web'
+-- (défaut, routes/push.js subscribe) et 'expo' (routes/push.js subscribe-expo).
+-- ============================================================================
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+     WHERE conrelid = 'push_subscriptions'::regclass
+       AND conname = 'push_subscriptions_kind_chk'
+  ) THEN
+    ALTER TABLE push_subscriptions
+      ADD CONSTRAINT push_subscriptions_kind_chk
+      CHECK (kind IN ('web', 'expo'));
+  END IF;
 END $$;
