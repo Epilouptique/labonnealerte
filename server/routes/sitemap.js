@@ -45,6 +45,7 @@ const STATIC_PATHS = [
   '/proposer',
   '/publier',
   '/institutions',
+  '/app',
 ];
 
 function escXml(s) {
