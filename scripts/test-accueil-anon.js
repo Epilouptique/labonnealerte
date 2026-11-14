@@ -42,10 +42,19 @@ ok(indexHtml.indexOf('play.google.com/store/apps/details?id=fr.labonnealerte.app
 ok(/alt="Disponible sur Google Play"/.test(indexHtml), 'index.html : alt="Disponible sur Google Play"');
 ok(/src="\/img\/google-play-fr\.png"/.test(indexHtml), 'index.html : badge /img/google-play-fr.png');
 ok(fs.existsSync(path.join(__dirname, '..', 'public/img/google-play-fr.png')), 'badge officiel présent dans public/img/');
-ok(/html:not\(\[data-lba-app-play="true"\]\)\s+\.appmob\s*\{\s*display:\s*none/.test(siteCss),
-  'site.css : .appmob masqué tant que data-lba-app-play !== "true" (défaut = masqué)');
-ok(/height:\s*auto/.test(siteCss.slice(siteCss.indexOf('.appmob-badge img'))),
-  'site.css : badge en height:auto → ratio conservé (non déformé)');
+ok(/html:not\(\[data-lba-app-play="true"\]\):not\(\[data-lba-app-appstore="true"\]\)\s+\.appmob\s*\{\s*display:\s*none/.test(siteCss),
+  'site.css : .appmob masqué tant qu\'aucun des deux drapeaux ne vaut "true" (défaut = masqué)');
+ok(/html:not\(\[data-lba-app-play="true"\]\)\s+\.appmob-badge--play\s*\{\s*display:\s*none/.test(siteCss)
+  && /html:not\(\[data-lba-app-appstore="true"\]\)\s+\.appmob-badge--appstore\s*\{\s*display:\s*none/.test(siteCss),
+  'site.css : chaque badge suit son propre drapeau (indépendants)');
+ok(/width:\s*auto/.test(siteCss.slice(siteCss.indexOf('.appmob-badge img'))),
+  'site.css : badges en width:auto, même hauteur → ratio conservé (non déformé)');
+ok(indexHtml.indexOf('apps.apple.com/fr/app/la-bonne-alerte/id6833982399') !== -1,
+  'index.html : lien vers la fiche App Store id6833982399');
+ok(/src="\/img\/app-store-fr\.png" alt="Télécharger dans l'App Store"/.test(indexHtml),
+  'index.html : badge /img/app-store-fr.png avec texte alternatif');
+ok(!/comme le site/.test(indexHtml.slice(indexHtml.indexOf('class="appmob"'), indexHtml.indexOf('class="devs"'))),
+  'index.html : bloc appmob sans « open source — comme le site »');
 
 // Ordre des blocs : // en chiffres  →  // sur mon smartphone  →  // pour les développeurs
 const iChiffres = indexHtml.indexOf('// en chiffres');

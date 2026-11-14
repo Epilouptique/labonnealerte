@@ -142,7 +142,7 @@
     var counter = '<span class="deck-count' + (canCreate ? '' : ' full') + '">' +
       total + ' / ' + STATE.max_decks + ' decks</span>';
     // « Ajouter un deck » = tuile taille carte (même .card.add que « Ajouter une carte » /
-    // « Proposer une alerte » du kiosque), en fin de grille. Lien vers la PAGE de creation
+    // « Publier une alerte » du kiosque), en fin de grille. Lien vers la PAGE de creation
     // (/mes-decks/nouveau). Grisée + non cliquable si quota atteint.
     var createTile = canCreate
       ? '<a class="card add deck-create-tile" id="deck-create-open" href="/mes-decks/nouveau">' +
@@ -769,7 +769,7 @@
   }
 
   // Rend les cartes DU deck (lecture seule + « Retirer ») + la tuile « Ajouter une carte »
-  // (.card.add, même visuel que « Proposer une alerte » du kiosque) DANS la meme grille que
+  // (.card.add, même visuel que « Publier une alerte » du kiosque) DANS la meme grille que
   // la tuile-deck depliee, APRES elle (les tuiles voisines sont masquees). N'efface jamais la
   // tuile-deck : ne remplace que les .deck-card-wrap / #deck-add-card existants.
   function renderDeckCards() {

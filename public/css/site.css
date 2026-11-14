@@ -263,12 +263,12 @@ html[data-theme="light"] header { background: #ffffff; } /* thème clair : blanc
 /* C) Bicoloration générale des H1 : 1er mot en --ink, le reste en violet (.hl).
    S'applique à toutes les pages (le .hl du hero n'était que local). */
 h1 .hl { color: var(wheat); }
-.hero p { color: var(--muted); font-size: 18px; margin: 18px auto 0; max-width: 520px; }
+.hero p { color: var(--muted); font-size: 18px; margin: 0px auto 0; max-width: 520px; }
 /* Lot accueil-app : la ligne d'accroche (enfant DIRECT du hero, au-dessus de la carte) était
    en gris --muted, peu lisible sur le violet du hero. On la passe en --ink, à fort contraste
    dans les deux thèmes (WCAG AA largement dépassé : >6:1 clair, >10:1 sombre). Ne vise QUE ce
    <p> (> p) : .hero-promise (dans .hero-start) n'est pas un enfant direct et reste inchangée. */
-.hero > p { color: var(--ink); }
+.hero > p { color: #fff; text-align: center; margin-top:-3rem;}
 /* Point 1) Très petits smartphones (iPhone SE, ~375px et moins) : le .wrap ne laisse
    que 16px de marge — on renforce l'air autour du titre et du paragraphe pour qu'ils
    ne collent plus aux bords. */
@@ -284,7 +284,7 @@ h1 .hl { color: var(wheat); }
   border-radius: 999px; padding: 7px 16px;
 }
 .kpi #kpi-num { font-weight: 700; color: var(--ink); }
-.dot-live { position: relative; width: 11px; height: 11px; border-radius: 50%; background: var(--green); display: inline-block; }
+.dot-live { position: relative; width: 11px; height: 9px; border-radius: 50%; background: var(--green); display: inline-block; }
 .dot-live::after { content: ""; position: absolute; inset: -1px; border-radius: 50%; border: 1.5px solid var(--green); animation: ping 2s ease-out infinite; }
 
 /* ---------- barre d'outils kiosque : recherche + catégories ---------- */
@@ -1503,7 +1503,7 @@ body[data-mode="connected"] .hero p { display: none; }
    sur desktop et centré SOUS le texte sur mobile. */
 body[data-mode="anon"] .hero-start {
   display: flex; align-items: center; gap: 22px; text-align: left;
-  margin: 20px auto 0; max-width: 680px;
+  margin: 4rem auto 0; max-width: 680px;
   background: var(--surface);
   border: 1px solid color-mix(in srgb, var(--amber) 24%, transparent);
   border-radius: 18px; padding: 20px 24px;
@@ -5559,19 +5559,25 @@ html:not([data-lba-publish="true"]) .publish-cta { display: none !important; }
    (desktop + menu mobile). */
 .brandmark .bang, .brandmark .fr { display: none; }
 
-/* Bloc « Sur mon smartphone » (invite vers l'app Android) : masqué tant que <html> ne porte
-   pas data-lba-app-play="true" (variable APP_PLAY_URL_ENABLED, attribut posé par pages.js) —
-   même mécanisme que .publish-cta. La fiche Play n'étant pas publiée, il reste masqué par
-   défaut. On alterne le fond avec les sections voisines (// en chiffres sur #edf, // devs sur
-   --surface) en posant --bg ici. */
-html:not([data-lba-app-play="true"]) .appmob { display: none !important; }
+/* Bloc « Sur mon smartphone » (invite vers les apps iPhone et Android) : deux badges
+   INDÉPENDANTS, chacun masqué tant que son attribut <html> ne vaut pas "true"
+   (data-lba-app-appstore = APP_APPSTORE_URL_ENABLED, data-lba-app-play = APP_PLAY_URL_ENABLED,
+   posés par pages.js) — même mécanisme que .publish-cta. Le bloc entier n'est masqué que si
+   AUCUN des deux n'est actif. On alterne le fond avec les sections voisines (// en chiffres sur
+   #edf, // devs sur --surface) en posant --bg ici. */
+html:not([data-lba-app-play="true"]):not([data-lba-app-appstore="true"]) .appmob { display: none !important; }
+html:not([data-lba-app-play="true"]) .appmob-badge--play { display: none !important; }
+html:not([data-lba-app-appstore="true"]) .appmob-badge--appstore { display: none !important; }
 .appmob { background: var(--bg); padding: 56px 0; }
 .appmob-grid { display: grid; grid-template-columns: 1fr auto; gap: 32px; align-items: center; }
 .appmob-copy h2 { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; }
 .appmob-copy p { color: var(--muted); margin-top: 10px; font-size: 15px; max-width: 60ch; }
+.appmob-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .appmob-badge { display: inline-block; }
-/* Badge officiel 646×250 : height auto conserve le ratio exact → jamais déformé. */
-.appmob-badge img { display: block; width: 220px; height: auto; max-width: 100%; }
+/* Même hauteur pour les deux badges (85 px = l'ancien rendu du badge Play 646×250 à 220 px de
+   large) ; width auto conserve le ratio exact → jamais déformés. Image absente : le texte
+   alternatif s'affiche dans la même hauteur, la mise en page ne bouge pas. */
+.appmob-badge img { display: block; height: 85px; width: auto; max-width: 100%; object-fit: contain; }
 @media (max-width: 760px) {
   .appmob-grid { grid-template-columns: 1fr; }
 }
@@ -5616,8 +5622,9 @@ html[data-theme="dark"] .encart {
 @keyframes encart-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .encart.is-placed { animation: none; } }
 
-/* Zone image : PORTRAIT ratio 5/8 (visuels 600×960), plein cadre, object-fit cover. */
-.encart-media { display: block; width: 100%; aspect-ratio: 5 / 8; overflow: hidden; }
+/* Zone image : ratio UNIQUE 3/5 (les 3 visuels sont en 600×1000), posé AVANT le chargement
+   de l'image → la boîte réserve sa taille, aucun reflow ni clignotement quand l'image arrive. */
+.encart-media { display: block; width: 100%; overflow: hidden; aspect-ratio: 3 / 5; }
 .encart-media img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center top; }
 /* Fallback sans image : dégradé maison, distinct par encart. Le titre/panneau restent lisibles. */
 .encart-media--placeholder { background: linear-gradient(135deg, #a567e3, #6f57d6); }
@@ -5629,8 +5636,8 @@ html[data-theme="dark"] .encart {
    lisible même quand le haut de l'image est clair (ex. livraison-1e, haut beige). */
 .encart-title {
   position: absolute; top: 0; left: 0; right: 0; margin: 0;
-  padding: 14px 16px var(--encart-scrim-h);
-  color: #fff; font-size: 17px; font-weight: 800; letter-spacing: -0.01em; line-height: 1.25;
+  padding: 24px 24px var(--encart-scrim-h);
+  color: #fff; font-size: 25px; font-weight: 800; letter-spacing: -0.01em; line-height: 1.25;
   text-shadow: 0 1px 6px rgba(20, 10, 40, .55), 0 1px 2px rgba(0, 0, 0, .4);
   background: linear-gradient(to bottom,
     rgba(28, 16, 52, .80) 0%, rgba(28, 16, 52, .46) 55%, rgba(28, 16, 52, 0) 100%);
@@ -5640,24 +5647,33 @@ html[data-theme="dark"] .encart {
    vers l'image. Le texte repose sur la zone pleine (contraste >= 4.5:1). */
 .encart-panel {
   position: absolute; left: 0; right: 0; bottom: 0;
-  display: flex; flex-direction: column; gap: 10px;
+  display: flex; flex-direction: column; justify-content: flex-end; gap: 10px;
   min-height: var(--encart-panel-h);
-  padding: 30px 16px 14px;           /* padding-top : garde le texte sous la zone estompée */
+  padding: 100px 16px 14px;           /* padding-top : garde le texte sous la zone estompée */
   color: var(--encart-panel-ink);
-  background: linear-gradient(to top,
-    var(--encart-panel-bg) 0%, var(--encart-panel-bg) 74%,
-    color-mix(in srgb, var(--encart-panel-bg) 55%, transparent) 90%, transparent 100%);
+  /*background: linear-gradient(to top,
+    var(--encart-panel-bg) 0%, var(--encart-panel-bg) 65%,
+    color-mix(in srgb, var(--encart-panel-bg) 0%, transparent) 90%, transparent 100%);*/
 }
-.encart-text { margin: 0; font-size: 14px; line-height: 1.45; color: var(--encart-panel-ink); }
+.encart-text { margin: 0; font-size: 14px; line-height: 1.45; color: var(--encart-panel-ink); white-space: pre-line; }
 .encart-cta {
   align-self: flex-end;              /* bouton aligné à droite */
   display: inline-flex; align-items: center; justify-content: center;
   min-height: 44px; padding: 10px 20px;          /* cible tactile ≥ 44px */
   background: var(--amber); color: #fff; text-decoration: none;
-  font-weight: 700; font-size: 14px; border-radius: 999px;
+  font-family: inherit; font-weight: 700; font-size: 14px; line-height: 1;
+  border: 0; border-radius: 999px; cursor: pointer;
   box-shadow: 0 1px 3px rgba(30, 20, 50, .12);
 }
 .encart-cta:hover { background: color-mix(in srgb, var(--amber) 88%, #000); color: #fff; }
+.encart-cta:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+/* Après abonnement : bouton « Abonné ✓ », vert, désactivé (reflète l'état de la carte). */
+.encart-cta.is-subscribed,
+.encart-cta[disabled] {
+  background: var(--green, #2f9e44); color: #fff; cursor: default; box-shadow: none;
+}
+.encart-cta.is-subscribed:hover,
+.encart-cta[disabled]:hover { background: var(--green, #2f9e44); color: #fff; }
 
 /* Réglages par encart : hauteur du scrim/panneau selon où se trouve le sujet de l'image. */
 .encart[data-encart-id="livraison-1e"] { --encart-scrim-h: 30px; --encart-panel-h: 42%; }
@@ -5668,7 +5684,7 @@ html[data-theme="dark"] .encart {
    pleine largeur, sans placement de rangée. L'image portrait est plafonnée et centrée. */
 @media (max-width: 640px) {
   .encart { grid-column: auto; max-width: none; }
-  .encart-media { aspect-ratio: auto; max-height: 70vh; }
-  .encart-media img { height: auto; max-height: 70vh; margin: 0 auto; object-position: center top; }
-  .encart-media--placeholder { aspect-ratio: 5 / 8; max-height: 70vh; }
+  /* Le ratio 3/5 est conservé ; on plafonne seulement la hauteur pour que l'encart ne prenne
+     pas tout l'écran (le panneau bas reste visible, image rognée en bas). */
+  .encart-media { max-height: 78vh; }
 }

@@ -40,5 +40,22 @@ html = renderHome();
 ok(/<html[^>]*\sdata-lba-app-play="true"/.test(html), 'pages.js : APP_PLAY_URL_ENABLED=true → data-lba-app-play="true"');
 delete process.env.APP_PLAY_URL_ENABLED;
 
+// Jumeau iOS : APP_APPSTORE_URL_ENABLED, indépendant de la variable Play.
+function freshIos() { delete require.cache[require.resolve('../server/app-appstore-flag')]; return require('../server/app-appstore-flag').appAppStoreUrlEnabled; }
+delete process.env.APP_APPSTORE_URL_ENABLED;
+ok(freshIos()() === false, 'APP_APPSTORE_URL_ENABLED absente → désactivé');
+process.env.APP_APPSTORE_URL_ENABLED = 'true';
+ok(freshIos()() === true, 'APP_APPSTORE_URL_ENABLED="true" → activé');
+process.env.APP_APPSTORE_URL_ENABLED = 'TRUE';
+ok(freshIos()() === false, 'APP_APPSTORE_URL_ENABLED="TRUE" → désactivé (valeur exacte requise)');
+function renderHomeIos() { delete require.cache[require.resolve('../server/app-appstore-flag')]; return renderHome(); }
+process.env.APP_APPSTORE_URL_ENABLED = 'true';
+html = renderHomeIos();
+ok(/<html[^>]*\sdata-lba-app-appstore="true"/.test(html) && /<html[^>]*\sdata-lba-app-play="false"/.test(html),
+  'pages.js : App Store actif, Play inactif → attributs indépendants');
+delete process.env.APP_APPSTORE_URL_ENABLED;
+html = renderHomeIos();
+ok(/<html[^>]*\sdata-lba-app-appstore="false"/.test(html), 'pages.js : sans variable → data-lba-app-appstore="false"');
+
 console.log(`\n${passed} OK, ${fails} échec(s).`);
 process.exit(fails ? 1 : 0);
