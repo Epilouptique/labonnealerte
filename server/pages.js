@@ -17,6 +17,7 @@ const fs = require('fs');
 const path = require('path');
 const { publishEnabled } = require('./publish-flag');
 const { appPlayUrlEnabled } = require('./app-play-flag');
+const { appAppStoreUrlEnabled } = require('./app-appstore-flag');
 const { availableImages, testForcingEnabled } = require('./encarts');
 
 const publicDir = path.join(__dirname, '..', 'public');
@@ -34,6 +35,7 @@ function attrEscape(s) {
 function flagsAttr() {
   return ' data-lba-publish="' + (publishEnabled() ? 'true' : 'false') + '"'
     + ' data-lba-app-play="' + (appPlayUrlEnabled() ? 'true' : 'false') + '"'
+    + ' data-lba-app-appstore="' + (appAppStoreUrlEnabled() ? 'true' : 'false') + '"'
     + ' data-lba-encart-img="' + attrEscape(JSON.stringify(availableImages())) + '"'
     + ' data-lba-encart-test="' + (testForcingEnabled() ? '1' : '0') + '"';
 }

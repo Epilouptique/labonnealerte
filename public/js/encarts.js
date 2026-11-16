@@ -42,8 +42,8 @@ var ENCARTS = [
   },
   {
     id: 'echeances', actif: true, slug: 'tache-echeance-glissante',
-    titre: "Ton contrôle technique, il est pour quand déjà ?",
-    texte: "Tu ne sais pas ? Nous si. On te rappelle.",
+    titre: "Mon contrôle technique, il est pour quand déjà ?",
+    texte: "Tu ne sais pas ?\nNous si.",
     bouton: 'Créer mon rappel',
     alt: 'Illustration : un rappel d’échéance qui glisse dans le temps.',
   },

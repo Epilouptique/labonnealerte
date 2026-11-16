@@ -74,7 +74,7 @@
        Masque par defaut, revele par body[data-mode="anon"] (site.css) : aucun flash
        ni decalage pour un visiteur connecte, dont le hero reste « Bonjour <prenom> ». -->
   <div class="hero-start">
-    <p class="hero-promise">Choisissez vos alertes, recevez un e-mail dès qu'il se passe quelque chose : au plus une fois par jour, jamais rien d'autre.</p>
+    <p class="hero-promise">Choisissez vos alertes, recevez un e-mail dès qu'il se passe quelque chose. Simple, basique.</p>
     <a class="hero-cta" href="/connexion">Commencer gratuitement</a>
   </div>
   <div class="kpi"><span id="kpi-dot" class="dot-idle"></span> <span id="kpi-num"></span><span id="kpi-text"></span></div>
@@ -368,24 +368,29 @@
   </div>
 </section>
 
-<!-- Bloc « Sur mon smartphone » — invitation vers l'application Android. MASQUÉ par
-     défaut : visible uniquement quand <html data-lba-app-play="true"> (variable
-     APP_PLAY_URL_ENABLED posée sur Railway), car la fiche Play n'est pas encore publiée.
-     Le masquage est géré par la CSS (html:not([data-lba-app-play="true"]) .appmob), comme
-     pour .publish-cta : aucun JS ne lit ce drapeau. Le badge « Disponible sur Google Play »
-     est l'asset officiel FR (public/img/google-play-fr.png), affiché sans déformation
-     (ratio conservé, zone de dégagement incluse dans l'image). -->
+<!-- Bloc « Sur mon smartphone » — invitation vers les applications iPhone et Android.
+     Deux badges INDÉPENDANTS, chacun piloté par son drapeau (attributs posés sur <html> par
+     server/pages.js) : App Store = data-lba-app-appstore (variable APP_APPSTORE_URL_ENABLED),
+     Google Play = data-lba-app-play (variable APP_PLAY_URL_ENABLED). Le bloc s'affiche dès
+     qu'au moins un des deux vaut "true" ; masquage géré par la CSS, aucun JS ne lit ces
+     drapeaux. Badges officiels FR : public/img/app-store-fr.png et public/img/google-play-fr.png,
+     même hauteur, ratio conservé. -->
 <section class="appmob" id="appmob">
   <div class="wrap">
     <div class="section-label">// sur mon smartphone</div>
     <div class="appmob-grid">
       <div class="appmob-copy">
-        <h2>L'appli, pour être prévenu à la seconde.</h2>
-        <p>Vos alertes arrivent en notifications instantanées. Le kiosque et ses 260+ alertes se consultent sans compte. Gratuite, sans pub, open source — comme le site.</p>
+        <h2>Les applis, pour être prévenu à la seconde.</h2>
+        <p>Vos alertes arrivent en notifications instantanées. Le kiosque et ses 260+ alertes se consultent sans compte. Gratuites, sans pub, et le service est open source.</p>
       </div>
-      <a class="appmob-badge" href="https://play.google.com/store/apps/details?id=fr.labonnealerte.app" target="_blank" rel="noopener">
-        <img src="/img/google-play-fr.png" alt="Disponible sur Google Play" width="323" height="125">
-      </a>
+      <div class="appmob-badges">
+        <a class="appmob-badge appmob-badge--appstore" href="https://apps.apple.com/fr/app/la-bonne-alerte/id6833982399" target="_blank" rel="noopener">
+          <img src="/img/app-store-fr.png" alt="Télécharger dans l'App Store">
+        </a>
+        <a class="appmob-badge appmob-badge--play" href="https://play.google.com/store/apps/details?id=fr.labonnealerte.app" target="_blank" rel="noopener">
+          <img src="/img/google-play-fr.png" alt="Disponible sur Google Play" width="323" height="125">
+        </a>
+      </div>
     </div>
   </div>
 </section>

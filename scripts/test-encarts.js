@@ -34,8 +34,8 @@ const EXPECT = {
     bouton: 'Surveiller le ciel',
   },
   echeances: {
-    titre: "Ton contrôle technique, il est pour quand déjà ?",
-    texte: "Tu ne sais pas ? Nous si. On te rappelle.",
+    titre: "Mon contrôle technique, il est pour quand déjà ?",
+    texte: "Tu ne sais pas ?\nNous si.",
     bouton: 'Créer mon rappel',
   },
 };
