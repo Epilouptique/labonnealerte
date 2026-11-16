@@ -1953,6 +1953,17 @@ html[data-theme="dark"] body::before { filter: brightness(.34) saturate(.9); }
 .sup-btn.ghost { border: 1.5px solid var(--amber); color: var(--amber); background: transparent; }
 .sup-btn.ghost:hover { background: var(--amber-soft); }
 .sup-btn[disabled] { opacity: .5; cursor: default; background: var(--line); color: var(--muted); border: none; }
+/* Boutons de don masqués par défaut : révélés par js/support.js uniquement si le
+   lien est configuré (évite le scintillement d'un faux « bientôt » au chargement). */
+.sup-btn[hidden] { display: none; }
+/* Bloc de don entièrement replié quand aucun lien n'est configuré (js/support.js
+   pose hidden sur l'élément marqué data-support-collapse) : évite un titre et un
+   paragraphe orphelins au-dessus d'un cadre vide. Spécificité (0,2,0) > .notif-row
+   / .acct-tile, sinon leur display flex/block l'emporterait sur [hidden]. */
+[data-support-collapse][hidden] { display: none; }
+/* Si le bloc replié était la 1re ligne d'une carte, sa ligne nav sœur ne doit pas
+   hériter du filet supérieur (.notif-row + .notif-row) devenu orphelin. */
+[data-support-collapse][hidden] + .notif-row { border-top: 0; }
 .sup-btn .soon { font-size: 12px; color: var(--muted); font-weight: 600; margin-left: 4px; }
 
 /* Icône café du bouton Ko-fi : SVG inline (currentColor → hérite la couleur du
