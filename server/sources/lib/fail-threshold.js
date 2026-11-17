@@ -23,6 +23,25 @@ function defaultInactive() {
   return { state: 'inactive', since: null, until: null, message: null, url: null };
 }
 
+/**
+ * Fabrique un repli BORNÉ EN ÂGE pour les sources à cache de succès (ecowatt,
+ * lancement-spatial…). Le dernier bon état connu n'est resservi que s'il a moins de
+ * `maxAgeMs` ; au-delà, on renvoie `inactive()`. Indispensable car le poller ne ferme
+ * un épisode que sur state:'inactive' (decideTransition ne lit jamais `until`) : sans
+ * borne, un état 'active' périmé stagnerait indéfiniment.
+ * @param {() => ({at:number, result:any}|null)} getCache accès au cache { at, result }
+ * @param {number} maxAgeMs âge maximal toléré du cache (ms)
+ * @param {() => any} [inactive] état neutre (défaut : defaultInactive)
+ * @returns {() => any} fonction de repli à passer à `fallback` (ou à appeler directement)
+ */
+function freshFallback(getCache, maxAgeMs, inactive = defaultInactive) {
+  return function () {
+    const c = getCache();
+    if (c && Date.now() - c.at < maxAgeMs) return c.result;
+    return inactive();
+  };
+}
+
 // Compteurs d'échecs consécutifs, par clé. Exportés pour les tests (reset/peek).
 const fails = new Map();
 
@@ -87,6 +106,8 @@ module.exports = {
   recordFailure,
   recordSuccess,
   defaultThreshold,
+  defaultInactive,
+  freshFallback,
   _test: {
     reset: () => fails.clear(),
     peek: (key) => fails.get(key) || 0,
