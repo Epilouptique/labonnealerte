@@ -11,6 +11,14 @@
 //
 // ⚠️ TODO à construire avant janvier 2027 : table 2027 (VERSEMENTS[2027]) à
 //    partir du calendrier officiel caf.fr, en reprenant les décalages réels.
+//    Vérifié le 2026-11-17 : le calendrier officiel 2027 COMPLET n'est PAS encore
+//    publié (celui de 2026 l'avait été le 2025-12-23 → 2027 attendu ~fin déc. 2026).
+//    caf.fr est protégé par Radware Bot Manager (scraping impossible). Seule date 2027
+//    officiellement sourcée à ce jour : MARDI 5 JANVIER 2027, présente dans le PDF
+//    officiel CNAF du calendrier 2026 (qui va jusqu'à janvier 2027) :
+//    https://www.caf.fr/sites/default/files/medias/cnaf/Nous_connaitre/Presse/2025/251223-Les-dates-de-versements-des-caf-2026.pdf
+//    → table 2027 NON construite (11 mois sur 12 seraient extrapolés = date déduite,
+//    interdit). À reprendre dès la publication du calendrier 2027 sur caf.fr.
 //
 // Message factuel, SANS montant (donnée strictement individuelle, jamais affichée).
 // Fenêtre d'annonce courte : J-1 suffit (simple rappel).
