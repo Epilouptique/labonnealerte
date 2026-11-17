@@ -15,11 +15,31 @@
 // Un nouveau lancement (net différent, ≥24h d'écart) est re-notifié par le poller.
 
 const fetchFn = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
+const { withFailThreshold, freshFallback } = require('./lib/fail-threshold');
 
 const API_URL = 'https://ll.thespacedevs.com/2.2.0/launch/upcoming/?limit=40&mode=list';
-const TIMEOUT_MS = 10_000;
+// 2026-11-17 : 10 s → 25 s. L'API n'est PAS en panne (mesurée à 159-445 ms depuis un
+// poste tiers le 2026-11-17, 3/3, HTTP 200) ; les 44 timeouts/7 j en prod viennent de
+// l'egress Railway lent sur cet hôte, pas de l'API. Un timeout plus large l'absorbe.
+const TIMEOUT_MS = 25_000;
+// Replis identifiés et TESTÉS le 2026-11-17 (HTTP 200), documentés SANS être branchés :
+//   · API v2.3.0 : https://ll.thespacedevs.com/2.3.0/launches/upcoming/?limit=40&mode=list
+//     (schéma différent — results[].launch_service_provider, pad.location… — à valider
+//      avant toute bascule : la normalisation isEuropean/net/status serait à revoir).
+//   · Miroir de dev : https://lldev.thespacedevs.com/2.2.0/launch/upcoming/?limit=40&mode=list
+//     (même schéma 2.2.0, utile en secours ponctuel ; non garanti pour la prod).
+const CACHE_TTL_MS = 2 * 60 * 60 * 1000; // succès 2 h : le calendrier des lancements bouge peu
+// Borne d'âge du REPLI (voir freshFallback) : un état 'active' (« lancement aujourd'hui »)
+// est aussi périssable qu'un signal réseau — sa fenêtre se ferme à net+2h. Au-delà de 6 h
+// (3× le TTL de succès), on ne ressert plus l'état en cache → inactive, pour ne pas laisser
+// stagner un « aujourd'hui » périmé que decideTransition (qui ne lit jamais until) ne ferme pas.
+const MAX_FALLBACK_AGE_MS = 6 * 60 * 60 * 1000;
+const INACTIVE = () => ({ state: 'inactive', since: null, until: null, message: null, url: ARIANE_LIVE });
 const WINDOW_BEFORE_MS = 24 * 60 * 60 * 1000;
 const WINDOW_AFTER_MS = 2 * 60 * 60 * 1000;
+
+// Cache de succès en mémoire (patron veille-rss/veille-page) : { at, result }.
+let okCache = null;
 
 const PROVIDER_RE = /arianespace|european space agency|cnes|avio/i;
 const PAD_RE = /guiana|kourou|french guiana|guyane/i;
@@ -45,12 +65,17 @@ function heureParis(date) {
   }).format(date).replace(':', 'h');
 }
 
-async function check() {
+async function checkRaw(opts = {}) {
+  const now0 = Date.now();
+  // Cache de succès frais → aucun appel réseau (absorbe aussi l'egress Railway lent).
+  if (okCache && now0 - okCache.at < CACHE_TTL_MS) return okCache.result;
+  const doFetch = (opts && opts._fetch) || fetchFn;
+
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   let res;
   try {
-    res = await fetchFn(API_URL, { headers: { Accept: 'application/json' }, signal: controller.signal });
+    res = await doFetch(API_URL, { headers: { Accept: 'application/json' }, signal: controller.signal });
   } catch (err) {
     if (err.name === 'AbortError') throw new Error(`Timeout API Launch Library (>${TIMEOUT_MS} ms)`);
     throw new Error(`Appel API Launch Library échoué : ${err.message}`);
@@ -86,18 +111,36 @@ async function check() {
   }
 
   if (!best) {
-    return { state: 'inactive', since: null, until: null, message: null, url: ARIANE_LIVE };
+    const result = INACTIVE();
+    okCache = { at: Date.now(), result }; // fetch réussi (même « rien à signaler ») → en cache
+    return result;
   }
 
   const nom = String(best.name).replace(/\s*\|\s*/, ' – ');
   const url = /european space agency/i.test(best.prov) ? ESA_LIVE : ARIANE_LIVE;
-  return {
+  const result = {
     state: 'active',
     since: best.net,
     until: new Date(best.netMs + WINDOW_AFTER_MS),
     message: `🚀 Lancement ${nom} aujourd'hui à ${heureParis(best.net)} depuis ${best.pad} — suivez le direct`,
     url,
   };
+  okCache = { at: Date.now(), result };
+  return result;
 }
 
-module.exports = { id: 'lancement-spatial', check };
+// Seuil N=3 (patron veille-rss) : un timeout isolé (egress Railway) ne produit plus un
+// 'failed' en base ; repli = dernier bon état connu s'il a moins de 6 h, sinon inactive
+// (borne d'âge factorisée, cf. ecowatt : sans elle un 'active' périmé stagnerait, le poller
+// ne fermant un épisode que sur state:'inactive'). recordSuccess est géré par
+// withFailThreshold sur TOUT retour non-exception (y compris inactive légitime).
+const check = withFailThreshold('lancement-spatial', checkRaw, {
+  threshold: 3,
+  fallback: freshFallback(() => okCache, MAX_FALLBACK_AGE_MS, INACTIVE),
+});
+
+module.exports = {
+  id: 'lancement-spatial',
+  check,
+  _test: { raw: checkRaw, reset() { okCache = null; }, peekCache: () => okCache },
+};

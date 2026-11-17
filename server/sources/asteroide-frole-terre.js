@@ -15,10 +15,13 @@
 
 const fetchFn = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 const { formatDateFr } = require('./lib/format-fr');
+const { withFailThreshold } = require('./lib/fail-threshold');
 
 const API_BASE = 'https://ssd-api.jpl.nasa.gov/cad.api';
 const PUBLIC_URL = 'https://cneos.jpl.nasa.gov/ca/';
-const TIMEOUT_MS = 10_000;
+// 2026-11-17 : 10 s → 25 s. Même diagnostic que lancement-spatial : l'API JPL répond,
+// les timeouts (5/7 j en prod) viennent de l'egress Railway lent sur cet hôte.
+const TIMEOUT_MS = 25_000;
 const AU_PER_LD = 0.00256955529; // 1 distance Terre-Lune en unités astronomiques
 const H_MAX = 24;                 // ≈ ≥ 50 m
 const ALBEDO = 0.14;              // albédo moyen (estimation de diamètre depuis h)
@@ -44,7 +47,7 @@ function roundNice(m) {
   return Math.round(m / 5) * 5;
 }
 
-async function check() {
+async function checkRaw() {
   const to = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
   const dateMax = to.toISOString().slice(0, 10); // AAAA-MM-JJ (évite l'ambiguïté du relatif "+7")
   const url = `${API_BASE}?dist-max=1LD&h-max=${H_MAX}&date-min=now&date-max=${dateMax}&sort=dist`;
@@ -93,4 +96,9 @@ async function check() {
   };
 }
 
-module.exports = { id: 'asteroide-frole-terre', check };
+// Seuil N=3 (patron veille-rss) : un timeout isolé (egress Railway) ne devient plus un
+// 'failed' en base ; repli = inactive. recordSuccess est géré par withFailThreshold sur
+// tout retour non-exception (y compris l'inactive légitime « rien à signaler »).
+const check = withFailThreshold('asteroide-frole-terre', checkRaw, { threshold: 3 });
+
+module.exports = { id: 'asteroide-frole-terre', check, _test: { raw: checkRaw } };
