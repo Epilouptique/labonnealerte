@@ -8,8 +8,7 @@ const { createCalendarSource } = require('./lib/calendar-factory');
 // TODO Sidaction 2027 (week-end fin mars, à confirmer sur sidaction.org)
 // TODO Pièces Jaunes 2027 (janvier-février, à confirmer sur fondationhopitaux.fr —
 //   2027 non annoncé au 18/07/2026 ; 2026 = 7 janvier-7 février).
-// TODO Restos du Cœur — lancement 42e campagne d'hiver (fin novembre 2026, à confirmer
-//   sur restosducoeur.org — non annoncé au 18/07/2026 ; 41e lancée le 18 novembre 2025).
+// Restos du Cœur — lancement 42e campagne d'hiver : 17 novembre 2026 (CONFIRMÉ, cf. events).
 
 function events(now) {
   const y = now.getFullYear();
@@ -40,6 +39,18 @@ function events(now) {
     start: new Date(2026, 11, 4),
     end: new Date(2026, 11, 6),
     message: '🎗️ C\'est le Téléthon ce week-end — mobilisation contre les maladies génétiques',
+  });
+
+  // Restos du Cœur — lancement de la 42e campagne d'hiver : 17 novembre 2026 (date OFFICIELLE,
+  // vérifiée le 2026-11-17 sur restosducoeur.org :
+  //   https://www.restosducoeur.org/les-restos-du-coeur-lancent-leur-42e-campagne/
+  //   « Le 17 novembre 2026, les Restos du Cœur lancent leur 42e campagne partout en France. »)
+  // Fenêtre courte (17-18 nov, fin = 19 nov minuit), cohérente avec l'anti-spam.
+  list.push({
+    name: 'Restos du Cœur — campagne d\'hiver 2026',
+    start: new Date(2026, 10, 17),
+    end: new Date(2026, 10, 19),
+    message: '🍲 Les Restos du Cœur lancent leur 42e campagne d\'hiver — dons et bénévoles recherchés',
   });
 
   return list
