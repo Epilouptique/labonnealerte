@@ -5170,3 +5170,15 @@ BEGIN
       CHECK (kind IN ('web', 'expo'));
   END IF;
 END $$;
+
+-- ============================================================================
+-- statut-datadog DÉSACTIVÉE (2026-11-17) — API Statuspage fermée.
+-- https://status.datadoghq.com/api/v2/{status,summary,components}.json → 403 Forbidden,
+-- vérifié depuis un poste tiers le 2026-11-17 (donc PAS un blocage d'IP Railway) ;
+-- 130 échecs/7 j, dernier succès le 2026-10-26. Les 37 autres cartes statut-* répondent
+-- 200 : Datadog est le seul cas. Les flux history.rss/.atom restent 200 mais NE PORTENT
+-- PAS le champ impact (major/critical) → impossible d'y reposer la règle anti-spam de
+-- lib/statuspage-factory (on ne notifie que les pannes majeures) : repli RSS écarté.
+-- Réversible d'un seul UPDATE (enabled = true) si Datadog réexpose un statut structuré
+-- avec niveau de gravité. Ligne et source_states CONSERVÉS. Idempotent.
+UPDATE sources SET enabled = false WHERE id = 'statut-datadog' AND enabled = true;
