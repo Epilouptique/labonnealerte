@@ -2,20 +2,42 @@
 // électrique français. 2e source API publique officielle, avec OAuth2.
 //
 // API : /open_api/ecowatt/v5/signals (v4 retiré). Auth Bearer via rte-auth.
-// Rate limit strict : 1 appel / 15 min. Le poller tourne toutes les 30 min :
-// on ne retente JAMAIS immédiatement en cas d'erreur (throw → prochain cycle).
+// Rate limit strict : 1 appel / 15 min. Le poller tourne toutes les 30 min.
 //
-// check() rapporte l'état instantané ; la transition vit dans le poller.
+// 2026-11-17 — CACHE + TOLÉRANCE (fin des HTTP 429 bruyants) :
+//   · Les signaux EcoWatt ne changent que quelques fois par jour → cache de SUCCÈS
+//     en mémoire, TTL 1 h : dans l'heure, on ressert le dernier état SANS rappeler RTE.
+//   · Après un échec (429 notamment), on ne RÉ-appelle pas RTE avant RETRY_MS (anti-
+//     martèlement) : on ressert le dernier bon état connu s'il a moins de 6 h
+//     (MAX_FALLBACK_AGE_MS), sinon « inactive » — jamais un état périmé.
+//   · Le check est enveloppé par withFailThreshold (seuil N=3, patron veille-rss) : un
+//     429/timeout isolé reste SILENCIEUX (repli = dernier bon état < 6 h), seule une panne
+//     DURABLE (3 échecs consécutifs) devient un incident 'failed' côté poller.
+//   Patron de cache repris de veille-page.js / veille-rss.js (TTL succès + RETRY court).
+//   La logique d'alerte (extractEcowatt) est INCHANGÉE : seuls ORANGE (2) et ROUGE (3)
+//   déclenchent, since/until/message identiques.
 
 const fetchFn = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 const { getToken } = require('../rte-auth');
+const { withFailThreshold, freshFallback } = require('./lib/fail-threshold');
 
 const SIGNALS_URL = 'https://digital.iservices.rte-france.com/open_api/ecowatt/v5/signals';
 const PUBLIC_URL = 'https://www.monecowatt.fr';
 const TIMEOUT_MS = 10_000;
+const CACHE_TTL_MS = 60 * 60 * 1000;   // succès : 1 h (poll réel 2×/h → ~1 appel RTE/h)
+const RETRY_MS = 10 * 60 * 1000;       // échec : on ne rappelle pas RTE avant 10 min
+const MAX_FALLBACK_AGE_MS = 6 * 60 * 60 * 1000; // repli : au-delà de 6 h, ne pas resservir
+                                       // un état périmé → inactiveResult(). Borne l'âge du
+                                       // dernier bon état connu (chemin « échec récent » ET
+                                       // fallback withFailThreshold), sinon un 'active' avec
+                                       // until déjà dépassé pourrait stagner indéfiniment.
 
 // dvalue : 1 vert · 2 orange · 3 rouge.
 const COLOR_LABEL = { 2: 'ORANGE', 3: 'ROUGE' };
+
+// Caches en mémoire (une seule instance serveur, comme le reste du projet).
+let okCache = null;    // { at:number, result }
+let lastFailAt = 0;    // horodatage du dernier échec réseau
 
 function parseDate(value) {
   if (!value) return null;
@@ -23,11 +45,19 @@ function parseDate(value) {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-/**
- * Vérifie l'état instantané EcoWatt (jours J et J+1).
- * @returns {Promise<{ state:'active'|'inactive', since:Date|null, until:Date|null, message:string|null, url:string }>}
- */
-async function check() {
+function inactiveResult() {
+  return { state: 'inactive', since: null, until: null, message: null, url: PUBLIC_URL };
+}
+
+// Repli borné en âge (helper factorisé dans lib/fail-threshold) : le dernier bon état
+// connu s'il a moins de MAX_FALLBACK_AGE_MS, sinon « inactive ». Évite de resservir un
+// état périmé (ex. un 'active' dont l'until est déjà passé). Utilisé par le chemin
+// « échec récent » ET par le fallback N=3.
+const boundedFallback = freshFallback(() => okCache, MAX_FALLBACK_AGE_MS, inactiveResult);
+
+// Appel réseau brut à l'API RTE. Lève sur token refusé / 429 / HTTP inattendu / JSON
+// illisible / timeout (messages inchangés). Isolé pour permettre l'injection en test.
+async function fetchSignals() {
   const token = await getToken();
 
   const controller = new AbortController();
@@ -55,14 +85,42 @@ async function check() {
     throw new Error(`Réponse HTTP inattendue EcoWatt : ${res.status} ${res.statusText}`);
   }
 
-  let payload;
   try {
-    payload = await res.json();
+    return await res.json();
   } catch (err) {
     throw new Error(`Réponse EcoWatt illisible (JSON invalide) : ${err.message}`);
   }
+}
 
-  return extractEcowatt(payload);
+/**
+ * Vérifie l'état instantané EcoWatt (jours J et J+1), avec cache.
+ * opts._fetchSignals : injection du fetcher réseau (tests uniquement).
+ * @returns {Promise<{ state:'active'|'inactive', since:Date|null, until:Date|null, message:string|null, url:string }>}
+ */
+async function checkRaw(opts = {}) {
+  const now = Date.now();
+  const fetchImpl = (opts && opts._fetchSignals) || fetchSignals;
+
+  // 1) Cache de succès frais → aucun appel réseau (cœur de l'anti-429).
+  if (okCache && now - okCache.at < CACHE_TTL_MS) return okCache.result;
+
+  // 2) Échec récent → ne pas marteler RTE : on ressert le dernier bon état connu,
+  //    mais seulement s'il n'est pas périmé (borne MAX_FALLBACK_AGE_MS).
+  if (now - lastFailAt < RETRY_MS) {
+    return boundedFallback();
+  }
+
+  // 3) Appel réseau réel.
+  let payload;
+  try {
+    payload = await fetchImpl();
+  } catch (err) {
+    lastFailAt = Date.now();
+    throw err; // remonte à withFailThreshold
+  }
+  const result = extractEcowatt(payload);
+  okCache = { at: Date.now(), result };
+  return result;
 }
 
 /**
@@ -112,4 +170,20 @@ function extractEcowatt(payload) {
   };
 }
 
-module.exports = { id: 'ecowatt', check };
+// Enveloppe seuil N=3 : un échec isolé est avalé (repli = dernier bon état connu, sinon
+// inactive), une panne durable (3 échecs consécutifs) devient un incident côté poller.
+const check = withFailThreshold('ecowatt', checkRaw, {
+  threshold: 3,
+  fallback: boundedFallback,
+});
+
+module.exports = {
+  id: 'ecowatt',
+  check,
+  extractEcowatt,
+  _test: {
+    raw: checkRaw,
+    reset() { okCache = null; lastFailAt = 0; },
+    peekCache: () => okCache,
+  },
+};
