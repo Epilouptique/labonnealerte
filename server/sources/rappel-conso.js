@@ -75,6 +75,15 @@ const GRAVE = [
   { kw: 'arret respiratoire', label: 'arrêt respiratoire' },
   { kw: 'intoxication', label: 'intoxication' },
   { kw: 'chimique', label: 'risque chimique' },
+  // 2026-11-17 : angle mort comblé. Valeurs RÉELLES relevées dans risques_encourus de
+  // l'API (group_by) : « asphyxie »/« asphyxie » (espace final) et « suffocation »
+  // (motif grave à part entière), et « dommage à la vue » — seule forme oculaire du
+  // dataset (« lésion/oculaire » absents). Une fiche ne portant QUE l'un de ces motifs
+  // passait sous le radar. Racine « dommage a la vue » (et non « vue ») car graveLabels
+  // confronte aussi motif_rappel (texte libre) : « vue » seul matcherait « prévue/revue ».
+  { kw: 'asphyxi', label: 'asphyxie' },
+  { kw: 'suffocation', label: 'suffocation' },
+  { kw: 'dommage a la vue', label: 'dommage à la vue' },
 ];
 
 function norm(s) {
@@ -181,4 +190,4 @@ async function checkWithParams(paramsList) {
   });
 }
 
-module.exports = { id: 'rappel-conso', paramsSchema, checkWithParams };
+module.exports = { id: 'rappel-conso', paramsSchema, checkWithParams, GRAVE, graveLabels, norm };
