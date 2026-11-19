@@ -760,11 +760,12 @@ html[data-theme="dark"] .community-spotted-tag { color: var(--violet-l, #bd8ef0)
 .card.add .plus { font-size: 30px; font-weight: 300; color: var(--amber); }
 .card.add strong { color: var(--ink); }
 /* Lot accueil-app : au repos la carte « Publier une alerte » était quasi invisible (fond
-   transparent). Fond très légèrement teinté + contour un peu plus marqué EN PERMANENCE,
-   dans les deux thèmes ; l'effet de survol ci-dessous reste identique. Logique PUBLISH_ENABLED
-   inchangée (la carte reste masquée tant que le drapeau n'est pas actif). */
+   transparent). Fond --amber-soft RENDU TRANSLUCIDE (~40 %) — plus léger que le survol,
+   sans jamais toucher à opacity : le texte et la bordure restent pleinement opaques.
+   Survol inchangé (.card.add:hover → --amber-soft plein). Vaut dans les deux thèmes
+   (--amber-soft est redéfini en sombre). Logique PUBLISH_ENABLED inchangée. */
 .card.add.publish-cta {
-  background: color-mix(in srgb, var(--amber) 7%, transparent);
+  background: color-mix(in srgb, var(--amber-soft) 40%, transparent);
   border-color: color-mix(in srgb, var(--amber) 42%, transparent);
 }
 .card.add:hover { background: var(--amber-soft); border-color: var(--amber); }
