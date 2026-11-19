@@ -1858,7 +1858,7 @@
   // Lot accueil-app : un visiteur NON connecté ne voit de l'accueil qu'un APERÇU du kiosque
   // (ANON_PREVIEW alertes). Le lien « Voir toutes les alertes » ouvre le kiosque complet sur
   // la même page via ?tout=1 (lu une seule fois ici). Le mode connecté reste INCHANGÉ.
-  var ANON_PREVIEW = 7; // 7 visibles → la répartition mixte en met round(7*7/18)=3 en grand, 4 en petit
+  var ANON_PREVIEW = 7; // 7 visibles → la répartition mixte (ratio 4:3) en met round(7*4/7)=4 en grand, 3 en petit
   var anonShowAll = /[?&]tout=1(?:&|$)/.test(window.location.search || '');
   var accountEmail = null; // email de la session connectée (pour le panneau compte)
   var accountDisplayName = null; // pseudo unifié (auto-rempli à la 1re connexion) — pilote « Bonjour » + avatar

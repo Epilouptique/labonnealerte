@@ -64,14 +64,16 @@
   //    statut Active. Tout placement vertical explicite (grid-row-start, posé par la bascule)
   //    est effacé à chaque changement de grille : il n'a de sens qu'au moment du clic, et une
   //    valeur périmée après filtrage donnerait une rangée fantôme.
-  // CIBLES DE COLONNES (fil #9ter, demande Hugo) : exactement MAIN_TARGET cartes en
-  // colonne large et SIDE_TARGET en colonne ultra (18 au total = pagination mixte).
-  // Une bascule au clic conserve ces nombres par RENOUVELLEMENT (voir renew()).
-  var MAIN_TARGET = 7, SIDE_TARGET = 11, TOTAL_TARGET = MAIN_TARGET + SIDE_TARGET;
+  // RATIO DE COLONNES (demande Hugo 19/11, remplace les cibles fixes 7/11 du fil #9ter) :
+  // 4 cartes larges à gauche pour 3 vignettes ultra à droite — soit side = round(main × 3/4),
+  // l'encart ne comptant jamais comme vignette. PROPORTIONNEL au nombre de cartes visibles
+  // (plus de plafond fixe) : main = round(total × 4/7), side = total − main. Vérifs : 7 → 4/3
+  // (accueil non connecté), 18 → 10/8 (kiosque connecté). Une bascule au clic conserve ces
+  // nombres par RENOUVELLEMENT (voir renew()).
+  var MAIN_RATIO = 4, SIDE_RATIO = 3, RATIO_SUM = MAIN_RATIO + SIDE_RATIO; // 7
   function mainWantedFor(total) {
     if (total <= 0) return 0;
-    if (total >= TOTAL_TARGET) return MAIN_TARGET;
-    return Math.max(1, Math.round(total * MAIN_TARGET / TOTAL_TARGET));
+    return Math.max(1, Math.round(total * MAIN_RATIO / RATIO_SUM));
   }
   // Cartes du réservoir (paginées hors écran) : masquées par .hidden-more, non filtrées,
   // hors carte « Proposer », dans l'ordre du DOM (la 1re réapparaît « en bas »).
