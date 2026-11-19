@@ -26,11 +26,15 @@ const http = require('http');
 const { spawn } = require('child_process');
 
 const ROOT = path.join(__dirname, '..');
+// Dossier de ressources DÉDIÉ au projet (hors dépôt, HORS racine de C:\Dev qui est partagée
+// entre tous les projets) : C:\Dev\RESSOURCES\LabonneAlerte\capture\. Jamais de dossier créé
+// à la racine de C:\Dev. Surchargable par CAPTURE_OUT.
+const RES_DIR = path.join(ROOT, '..', 'RESSOURCES', 'LabonneAlerte', 'capture');
 // Mode « encarts » (--encarts) : force tour à tour chaque encart via ?encart=<id> et écrit
-// dans ../captures-encarts/. Sinon : captures de l'accueil (APP_PLAY on/off) dans ../captures-accueil/.
+// dans …\capture\encarts\. Sinon : captures de l'accueil (APP_PLAY on/off) dans …\capture\.
 const ENCART_MODE = process.argv.includes('--encarts');
 const ENCART_IDS = ['livraison-1e', 'aurores', 'echeances'];
-const OUT_DIR = process.env.CAPTURE_OUT || path.join(ROOT, '..', ENCART_MODE ? 'captures-encarts' : 'captures-accueil');
+const OUT_DIR = process.env.CAPTURE_OUT || (ENCART_MODE ? path.join(RES_DIR, 'encarts') : RES_DIR);
 const PUBLISH = process.env.PUBLISH_ENABLED || 'true'; // défaut : montrer la carte « Publier » (comme en prod)
 const FORCE_MOCK = process.argv.includes('--mock') || process.env.CAPTURE_MOCK === '1';
 
