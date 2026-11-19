@@ -35,3 +35,12 @@ rapports/**/run-*.log
 rapports/veille/
 rapports/veille-sources/
 rapports/audit/securite-*
+
+# Icônes et mockups de travail dans public/img/ (non référencés par le site, gardés
+# en local) : icônes cloche en cours + modèle PSD/PNG source. Non versionnés pour ne
+# pas gonfler le dépôt avec des sources de design (même esprit que les PNG d'encart).
+public/img/cloche.png
+public/img/cloche.svg
+public/img/cloche_blanc.png
+public/img/modele.png
+public/img/modele.psd
