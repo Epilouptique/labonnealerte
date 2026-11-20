@@ -18,7 +18,7 @@
 
 const fetchFn = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 
-const DEALABS_URL = 'https://www.dealabs.com/search?q=mondial%20relay%200%2C99%20leboncoin';
+const DEALABS_URL = 'https://www.dealabs.com/search?q=leboncoin&sort_by=new';
 const UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 const TIMEOUT_MS = 8000;
@@ -27,7 +27,7 @@ const TIMEOUT_MS = 8000;
 // Les trois sont exigés : « mondial relay 0,99 » seul remonte les promos Vinted/Rakuten.
 function isPromoTitle(title) {
   const t = String(title || '').toLowerCase();
-  return t.includes('mondial relay') && (t.includes('0,99') || t.includes('0.99')) && t.includes('leboncoin');
+  return t.includes('mondial relay') && (t.includes('0,99') || t.includes('0.99'));
 }
 
 // ── Lecture des dates d'offre dans le corps du thread (correctif 28/10/2026) ─────
@@ -111,19 +111,30 @@ function parseDealabs(html) {
     const temp = /"temperature":([\d.]+)/.exec(around);
     const typ = /"type":"([^"]+)"/.exec(around);
     const desc = /"description":"((?:[^"\\]|\\.)*)"/.exec(around);
+    // Marchand et dates STRUCTURES, lus dans l'objet du thread. Plus fiables que le titre
+    // et que le texte libre : Dealabs expose merchant.merchantName, linkHost, et
+    // startDate/endDate sous forme de timestamp. Le 20/11/2026, le fil en cours portait
+    // le titre "Livraison Mondial Relay a 0,99EUR" SANS le mot leboncoin : seul le
+    // marchand permettait de le rattacher.
+    const merch = /"merchantName":"([^"]+)"/.exec(around);
+    const host = /"linkHost":"([^"]+)"/.exec(around);
+    const sdTs = /"startDate":\{"timestamp":(\d+)\}/.exec(around);
+    const edTs = /"endDate":\{"timestamp":(\d+)\}/.exec(around);
     const publishedAt = pub ? Number(pub[1]) : null;
     const refYear = publishedAt ? new Date(toMs(publishedAt)).getFullYear() : new Date().getFullYear();
     const bodyText = (desc ? desc[1] : '').replace(/\\u([0-9a-fA-F]{4})/g, (_, h) => String.fromCharCode(parseInt(h, 16)));
     const { start, end } = parseFrenchDates(title + ' ' + bodyText, refYear);
     threads.push({
       title,
+      merchantName: merch ? merch[1] : null,
+      linkHost: host ? host[1] : null,
       isExpired: exp ? exp[1] === 'true' : null,
       publishedAt,
       status: st ? st[1] : null,
       temperature: temp ? Number(temp[1]) : null,
       type: typ ? typ[1] : null,
-      startDate: start ? start.getTime() : null,
-      endDate: end ? end.getTime() : null,
+      startDate: sdTs ? Number(sdTs[1]) * 1000 : (start ? start.getTime() : null),
+      endDate: edTs ? Number(edTs[1]) * 1000 : (end ? end.getTime() : null),
     });
   }
   return threads;
@@ -134,8 +145,19 @@ function parseDealabs(html) {
 //   · dates lisibles : début ≤ now (sinon « annoncée » → non) ET (pas de fin OU fin ≥ now) ;
 //   · dates illisibles : seulement dans la fenêtre week-end ET publié depuis < 4 jours ;
 //   · tout échec de lecture ⇒ NON actif (jamais d'activation par défaut).
+// Le titre ne porte pas toujours le nom du marchand. On s'appuie donc sur le marchand
+// declare par Dealabs, ce qui remplace avantageusement l'ancienne exigence du mot
+// "leboncoin" dans le titre : c'est plus fiable, et cela ferme toujours la porte aux
+// promos Mondial Relay de Vinted ou Rakuten.
+function isLeboncoin(t) {
+  const n = String(t.merchantName || '').toLowerCase();
+  const h = String(t.linkHost || '').toLowerCase();
+  return n.includes('leboncoin') || h.includes('leboncoin');
+}
+
 function isLiveDeal(t, now) {
   if (t.isExpired !== false) return false;
+  if (!isLeboncoin(t)) return false;
   // Un vrai Deal : type « deal » si présent ; un statut expiré/brouillon disqualifie.
   if (t.type && t.type.toLowerCase() !== 'deal') return false;
   if (t.status && /expired|draft|deleted|unpublish/i.test(t.status)) return false;
@@ -219,5 +241,5 @@ async function detectDealabsPromo(opts) {
 
 module.exports = {
   detectDealabsPromo, fetchDealabs, analyzeDealabs, parseDealabs, isPromoTitle, DEALABS_URL,
-  parseFrenchDates, isWithinWeekendWindow, isLiveDeal,
+  parseFrenchDates, isWithinWeekendWindow, isLiveDeal, isLeboncoin,
 };
