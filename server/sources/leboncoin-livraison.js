@@ -28,11 +28,35 @@ const PROMO_URL = 'https://www.leboncoin.fr/service/bons-plans';
  * Dealabs sert publishedAt en SECONDES epoch (10 chiffres) ; le parseur accepte
  * 9 à 13 chiffres, on normalise donc avant de construire la Date.
  */
+// NOTE 20/11/2026 : le commentaire ci-dessous decrit l'ancrage HISTORIQUE sur la date de
+// publication. L'ancre est desormais startDate quand Dealabs le fournit en champ
+// structure (voir sinceFromThread plus bas) ; publishedAt reste le repli.
 function sinceFromPublishedAt(publishedAt) {
   if (!publishedAt) return null;
   const ms = publishedAt < 1e12 ? publishedAt * 1000 : publishedAt;
   const d = new Date(ms);
   return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/**
+ * Ancre d'episode. Priorite au startDate STRUCTURE de Dealabs, repli sur publishedAt.
+ *
+ * Pourquoi c'est sur, alors que le faux positif du 28/10 avait fait proscrire l'ancrage
+ * sur une date de debut : cette date-la etait LUE DANS LE TEXTE libre du thread, donc
+ * susceptible de varier d'un cycle a l'autre. startDate est un champ structure, constant
+ * tant que le thread ne change pas : aucune derive possible a l'interieur d'un episode,
+ * donc aucune re-notification parasite. Et isLiveDeal refuse deja un debut futur, si
+ * bien que `since` ne vaut jamais une date a venir.
+ *
+ * Gain : l'abonne lit la vraie date de debut de la promo, pas celle de l'annonce. Le
+ * 20/11/2026, le thread etait publie le 18 pour une promo demarrant le 20 a 14h.
+ */
+function sinceFromThread(b) {
+  if (b && b.startDate != null) {
+    const d = new Date(b.startDate);
+    if (!Number.isNaN(d.getTime())) return d;
+  }
+  return sinceFromPublishedAt(b ? b.publishedAt : null);
 }
 
 function inactive() {
@@ -71,7 +95,7 @@ async function check() {
   // saut de valeur ≥ 24 h face au `since` déjà stocké en prod (28/10), que le poller
   // interpréterait en « nouvel épisode » → re-notification. Le correctif empêche déjà
   // d'activer une annonce (début futur) : `since` ne vaut donc jamais une date à venir.
-  const since = sinceFromPublishedAt(b.publishedAt);
+  const since = sinceFromThread(b);
 
   // Journalise l'activation (titre, URL capteur, publishedAt, dates lues) — traçabilité
   // demandée pour auditer chaque passage inactive → active dans les logs du poller.
