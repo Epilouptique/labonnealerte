@@ -1,11 +1,23 @@
-// PROPOSITION (non branchée) — propager une erreur de surveillance seulement APRÈS N échecs
+// GARDE-FOU ANTI-BRUIT — propager une erreur de surveillance seulement APRÈS N échecs
 // CONSÉCUTIFS. Destiné aux sources où l'aléa isolé est NORMAL et fréquent (403 anti-bot, SSRF
 // bloqué, pages instables) : propager chaque échec individuel inonderait les incidents 'failed'.
 // Avec ce garde-fou, un échec isolé reste silencieux (état de repli), mais une panne DURABLE
 // (N échecs d'affilée) finit par être propagée → le poller la traite en incident, visible.
 //
-// À VALIDER PAR HUGO AVANT USAGE. Candidats : veille-page, veille-rss, panneaupocket, veille-agenda.
-// N'est encore câblé sur AUCUNE source.
+// ÉTAT AU 2026-11-24 — EN PRODUCTION sur 7 sources (l'en-tête disait encore « câblé sur
+// AUCUNE source », ce qui n'est plus vrai depuis longtemps et a déjà induit en erreur une
+// revue de maintenance) :
+//   • via withFailThreshold()                : asteroide-frole-terre, ecowatt, lancement-spatial
+//   • via recordFailure/recordSuccess directs : fuite-donnees-majeure, veille-agenda,
+//                                               veille-page, veille-rss
+//
+// Mécanisme donc éprouvé. Reste à arbitrer AVANT tout nouveau câblage : avaler N-1 échecs
+// retarde d'autant la détection d'une panne DURABLE. Sur une source d'agrément (jeu offert,
+// soldes) c'est sans conséquence ; sur une source de SÉCURITÉ (vigilance météo, avalanche,
+// crues) le retard se paie en protection des abonnés. Candidats souvent cités mais NON
+// câblés à ce jour : panneaupocket, qualite-air, pollens, vigilance-meteo — ces trois
+// derniers encaissent des coupures amont régulières (Atmo France, Météo-France), mais le
+// choix relève de Hugo pour la raison ci-dessus.
 //
 // Hypothèse : une seule instance serveur (compteurs en mémoire, comme le reste du projet). Un
 // redémarrage remet les compteurs à zéro — sans gravité : au pire on retarde d'un cycle la
