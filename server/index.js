@@ -25,6 +25,7 @@ const { startPoller, stopPoller, isCycleRunning } = require('./poller');
 const { createGracefulShutdown } = require('./graceful-shutdown');
 const { sendPage, renderPage, pagesMiddleware } = require('./pages');
 const { publishEnabled } = require('./publish-flag');
+const { createCanonicalHostRedirect, canonicalHostFromEnv } = require('./canonical-host');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -34,6 +35,12 @@ const PORT = process.env.PORT || 3000;
 app.set('trust proxy', 1);
 // Désactivé aussi explicitement via helmet (X-Powered-By).
 app.disable('x-powered-by');
+
+// A') Redirection canonique www → apex (301, query-string préservée). Détails et
+// raison du choix applicatif : server/canonical-host.js. Doit rester AVANT toute
+// route et avant le service des fichiers statiques.
+const canonicalRedirect = createCanonicalHostRedirect(canonicalHostFromEnv());
+if (canonicalRedirect) app.use(canonicalRedirect);
 
 // ⚠️ DIAGNOSTIC TEMPORAIRE (lot IPv6) — activé UNIQUEMENT si la variable d'env
 // LOG_CLIENT_IP=1 est posée sur Railway. Trace les en-têtes d'IP BRUTS pour vérifier si
