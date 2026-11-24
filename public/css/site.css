@@ -258,7 +258,7 @@ html[data-theme="light"] header { background: #ffffff; } /* thème clair : blanc
 /* E3) Desktop : hauteur de la zone titre reduite d'environ 35% (80+80 -> 52+52) pour
    remonter la ligne de flottaison et montrer plus d'alertes. Typographie INCHANGEE
    (taille, graisse, famille) ; mobile non touche (media query ci-dessous). */
-@media (min-width: 721px) { .page-title { padding: 52px 0 52px; } }
+@media (min-width: 721px) { .page-title { padding: 52px 0 0px; } }
 .hero h1 .hl { color: white; }
 /* C) Bicoloration générale des H1 : 1er mot en --ink, le reste en violet (.hl).
    S'applique à toutes les pages (le .hl du hero n'était que local). */
